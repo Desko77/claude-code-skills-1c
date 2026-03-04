@@ -1,69 +1,73 @@
 ---
 name: 1c-role-info
-description: "Compact summary of 1C role rights from Rights.xml — objects, rights, RLS, restriction templates. Use to analyze existing roles before modification or review."
+description: Компактная сводка прав роли 1С из Rights.xml — объекты, права, RLS, шаблоны ограничений. Используй для аудита прав — какие объекты и действия доступны, ограничения RLS
+argument-hint: <RightsPath>
+allowed-tools:
+  - Bash
+  - Read
 ---
 
-# 1C Role Info — Role Rights Analyzer
+# /role-info — анализ роли 1С
 
-Parses a role's `Rights.xml` and outputs a compact summary: objects grouped by type, showing only allowed rights. Compression: thousands of XML lines → 50–150 lines of text.
+Парсит `Rights.xml` роли и выдаёт компактную сводку: объекты сгруппированы по типу, показаны только разрешённые права. Сжатие: тысячи строк XML → 50–150 строк текста.
 
-## Usage
+## Использование
 
 ```
-1c-role-info <RightsPath>
+/role-info <RightsPath>
 ```
 
-**RightsPath** — path to the role's `Rights.xml` file (typically `Roles/RoleName/Ext/Rights.xml`).
+**RightsPath** — путь к файлу `Rights.xml` роли (обычно `Roles/ИмяРоли/Ext/Rights.xml`).
 
-## Command
+## Запуск скрипта
 
 ```powershell
 powershell.exe -File skills/1c-role-info/scripts/role-info.ps1 -RightsPath <path> -OutFile <output.txt>
 ```
 
-### Parameters
+### Параметры
 
-| Parameter | Required | Description |
-|-----------|:--------:|-------------|
-| `-RightsPath` | yes | Path to Rights.xml |
-| `-ShowDenied` | no | Show denied rights (hidden by default) |
-| `-Limit` | no | Max output lines (default `150`). `0` = unlimited |
-| `-Offset` | no | Skip N lines — for pagination (default `0`) |
-| `-OutFile` | no | Write result to file (UTF-8 BOM). Without this — console output |
+| Параметр | Обязательный | Описание |
+|----------|:------------:|----------|
+| `-RightsPath` | да | Путь к Rights.xml |
+| `-ShowDenied` | нет | Показать запрещённые права (по умолчанию скрыты) |
+| `-Limit` | нет | Макс. строк вывода (по умолчанию `150`). `0` = без ограничений |
+| `-Offset` | нет | Пропустить N строк — для пагинации (по умолчанию `0`) |
+| `-OutFile` | нет | Записать результат в файл (UTF-8 BOM). Без этого — вывод в консоль |
 
-**Important:** Always use `-OutFile` and read result via Read tool. Direct console output may corrupt Cyrillic characters.
+**Важно:** Всегда используй `-OutFile` и читай результат через Read tool. Прямой вывод в консоль через bash ломает кириллицу.
 
-For large roles with truncated output:
+Для большой роли при усечении вывода:
 ```powershell
-... -Offset 150            # pagination: skip first 150 lines
+... -Offset 150            # пагинация: пропустить первые 150 строк
 ```
 
-## Output Format
+## Формат вывода
 
 ```
-=== Role: BasicRightsBP --- "Basic Rights: Enterprise Accounting" ===
+=== Role: БазовыеПраваБП --- "Базовые права: Бухгалтерия предприятия" ===
 
 Properties: setForNewObjects=false, setForAttributesByDefault=true, independentRightsOfChildObjects=false
 
 Allowed rights:
 
   Catalog (8):
-    Contractors: Read, View, InputByString
-    Banks: Read, View, InputByString
+    Контрагенты: Read, View, InputByString
+    Банки: Read, View, InputByString
     ...
 
   Document (12):
-    SalesInvoice: Read, View, Posting, InteractivePosting
+    РеализацияТоваровУслуг: Read, View, Posting, InteractivePosting
     ...
 
   InformationRegister (6):
-    ProductPrices: Read [RLS], Update
+    ЦеныНоменклатуры: Read [RLS], Update
     ...
 
 Denied: 18 rights (use -ShowDenied to list)
 
 RLS: 4 restrictions
-Templates: ForRegister, ByValues
+Templates: ДляРегистра, ПоЗначениям
 
 ---
 Total: 138 allowed, 18 denied
@@ -71,10 +75,10 @@ Total: 138 allowed, 18 denied
 [TRUNCATED] Shown 150 of 220 lines. Use -Offset 150 to continue.
 ```
 
-Use `-Offset N` and `-Limit N` for paginated viewing.
+Используйте `-Offset N` и `-Limit N` для постраничного просмотра.
 
-### Notation
+### Обозначения
 
-- `[RLS]` — right with row-level security restriction (restrictionByCondition)
-- `-View`, `-Edit` — denied rights (in Denied section, with `-ShowDenied`)
-- Nested objects shown with suffix: `Contractors.StandardAttribute.PredefinedDataName`
+- `[RLS]` — право с ограничением на уровне записей (restrictionByCondition)
+- `-View`, `-Edit` — запрещённые права (в секции Denied, при `-ShowDenied`)
+- Вложенные объекты показываются с суффиксом: `Контрагенты.StandardAttribute.PredefinedDataName`

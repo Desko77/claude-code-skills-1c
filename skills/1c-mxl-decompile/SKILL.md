@@ -1,53 +1,57 @@
 ---
 name: 1c-mxl-decompile
-description: "Decompile a 1C spreadsheet document (MXL/Template.xml) into a JSON definition. Reverse operation of 1c-mxl-compile. Use when analyzing or modifying existing layouts."
+description: Декомпиляция табличного документа (MXL) в JSON-определение. Используй когда нужно получить редактируемое описание существующего макета
+argument-hint: <TemplatePath> [OutputPath]
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Glob
 ---
 
-# 1C MXL Decompile — Layout Decompiler to DSL
+# /mxl-decompile — Декомпилятор макета в DSL
 
-Takes a Template.xml of a 1C spreadsheet document and generates a compact JSON definition (DSL). Reverse operation of `1c-mxl-compile`.
+Принимает Template.xml табличного документа 1С и генерирует компактное JSON-определение (DSL). Обратная операция к `/mxl-compile`.
 
-## Usage
+## Использование
 
 ```
-1c-mxl-decompile <TemplatePath> [OutputPath]
+/mxl-decompile <TemplatePath> [OutputPath]
 ```
 
-| Parameter | Required | Description |
-|-----------|:--------:|-------------|
-| TemplatePath | yes | Path to Template.xml |
-| OutputPath | no | Path for JSON output (if not specified — stdout) |
+## Параметры
 
-## Command
+| Параметр     | Обязательный | Описание                                |
+|--------------|:------------:|-----------------------------------------|
+| TemplatePath | да           | Путь к Template.xml                     |
+| OutputPath   | нет          | Путь для JSON (если не указан — stdout) |
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-mxl-decompile/scripts/mxl-decompile.ps1 -TemplatePath "<path>/Template.xml" [-OutputPath "<path>.json"]
+powershell.exe -NoProfile -File skills/1c-mxl-decompile/scripts/mxl-decompile.ps1 -TemplatePath "<путь>/Template.xml" [-OutputPath "<путь>.json"]
 ```
 
-## Workflow
+## Рабочий процесс
 
-Decompiling an existing layout for analysis or modification:
+Декомпиляция существующего макета для анализа или доработки:
 
-1. Run `1c-mxl-decompile` to get JSON from Template.xml
-2. Analyze or modify JSON (add areas, change styles)
-3. Run `1c-mxl-compile` to generate new Template.xml
-4. Run `1c-mxl-validate` to verify
+1. Claude вызывает `/mxl-decompile` для получения JSON из Template.xml
+2. Claude анализирует или модифицирует JSON (добавляет области, меняет стили)
+3. Claude вызывает `/mxl-compile` для генерации нового Template.xml
+4. Claude вызывает `/mxl-validate` для проверки
 
-## JSON DSL Schema
+## JSON-схема DSL
 
-Full format specification: **`docs/mxl-dsl-spec.md`** (read via Read tool).
+Полная спецификация формата: **`docs/mxl-dsl-spec.md`** (прочитать через Read tool).
 
-## Name Generation
+## Генерация имён
 
-The script automatically generates meaningful names:
+Скрипт автоматически генерирует осмысленные имена:
 
-- **Fonts**: `default`, `bold`, `header`, `small`, `italic` — or descriptive names by properties
-- **Styles**: `bordered`, `bordered-center`, `bold-right`, `border-top`, etc. — by property combination
+- **Шрифты**: `default`, `bold`, `header`, `small`, `italic` — или описательные имена по свойствам
+- **Стили**: `bordered`, `bordered-center`, `bold-right`, `border-top` и т.д. — по комбинации свойств
 
-## rowStyle Detection
+## Детектирование `rowStyle`
 
-If a row has empty cells (no parameters/text) and all of them share the same format — that format is recognized as `rowStyle`, and empty cells are excluded from output.
-
-## MCP Integration
-
-Use `search_metadata` MCP tool to find template paths in the configuration. Use `1c-mxl-info` skill to analyze layout structure before decompiling.
+Если в строке есть пустые ячейки (без параметров/текста) и все они имеют одинаковый формат — этот формат распознаётся как `rowStyle`, а пустые ячейки исключаются из вывода.

@@ -1,178 +1,197 @@
 ---
 name: 1c-bsp-command
-description: "Add a command to an SSL/BSP-registered data processor. Use when adding new commands to ExternalDataProcessorInfo() in the object module."
+description: Добавить команду в дополнительную обработку БСП
+argument-hint: <ProcessorName> <Идентификатор> [ТипКоманды] [Представление]
+allowed-tools:
+  - Read
+  - Edit
+  - Glob
+  - Grep
 ---
 
-# 1C BSP Command — Add SSL Command
+# /epf-bsp-add-command — Добавление команды БСП
 
-Adds a command to an existing `ExternalDataProcessorInfo()` function and generates the corresponding handler.
+Добавляет команду в существующую функцию `СведенияОВнешнейОбработке()` и генерирует соответствующий обработчик.
 
-The data processor must be initialized with BSP registration first (see `1c-bsp-registration` skill).
+Предварительно обработка должна быть инициализирована через `/epf-bsp-init`.
 
 ## Usage
 
 ```
-1c-bsp-command <ProcessorName> <Identifier> [CommandType] [Presentation]
+/epf-bsp-add-command <ProcessorName> <Идентификатор> [ТипКоманды] [Представление]
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| ProcessorName | yes | — | Processor name |
-| Identifier | yes | — | Internal command name (Latin characters) |
-| CommandType | no | from processor kind | Command launch type (see mapping below) |
-| Presentation | no | = Identifier | Display name for the user |
-| SrcDir | no | `src` | Source directory |
+| Параметр      | Обязательный | По умолчанию          | Описание                                   |
+|---------------|:------------:|-----------------------|--------------------------------------------|
+| ProcessorName | да           | —                     | Имя обработки                              |
+| Идентификатор | да           | —                     | Внутреннее имя команды (латиница)          |
+| ТипКоманды    | нет          | из вида обработки     | Тип запуска команды (см. маппинг ниже)     |
+| Представление | нет          | = Идентификатор       | Отображаемое имя команды для пользователя  |
+| SrcDir        | нет          | `src`                 | Каталог исходников                         |
 
-## Command Type Mapping
+## Маппинг типов команд
 
-User may specify type in free form:
+Пользователь может указать тип в свободной форме:
 
-| User Input | Command Type |
-|------------|-------------|
-| open form, form | `CommandTypeOpenForm()` |
-| client method, on client | `CommandTypeClientMethodCall()` |
-| server method, on server | `CommandTypeServerMethodCall()` |
-| form filling, fill form | `CommandTypeFormFilling()` |
-| scenario, safe mode | `CommandTypeScenarioInSafeMode()` |
+| Пользователь пишет                    | ТипКоманды                                          |
+|---------------------------------------|-----------------------------------------------------|
+| открыть форму, форма                  | `ТипКомандыОткрытиеФормы()`                         |
+| клиентский метод, на клиенте          | `ТипКомандыВызовКлиентскогоМетода()`                |
+| серверный метод, на сервере           | `ТипКомандыВызовСерверногоМетода()`                 |
+| заполнение формы, заполнить форму     | `ТипКомандыЗаполнениеФормы()`                       |
+| сценарий, безопасный режим            | `ТипКомандыСценарийВБезопасномРежиме()`             |
 
-If user does not specify — determine from processor kind in existing `ExternalDataProcessorInfo()` code:
+Если пользователь не указал тип — определи по виду обработки из существующего кода `СведенияОВнешнейОбработке()`:
 
-| Processor Kind (from code) | Default Command Type |
-|---------------------------|---------------------|
-| AdditionalDataProcessor | `CommandTypeOpenForm()` |
-| AdditionalReport | `CommandTypeOpenForm()` |
-| ObjectFilling | `CommandTypeServerMethodCall()` |
-| Report | `CommandTypeOpenForm()` |
-| PrintForm | `CommandTypeServerMethodCall()` |
-| RelatedObjectCreation | `CommandTypeServerMethodCall()` |
+| Вид обработки (из кода)    | ТипКоманды по умолчанию                   |
+|----------------------------|-------------------------------------------|
+| ДополнительнаяОбработка    | `ТипКомандыОткрытиеФормы()`               |
+| ДополнительныйОтчет       | `ТипКомандыОткрытиеФормы()`               |
+| ЗаполнениеОбъекта          | `ТипКомандыВызовСерверногоМетода()`        |
+| Отчет                      | `ТипКомандыОткрытиеФормы()`               |
+| ПечатнаяФорма              | `ТипКомандыВызовСерверногоМетода()`        |
+| СозданиеСвязанныхОбъектов  | `ТипКомандыВызовСерверногоМетода()`        |
 
-## Command Addition Template
+## Шаблон добавления команды
 
-Insert in `ExternalDataProcessorInfo()` **before** the `Return RegistrationParameters` line:
+Вставляется в `СведенияОВнешнейОбработке()` **перед** строкой `Возврат ПараметрыРегистрации`:
 
 ```bsl
-	NewCommand = RegistrationParameters.Commands.Add();
-	NewCommand.Presentation        = NStr("en = '{{Presentation}}'");
-	NewCommand.ID                  = "{{Identifier}}";
-	NewCommand.Use                 = AdditionalReportsAndDataProcessorsClientServer.{{CommandType}};
-	NewCommand.ShowNotification    = False;
+	НоваяКоманда = ПараметрыРегистрации.Команды.Добавить();
+	НоваяКоманда.Представление        = НСтр("ru = '{{Представление}}'");
+	НоваяКоманда.Идентификатор        = "{{Идентификатор}}";
+	НоваяКоманда.Использование        = ДополнительныеОтчетыИОбработкиКлиентСервер.{{ТипКоманды}};
+	НоваяКоманда.ПоказыватьОповещение = Ложь;
 ```
 
-For print forms (ProcessorKindPrintForm) also add:
+Для печатных форм (ВидОбработкиПечатнаяФорма) добавь также:
 
 ```bsl
-	NewCommand.Modifier = "PrintMXL";
+	НоваяКоманда.Модификатор = "ПечатьMXL";
 ```
 
-Note: unlike the first command (from `1c-bsp-registration`), additional commands use string literals `NStr("en = '...'")` for presentation and a string for ID, not `Metadata()`.
+Примечание: в отличие от первой команды (из `/epf-bsp-init`), дополнительные команды используют строковые литералы `НСтр("ru = '...'")` для представления и строку для идентификатора, а не `Метаданные()`.
 
-## Handler Templates
+## Шаблоны обработчиков
 
-### ServerMethodCall — handler already exists
+### ВызовСерверногоМетода — если обработчик уже есть
 
-If `ExecuteCommand` procedure already exists in the object module, add a branch before `EndIf`:
+Если процедура `ВыполнитьКоманду` уже существует в модуле объекта, добавь ветку перед `КонецЕсли`:
 
 ```bsl
-	ElsIf CommandID = "{{Identifier}}" Then
-		// TODO: Implementation {{Identifier}}
+	ИначеЕсли ИдентификаторКоманды = "{{Идентификатор}}" Тогда
+		// TODO: Реализация {{Идентификатор}}
 ```
 
-### ServerMethodCall — no handler yet
+### ВызовСерверногоМетода — если обработчика нет
 
-For global processors (without `TargetObjects`):
+Для глобальных обработок (без `ОбъектыНазначения`):
 
 ```bsl
-Procedure ExecuteCommand(CommandID, CommandExecutionParameters) Export
+Процедура ВыполнитьКоманду(ИдентификаторКоманды, ПараметрыВыполненияКоманды) Экспорт
 
-	If CommandID = "{{Identifier}}" Then
-		// TODO: Implementation {{Identifier}}
-	EndIf;
+	Если ИдентификаторКоманды = "{{Идентификатор}}" Тогда
+		// TODO: Реализация {{Идентификатор}}
+	КонецЕсли;
 
-EndProcedure
+КонецПроцедуры
 ```
 
-For assignable processors (with `TargetObjects`):
+Для назначаемых обработок (с `ОбъектыНазначения`):
 
 ```bsl
-Procedure ExecuteCommand(CommandID, TargetObjects, CommandExecutionParameters) Export
+Процедура ВыполнитьКоманду(ИдентификаторКоманды, ОбъектыНазначения, ПараметрыВыполненияКоманды) Экспорт
 
-	If CommandID = "{{Identifier}}" Then
-		// TODO: Implementation {{Identifier}}
-	EndIf;
+	Если ИдентификаторКоманды = "{{Идентификатор}}" Тогда
+		// TODO: Реализация {{Идентификатор}}
+	КонецЕсли;
 
-EndProcedure
+КонецПроцедуры
 ```
 
-### PrintForm — Print procedure already exists
+### ПечатнаяФорма — если процедура Печать уже есть
 
-Add block before `EndProcedure`:
+Добавь блок перед `КонецПроцедуры`:
 
 ```bsl
-	PrintForm = PrintManagement.PrintFormInfo(PrintFormsCollection, "{{Identifier}}");
-	If PrintForm <> Undefined Then
-		PrintForm.SpreadsheetDocument = Generate{{Identifier}}(ObjectsArray, PrintObjects);
-		PrintForm.TemplateSynonym = NStr("en = '{{Presentation}}'");
-	EndIf;
+	ПечатнаяФорма = УправлениеПечатью.СведенияОПечатнойФорме(КоллекцияПечатныхФорм, "{{Идентификатор}}");
+	Если ПечатнаяФорма <> Неопределено Тогда
+		ПечатнаяФорма.ТабличныйДокумент = Сформировать{{Идентификатор}}(МассивОбъектов, ОбъектыПечати);
+		ПечатнаяФорма.СинонимМакета = НСтр("ru = '{{Представление}}'");
+	КонецЕсли;
 ```
 
-### PrintForm — no Print procedure yet
+### ПечатнаяФорма — если процедуры Печать нет
 
 ```bsl
-Procedure Print(ObjectsArray, PrintFormsCollection, PrintObjects, OutputParameters) Export
+Процедура Печать(МассивОбъектов, КоллекцияПечатныхФорм, ОбъектыПечати, ПараметрыВывода) Экспорт
 
-	PrintForm = PrintManagement.PrintFormInfo(PrintFormsCollection, "{{Identifier}}");
-	If PrintForm <> Undefined Then
-		PrintForm.SpreadsheetDocument = Generate{{Identifier}}(ObjectsArray, PrintObjects);
-		PrintForm.TemplateSynonym = NStr("en = '{{Presentation}}'");
-	EndIf;
+	ПечатнаяФорма = УправлениеПечатью.СведенияОПечатнойФорме(КоллекцияПечатныхФорм, "{{Идентификатор}}");
+	Если ПечатнаяФорма <> Неопределено Тогда
+		ПечатнаяФорма.ТабличныйДокумент = Сформировать{{Идентификатор}}(МассивОбъектов, ОбъектыПечати);
+		ПечатнаяФорма.СинонимМакета = НСтр("ru = '{{Представление}}'");
+	КонецЕсли;
 
-EndProcedure
+КонецПроцедуры
 ```
 
-### ClientMethodCall
+### ВызовКлиентскогоМетода
 
-Added to **form module** (`Forms/<FormName>/Ext/Form/Module.bsl`):
+Добавляется в **модуль формы** (`Forms/<FormName>/Ext/Form/Module.bsl`):
 
-For global processors:
+Для глобальных обработок:
 
 ```bsl
-&AtClient
-Procedure ExecuteCommand(CommandID) Export
+&НаКлиенте
+Процедура ВыполнитьКоманду(ИдентификаторКоманды) Экспорт
 
-	If CommandID = "{{Identifier}}" Then
-		// TODO: Implementation {{Identifier}}
-	EndIf;
+	Если ИдентификаторКоманды = "{{Идентификатор}}" Тогда
+		// TODO: Реализация {{Идентификатор}}
+	КонецЕсли;
 
-EndProcedure
+КонецПроцедуры
 ```
 
-For assignable processors:
+Для назначаемых обработок:
 
 ```bsl
-&AtClient
-Procedure ExecuteCommand(CommandID, TargetObjectsArray) Export
+&НаКлиенте
+Процедура ВыполнитьКоманду(ИдентификаторКоманды, ОбъектыНазначенияМассив) Экспорт
 
-	If CommandID = "{{Identifier}}" Then
-		// TODO: Implementation {{Identifier}}
-	EndIf;
+	Если ИдентификаторКоманды = "{{Идентификатор}}" Тогда
+		// TODO: Реализация {{Идентификатор}}
+	КонецЕсли;
 
-EndProcedure
+КонецПроцедуры
 ```
 
-If procedure already exists — add `ElsIf` branch.
+Если процедура уже есть — добавь ветку `ИначеЕсли`.
 
-## Instructions
+## Инструкции
 
-1. Find and read `ObjectModule.bsl` via Glob: `src/{{ProcessorName}}/Ext/ObjectModule.bsl`
-2. Ensure `ExternalDataProcessorInfo()` exists. If not — suggest using `1c-bsp-registration` skill first
-3. Determine processor kind from existing code (find the line with `ProcessorKind...()`)
-4. Insert command block **before** `Return RegistrationParameters`
-5. Add handler:
-   - For server handlers — in `ObjectModule.bsl`, `PublicInterface` region
-   - For client handlers — in form module (find via Glob: `src/{{ProcessorName}}/Forms/*/Ext/Form/Module.bsl`)
-6. If handler (`ExecuteCommand` / `Print`) already exists — add branch, do not duplicate the procedure
-7. Use tabs for indentation
+1. Найди и прочитай `ObjectModule.bsl` через Glob: `src/{{ProcessorName}}/Ext/ObjectModule.bsl`
+2. Убедись что `СведенияОВнешнейОбработке()` существует. Если нет — предложи вызвать `/epf-bsp-init`
+3. Определи вид обработки из существующего кода (найди строку с `ВидОбработки...()`)
+4. Вставь блок команды **перед** `Возврат ПараметрыРегистрации`
+5. Добавь обработчик:
+   - Для серверных обработчиков — в `ObjectModule.bsl`, область `ПрограммныйИнтерфейс`
+   - Для клиентских обработчиков — в модуль формы (найти через Glob: `src/{{ProcessorName}}/Forms/*/Ext/Form/Module.bsl`)
+6. Если обработчик (`ВыполнитьКоманду` / `Печать`) уже есть — добавь ветку, не создавай дубль процедуры
+7. Используй табы для отступов
 
-## MCP Integration
+## Пример
 
-Use `ssl_search` MCP tool to verify SSL method names. Use `codesearch` to find existing handler patterns in the codebase.
+Пользователь: `/epf-bsp-add-command МояОбработка ЗаказПокупателя серверный "Заказ покупателя"`
+
+В `СведенияОВнешнейОбработке()` перед `Возврат` добавится:
+
+```bsl
+	НоваяКоманда = ПараметрыРегистрации.Команды.Добавить();
+	НоваяКоманда.Представление        = НСтр("ru = 'Заказ покупателя'");
+	НоваяКоманда.Идентификатор        = "ЗаказПокупателя";
+	НоваяКоманда.Использование        = ДополнительныеОтчетыИОбработкиКлиентСервер.ТипКомандыВызовСерверногоМетода();
+	НоваяКоманда.ПоказыватьОповещение = Ложь;
+	НоваяКоманда.Модификатор = "ПечатьMXL";
+```
+
+И в существующую процедуру `Печать` добавится блок обработки.

@@ -1,4 +1,6 @@
-﻿param(
+﻿# form-compile v1.0 — Compile 1C managed form from JSON
+# Source: https://github.com/Desko77/claude-code-skills-1c
+param(
 	[Parameter(Mandatory)]
 	[string]$JsonPath,
 

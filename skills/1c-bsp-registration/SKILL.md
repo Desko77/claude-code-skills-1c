@@ -1,206 +1,208 @@
 ---
 name: 1c-bsp-registration
-description: "Add SSL/BSP registration function (ExternalDataProcessorInfo) to a data processor object module. Use when registering an external data processor or report with the Additional Reports and Data Processors SSL subsystem."
+description: Добавить функцию регистрации БСП (СведенияОВнешнейОбработке) в модуль объекта обработки
+argument-hint: <ProcessorName> <Вид>
+allowed-tools:
+  - Read
+  - Edit
+  - Glob
+  - Grep
 ---
 
-# 1C BSP Registration — SSL Integration for Data Processors
+# /epf-bsp-init — Регистрация обработки в БСП
 
-Adds the `ExternalDataProcessorInfo()` function to the object module, required for registering external data processors/reports in the SSL "Additional Reports and Data Processors" subsystem.
+Добавляет в модуль объекта обработки функцию `СведенияОВнешнейОбработке()`, необходимую для регистрации в подсистеме «Дополнительные отчёты и обработки» БСП.
 
 ## Usage
 
 ```
-1c-bsp-registration <ProcessorName> <Kind> [TargetObjects...]
+/epf-bsp-init <ProcessorName> <Вид> [Назначение...]
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| ProcessorName | yes | — | Processor name (must be created via `1c-epf-scaffold`) |
-| Kind | yes | — | Processor kind (see mapping below) |
-| TargetObjects | * | — | Metadata objects for assignable kinds |
-| SrcDir | no | `src` | Source directory |
+| Параметр      | Обязательный | По умолчанию | Описание                                                |
+|---------------|:------------:|--------------|---------------------------------------------------------|
+| ProcessorName | да           | —            | Имя обработки (должна быть создана через `/epf-init`)   |
+| Вид           | да           | —            | Вид обработки (см. маппинг ниже)                        |
+| Назначение    | *            | —            | Объекты метаданных для назначаемых видов                 |
+| SrcDir        | нет          | `src`        | Каталог исходников                                      |
 
-\* TargetObjects is required for assignable kinds: ObjectFilling, Report, PrintForm, RelatedObjectCreation.
+\* Назначение обязательно для видов: ЗаполнениеОбъекта, Отчет, ПечатнаяФорма, СозданиеСвязанныхОбъектов.
 
-## Kind Mapping
+## Маппинг вида обработки
 
-User may specify kind in free form. Determine the correct one from context:
+Пользователь может указать вид в свободной форме. Определи нужный по контексту:
 
-| User Input | Kind | API Method |
-|------------|------|------------|
-| additional processor, global | AdditionalDataProcessor | `ProcessorKindAdditionalDataProcessor()` |
-| additional report, global report | AdditionalReport | `ProcessorKindAdditionalReport()` |
-| filling, fill | ObjectFilling | `ProcessorKindObjectFilling()` |
-| report (assignable, for object) | Report | `ProcessorKindReport()` |
-| print form, printing | PrintForm | `ProcessorKindPrintForm()` |
-| related object creation | RelatedObjectCreation | `ProcessorKindRelatedObjectCreation()` |
+| Пользователь пишет                        | Вид                        | API-метод                                    |
+|-------------------------------------------|----------------------------|----------------------------------------------|
+| доп обработка, обработка, глобальная      | ДополнительнаяОбработка    | `ВидОбработкиДополнительнаяОбработка()`      |
+| доп отчёт, глобальный отчёт              | ДополнительныйОтчет       | `ВидОбработкиДополнительныйОтчет()`         |
+| заполнение, заполнить                     | ЗаполнениеОбъекта          | `ВидОбработкиЗаполнениеОбъекта()`            |
+| отчёт (назначаемый, для объекта)          | Отчет                      | `ВидОбработкиОтчет()`                        |
+| печатная форма, печать                    | ПечатнаяФорма              | `ВидОбработкиПечатнаяФорма()`                |
+| создание связанных объектов               | СозданиеСвязанныхОбъектов  | `ВидОбработкиСозданиеСвязанныхОбъектов()`    |
 
-## Default Command Type by Kind
+## Тип команды по умолчанию
 
-| Kind | Default Command Type |
-|------|---------------------|
-| AdditionalDataProcessor | `CommandTypeOpenForm()` |
-| AdditionalReport | `CommandTypeOpenForm()` |
-| ObjectFilling | `CommandTypeServerMethodCall()` |
-| Report | `CommandTypeOpenForm()` |
-| PrintForm | `CommandTypeServerMethodCall()` |
-| RelatedObjectCreation | `CommandTypeServerMethodCall()` |
+| Вид                        | ТипКоманды по умолчанию                   |
+|----------------------------|-------------------------------------------|
+| ДополнительнаяОбработка    | `ТипКомандыОткрытиеФормы()`               |
+| ДополнительныйОтчет       | `ТипКомандыОткрытиеФормы()`               |
+| ЗаполнениеОбъекта          | `ТипКомандыВызовСерверногоМетода()`        |
+| Отчет                      | `ТипКомандыОткрытиеФормы()`               |
+| ПечатнаяФорма              | `ТипКомандыВызовСерверногоМетода()`        |
+| СозданиеСвязанныхОбъектов  | `ТипКомандыВызовСерверногоМетода()`        |
 
-## Template: ExternalDataProcessorInfo
+## Шаблон: СведенияОВнешнейОбработке
 
-Base template — same for all kinds, only API method calls and conditional sections differ.
+Базовый шаблон — одинаковый для всех видов, отличаются только вызовы API-методов и условные секции.
 
 ```bsl
-Function ExternalDataProcessorInfo() Export
+Функция СведенияОВнешнейОбработке() Экспорт
 
-	ProcessorMetadata = Metadata();
+	МетаданныеОбработки = Метаданные();
 
-	RegistrationParameters = AdditionalReportsAndDataProcessors.ExternalDataProcessorInfo("2.2.2.1");
-	RegistrationParameters.Kind    = AdditionalReportsAndDataProcessorsClientServer.{{ProcessorKind}};
-	RegistrationParameters.Version = "1.0";
+	ПараметрыРегистрации = ДополнительныеОтчетыИОбработки.СведенияОВнешнейОбработке("2.2.2.1");
+	ПараметрыРегистрации.Вид    = ДополнительныеОтчетыИОбработкиКлиентСервер.{{ВидОбработки}};
+	ПараметрыРегистрации.Версия = "1.0";
 
-	{{TARGET_SECTION}}
+	{{СЕКЦИЯ_НАЗНАЧЕНИЕ}}
 
-	NewCommand = RegistrationParameters.Commands.Add();
-	NewCommand.Presentation        = ProcessorMetadata.Presentation();
-	NewCommand.ID                  = ProcessorMetadata.Name;
-	NewCommand.Use                 = AdditionalReportsAndDataProcessorsClientServer.{{CommandType}};
-	NewCommand.ShowNotification    = False;
-	{{MODIFIER_SECTION}}
+	НоваяКоманда = ПараметрыРегистрации.Команды.Добавить();
+	НоваяКоманда.Представление        = МетаданныеОбработки.Представление();
+	НоваяКоманда.Идентификатор        = МетаданныеОбработки.Имя;
+	НоваяКоманда.Использование        = ДополнительныеОтчетыИОбработкиКлиентСервер.{{ТипКоманды}};
+	НоваяКоманда.ПоказыватьОповещение = Ложь;
+	{{СЕКЦИЯ_МОДИФИКАТОР}}
 
-	Return RegistrationParameters;
+	Возврат ПараметрыРегистрации;
 
-EndFunction
+КонецФункции
 ```
 
-### Substitutions
+### Подстановки
 
-- `{{ProcessorKind}}` — API method from kind mapping table
-- `{{CommandType}}` — API method from default command type table
+- `{{ВидОбработки}}` — API-метод из таблицы маппинга вида
+- `{{ТипКоманды}}` — API-метод из таблицы типа команды по умолчанию
 
-### Conditional Sections
+### Условные секции
 
-**`{{TARGET_SECTION}}`** — only for assignable kinds (ObjectFilling, Report, PrintForm, RelatedObjectCreation). One line per object:
+**`{{СЕКЦИЯ_НАЗНАЧЕНИЕ}}`** — только для назначаемых видов (ЗаполнениеОбъекта, Отчет, ПечатнаяФорма, СозданиеСвязанныхОбъектов). Одна строка на каждый объект:
 
 ```bsl
-	RegistrationParameters.Purpose.Add("Document.SalesInvoice");
+	ПараметрыРегистрации.Назначение.Добавить("Документ.СчетНаОплату");
 ```
 
-Object name format: `MetadataClassName.ObjectName` (e.g., `Document.SalesInvoice`, `Catalog.Contractors`).
+Формат имени объекта: `ИмяКлассаОбъектаМетаданного.ИмяОбъекта` (например `Документ.СчетНаОплату`, `Справочник.Контрагенты`).
 
-For global kinds (AdditionalDataProcessor, AdditionalReport) — remove section with empty line.
+Для глобальных видов (ДополнительнаяОбработка, ДополнительныйОтчет) — секция не нужна, удалить вместе с пустой строкой.
 
-**`{{MODIFIER_SECTION}}`** — only for PrintForm:
+**`{{СЕКЦИЯ_МОДИФИКАТОР}}`** — только для ПечатнаяФорма:
 
 ```bsl
-	NewCommand.Modifier = "PrintMXL";
+	НоваяКоманда.Модификатор = "ПечатьMXL";
 ```
 
-For other kinds — remove with empty line.
+Для остальных видов — удалить вместе с пустой строкой.
 
-## Server Handler Templates
+## Шаблоны серверных обработчиков
 
-For kinds with `ServerMethodCall` command type, add the corresponding handler procedure in the same `PublicInterface` region, after `ExternalDataProcessorInfo`.
+Для видов с типом команды `ВызовСерверногоМетода` добавь соответствующую процедуру-обработчик в ту же область `ПрограммныйИнтерфейс`, после `СведенияОВнешнейОбработке`.
 
-### For ObjectFilling / RelatedObjectCreation
+### Для ЗаполнениеОбъекта / СозданиеСвязанныхОбъектов
 
 ```bsl
-Procedure ExecuteCommand(CommandID, TargetObjects, CommandExecutionParameters) Export
+Процедура ВыполнитьКоманду(ИдентификаторКоманды, ОбъектыНазначения, ПараметрыВыполненияКоманды) Экспорт
 
-	// TODO: Implementation
+	// TODO: Реализация
 
-EndProcedure
+КонецПроцедуры
 ```
 
-### For PrintForm
+### Для ПечатнаяФорма
 
 ```bsl
-Procedure Print(ObjectsArray, PrintFormsCollection, PrintObjects, OutputParameters) Export
+Процедура Печать(МассивОбъектов, КоллекцияПечатныхФорм, ОбъектыПечати, ПараметрыВывода) Экспорт
 
-	// TODO: Implementation
+	// TODO: Реализация
 
-EndProcedure
+КонецПроцедуры
 ```
 
-### For AdditionalDataProcessor / AdditionalReport (with ServerMethodCall)
+### Для ДополнительнаяОбработка / ДополнительныйОтчет (с ВызовСерверногоМетода)
 
-If user explicitly chose server method instead of opening form:
+Если пользователь явно выбрал серверный метод вместо открытия формы:
 
 ```bsl
-Procedure ExecuteCommand(CommandID, CommandExecutionParameters) Export
+Процедура ВыполнитьКоманду(ИдентификаторКоманды, ПараметрыВыполненияКоманды) Экспорт
 
-	// TODO: Implementation
+	// TODO: Реализация
 
-EndProcedure
+КонецПроцедуры
 ```
 
-Note: global processors do not have the `TargetObjects` parameter.
+Обрати внимание: у глобальных обработок нет параметра `ОбъектыНазначения`.
 
-## Instructions
+## Инструкции
 
-1. Find `ObjectModule.bsl` via Glob: `src/{{ProcessorName}}/Ext/ObjectModule.bsl`
-2. Read the file
-3. If `ExternalDataProcessorInfo` already exists — inform user, do not duplicate
-4. If file not found — suggest using `1c-epf-scaffold` skill first
-5. Find the region `#Region PublicInterface` ... `#EndRegion`
-6. Insert `ExternalDataProcessorInfo()` function inside this region
-7. If kind requires server handler — insert it too, after the function
-8. Use tabs for indentation (match existing file style)
+1. Найди `ObjectModule.bsl` через Glob: `src/{{ProcessorName}}/Ext/ObjectModule.bsl`
+2. Прочитай файл
+3. Если `СведенияОВнешнейОбработке` уже есть — сообщи пользователю и не дублируй
+4. Если файл не найден — предложи сначала вызвать `/epf-init`
+5. Найди область `#Область ПрограммныйИнтерфейс` ... `#КонецОбласти`
+6. Вставь функцию `СведенияОВнешнейОбработке()` внутрь этой области
+7. Если вид требует серверный обработчик — вставь его тоже в эту область, после функции
+8. Используй табы для отступов (как в исходном файле)
 
-## Example
+## Пример
 
-User: "Register MyProcessor as a print form for Document.SalesInvoice"
+Пользователь: `/epf-bsp-init МояОбработка печатная форма для Документ.СчетНаОплату`
 
-Result in `ObjectModule.bsl`:
+Результат в `ObjectModule.bsl`:
 
 ```bsl
-#Region VariableDeclarations
+#Область ОписаниеПеременных
 
-#EndRegion
+#КонецОбласти
 
-#Region PublicInterface
+#Область ПрограммныйИнтерфейс
 
-Function ExternalDataProcessorInfo() Export
+Функция СведенияОВнешнейОбработке() Экспорт
 
-	ProcessorMetadata = Metadata();
+	МетаданныеОбработки = Метаданные();
 
-	RegistrationParameters = AdditionalReportsAndDataProcessors.ExternalDataProcessorInfo("2.2.2.1");
-	RegistrationParameters.Kind    = AdditionalReportsAndDataProcessorsClientServer.ProcessorKindPrintForm();
-	RegistrationParameters.Version = "1.0";
+	ПараметрыРегистрации = ДополнительныеОтчетыИОбработки.СведенияОВнешнейОбработке("2.2.2.1");
+	ПараметрыРегистрации.Вид    = ДополнительныеОтчетыИОбработкиКлиентСервер.ВидОбработкиПечатнаяФорма();
+	ПараметрыРегистрации.Версия = "1.0";
 
-	RegistrationParameters.Purpose.Add("Document.SalesInvoice");
+	ПараметрыРегистрации.Назначение.Добавить("Документ.СчетНаОплату");
 
-	NewCommand = RegistrationParameters.Commands.Add();
-	NewCommand.Presentation        = ProcessorMetadata.Presentation();
-	NewCommand.ID                  = ProcessorMetadata.Name;
-	NewCommand.Use                 = AdditionalReportsAndDataProcessorsClientServer.CommandTypeServerMethodCall();
-	NewCommand.ShowNotification    = False;
-	NewCommand.Modifier = "PrintMXL";
+	НоваяКоманда = ПараметрыРегистрации.Команды.Добавить();
+	НоваяКоманда.Представление        = МетаданныеОбработки.Представление();
+	НоваяКоманда.Идентификатор        = МетаданныеОбработки.Имя;
+	НоваяКоманда.Использование        = ДополнительныеОтчетыИОбработкиКлиентСервер.ТипКомандыВызовСерверногоМетода();
+	НоваяКоманда.ПоказыватьОповещение = Ложь;
+	НоваяКоманда.Модификатор = "ПечатьMXL";
 
-	Return RegistrationParameters;
+	Возврат ПараметрыРегистрации;
 
-EndFunction
+КонецФункции
 
-Procedure Print(ObjectsArray, PrintFormsCollection, PrintObjects, OutputParameters) Export
+Процедура Печать(МассивОбъектов, КоллекцияПечатныхФорм, ОбъектыПечати, ПараметрыВывода) Экспорт
 
-	// TODO: Implementation
+	// TODO: Реализация
 
-EndProcedure
+КонецПроцедуры
 
-#EndRegion
+#КонецОбласти
 
-#Region PrivateProceduresAndFunctions
+#Область СлужебныеПроцедурыИФункции
 
-#EndRegion
+#КонецОбласти
 ```
 
-## Next Steps
+## Дальнейшие шаги
 
-- Add more commands: `1c-bsp-command` skill
-- Add a form: `1c-epf-add-form` skill
-- Add a template: `1c-template-add` skill
-- Build EPF: `1c-epf-build` skill
-
-## MCP Integration
-
-Use `ssl_search` MCP tool to find SSL module methods for BSP registration and verify correct API method names. Use `search_metadata` to verify target metadata object names.
+- Добавить ещё команду: `/epf-bsp-add-command`
+- Добавить форму: `/epf-add-form`
+- Добавить макет: `/template-add`
+- Собрать EPF: `/epf-build`

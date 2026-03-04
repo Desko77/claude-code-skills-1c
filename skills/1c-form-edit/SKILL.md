@@ -1,60 +1,68 @@
 ---
 name: 1c-form-edit
-description: "Add elements, attributes, and commands to an existing 1C managed form (Form.xml). Use when modifying an existing form by inserting new UI elements, data attributes, or commands."
+description: Добавление элементов, реквизитов и команд в существующую управляемую форму 1С. Используй когда нужно точечно модифицировать готовую форму
+argument-hint: <FormPath> <JsonPath>
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Glob
 ---
 
-# 1C Form Edit — Modify Existing Forms
+# /form-edit — Редактирование формы
 
-Adds elements, attributes, and/or commands to an existing Form.xml. Automatically allocates IDs from the correct pool, generates companion elements (ContextMenu, ExtendedTooltip, etc.) and event handlers.
+Добавляет элементы, реквизиты и/или команды в существующий Form.xml. Автоматически выделяет ID из правильного пула, генерирует companion-элементы (ContextMenu, ExtendedTooltip, и др.) и обработчики событий.
 
-## Usage
+## Использование
 
 ```
-1c-form-edit <FormPath> <JsonPath>
+/form-edit <FormPath> <JsonPath>
 ```
 
-| Parameter | Required | Description |
-|-----------|:--------:|-------------|
-| FormPath | yes | Path to existing Form.xml |
-| JsonPath | yes | Path to JSON with additions |
+## Параметры
 
-## Command
+| Параметр  | Обязательный | Описание                         |
+|-----------|:------------:|----------------------------------|
+| FormPath  | да           | Путь к существующему Form.xml    |
+| JsonPath  | да           | Путь к JSON с описанием добавлений |
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-edit/scripts/form-edit.ps1 -FormPath "<path>" -JsonPath "<path>"
+powershell.exe -NoProfile -File skills/1c-form-edit/scripts/form-edit.ps1 -FormPath "<путь>" -JsonPath "<путь>"
 ```
 
-## JSON Format
+## JSON формат
 
 ```json
 {
-  "into": "HeaderGroup",
-  "after": "Contractor",
+  "into": "ГруппаШапка",
+  "after": "Контрагент",
   "elements": [
-    { "input": "Warehouse", "path": "Object.Warehouse", "on": ["OnChange"] }
+    { "input": "Склад", "path": "Объект.Склад", "on": ["OnChange"] }
   ],
   "attributes": [
-    { "name": "TotalAmount", "type": "decimal(15,2)" }
+    { "name": "СуммаИтого", "type": "decimal(15,2)" }
   ],
   "commands": [
-    { "name": "Calculate", "action": "CalculateHandler" }
+    { "name": "Рассчитать", "action": "РассчитатьОбработка" }
   ]
 }
 ```
 
-### Element Positioning
+### Позиционирование элементов
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `into` | root ChildItems | Name of group/table/page to insert into |
-| `after` | at end | Name of element to insert after |
+| Ключ | По умолчанию | Описание |
+|------|-------------|----------|
+| `into` | корневой ChildItems | Имя группы/таблицы/страницы, куда вставлять |
+| `after` | в конец | Имя элемента, после которого вставлять |
 
-### Element Types
+### Типы элементов
 
-Same DSL keys as in `1c-form-compile`:
+Те же DSL-ключи, что в `/form-compile`:
 
-| Key | XML Tag | Companions |
-|-----|---------|------------|
+| Ключ | XML тег | Companions |
+|------|---------|------------|
 | `input` | InputField | ContextMenu, ExtendedTooltip |
 | `check` | CheckBoxField | ContextMenu, ExtendedTooltip |
 | `label` | LabelDecoration | ContextMenu, ExtendedTooltip |
@@ -65,17 +73,17 @@ Same DSL keys as in `1c-form-compile`:
 | `page` | Page | ExtendedTooltip |
 | `button` | Button | ExtendedTooltip |
 
-Groups and tables support `children`/`columns` for nested elements.
+Группы и таблицы поддерживают `children`/`columns` для вложенных элементов.
 
-### Buttons: command and stdCommand
+### Кнопки: command и stdCommand
 
-- `"command": "CommandName"` → `Form.Command.CommandName`
+- `"command": "ИмяКоманды"` → `Form.Command.ИмяКоманды`
 - `"stdCommand": "Close"` → `Form.StandardCommand.Close`
-- `"stdCommand": "Items.Add"` → `Form.Item.Items.StandardCommand.Add` (standard item command)
+- `"stdCommand": "Товары.Add"` → `Form.Item.Товары.StandardCommand.Add` (стандартная команда элемента)
 
-### Allowed Events (`on`)
+### Допустимые события (`on`)
 
-The compiler warns about errors in event names. Main events:
+Компилятор предупреждает об ошибках в именах событий. Основные:
 
 - **input**: `OnChange`, `StartChoice`, `ChoiceProcessing`, `Clearing`, `AutoComplete`, `TextEditEnd`
 - **check**: `OnChange`
@@ -84,40 +92,36 @@ The compiler warns about errors in event names. Main events:
 - **pages**: `OnCurrentPageChange`
 - **button**: `Click`
 
-### Type System (for attributes)
+### Система типов (для attributes)
 
-`string`, `string(100)`, `decimal(15,2)`, `boolean`, `date`, `dateTime`, `CatalogRef.XXX`, `DocumentObject.XXX`, `ValueTable`, `DynamicList`, `Type1 | Type2` (composite).
+`string`, `string(100)`, `decimal(15,2)`, `boolean`, `date`, `dateTime`, `CatalogRef.XXX`, `DocumentObject.XXX`, `ValueTable`, `DynamicList`, `Type1 | Type2` (составной).
 
-## Output
+## Вывод
 
 ```
-=== form-edit: FormName ===
+=== form-edit: Форма ===
 
-Added elements (into HeaderGroup, after Contractor):
-  + [Input] Warehouse -> Object.Warehouse {OnChange}
+Added elements (into ГруппаШапка, after Контрагент):
+  + [Input] Склад -> Объект.Склад {OnChange}
 
 Added attributes:
-  + TotalAmount: decimal(15,2) (id=12)
+  + СуммаИтого: decimal(15,2) (id=12)
 
 ---
 Total: 1 element(s) (+2 companions), 1 attribute(s)
-Run 1c-form-validate to verify.
+Run /form-validate to verify.
 ```
 
-## When to Use
+## Когда использовать
 
-- **After `1c-form-compile`**: add elements not included in the original JSON
-- **Modifying existing forms**: add a field, attribute, or command to a form from configuration
-- **Batch additions**: one JSON can contain elements + attributes + commands
+- **После `/form-compile`**: добавить элементы, которые не были в исходном JSON
+- **Модификация существующих форм**: добавить поле, реквизит или команду в форму из конфигурации
+- **Пакетное добавление**: один JSON может содержать элементы + реквизиты + команды
 
 ## Workflow
 
-1. `1c-form-info` — view current form structure
-2. Create JSON with addition descriptions
-3. `1c-form-edit` — add to form
-4. `1c-form-validate` — verify correctness
-5. `1c-form-info` — confirm additions are correct
-
-## MCP Integration
-
-Use `search_metadata` MCP tool to verify attribute types and object names. Use `1c-form-info` skill to analyze form structure before editing.
+1. `/form-info` — посмотреть текущую структуру формы
+2. Создать JSON с описанием добавлений
+3. `/form-edit` — добавить в форму
+4. `/form-validate` — проверить корректность
+5. `/form-info` — убедиться что добавилось правильно

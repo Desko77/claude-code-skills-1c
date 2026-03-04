@@ -1,56 +1,62 @@
 ---
 name: img-grid-analysis
-description: "Overlay a numbered grid on an image to determine column proportions for layout generation. Use when creating MXL spreadsheet layouts from screenshots or scanned print forms."
+description: Наложить пронумерованную сетку на изображение для определения пропорций колонок
+argument-hint: <ImagePath> [-c COLS]
+allowed-tools:
+  - Bash
+  - Read
 ---
 
-# Image Grid Analysis — Grid Overlay for Layout Design
+# /img-grid — Сетка для анализа макета
 
-Overlays a numbered grid on a print form image. Allows precise determination of column boundaries, proportions, and spans for generating spreadsheet document layouts.
+Накладывает пронумерованную сетку на изображение печатной формы. Позволяет точно определить границы колонок, их пропорции и span-ы для генерации макета табличного документа.
 
-## Usage
+## Использование
 
 ```
-img-grid-analysis <ImagePath> [-c COLS] [-o OUTPUT]
+/img-grid <ImagePath> [-c COLS] [-o OUTPUT]
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| ImagePath | yes | — | Path to image (PNG, JPG) |
-| -c COLS | no | 50 | Number of vertical divisions |
-| -r ROWS | no | auto | Number of horizontal divisions (auto = square cells) |
-| -o OUTPUT | no | `<name>-grid.<ext>` | Output path |
+## Параметры
 
-## Command
+| Параметр  | Обязательный | По умолчанию | Описание                                      |
+|-----------|:------------:|--------------|-----------------------------------------------|
+| ImagePath | да           | —            | Путь к изображению (PNG, JPG)                 |
+| -c COLS   | нет          | 50           | Количество вертикальных делений               |
+| -r ROWS   | нет          | авто         | Количество горизонтальных делений (авто = квадратные ячейки) |
+| -o OUTPUT | нет          | `<name>-grid.<ext>` | Путь для результата                |
+
+## Команда
 
 ```bash
 python skills/img-grid-analysis/scripts/overlay-grid.py "<ImagePath>" [-c 50] [-o "<OutputPath>"]
 ```
 
-Requires Python 3 with Pillow library (`pip install Pillow`).
+Требуется Python 3 с библиотекой Pillow (`pip install Pillow`).
 
-## What It Does
+## Что делает
 
-1. Draws semi-transparent vertical (red) and horizontal (blue) lines
-2. Numbers lines in separate fields at top and left (does not overlap content)
-3. Every 5th and 10th line is brighter for easier counting
+1. Рисует полупрозрачные вертикальные (красные) и горизонтальные (синие) линии
+2. Нумерует линии в отдельных полях сверху и слева (не перекрывает содержимое)
+3. Каждая 5-я и 10-я линия выделены ярче для удобства счёта
 
-## How to Use the Result
+## Как использовать результат
 
-### 1. Determine Column Boundaries
+### 1. Определить границы колонок
 
-Look at the gridded image and note vertical boundary coordinates of each table column (in grid line numbers).
+Посмотреть на изображение с сеткой и записать координаты вертикальных границ каждой колонки таблицы (в номерах grid-линий).
 
-### 2. Find the Base Grid
+### 2. Найти базовую решётку
 
-If the form has multiple tables with different layouts (e.g., document header and main table), combine all boundary points. Each segment between adjacent boundaries is one MXL column.
+Если на форме несколько таблиц с разной раскладкой (например, шапка документа и основная таблица), объединить все граничные точки. Каждый сегмент между соседними границами — одна колонка MXL.
 
-Example for form M-11:
-- Header: boundaries 0, 2, 4, 9, 14, 21, 28, 34, 40, 48
-- Table: boundaries 0, 2, 4, 11, 16, 19, 23, 28, 32, 36, 42, 48
-- Union: 0, 2, 4, 9, 11, 14, 16, 19, 21, 23, 28, 32, 34, 36, 40, 42, 48
-- Result: **16 base columns** with proportions 2, 2, 5, 2, 3, 2, 3, 2, 2, 5, 4, 2, 2, 4, 2, 6
+Пример для М-11:
+- Шапка: границы 0, 2, 4, 9, 14, 21, 28, 34, 40, 48
+- Таблица: границы 0, 2, 4, 11, 16, 19, 23, 28, 32, 36, 42, 48
+- Объединение: 0, 2, 4, 9, 11, 14, 16, 19, 21, 23, 28, 32, 34, 36, 40, 42, 48
+- Результат: **16 базовых колонок** с пропорциями 2, 2, 5, 2, 3, 2, 3, 2, 2, 5, 4, 2, 2, 4, 2, 6
 
-### 3. Write in JSON DSL
+### 3. Записать в JSON DSL
 
 ```json
 {
@@ -64,8 +70,8 @@ Example for form M-11:
 }
 ```
 
-The `"page"` field allows the compiler to automatically calculate absolute widths from proportions.
+Поле `"page"` позволяет компилятору автоматически вычислить абсолютные ширины из пропорций.
 
-### 4. Compile
+### 4. Скомпилировать
 
-`1c-mxl-compile` → `1c-mxl-validate` → `1c-mxl-info`
+`/mxl-compile` → `/mxl-validate` → `/mxl-info`

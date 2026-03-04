@@ -1,87 +1,94 @@
 ---
 name: 1c-form-info
-description: "Analyze 1C managed form structure (Form.xml) — elements, attributes, commands, events. Use to understand form layout before modifications or for navigation through large forms."
+description: Анализ структуры управляемой формы 1С (Form.xml) — элементы, реквизиты, команды, события. Используй для понимания формы — при написании модуля формы, анализе обработчиков и элементов
+argument-hint: <FormPath>
+allowed-tools:
+  - Bash
+  - Read
+  - Glob
 ---
 
-# 1C Form Info — Compact Form Summary
+# /form-info — Компактная сводка формы
 
-Reads a Form.xml of a managed form and outputs a compact summary: element tree, typed attributes, commands, events. Replaces the need to read thousands of XML lines.
+Читает Form.xml управляемой формы и выводит компактную сводку: дерево элементов, реквизиты с типами, команды, события. Заменяет необходимость читать тысячи строк XML.
 
-## Usage
+## Использование
 
 ```
-1c-form-info <FormPath>
+/form-info <FormPath>
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| FormPath | yes | — | Path to Form.xml file |
-| Limit | no | `150` | Max output lines (overflow protection) |
-| Offset | no | `0` | Skip N lines (for pagination) |
+## Параметры
 
-## Command
+| Параметр  | Обязательный | По умолчанию | Описание                                    |
+|-----------|:------------:|--------------|---------------------------------------------|
+| FormPath  | да           | —            | Путь к файлу Form.xml                       |
+| Limit     | нет          | `150`        | Макс. строк вывода (защита от переполнения) |
+| Offset    | нет          | `0`          | Пропустить N строк (для пагинации)          |
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-info/scripts/form-info.ps1 -FormPath "<path to Form.xml>"
+powershell.exe -NoProfile -File skills/1c-form-info/scripts/form-info.ps1 -FormPath "<путь к Form.xml>"
 ```
 
-With pagination:
+С пагинацией:
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-info/scripts/form-info.ps1 -FormPath "<path>" -Offset 150
+powershell.exe -NoProfile -File skills/1c-form-info/scripts/form-info.ps1 -FormPath "<путь>" -Offset 150
 ```
 
-## Reading the Output
+## Чтение вывода
 
-### Header
+### Заголовок
 
 ```
-=== Form: DocumentForm — "Sales of Goods and Services" (Documents.SalesInvoice) ===
+=== Form: ФормаДокумента — "Реализация товаров и услуг" (Documents.РеализацияТоваровУслуг) ===
 ```
 
-Form name, Title, and object context are determined from the file path and XML.
+Имя формы, заголовок (Title) и контекст объекта определяются из пути к файлу и XML.
 
-### Properties — Form Properties
+### Properties — свойства формы
 
-Only non-default properties are shown. Title is shown in the header, not here:
+Только нестандартные свойства (отличающиеся от умолчания). Title показывается в заголовке, не здесь:
 
 ```
 Properties: AutoTitle=false, WindowOpeningMode=LockOwnerWindow, CommandBarLocation=Bottom
 ```
 
-### Events — Form Event Handlers
+### Events — обработчики событий формы
 
 ```
 Events:
-  OnCreateAtServer -> OnCreateAtServerHandler
-  OnOpen -> OnOpenHandler
+  OnCreateAtServer -> ПриСозданииНаСервере
+  OnOpen -> ПриОткрытии
 ```
 
-### Elements — UI Element Tree
+### Elements — дерево UI-элементов
 
-Compact tree with types, data bindings, flags, and events:
+Компактное дерево с типами, привязками к данным, флагами и событиями:
 
 ```
 Elements:
-  ├─ [Group:AH] HeaderGroup
-  │  ├─ [Input] Organization -> Object.Organization {OnChange}
-  │  └─ [Input] Contract -> Object.Contract [visible:false] {StartChoice}
-  ├─ [Table] Items -> Object.Items
-  │  ├─ [Input] Product -> Object.Items.Product {OnChange}
-  │  └─ [Input] Amount -> Object.Items.Amount [ro]
-  └─ [Pages] Pages
-     ├─ [Page] Main (5 items)
-     └─ [Page] Print (2 items)
+  ├─ [Group:AH] ГруппаШапка
+  │  ├─ [Input] Организация -> Объект.Организация {OnChange}
+  │  └─ [Input] Договор -> Объект.Договор [visible:false] {StartChoice}
+  ├─ [Table] Товары -> Объект.Товары
+  │  ├─ [Input] Номенклатура -> Объект.Товары.Номенклатура {OnChange}
+  │  └─ [Input] Сумма -> Объект.Товары.Сумма [ro]
+  └─ [Pages] Страницы
+     ├─ [Page] Основное (5 items)
+     └─ [Page] Печать (2 items)
 ```
 
-**Element Type Abbreviations:**
+**Сокращения типов элементов:**
 
-| Abbreviation | Element |
+| Сокращение | Элемент |
 |---|---|
 | `[Group:V]` | UsualGroup Vertical |
 | `[Group:H]` | UsualGroup Horizontal |
 | `[Group:AH]` | UsualGroup AlwaysHorizontal |
 | `[Group:AV]` | UsualGroup AlwaysVertical |
-| `[Group]` | UsualGroup (default orientation) |
+| `[Group]` | UsualGroup (ориентация по умолчанию) |
 | `[Input]` | InputField |
 | `[Check]` | CheckBoxField |
 | `[Label]` | LabelDecoration |
@@ -93,81 +100,81 @@ Elements:
 | `[Button]` | Button |
 | `[CmdBar]` | CommandBar |
 | `[Pages]` | Pages |
-| `[Page]` | Page (shows item count instead of expanding) |
+| `[Page]` | Page (показывает кол-во элементов вместо раскрытия) |
 | `[Popup]` | Popup |
 | `[BtnGroup]` | ButtonGroup |
 
-**Flags** (only when deviating from default):
-- `[visible:false]` — element is hidden (Visible=false)
-- `[enabled:false]` — element is disabled (Enabled=false)
+**Флаги** (только при отклонении от умолчания):
+- `[visible:false]` — элемент скрыт (Visible=false)
+- `[enabled:false]` — элемент недоступен (Enabled=false)
 - `[ro]` — ReadOnly=true
-- `,collapse` — Behavior=Collapsible (for groups)
+- `,collapse` — Behavior=Collapsible (для групп)
 
-**Data binding**: `-> Object.Field` — DataPath
+**Привязка к данным**: `-> Объект.Поле` — DataPath
 
-**Command binding**: `-> CommandName [cmd]` — form command, `-> Close [std]` — standard command
+**Привязка к команде**: `-> ИмяКоманды [cmd]` — команда формы, `-> Close [std]` — стандартная команда
 
-**Events**: `{OnChange, StartChoice}` — handler names
+**События**: `{OnChange, StartChoice}` — имена обработчиков
 
-**Title**: `[title:Text]` — only if different from element name
+**Заголовок**: `[title:Текст]` — только если отличается от имени элемента
 
-### Attributes — Form Attributes
+### Attributes — реквизиты формы
 
 ```
 Attributes:
-  *Object: DocumentObject.SalesInvoice (main)
-  Currency: CatalogRef.Currencies
-  Total: decimal(15,2)
-  Table: ValueTable [Product: CatalogRef.Products, Qty: decimal(10,3)]
-  List: DynamicList -> Catalog.Users
+  *Объект: DocumentObject.РеализацияТоваров (main)
+  Валюта: CatalogRef.Валюты
+  Итого: decimal(15,2)
+  Таблица: ValueTable [Номенклатура: CatalogRef.Номенклатура, Кол: decimal(10,3)]
+  Список: DynamicList -> Catalog.Пользователи
 ```
 
-- `*` and `(main)` — main form attribute (MainAttribute)
-- ValueTable/ValueTree types expand columns in `[...]`
-- DynamicList shows MainTable via `->`
+- `*` и `(main)` — основной реквизит формы (MainAttribute)
+- Типы ValueTable/ValueTree раскрывают колонки в `[...]`
+- DynamicList показывает MainTable через `->`
 
-### Parameters — Form Parameters
+### Parameters — параметры формы
 
 ```
 Parameters:
-  Key: DocumentRef.PurchaseOrder (key)
-  Basis: DocumentRef.*
+  Ключ: DocumentRef.ЗакупкаТоваров (key)
+  Основание: DocumentRef.*
 ```
 
-- `(key)` — key parameter (KeyParameter)
+- `(key)` — ключевой параметр (KeyParameter)
 
-### Commands — Form Commands
+### Commands — команды формы
 
 ```
 Commands:
-  Print -> PrintDocumentHandler [Ctrl+P]
-  Fill -> FillHandler
+  Печать -> ПечатьДокумента [Ctrl+P]
+  Заполнить -> ЗаполнитьОбработка
 ```
 
-Format: `Name -> Handler [Shortcut]`
+Формат: `Имя -> Обработчик [Сочетание]`
 
-## What Gets Skipped
+## Что пропускается
 
-The script removes 80%+ of XML volume:
-- Visual properties (Width, Height, Color, Font, Border, Align, Stretch)
-- Auto-generated ExtendedTooltip and ContextMenu
-- Multilingual wrappers (v8:item/v8:lang/v8:content)
-- Namespace declarations
-- ID attributes
+Скрипт убирает 80%+ XML-объёма:
+- Визуальные свойства (Width, Height, Color, Font, Border, Align, Stretch)
+- Автогенерированные ExtendedTooltip и ContextMenu
+- Мультиязычные обёртки (v8:item/v8:lang/v8:content)
+- Namespace-декларации
+- Атрибуты id
 
-For detailed inspection — use grep on element name from the summary.
+Для точечного изучения деталей — используйте grep по имени элемента из сводки.
 
-## When to Use
+## Когда использовать
 
-- **Before modifying a form**: understand structure, find the right group for inserting an element
-- **Form analysis**: which attributes, commands, handlers are used
-- **Navigating large forms**: 28K lines of XML → 50-100 lines of context
+- **Перед модификацией формы**: понять структуру, найти нужную группу для вставки элемента
+- **Анализ формы**: какие реквизиты, команды, обработчики задействованы
+- **Навигация по большим формам**: 28K строк XML → 50-100 строк контекста
 
-## Overflow Protection
+## Защита от переполнения
 
-Output is limited to 150 lines by default. When exceeded:
+Вывод ограничен 150 строками по умолчанию. При превышении:
 ```
 [TRUNCATED] Shown 150 of 220 lines. Use -Offset 150 to continue.
 ```
 
-Use `-Offset N` and `-Limit N` for paginated viewing.
+Используйте `-Offset N` и `-Limit N` для постраничного просмотра.

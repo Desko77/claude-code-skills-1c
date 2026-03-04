@@ -1,6 +1,9 @@
-﻿param(
+﻿# help-add v1.1 — Add built-in help to 1C object
+# Source: https://github.com/Desko77/claude-code-skills-1c
+param(
 	[Parameter(Mandatory)]
-	[string]$ProcessorName,
+	[Alias("ProcessorName")]
+	[string]$ObjectName,
 
 	[string]$Lang = "ru",
 
@@ -11,7 +14,7 @@ $ErrorActionPreference = "Stop"
 
 # --- Проверки ---
 
-$processorDir = Join-Path $SrcDir $ProcessorName
+$processorDir = Join-Path $SrcDir $ObjectName
 $extDir = Join-Path $processorDir "Ext"
 
 if (-not (Test-Path $extDir)) {
@@ -55,7 +58,7 @@ $helpHtml = @"
     <link rel="stylesheet" type="text/css" href="v8help://service_book/service_style"/>
 </head>
 <body>
-    <h1>$ProcessorName</h1>
+    <h1>$ObjectName</h1>
     <p>Описание обработки.</p>
 </body>
 </html>
@@ -110,6 +113,6 @@ if (Test-Path $formsDir) {
 	}
 }
 
-Write-Host "[OK] Создана справка: $ProcessorName"
+Write-Host "[OK] Создана справка: $ObjectName"
 Write-Host "     Метаданные: $helpXmlPath"
 Write-Host "     Страница:   $helpHtmlPath"

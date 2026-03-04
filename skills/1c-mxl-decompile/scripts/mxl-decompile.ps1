@@ -1,4 +1,6 @@
-﻿param(
+﻿# mxl-decompile v1.0 — Decompile 1C spreadsheet to JSON
+# Source: https://github.com/Desko77/claude-code-skills-1c
+param(
 	[Parameter(Mandatory)]
 	[string]$TemplatePath,
 

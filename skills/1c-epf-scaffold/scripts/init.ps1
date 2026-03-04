@@ -1,4 +1,6 @@
-﻿param(
+﻿# epf-init v1.0 — Init 1C external data processor scaffold
+# Source: https://github.com/Desko77/claude-code-skills-1c
+param(
 	[Parameter(Mandatory)]
 	[string]$Name,
 

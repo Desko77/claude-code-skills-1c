@@ -1,61 +1,68 @@
 ---
 name: 1c-mxl-validate
-description: "Validate structural correctness of a 1C spreadsheet document (MXL/Template.xml). Use after generating or editing layouts to check for structural errors that 1C may silently ignore."
+description: Валидация макета табличного документа (MXL). Используй после создания или модификации макета для проверки корректности
+argument-hint: <TemplatePath> или <ProcessorName> <TemplateName>
+allowed-tools:
+  - Bash
+  - Read
+  - Glob
 ---
 
-# 1C MXL Validate — Layout Validator
+# /mxl-validate — Валидатор макета
 
-Checks Template.xml for structural errors that the 1C platform may silently ignore (potentially causing data loss or layout corruption).
+Проверяет Template.xml на структурные ошибки, которые платформа 1С может молча проигнорировать (с возможной потерей данных или повреждением макета).
 
-## Usage
+## Использование
 
 ```
-1c-mxl-validate <TemplatePath>
-1c-mxl-validate <ProcessorName> <TemplateName>
+/mxl-validate <TemplatePath>
+/mxl-validate <ProcessorName> <TemplateName>
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| TemplatePath | no | — | Direct path to Template.xml |
-| ProcessorName | no | — | Processor name (alternative to path) |
-| TemplateName | no | — | Template name (alternative to path) |
-| SrcDir | no | `src` | Source directory |
-| MaxErrors | no | 20 | Stop after N errors |
+## Параметры
 
-Specify either `-TemplatePath`, or both `-ProcessorName` and `-TemplateName`.
+| Параметр      | Обязательный | По умолчанию | Описание                                 |
+|---------------|:------------:|--------------|------------------------------------------|
+| TemplatePath  | нет          | —            | Прямой путь к Template.xml               |
+| ProcessorName | нет          | —            | Имя обработки (альтернатива пути)        |
+| TemplateName  | нет          | —            | Имя макета (альтернатива пути)           |
+| SrcDir        | нет          | `src`        | Каталог исходников                       |
+| MaxErrors     | нет          | 20           | Остановиться после N ошибок              |
 
-## Command
+Укажите либо `-TemplatePath`, либо оба `-ProcessorName` и `-TemplateName`.
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-mxl-validate/scripts/mxl-validate.ps1 -TemplatePath "<path>"
+powershell.exe -NoProfile -File skills/1c-mxl-validate/scripts/mxl-validate.ps1 -TemplatePath "<путь>"
 ```
 
-Or by processor/template name:
+Или по имени обработки/макета:
 ```powershell
-powershell.exe -NoProfile -File skills/1c-mxl-validate/scripts/mxl-validate.ps1 -ProcessorName "<Name>" -TemplateName "<Template>" [-SrcDir "<dir>"]
+powershell.exe -NoProfile -File skills/1c-mxl-validate/scripts/mxl-validate.ps1 -ProcessorName "<Имя>" -TemplateName "<Макет>" [-SrcDir "<каталог>"]
 ```
 
-## Checks Performed
+## Выполняемые проверки
 
-| # | Check | Severity |
-|---|-------|----------|
-| 1 | `<height>` >= max row index + 1 | ERROR |
+| # | Проверка | Серьёзность |
+|---|---|---|
+| 1 | `<height>` >= максимальный индекс строки + 1 | ERROR |
 | 2 | `<vgRows>` <= `<height>` | WARN |
-| 3 | Cell format indices (`<f>`) within format palette | ERROR |
-| 4 | Row/column `<formatIndex>` within palette | ERROR |
-| 5 | Cell column indices (`<i>`) within column count (accounting for column set) | ERROR |
-| 6 | Row `<columnsID>` references existing column set | ERROR |
-| 7 | Merge/namedItem `<columnsID>` references existing set | ERROR |
-| 8 | Named area ranges within document boundaries | ERROR |
-| 9 | Merge ranges within document boundaries | ERROR |
-| 10 | Font indices in formats within font palette | ERROR |
-| 11 | Border line indices in formats within line palette | ERROR |
-| 12 | Drawing `pictureIndex` references existing picture | ERROR |
+| 3 | Индексы форматов ячеек (`<f>`) в пределах палитры форматов | ERROR |
+| 4 | `<formatIndex>` строк и колонок в пределах палитры | ERROR |
+| 5 | Индексы колонок в ячейках (`<i>`) в пределах количества колонок (с учётом набора) | ERROR |
+| 6 | `<columnsID>` строк ссылается на существующий набор колонок | ERROR |
+| 7 | `<columnsID>` в merge/namedItem ссылается на существующий набор | ERROR |
+| 8 | Диапазоны именованных областей в пределах границ документа | ERROR |
+| 9 | Диапазоны объединений в пределах границ документа | ERROR |
+| 10 | Индексы шрифтов в форматах в пределах палитры шрифтов | ERROR |
+| 11 | Индексы линий границ в форматах в пределах палитры линий | ERROR |
+| 12 | `pictureIndex` рисунков ссылается на существующую картинку | ERROR |
 
-## Output
+## Вывод
 
 ```
-=== Validation: TemplateName ===
+=== Validation: ИмяМакета ===
 
 [OK]    height (40) >= max row index + 1 (40), rowsItem count=34
 [OK]    Font refs: max=3, palette size=4
@@ -65,14 +72,14 @@ powershell.exe -NoProfile -File skills/1c-mxl-validate/scripts/mxl-validate.ps1 
 Errors: 1, Warnings: 0
 ```
 
-Return code: 0 = all checks passed, 1 = errors found.
+Код возврата: 0 = все проверки пройдены, 1 = есть ошибки.
 
-## When to Use
+## Когда использовать
 
-- **After layout generation**: run validator to find structural errors before building
-- **After editing Template.xml**: ensure indices and references remain valid
-- **When debugging**: fix found issues and re-run until all checks pass
+- **После генерации макета**: запустить валидатор для выявления структурных ошибок до сборки EPF
+- **После редактирования Template.xml**: убедиться, что индексы и ссылки остались валидными
+- **При ошибках**: исправить найденные проблемы и перезапустить до полного прохождения
 
-## Overflow Protection
+## Защита от переполнения
 
-Stops after 20 errors by default (configurable via `-MaxErrors`). Summary line with error/warning counts is always shown.
+Останавливается после 20 ошибок по умолчанию (настраивается через `-MaxErrors`). Итоговая строка с количеством ошибок/предупреждений выводится всегда.

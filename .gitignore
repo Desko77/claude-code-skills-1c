@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+
+# Sync tools (not for versioning)
+sync_from_upstream.py
+tools/
+
+# Build artifacts
+build/
+*.epf
+*.log
+
+# Test artifacts
+test-tmp/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

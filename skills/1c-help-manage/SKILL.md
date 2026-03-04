@@ -1,84 +1,92 @@
 ---
 name: 1c-help-manage
-description: "Add built-in help to a 1C object (data processor, report, etc.). Use when creating or managing help documentation embedded in 1C metadata objects."
+description: Добавить встроенную справку к объекту 1С (обработка, отчёт, справочник, документ и др.)
+argument-hint: <ObjectName>
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
 ---
 
-# 1C Help Manage — Built-in Help Management
+# /help-add — Добавление справки
 
-Adds built-in help to a 1C metadata object: help metadata file (`Help.xml`), HTML page, and optionally updates form metadata.
+Добавляет встроенную справку к объекту: файл метаданных `Help.xml`, HTML-страницу и при необходимости обновляет метаданные форм.
 
 ## Usage
 
 ```
-1c-help-manage <ObjectName> [Lang] [SrcDir]
+/help-add <ObjectName> [Lang] [SrcDir]
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| ObjectName | yes | — | Object name (e.g., data processor name) |
-| Lang | no | `ru` | Help language code |
-| SrcDir | no | `src` | Source directory |
+| Параметр   | Обязательный | По умолчанию | Описание                            |
+|------------|:------------:|--------------|-------------------------------------|
+| ObjectName | да           | —            | Имя объекта                         |
+| Lang       | нет          | `ru`         | Код языка справки                   |
+| SrcDir     | нет          | `src`        | Каталог исходников                  |
 
-## Command
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-help-manage/scripts/add-help.ps1 -ProcessorName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"]
+powershell.exe -NoProfile -File skills/1c-help-manage/scripts/add-help.ps1 -ObjectName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"]
 ```
 
-## What Gets Created
+## Что создаётся
 
 ```
 <SrcDir>/<ObjectName>/
     Ext/
-        Help.xml                    # Help metadata (extrnprops namespace)
+        Help.xml                    # Метаданные справки (namespace extrnprops)
         Help/
-            ru.html                 # HTML help page
+            ru.html                 # HTML-страница справки
 ```
 
-- `Help.xml` — fixed structure with `<Page>ru</Page>` (namespace `http://v8.1c.ru/8.3/xcf/extrnprops`)
-- `ru.html` — HTML 4.0 Transitional with 1C stylesheet link (`v8help://service_book/service_style`)
-- Help is **not registered** in `ChildObjects` of the root XML — file presence is sufficient
+- `Help.xml` — фиксированная структура с `<Page>ru</Page>` (namespace `http://v8.1c.ru/8.3/xcf/extrnprops`)
+- `ru.html` — HTML 4.0 Transitional с подключением стилей 1С (`v8help://service_book/service_style`)
+- Справка **не регистрируется** в `ChildObjects` корневого XML — достаточно наличия файлов
 
-## What Gets Modified
+## Что модифицируется
 
-- If form metadata (`Forms/<FormName>.xml`) lacks `<IncludeHelpInContents>`, the script adds `<IncludeHelpInContents>false</IncludeHelpInContents>` after `<FormType>`. For forms created via `1c-form-scaffold`, this element already exists.
+- Если в метаданных формы (`Forms/<FormName>.xml`) отсутствует `<IncludeHelpInContents>` — скрипт добавит `<IncludeHelpInContents>false</IncludeHelpInContents>` после `<FormType>`. Для форм, созданных через `/form-add`, элемент уже есть.
 
-## Help Button on the Form
+## Кнопка справки на форме
 
-After creating help, a button is needed on the form to invoke it. Add button `Form.StandardCommand.Help` to the AutoCommandBar of the form (`Forms/<FormName>/Ext/Form.xml`).
+После создания справки для её вызова нужна кнопка на форме. Добавь кнопку `Form.StandardCommand.Help` в AutoCommandBar формы (`Forms/<FormName>/Ext/Form.xml`).
 
-### Current AutoCommandBar Structure (from 1c-form-scaffold)
+### Текущая структура AutoCommandBar (созданная form-add)
 
 ```xml
-<AutoCommandBar name="FormCommandBar" id="-1">
+<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
     <Autofill>true</Autofill>
 </AutoCommandBar>
 ```
 
-### Replace With
+### Нужно заменить на
 
 ```xml
-<AutoCommandBar name="FormCommandBar" id="-1">
+<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
     <Autofill>true</Autofill>
     <ChildItems>
-        <Button name="FormHelp" id="{{free_id}}">
+        <Button name="ФормаСправка" id="{{свободный_id}}">
             <Type>CommandBarButton</Type>
             <CommandName>Form.StandardCommand.Help</CommandName>
-            <ExtendedTooltip name="FormHelpExtendedTooltip" id="{{free_id + 1}}"/>
+            <ExtendedTooltip name="ФормаСправкаExtendedTooltip" id="{{свободный_id + 1}}"/>
         </Button>
     </ChildItems>
 </AutoCommandBar>
 ```
 
-### Choosing IDs
+### Выбор id
 
-Review all `id="..."` in `Form.xml` and choose the next free numeric ID. Typically IDs start at 1 and go sequentially. The button needs 2 IDs: one for Button, one for ExtendedTooltip.
+Просмотри все `id="..."` в `Form.xml` и выбери следующий свободный числовой id. Обычно id начинаются с 1 и идут подряд. Для кнопки нужны 2 id: один для Button, один для ExtendedTooltip.
 
-### Important
+### Важно
 
-- `Form.StandardCommand.Help` — standard platform command, no declaration needed in `<Commands>`
-- No handler needed in Module.bsl — the platform finds `Help.xml` and opens HTML automatically
+- `Form.StandardCommand.Help` — стандартная команда платформы, не нужно объявлять в `<Commands>`
+- Обработчика в Module.bsl не требуется — платформа сама найдёт `Help.xml` и откроет HTML
 
-## Editing Help
+## Редактирование справки
 
-After creation, help content is regular HTML. Edit `Ext/Help/ru.html` according to the object's purpose. Supported HTML markup: `<h1>`..`<h4>`, `<p>`, `<ul>`, `<ol>`, `<table>`, `<strong>`, `<em>`, `<a>`, `<pre>`.
+После создания содержимое справки — обычный HTML. Отредактируй `Ext/Help/ru.html` в соответствии с назначением объекта. Поддерживается стандартная HTML-разметка: `<h1>`..`<h4>`, `<p>`, `<ul>`, `<ol>`, `<table>`, `<strong>`, `<em>`, `<a>`, `<pre>`.

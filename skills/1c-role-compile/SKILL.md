@@ -1,205 +1,109 @@
 ---
 name: 1c-role-compile
-description: "Create a 1C role — metadata and Rights.xml from rights description. Use when defining access rights for configuration objects."
+description: Создание роли 1С из описания прав. Используй когда нужно создать новую роль с набором прав на объекты
+argument-hint: <JsonPath> <RolesDir>
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Glob
 ---
 
-# 1C Role Compile — Role Creation
+# /role-compile — генерация роли 1С из JSON DSL
 
-Creates role files (metadata + Rights.xml) from a rights description. No script — the agent generates XML using templates below.
+Принимает JSON-определение роли → генерирует `Roles/Имя.xml` (метаданные) и `Roles/Имя/Ext/Rights.xml` (права). UUID автоматически.
 
-## Usage
+## Параметры и команда
 
-```
-1c-role-compile <RoleName> <RolesDir>
-```
+| Параметр | Описание |
+|----------|----------|
+| `JsonPath` | Путь к JSON-определению роли |
+| `RolesDir` | Каталог `Roles/` в исходниках конфигурации |
 
-- **RoleName** — programmatic role name
-- **RolesDir** — `Roles/` directory in configuration sources
-
-## File Structure and Registration
-
-```
-Roles/
-  RoleName.xml           ← metadata (uuid, name, synonym)
-  RoleName/
-    Ext/
-      Rights.xml         ← rights definition
+```powershell
+powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 -JsonPath "<json>" -OutputDir "<RolesDir>"
 ```
 
-Add `<Role>RoleName</Role>` to `<ChildObjects>` section in `Configuration.xml`.
+`<Role>ИмяРоли</Role>` автоматически добавляется в `<ChildObjects>` файла `Configuration.xml` (ожидается в parent от `RolesDir`).
 
-## Metadata Template: Roles/RoleName.xml
+## JSON DSL
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses"
-        xmlns:v8="http://v8.1c.ru/8.1/data/core"
-        xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"
-        xmlns:xs="http://www.w3.org/2001/XMLSchema"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        version="2.17">
-    <Role uuid="GENERATE-UUID-HERE">
-        <Properties>
-            <Name>RoleName</Name>
-            <Synonym>
-                <v8:item>
-                    <v8:lang>ru</v8:lang>
-                    <v8:content>Display role name</v8:content>
-                </v8:item>
-            </Synonym>
-            <Comment/>
-        </Properties>
-    </Role>
-</MetaDataObject>
+### Структура
+
+```json
+{ "name": "ИмяРоли", "synonym": "Отображаемое имя", "objects": [...], "templates": [...] }
 ```
 
-**UUID:** `powershell.exe -Command "[guid]::NewGuid().ToString()"`
+Необязательные: `comment` (""), `setForNewObjects` (false), `setForAttributesByDefault` (true), `independentRightsOfChildObjects` (false).
 
-## Rights Template: Roles/RoleName/Ext/Rights.xml
+### Shorthand-строки и объектная форма
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<Rights xmlns="http://v8.1c.ru/8.2/roles"
-        xmlns:xs="http://www.w3.org/2001/XMLSchema"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:type="Rights" version="2.17">
-    <setForNewObjects>false</setForNewObjects>
-    <setForAttributesByDefault>true</setForAttributesByDefault>
-    <independentRightsOfChildObjects>false</independentRightsOfChildObjects>
-    <!-- <object> blocks -->
-</Rights>
+```json
+"objects": [
+  "Catalog.Номенклатура: @view",
+  "Document.Реализация: @edit",
+  "DataProcessor.Загрузка: @view",
+  "InformationRegister.Цены: Read, Update",
+  { "name": "Document.Продажа", "preset": "view", "rights": {"Delete": false}, "rls": {"Read": "#Шаблон(\"\")"} }
+]
 ```
 
-NB: namespace `http://v8.1c.ru/8.2/roles` (historically 8.2, not 8.3).
+- Shorthand: `"Тип.Имя: @пресет"` или `"Тип.Имя: Право1, Право2"`
+- Объектная форма: `preset` + `rights` (переопределения) + `rls` (ограничения)
 
-## Rights Block Format
+### Пресеты
 
-```xml
-<object>
-    <name>Catalog.Products</name>
-    <right><name>Read</name><value>true</value></right>
-    <right><name>View</name><value>true</value></right>
-</object>
+| Пресет | Действие |
+|--------|----------|
+| `@view` | Просмотр — Read, View (+InputByString для справочников/документов; Use+View для обработок/отчётов) |
+| `@edit` | Полное редактирование — CRUD + Interactive* + Posting (документы) |
+
+`@` обязателен в shorthand. В объектной форме — `"preset": "view"` без `@`.
+
+Для сервисов (WebService, HTTPService, IntegrationService) пресеты не определены — используй явные права: `"WebService.Имя: Use"`.
+
+### Русские синонимы
+
+Поддерживаются русские типы (`Справочник`→Catalog, `Документ`→Document) и права (`Чтение`→Read, `Просмотр`→View). Смешивание допустимо: `"Справочник.Контрагенты: Чтение, View"`.
+
+### Шаблоны RLS
+
+```json
+"templates": [{"name": "ДляОбъекта(Мод)", "condition": "ГДЕ Организация = &ТекОрг"}]
 ```
 
-Object name — dot notation: `ObjectType.Name[.NestedType.NestedName]`.
+Ссылка в `rls`: `"#ДляОбъекта(\"\")"`. Символ `&` автоматически экранируется в XML.
 
-## Common Rights Sets
+## Примеры
 
-### Catalog / ExchangePlan
+### Простая роль
 
-| Set | Rights |
-|-----|--------|
-| Read | Read, View, InputByString |
-| Full | Read, Insert, Update, Delete, View, Edit, InputByString, InteractiveInsert, InteractiveSetDeletionMark, InteractiveClearDeletionMark |
-
-### Document
-
-| Set | Rights |
-|-----|--------|
-| Read | Read, View, InputByString |
-| Full | Read, Insert, Update, Delete, View, Edit, InputByString, Posting, UndoPosting, InteractiveInsert, InteractiveSetDeletionMark, InteractiveClearDeletionMark, InteractivePosting, InteractivePostingRegular, InteractiveUndoPosting, InteractiveChangeOfPosted |
-
-### InformationRegister / AccumulationRegister / AccountingRegister
-
-| Set | Rights |
-|-----|--------|
-| Read | Read, View |
-| Full | Read, Update, View, Edit |
-
-TotalsControl — only for totals management, usually not needed.
-
-### Simple Types
-
-| Type | Rights |
-|------|--------|
-| `DataProcessor` / `Report` | Use, View |
-| `Constant` | Read, Update, View, Edit (read-only: Read, View) |
-| `CommonForm` / `CommonCommand` / `Subsystem` / `FilterCriterion` | View |
-| `DocumentJournal` | Read, View |
-| `Sequence` | Read, Update |
-| `SessionParameter` | Get (+ Set if writes) |
-| `CommonAttribute` | View (+ Edit if edits) |
-| `WebService` / `HTTPService` / `IntegrationService` | Use |
-| `CalculationRegister` | Read, View |
-
-### Rare Reference Types
-
-| Type | Specifics (relative to Catalog) |
-|------|--------------------------------|
-| `ChartOfAccounts`, `ChartOfCharacteristicTypes`, `ChartOfCalculationTypes` | + Predefined rights (InteractiveDeletePredefinedData, etc.) |
-| `BusinessProcess` | + Start, InteractiveStart, InteractiveActivate |
-| `Task` | + Execute, InteractiveExecute, InteractiveActivate |
-
-### Types WITHOUT Rights in Roles
-
-Enum, FunctionalOption, DefinedType, CommonModule, CommonPicture, CommonTemplate — do not appear in Rights.xml.
-
-### Nested Objects (rights: View, Edit)
-
-```
-Catalog.Contractors.Attribute.TIN
-Document.Sales.StandardAttribute.Posted
-Document.Sales.TabularSection.Items
-InformationRegister.Prices.Dimension.Product
-InformationRegister.Prices.Resource.Price
-Catalog.Contractors.Command.OpenCard          ← View only
-Task.Assignment.AddressingAttribute.Performer
+```json
+{
+  "name": "ЧтениеНоменклатуры", "synonym": "Чтение номенклатуры",
+  "objects": ["Catalog.Номенклатура: @view", "Catalog.Контрагенты: @view", "DataProcessor.Загрузка: @view"]
+}
 ```
 
-Used for granular denial: `<value>false</value>` on a specific attribute.
+### Роль с RLS
 
-### Configuration
-
-Object: `Configuration.ConfigName`. Key rights: Administration, DataAdministration, ThinClient, WebClient, ThickClient, MobileClient, ExternalConnection, Output, SaveUserData, InteractiveOpenExtDataProcessors, InteractiveOpenExtReports, MainWindowModeNormal, MainWindowModeWorkplace, MainWindowModeEmbeddedWorkplace, MainWindowModeFullscreenWorkplace, MainWindowModeKiosk, AnalyticsSystemClient.
-
-> DataHistory rights (ReadDataHistory, UpdateDataHistory, etc.) exist for Catalog, Document, Register, Constant — but are rarely used in standard roles.
-
-## RLS (Row-Level Security)
-
-Inside `<right>`, after `<value>`. Applies to Read, Update, Insert, Delete.
-
-```xml
-<right>
-    <name>Read</name>
-    <value>true</value>
-    <restrictionByCondition>
-        <condition>#TemplateName("Param1", "Param2")</condition>
-    </restrictionByCondition>
-</right>
+```json
+{
+  "name": "ЧтениеДокументовПоОрганизации",
+  "synonym": "Чтение документов (ограничение по организации)",
+  "objects": [
+    "Catalog.Организации: @view",
+    {"name": "Document.РеализацияТоваровУслуг", "preset": "view", "rls": {"Read": "#ДляОбъекта(\"\")"}}
+  ],
+  "templates": [{"name": "ДляОбъекта(Модификатор)", "condition": "ГДЕ Организация = &ТекущаяОрганизация"}]
+}
 ```
 
-Templates — at the end of Rights.xml, after all `<object>` blocks:
+Подробные таблицы пресетов, русских синонимов и дополнительные примеры — в `dsl-reference.md`.
 
-```xml
-<restrictionTemplate>
-    <name>TemplateName(Param1, Param2)</name>
-    <condition>Template text</condition>
-</restrictionTemplate>
+## Верификация
+
 ```
-
-`&` in conditions → `&amp;`. Typical templates: ForObject, ByValues, ForRegister.
-
-## Example: Role for a Scheduled Job
-
-```xml
-<object>
-    <name>Catalog.Currencies</name>
-    <right><name>Read</name><value>true</value></right>
-</object>
-<object>
-    <name>InformationRegister.CurrencyRates</name>
-    <right><name>Read</name><value>true</value></right>
-    <right><name>Update</name><value>true</value></right>
-</object>
-<object>
-    <name>Constant.MainCurrency</name>
-    <right><name>Read</name><value>true</value></right>
-</object>
+/role-validate <RightsPath> [MetadataPath]  — проверка корректности XML, прав, RLS
+/role-info <RightsPath>                     — визуальная сводка структуры
 ```
-
-Background jobs do not require Interactive/View/Edit rights or configuration rights (ThinClient, WebClient, etc.) — only programmatic rights (Read, Insert, Update, Delete, Posting).
-
-## MCP Integration
-
-Use `search_metadata` MCP tool to verify metadata object names when defining rights. Use `ssl_search` to find SSL role patterns.

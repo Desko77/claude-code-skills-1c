@@ -1,52 +1,59 @@
 ---
 name: 1c-form-validate
-description: "Validate structural correctness of a 1C managed form (Form.xml). Use after generating or editing Form.xml to check for structural errors."
+description: Валидация управляемой формы 1С. Используй после создания или модификации формы для проверки корректности
+argument-hint: <FormPath>
+allowed-tools:
+  - Bash
+  - Read
+  - Glob
 ---
 
-# 1C Form Validate — Form Structure Validator
+# /form-validate — Валидатор формы
 
-Checks Form.xml of a managed form for structural errors: ID uniqueness, companion element presence, DataPath and command reference correctness.
+Проверяет Form.xml управляемой формы на структурные ошибки: уникальность ID, наличие companion-элементов, корректность ссылок DataPath и команд.
 
-## Usage
+## Использование
 
 ```
-1c-form-validate <FormPath>
+/form-validate <FormPath>
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| FormPath | yes | — | Path to Form.xml file |
-| MaxErrors | no | 30 | Stop after N errors |
+## Параметры
 
-## Command
+| Параметр  | Обязательный | По умолчанию | Описание                    |
+|-----------|:------------:|--------------|-----------------------------|
+| FormPath  | да           | —            | Путь к файлу Form.xml       |
+| MaxErrors | нет          | 30           | Остановиться после N ошибок |
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "<path>"
+powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "<путь>"
 ```
 
-## Checks Performed
+## Выполняемые проверки
 
-| # | Check | Severity |
-|---|-------|----------|
-| 1 | Root element `<Form>`, version="2.17" | ERROR / WARN |
-| 2 | `<AutoCommandBar>` present, id="-1" | ERROR |
-| 3 | Element ID uniqueness (separate pool) | ERROR |
-| 4 | Attribute ID uniqueness (separate pool) | ERROR |
-| 5 | Command ID uniqueness (separate pool) | ERROR |
-| 6 | Companion elements (ContextMenu, ExtendedTooltip, etc.) | ERROR |
-| 7 | DataPath → references existing attribute | ERROR |
-| 8 | Button CommandName → references existing command | ERROR |
-| 9 | Events have non-empty handler names | ERROR |
-| 10 | Commands have Action (handler) | ERROR |
-| 11 | No more than one MainAttribute | ERROR |
+| # | Проверка | Серьёзность |
+|---|---|---|
+| 1 | Корневой элемент `<Form>`, version="2.17" | ERROR / WARN |
+| 2 | `<AutoCommandBar>` присутствует, id="-1" | ERROR |
+| 3 | Уникальность ID элементов (отдельный пул) | ERROR |
+| 4 | Уникальность ID реквизитов (отдельный пул) | ERROR |
+| 5 | Уникальность ID команд (отдельный пул) | ERROR |
+| 6 | Companion-элементы (ContextMenu, ExtendedTooltip, и др.) | ERROR |
+| 7 | DataPath → ссылается на существующий реквизит | ERROR |
+| 8 | CommandName кнопок → ссылается на существующую команду | ERROR |
+| 9 | События имеют непустые имена обработчиков | ERROR |
+| 10 | Команды имеют Action (обработчик) | ERROR |
+| 11 | Не более одного MainAttribute | ERROR |
 
-## Output
+## Вывод
 
 ```
-=== Validation: DocumentForm ===
+=== Validation: ФормаДокумента ===
 
 [OK]    Root element: Form version=2.17
-[OK]    AutoCommandBar: name='FormCommandBar', id=-1
+[OK]    AutoCommandBar: name='ФормаКоманднаяПанель', id=-1
 [OK]    Unique element IDs: 96 elements
 [OK]    Unique attribute IDs: 38 entries
 [OK]    Unique command IDs: 5 entries
@@ -62,17 +69,10 @@ Total: 96 elements, 38 attributes, 5 commands
 All checks passed.
 ```
 
-Return code: 0 = all checks passed, 1 = errors found.
+Код возврата: 0 = все проверки пройдены, 1 = есть ошибки.
 
-## When to Use
+## Когда использовать
 
-- **After `1c-form-compile`**: verify correctness of generated form
-- **After manual Form.xml editing**: ensure IDs are unique, companions are present, references are valid
-- **When debugging**: identify structural errors before building
-
-## Workflow
-
-1. `1c-form-compile` or `1c-form-edit` — generate/modify form
-2. `1c-form-validate` — run validation
-3. Fix any reported errors
-4. `1c-form-info` — verify structure visually
+- **После `/form-compile`**: проверить корректность сгенерированной формы
+- **После ручного редактирования Form.xml**: убедиться что ID уникальны, companions на месте, ссылки валидны
+- **При отладке**: выявить ошибки в структуре формы до сборки EPF

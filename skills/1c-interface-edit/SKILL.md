@@ -11,7 +11,7 @@ allowed-tools:
 
 # /interface-edit — редактирование CommandInterface.xml
 
-Операции: hide, show, place, order, subsystem-order, group-order. Подробнее: `.claude/skills/interface-edit/reference.md`
+Операции: hide, show, place, order, subsystem-order, group-order. Подробнее: `skills/1c-interface-edit/reference.md`
 
 ```powershell
 powershell.exe -NoProfile -File 'skills/1c-interface-edit/scripts/interface-edit.ps1' -CIPath '<path>' -Operation hide -Value '<cmd>'

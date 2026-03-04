@@ -1,53 +1,55 @@
 ---
 name: 1c-epf-scaffold
-description: "Create a new empty 1C external data processor (scaffold XML sources). Use when initializing a new EPF/ERF project from scratch."
+description: Создать пустую внешнюю обработку 1С (scaffold XML-исходников)
+argument-hint: <Name> [Synonym]
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
 ---
 
-# 1C EPF Scaffold — New Data Processor Creation
+# /epf-init — Создание новой обработки
 
-Generates the minimal set of XML source files for a 1C external data processor: root metadata file and the processor directory structure.
+Генерирует минимальный набор XML-исходников для внешней обработки 1С: корневой файл метаданных и каталог обработки.
 
 ## Usage
 
 ```
-1c-epf-scaffold <Name> [Synonym] [SrcDir]
+/epf-init <Name> [Synonym] [SrcDir]
 ```
 
-| Parameter | Required | Default | Description |
-|-----------|:--------:|---------|-------------|
-| Name | yes | — | Processor name (Latin/Cyrillic) |
-| Synonym | no | = Name | Synonym (display name) |
-| SrcDir | no | `src` | Source directory relative to CWD |
+| Параметр  | Обязательный | По умолчанию | Описание                            |
+|-----------|:------------:|--------------|-------------------------------------|
+| Name      | да           | —            | Имя обработки (латиница/кириллица)  |
+| Synonym   | нет          | = Name       | Синоним (отображаемое имя)          |
+| SrcDir    | нет          | `src`        | Каталог исходников относительно CWD |
 
-## Command
+## Команда
 
 ```powershell
-pwsh -NoProfile -File skills/1c-epf-scaffold/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
+powershell.exe -NoProfile -File skills/1c-epf-scaffold/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
 ```
 
-## What Gets Created
+## Что создаётся
 
 ```
 <SrcDir>/
-├── <Name>.xml          # Root metadata file (4 UUIDs)
+├── <Name>.xml          # Корневой файл метаданных (4 UUID)
 └── <Name>/
     └── Ext/
-        └── ObjectModule.bsl  # Object module with 3 regions
+        └── ObjectModule.bsl  # Модуль объекта с 3 регионами
 ```
 
-- Root XML contains `MetaDataObject/ExternalDataProcessor` with empty `DefaultForm` and `ChildObjects`
-- ClassId is fixed: `c3831ec8-d8d5-4f93-8a22-f9bfae07327f`
-- File is created in UTF-8 with BOM
+- Корневой XML содержит `MetaDataObject/ExternalDataProcessor` с пустыми `DefaultForm` и `ChildObjects`
+- ClassId фиксирован: `c3831ec8-d8d5-4f93-8a22-f9bfae07327f`
+- Файл создаётся в UTF-8 с BOM
 
-## Next Steps
+## Дальнейшие шаги
 
-After scaffolding, use these skills to build out the processor:
-
-- **Add a form**: `1c-epf-add-form` skill
-- **Add a template/layout**: `1c-template-add` skill
-- **Register with SSL (BSP)**: `1c-bsp-registration` skill
-- **Build EPF**: `1c-epf-build` skill
-
-## MCP Integration
-
-Use `search_metadata` MCP tool to verify metadata object names and types when setting up the processor for integration with existing configuration objects.
+- Добавить форму: `/epf-add-form`
+- Добавить макет: `/template-add`
+- Добавить справку: `/help-add`
+- Собрать EPF: `/epf-build`

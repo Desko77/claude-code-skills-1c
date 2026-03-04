@@ -1,255 +1,253 @@
 ---
 name: 1c-form-patterns
-description: "Reference guide of managed form design patterns for 1C — archetypes, naming conventions, advanced techniques. Use before designing forms via 1c-form-compile when requirements lack UI layout details."
+description: Справочник паттернов компоновки управляемых форм 1С. Используй как справочник при проектировании форм — архетипы, конвенции, продвинутые приёмы
+argument-hint: (no arguments)
+allowed-tools: []
 ---
 
-# 1C Form Patterns — Design Reference
+# /form-patterns — паттерны компоновки форм
 
-Reference of standard managed form design patterns for 1C. Load **before** designing a form via `1c-form-compile` when user requirements do not specify element placement details.
+Справочник типовых паттернов дизайна управляемых форм 1С. Вызывай **перед** проектированием формы через `/form-compile`, когда требования пользователя не детализируют расположение элементов.
 
-**How to use:** pick a matching archetype, apply naming conventions, use advanced patterns as needed.
-
----
-
-## Form Archetypes
-
-### Document Form
-
-```
-Header (horizontal, 2 columns)
-├─ Left (vertical): NumberDate (H: Number + Date), Contractor, Contract
-├─ Right (vertical): Organization, Department, PricesAndCurrency (hyperlink label)
-Pages (pages)
-├─ Items: table Object.Items
-├─ Services: table Object.Services (optional)
-└─ Additional: other attributes
-Footer (vertical)
-├─ Totals (horizontal): Total, VAT, Discount
-└─ CommentResponsible (horizontal): Comment + Responsible
-```
-
-**Events:** OnCreateAtServer, OnReadAtServer, OnOpen, BeforeWriteAtServer, AfterWriteAtServer, AfterWrite, NotificationProcessing
-**Properties:** autoTitle=false
-
-### Data Processor Form
-
-```
-Parameters (vertical)
-├─ Input fields group (Organization, Period, operating modes)
-├─ Information labels (label, hyperlink)
-Working area
-├─ Data table or Pages with tabs
-Action buttons
-├─ Execute / Apply (defaultButton)
-├─ Close (stdCommand: Close)
-```
-
-**Events:** OnCreateAtServer, OnOpen, NotificationProcessing
-**Properties:** windowOpeningMode=LockOwnerWindow (if dialog), autoTitle=false
-
-### List Form
-
-```
-Filters (group: alwaysHorizontal)
-├─ FilterGroup[Field] (H): Checkbox + InputField (for each filter)
-List (table, DynamicList)
-├─ Columns: labelField (not input — data is read-only)
-```
-
-**Events:** OnCreateAtServer, OnOpen, NotificationProcessing, OnLoadDataFromSettingsAtServer
-**Properties:** autoSaveDataInSettings=Use
-**Filters:** pair of attributes per filter — `Filter[Field]` (value) + `Filter[Field]Use` (boolean)
-
-### Catalog Item Form
-
-**Simple:**
-```
-AttributeGroup (horizontal)
-├─ Description -> Object.Description
-└─ Code -> Object.Code (if needed)
-```
-
-**Complex:**
-```
-Main (vertical)
-├─ Description -> Object.Description
-├─ Parameters (horizontal, 2 columns)
-│  ├─ Left: main attributes
-│  └─ Right: additional attributes
-└─ ContactInfo / Additional (vertical)
-```
-
-**Events:** OnCreateAtServer, OnReadAtServer, BeforeWriteAtServer, NotificationProcessing
-
-### Wizard
-
-```
-Pages (pages, OnCurrentPageChange)
-├─ Step1: description + parameters
-├─ Step2: main work
-└─ Step3: result
-Buttons (horizontal)
-├─ Back (command), Next (command, defaultButton), Execute (command)
-└─ Close (stdCommand: Close)
-```
-
-**Properties:** windowOpeningMode=LockOwnerWindow, commandBarLocation=None
+**Как использовать:** выбери подходящий архетип, применяй конвенции именования, при необходимости используй продвинутые паттерны.
 
 ---
 
-## Naming Conventions
+## Архетипы форм
 
-### Groups
+### Форма документа
 
-| Purpose | Name | Type |
-|---------|------|------|
-| Header | `HeaderGroup` | horizontal |
-| Left column | `HeaderLeftGroup` | vertical |
-| Right column | `HeaderRightGroup` | vertical |
-| Number+Date | `NumberDateGroup` | horizontal |
-| Footer | `FooterGroup` | vertical |
-| Totals | `TotalsGroup` | horizontal |
-| Buttons | `ButtonsGroup` | horizontal |
-| Pages | `PagesGroup` / `Pages` | pages |
-| Warning | `WarningGroup` | horizontal, visible:false |
-| Additional section | `AdditionalGroup` / `OtherGroup` | vertical, collapse |
+```
+Шапка (horizontal, 2 колонки)
+├─ Левая (vertical): НомерДата (H: Номер + Дата "от"), Контрагент, Договор
+├─ Правая (vertical): Организация, Подразделение, ЦеныИВалюта (надпись-ссылка)
+Страницы (pages)
+├─ Товары: таблица Объект.Товары
+├─ Услуги: таблица Объект.Услуги (опционально)
+└─ Дополнительно: прочие реквизиты
+Подвал (vertical)
+├─ Итоги (horizontal): Всего, НДС, Скидка
+└─ КомментарийОтветственный (horizontal): Комментарий + Ответственный
+```
 
-### Elements
+**События:** OnCreateAtServer, OnReadAtServer, OnOpen, BeforeWriteAtServer, AfterWriteAtServer, AfterWrite, NotificationProcessing
+**Свойства:** autoTitle=false
 
-| Purpose | Name |
-|---------|------|
-| Field in table | `[Table][Field]` |
-| Total | `Totals[Field]` |
-| Hyperlink label | `[Field]Label` |
-| Filter | `Filter[Field]` |
-| Filter checkbox | `Filter[Field]Use` |
-| Command button | `[Command]Button` |
-| Banner image | `[Banner]Picture` |
-| Banner label | `[Banner]Label` |
-| Submenu | `Submenu[Action]` |
+### Форма обработки (DataProcessor)
 
-### Event Handlers
+```
+Параметры (vertical)
+├─ Группа полей ввода (Организация, Период, режимы работы)
+├─ Информационные надписи (label, hyperlink)
+Рабочая область
+├─ Таблица данных или Pages с вкладками
+Кнопки действий
+├─ Выполнить / Применить (defaultButton)
+├─ Закрыть (stdCommand: Close)
+```
 
-Name = element name + Russian suffix:
+**События:** OnCreateAtServer, OnOpen, NotificationProcessing
+**Свойства:** windowOpeningMode=LockOwnerWindow (если диалог), autoTitle=false
 
-| Event | Suffix | Example |
-|-------|--------|---------|
+### Форма списка
+
+```
+Отборы (group: alwaysHorizontal)
+├─ ГруппаОтбор[Поле] (H): Флажок + Поле ввода (для каждого фильтра)
+Список (table, DynamicList)
+├─ Колонки: labelField (не input — данные только для чтения)
+```
+
+**События:** OnCreateAtServer, OnOpen, NotificationProcessing, OnLoadDataFromSettingsAtServer
+**Свойства:** autoSaveDataInSettings=Use
+**Фильтры:** пара реквизитов на каждый — `Отбор[Поле]` (значение) + `Отбор[Поле]Использование` (boolean)
+
+### Форма элемента справочника
+
+**Простая:**
+```
+ГруппаРеквизитов (horizontal)
+├─ Наименование -> Объект.Description
+└─ Код -> Объект.Code (если нужен)
+```
+
+**Сложная:**
+```
+Главное (vertical)
+├─ Наименование -> Объект.Description
+├─ Параметры (horizontal, 2 колонки)
+│  ├─ Левая: основные реквизиты
+│  └─ Правая: дополнительные реквизиты
+└─ КонтактныеДанные / Дополнительно (vertical)
+```
+
+**События:** OnCreateAtServer, OnReadAtServer, BeforeWriteAtServer, NotificationProcessing
+
+### Мастер (Wizard)
+
+```
+Страницы (pages, OnCurrentPageChange)
+├─ Шаг1: описание + параметры
+├─ Шаг2: основная работа
+└─ Шаг3: результат
+Кнопки (horizontal)
+├─ Назад (command), Далее (command, defaultButton), Выполнить (command)
+└─ Закрыть (stdCommand: Close)
+```
+
+**Свойства:** windowOpeningMode=LockOwnerWindow, commandBarLocation=None
+
+---
+
+## Конвенции именования
+
+### Группы
+
+| Назначение | Имя | Тип |
+|-----------|-----|-----|
+| Шапка | `ГруппаШапка` | horizontal |
+| Левая колонка | `ГруппаШапкаЛевая` | vertical |
+| Правая колонка | `ГруппаШапкаПравая` | vertical |
+| Номер+Дата | `ГруппаНомерДата` | horizontal |
+| Подвал | `ГруппаПодвал` | vertical |
+| Итоги | `ГруппаИтоги` | horizontal |
+| Кнопки | `ГруппаКнопок` | horizontal |
+| Страницы | `ГруппаСтраницы` / `Страницы` | pages |
+| Предупреждение | `ГруппаПредупреждение` | horizontal, visible:false |
+| Доп. секция | `ГруппаДополнительно` / `ГруппаПрочее` | vertical, collapse |
+
+### Элементы
+
+| Назначение | Имя |
+|-----------|-----|
+| Поле в таблице | `[Таблица][Поле]` |
+| Итог | `Итоги[Поле]` |
+| Надпись-ссылка | `[Поле]Надпись` |
+| Фильтр | `Отбор[Поле]` |
+| Флажок фильтра | `Отбор[Поле]Использование` |
+| Кнопка команды | `[Команда]Кнопка` |
+| Баннер-картинка | `[Баннер]Картинка` |
+| Баннер-надпись | `[Баннер]Надпись` |
+| Подменю | `Подменю[Действие]` |
+
+### Обработчики событий
+
+Имя = имя элемента + суффикс на русском:
+
+| Событие | Суффикс | Пример |
+|---------|---------|--------|
 | OnChange | ПриИзменении | `ОрганизацияПриИзменении` |
 | StartChoice | НачалоВыбора | `КонтрагентНачалоВыбора` |
 | Click | Нажатие | `ЦеныИВалютаНажатие` |
 | OnEditEnd | ПриОкончанииРедактирования | `ТоварыПриОкончанииРедактирования` |
 | OnStartEdit | ПриНачалеРедактирования | `ТоварыПриНачалеРедактирования` |
 
-Form handlers: `ПриСозданииНаСервере`, `ПриОткрытии`, `ПередЗакрытием`, `ОбработкаОповещения`.
+Обработчики формы: `ПриСозданииНаСервере`, `ПриОткрытии`, `ПередЗакрытием`, `ОбработкаОповещения`.
 
 ---
 
-## Layout Principles
+## Принципы компоновки
 
-1. **Reading order.** Top to bottom, left to right. Most important — at top.
-2. **Two-column header.** Main attributes on left (contractor, warehouse), organizational on right (organization, department).
-3. **Action buttons at bottom.** Main button — `defaultButton: true`. Close — always last.
-4. **Tables are the main area.** Tabular sections occupy most of the form, usually on Pages.
-5. **Totals near table.** In footer, horizontal group, all fields readOnly.
-6. **Filters as separate zone.** Above list, alwaysHorizontal, pair of "checkbox + field" per filter.
-7. **Hidden elements for states.** Banners, warnings — `visible: false`, shown programmatically.
-8. **Hyperlink labels for dialogs.** `labelField` with `hyperlink: true` and Click event.
+1. **Порядок чтения.** Сверху вниз, слева направо. Самое важное — вверху.
+2. **Двухколоночная шапка.** Основные реквизиты слева (контрагент, склад), организационные справа (организация, подразделение).
+3. **Кнопки действий внизу.** Главная кнопка — `defaultButton: true`. Закрыть — всегда последняя.
+4. **Таблицы — основная область.** Табличные части занимают большую часть формы, обычно на Pages.
+5. **Итоги рядом с таблицей.** В подвале, горизонтальная группа, все поля readOnly.
+6. **Фильтры — отдельная зона.** Над списком, alwaysHorizontal, пара «флажок + поле» на каждый фильтр.
+7. **Скрытые элементы для состояний.** Баннеры, предупреждения — `visible: false`, показываются программно.
+8. **Надписи-ссылки для диалогов.** `labelField` с `hyperlink: true` и событием Click.
 
 ---
 
-## Advanced Patterns
+## Продвинутые паттерны (ERP)
 
-### Collapsible Groups
+### Сворачиваемые группы
 
-For optional sections (signatures, additional, other):
+Для необязательных секций (подписи, дополнительно, прочее):
 
 ```json
-{ "group": "vertical", "name": "SignaturesGroup", "title": "Signatures",
+{ "group": "vertical", "name": "ГруппаПодписи", "title": "Подписи",
   "behavior": "Collapsible", "collapsed": true, "children": [...] }
 ```
 
-### Warning Banner
+### Баннер-предупреждение
 
-Group "image + label", hidden by default, shown programmatically:
+Группа «картинка + надпись», скрыта по умолчанию, показывается программно:
 
 ```json
-{ "group": "horizontal", "name": "WarningGroup", "showTitle": false,
+{ "group": "horizontal", "name": "ГруппаПредупреждение", "showTitle": false,
   "visible": false, "children": [
-    { "picture": "WarningPicture" },
-    { "label": "WarningLabel", "title": "Text", "maxWidth": 76, "autoMaxWidth": false }
+    { "picture": "ПредупреждениеКартинка" },
+    { "label": "ПредупреждениеНадпись", "title": "Текст", "maxWidth": 76, "autoMaxWidth": false }
 ]}
 ```
 
-### Popup Menu in Command Bar
+### Popup-меню в командной панели
 
-Grouping related commands (print, send) in one button with icon:
+Группировка связанных команд (печать, отправка) в одну кнопку с иконкой:
 
 ```json
-{ "cmdBar": "CommandBar", "children": [
-    { "popup": "SubmenuPrint", "title": "Print",
+{ "cmdBar": "КоманднаяПанель", "children": [
+    { "popup": "ПодменюПечать", "title": "Печать",
       "picture": "StdPicture.Print", "representation": "Picture", "children": [
-        { "button": "PrintInvoice", "command": "Print" },
-        { "button": "PrintReceipt", "command": "PrintReceipt" }
+        { "button": "ПечатьНакладная", "command": "Печать" },
+        { "button": "ПечатьСчёт", "command": "ПечатьСчёт" }
     ]}
 ]}
 ```
 
-### Form Without Standard Command Bar
+### Форма без стандартной командной панели
 
-For modal dialogs and wizards:
+Для модальных диалогов и мастеров:
 
 ```json
 { "properties": { "commandBarLocation": "None", "windowOpeningMode": "LockWholeInterface" } }
 ```
 
-### Hyperlink Label
+### Надпись-гиперссылка
 
-Instead of a button for opening subforms (PricesAndCurrency, AccountingPolicy):
+Вместо кнопки для открытия подформ (ЦеныИВалюта, УчётнаяПолитика):
 
 ```json
-{ "labelField": "PricesAndCurrencyLabel", "path": "PricesAndCurrency", "hyperlink": true, "on": ["Click"] }
+{ "labelField": "ЦеныИВалютаНадпись", "path": "ЦеныИВалюта", "hyperlink": true, "on": ["Click"] }
 ```
 
 ---
 
-## Full DSL Example: Data Processor Form
+## Пример: форма обработки (полный DSL)
 
 ```json
 {
-  "title": "CSV Data Import",
+  "title": "Загрузка данных из CSV",
   "properties": { "autoTitle": false, "windowOpeningMode": "LockOwnerWindow" },
-  "events": { "OnCreateAtServer": "OnCreateAtServerHandler" },
+  "events": { "OnCreateAtServer": "ПриСозданииНаСервере" },
   "elements": [
-    { "group": "vertical", "name": "ParametersGroup", "children": [
-      { "input": "ImportFile", "path": "ImportFile", "title": "File", "clearButton": true, "horizontalStretch": true, "on": ["StartChoice"] },
-      { "input": "Encoding", "path": "Encoding" },
-      { "input": "Delimiter", "path": "Delimiter", "title": "Column Delimiter" }
+    { "group": "vertical", "name": "ГруппаПараметры", "children": [
+      { "input": "ФайлЗагрузки", "path": "ФайлЗагрузки", "title": "Файл", "clearButton": true, "horizontalStretch": true, "on": ["StartChoice"] },
+      { "input": "Кодировка", "path": "Кодировка" },
+      { "input": "Разделитель", "path": "Разделитель", "title": "Разделитель колонок" }
     ]},
-    { "table": "Data", "path": "Object.Data", "on": ["OnStartEdit"], "columns": [
-      { "input": "DataRowNumber", "path": "Object.Data.LineNumber", "readOnly": true, "title": "No." },
-      { "input": "DataName", "path": "Object.Data.Name" },
-      { "input": "DataQuantity", "path": "Object.Data.Quantity", "on": ["OnChange"] },
-      { "input": "DataAmount", "path": "Object.Data.Amount", "readOnly": true }
+    { "table": "Данные", "path": "Объект.Данные", "on": ["OnStartEdit"], "columns": [
+      { "input": "ДанныеНомерСтроки", "path": "Объект.Данные.LineNumber", "readOnly": true, "title": "№" },
+      { "input": "ДанныеНаименование", "path": "Объект.Данные.Наименование" },
+      { "input": "ДанныеКоличество", "path": "Объект.Данные.Количество", "on": ["OnChange"] },
+      { "input": "ДанныеСумма", "path": "Объект.Данные.Сумма", "readOnly": true }
     ]},
-    { "group": "horizontal", "name": "ButtonsGroup", "children": [
-      { "button": "Import", "command": "Import", "title": "Import from File", "defaultButton": true },
-      { "button": "Clear", "command": "Clear", "title": "Clear Table" },
-      { "button": "Close", "stdCommand": "Close" }
+    { "group": "horizontal", "name": "ГруппаКнопок", "children": [
+      { "button": "Загрузить", "command": "Загрузить", "title": "Загрузить из файла", "defaultButton": true },
+      { "button": "Очистить", "command": "Очистить", "title": "Очистить таблицу" },
+      { "button": "Закрыть", "stdCommand": "Close" }
     ]}
   ],
   "attributes": [
-    { "name": "Object", "type": "ExternalDataProcessorObject.CSVImport", "main": true },
-    { "name": "ImportFile", "type": "string" },
-    { "name": "Encoding", "type": "string(20)" },
-    { "name": "Delimiter", "type": "string(5)" }
+    { "name": "Объект", "type": "ExternalDataProcessorObject.ЗагрузкаИзCSV", "main": true },
+    { "name": "ФайлЗагрузки", "type": "string" },
+    { "name": "Кодировка", "type": "string(20)" },
+    { "name": "Разделитель", "type": "string(5)" }
   ],
   "commands": [
-    { "name": "Import", "action": "ImportHandler" },
-    { "name": "Clear", "action": "ClearHandler" }
+    { "name": "Загрузить", "action": "ЗагрузитьОбработка" },
+    { "name": "Очистить", "action": "ОчиститьОбработка" }
   ]
 }
 ```
-
-## MCP Integration
-
-Use `templatesearch` MCP tool to find real form examples in the codebase. Use `search_metadata` to verify object types and attribute names when designing form layouts.

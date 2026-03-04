@@ -1,43 +1,51 @@
 ---
 name: 1c-mxl-compile
-description: "Compile a 1C spreadsheet document (MXL/Template.xml) from a JSON definition. Use when generating print form layouts from a DSL specification."
+description: Компиляция табличного документа (MXL) из JSON-определения. Используй когда нужно создать макет печатной формы
+argument-hint: <JsonPath> <OutputPath>
+allowed-tools:
+  - Bash
+  - Read
+  - Write
+  - Glob
 ---
 
-# 1C MXL Compile — Spreadsheet Layout Compiler from DSL
+# /mxl-compile — Компилятор макета из DSL
 
-Takes a compact JSON definition and generates a correct Template.xml for a 1C spreadsheet document. The agent describes *what* is needed (areas, parameters, styles), the script ensures XML *correctness* (palettes, indices, merges, namespaces).
+Принимает компактное JSON-определение макета и генерирует корректный Template.xml для табличного документа 1С. Claude описывает *что* нужно (области, параметры, стили), скрипт обеспечивает *корректность* XML (палитры, индексы, объединения, namespace).
 
-## Usage
+## Использование
 
 ```
-1c-mxl-compile <JsonPath> <OutputPath>
+/mxl-compile <JsonPath> <OutputPath>
 ```
 
-| Parameter | Required | Description |
-|-----------|:--------:|-------------|
-| JsonPath | yes | Path to JSON layout definition |
-| OutputPath | yes | Path for generated Template.xml |
+## Параметры
 
-## Command
+| Параметр   | Обязательный | Описание                           |
+|------------|:------------:|------------------------------------|
+| JsonPath   | да           | Путь к JSON-определению макета     |
+| OutputPath | да           | Путь для генерации Template.xml    |
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-mxl-compile/scripts/mxl-compile.ps1 -JsonPath "<path>.json" -OutputPath "<path>/Template.xml"
+powershell.exe -NoProfile -File skills/1c-mxl-compile/scripts/mxl-compile.ps1 -JsonPath "<путь>.json" -OutputPath "<путь>/Template.xml"
 ```
 
-## Workflow
+## Рабочий процесс
 
-1. Write JSON definition (Write tool) → `.json` file
-2. Run `1c-mxl-compile` to generate Template.xml
-3. Run `1c-mxl-validate` to verify correctness
-4. Run `1c-mxl-info` to verify structure
+1. Claude пишет JSON-определение (Write tool) → файл `.json`
+2. Claude вызывает `/mxl-compile` для генерации Template.xml
+3. Claude вызывает `/mxl-validate` для проверки корректности
+4. Claude вызывает `/mxl-info` для верификации структуры
 
-**If creating a layout from an image** (screenshot, scanned print form) — first use `img-grid-analysis` skill to overlay a grid, determine column boundaries and proportions, then use `"Nx"` widths + `"page"` for automatic size calculation.
+**Если макет создаётся по изображению** (скриншот, скан печатной формы) — сначала вызвать `/img-grid` для наложения сетки, по ней определить границы колонок и пропорции, затем использовать `"Nx"` ширины + `"page"` для автоматического расчёта размеров.
 
-## JSON DSL Schema
+## JSON-схема DSL
 
-Full format specification: **`docs/mxl-dsl-spec.md`** (read via Read tool before writing JSON).
+Полная спецификация формата: **`docs/mxl-dsl-spec.md`** (прочитать через Read tool перед написанием JSON).
 
-Brief structure:
+Краткая структура:
 
 ```
 { columns, page, defaultWidth, columnWidths,
@@ -49,13 +57,9 @@ Brief structure:
 }
 ```
 
-Key rules:
-- `page` — page format (`"A4-landscape"`, `"A4-portrait"` or number). Automatically calculates `defaultWidth` from sum of `"Nx"` proportions
-- `col` — 1-based column position
-- `rowStyle` — auto-fills empty cells with style (borders across full width)
-- Fill type is determined automatically: `param` → Parameter, `text` → Text, `template` → Template
-- `rowspan` — vertical cell merging (rowStyle accounts for occupied cells)
-
-## MCP Integration
-
-Use `templatesearch` MCP tool to find existing layout examples. Use `search_metadata` to verify object names used in parameters.
+Ключевые правила:
+- `page` — формат страницы (`"A4-landscape"`, `"A4-portrait"` или число). Автоматически вычисляет `defaultWidth` из суммы пропорций `"Nx"`
+- `col` — 1-based позиция колонки
+- `rowStyle` — автозаполнение пустот стилем (рамки по всей ширине)
+- Тип заполнения определяется автоматически: `param` → Parameter, `text` → Text, `template` → Template
+- `rowspan` — объединение строк вниз (rowStyle учитывает занятые ячейки)
