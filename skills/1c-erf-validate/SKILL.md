@@ -33,7 +33,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-epf-validate/scripts/epf-validate.ps1 -ObjectPath "<путь>"
+powershell.exe -NoProfile -File .claude/skills/epf-validate/scripts/epf-validate.ps1 -ObjectPath "<путь>"
 ```
 
 ## Выполняемые проверки

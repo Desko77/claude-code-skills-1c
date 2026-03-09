@@ -58,6 +58,49 @@ function Emit-MLText {
 
 # --- 5. Type emitter ---
 
+$script:formTypeSynonyms = New-Object System.Collections.Hashtable
+$script:formTypeSynonyms["строка"]   = "string"
+$script:formTypeSynonyms["число"]    = "decimal"
+$script:formTypeSynonyms["булево"]   = "boolean"
+$script:formTypeSynonyms["дата"]     = "date"
+$script:formTypeSynonyms["датавремя"]= "dateTime"
+$script:formTypeSynonyms["number"]   = "decimal"
+$script:formTypeSynonyms["bool"]     = "boolean"
+$script:formTypeSynonyms["справочникссылка"]            = "CatalogRef"
+$script:formTypeSynonyms["справочникобъект"]            = "CatalogObject"
+$script:formTypeSynonyms["документссылка"]              = "DocumentRef"
+$script:formTypeSynonyms["документобъект"]              = "DocumentObject"
+$script:formTypeSynonyms["перечислениессылка"]           = "EnumRef"
+$script:formTypeSynonyms["плансчетовссылка"]             = "ChartOfAccountsRef"
+$script:formTypeSynonyms["планвидовхарактеристикссылка"] = "ChartOfCharacteristicTypesRef"
+$script:formTypeSynonyms["планвидоврасчётассылка"]        = "ChartOfCalculationTypesRef"
+$script:formTypeSynonyms["планвидоврасчетассылка"]        = "ChartOfCalculationTypesRef"
+$script:formTypeSynonyms["планобменассылка"]              = "ExchangePlanRef"
+$script:formTypeSynonyms["бизнеспроцессссылка"]           = "BusinessProcessRef"
+$script:formTypeSynonyms["задачассылка"]                  = "TaskRef"
+$script:formTypeSynonyms["определяемыйтип"]             = "DefinedType"
+
+function Resolve-TypeStr {
+	param([string]$typeStr)
+	if (-not $typeStr) { return $typeStr }
+	if ($typeStr -match '^([^(]+)\((.+)\)$') {
+		$base = $Matches[1].Trim(); $params = $Matches[2]
+		$r = $script:formTypeSynonyms[$base.ToLower()]
+		if ($r) { return "$r($params)" }
+		return $typeStr
+	}
+	if ($typeStr.Contains('.')) {
+		$i = $typeStr.IndexOf('.')
+		$prefix = $typeStr.Substring(0, $i); $suffix = $typeStr.Substring($i)
+		$r = $script:formTypeSynonyms[$prefix.ToLower()]
+		if ($r) { return "$r$suffix" }
+		return $typeStr
+	}
+	$r = $script:formTypeSynonyms[$typeStr.ToLower()]
+	if ($r) { return $r }
+	return $typeStr
+}
+
 function Emit-Type {
 	param($typeStr, [string]$indent)
 
@@ -68,8 +111,8 @@ function Emit-Type {
 
 	$typeString = "$typeStr"
 
-	# Composite type: "Type1 | Type2"
-	$parts = $typeString -split '\s*\|\s*'
+	# Composite type: "Type1 | Type2" or "Type1 + Type2"
+	$parts = $typeString -split '\s*[|+]\s*'
 
 	X "$indent<Type>"
 	foreach ($part in $parts) {
@@ -81,6 +124,8 @@ function Emit-Type {
 
 function Emit-SingleType {
 	param([string]$typeStr, [string]$indent)
+
+	$typeStr = Resolve-TypeStr $typeStr
 
 	# boolean
 	if ($typeStr -eq "boolean") {
@@ -1136,6 +1181,71 @@ if (-not (Test-Path $outDir)) {
 
 $enc = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($outPath, $xml.ToString(), $enc)
+
+# --- 13b. Auto-register form in parent object XML ---
+
+# Infer parent from OutputPath: .../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml
+$formXmlDir   = [System.IO.Path]::GetDirectoryName($outPath)
+$formNameDir  = [System.IO.Path]::GetDirectoryName($formXmlDir)
+$formsDir     = [System.IO.Path]::GetDirectoryName($formNameDir)
+$objectDir    = [System.IO.Path]::GetDirectoryName($formsDir)
+$typePluralDir = [System.IO.Path]::GetDirectoryName($objectDir)
+
+$formName   = [System.IO.Path]::GetFileName($formNameDir)
+$objectName = [System.IO.Path]::GetFileName($objectDir)
+$formsLeaf  = [System.IO.Path]::GetFileName($formsDir)
+
+if ($formsLeaf -eq 'Forms') {
+	$objectXmlPath = Join-Path $typePluralDir "$objectName.xml"
+	if (Test-Path $objectXmlPath) {
+		$objDoc = New-Object System.Xml.XmlDocument
+		$objDoc.PreserveWhitespace = $true
+		$objDoc.Load($objectXmlPath)
+
+		$nsMgr = New-Object System.Xml.XmlNamespaceManager($objDoc.NameTable)
+		$nsMgr.AddNamespace("md", "http://v8.1c.ru/8.3/MDClasses")
+
+		$childObjects = $objDoc.SelectSingleNode("//md:ChildObjects", $nsMgr)
+		if ($childObjects) {
+			$existing = $childObjects.SelectSingleNode("md:Form[text()='$formName']", $nsMgr)
+			if (-not $existing) {
+				$formElem = $objDoc.CreateElement("Form", "http://v8.1c.ru/8.3/MDClasses")
+				$formElem.InnerText = $formName
+
+				$insertBefore = $childObjects.SelectSingleNode("md:Template", $nsMgr)
+				if (-not $insertBefore) { $insertBefore = $childObjects.SelectSingleNode("md:TabularSection", $nsMgr) }
+
+				if ($insertBefore) {
+					$childObjects.InsertBefore($formElem, $insertBefore) | Out-Null
+					$ws = $objDoc.CreateWhitespace("`n`t`t`t")
+					$childObjects.InsertBefore($ws, $insertBefore) | Out-Null
+				} else {
+					$lastChild = $childObjects.LastChild
+					if ($lastChild -and $lastChild.NodeType -eq [System.Xml.XmlNodeType]::Whitespace) {
+						$childObjects.InsertBefore($objDoc.CreateWhitespace("`n`t`t`t"), $lastChild) | Out-Null
+						$childObjects.InsertBefore($formElem, $lastChild) | Out-Null
+					} else {
+						$childObjects.AppendChild($objDoc.CreateWhitespace("`n`t`t`t")) | Out-Null
+						$childObjects.AppendChild($formElem) | Out-Null
+						$childObjects.AppendChild($objDoc.CreateWhitespace("`n`t`t")) | Out-Null
+					}
+				}
+
+				$regEnc = New-Object System.Text.UTF8Encoding($true)
+				$regSettings = New-Object System.Xml.XmlWriterSettings
+				$regSettings.Encoding = $regEnc
+				$regSettings.Indent = $false
+				$regStream = New-Object System.IO.FileStream($objectXmlPath, [System.IO.FileMode]::Create)
+				$regWriter = [System.Xml.XmlWriter]::Create($regStream, $regSettings)
+				$objDoc.Save($regWriter)
+				$regWriter.Close()
+				$regStream.Close()
+
+				Write-Host "     Registered: <Form>$formName</Form> in $objectName.xml"
+			}
+		}
+	}
+}
 
 # --- 14. Summary ---
 

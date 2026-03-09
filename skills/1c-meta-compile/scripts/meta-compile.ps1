@@ -1,4 +1,4 @@
-﻿# meta-compile v1.0 — Compile 1C metadata object from JSON
+﻿# meta-compile v1.2 — Compile 1C metadata object from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -20,6 +20,28 @@ if (-not (Test-Path $JsonPath)) {
 
 $json = Get-Content -Raw -Encoding UTF8 $JsonPath
 $def = $json | ConvertFrom-Json
+
+# --- Batch mode: JSON array of objects ---
+if ($def -is [array] -or ($null -ne $def -and $def.GetType().BaseType.Name -eq 'Array')) {
+	$batchOk = 0
+	$batchFail = 0
+	$idx = 0
+	foreach ($item in $def) {
+		$idx++
+		$tmpJson = Join-Path ([System.IO.Path]::GetTempPath()) "meta-compile-batch-$idx.json"
+		try {
+			$item | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 $tmpJson
+			$proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -File `"$PSCommandPath`" -JsonPath `"$tmpJson`" -OutputDir `"$OutputDir`"" -NoNewWindow -Wait -PassThru
+			if ($proc.ExitCode -eq 0) { $batchOk++ } else { $batchFail++ }
+		} finally {
+			Remove-Item $tmpJson -Force -ErrorAction SilentlyContinue
+		}
+	}
+	Write-Host ""
+	Write-Host "=== Batch: $idx objects, $batchOk compiled, $batchFail failed ==="
+	if ($batchFail -gt 0) { exit 1 }
+	exit 0
+}
 
 # Normalize field synonyms: accept "objectType" as alias for "type"
 if (-not $def.type -and $def.objectType) {
@@ -163,6 +185,10 @@ $script:typeSynonyms["бизнеспроцессссылка"]            = "Bus
 $script:typeSynonyms["задачассылка"]                   = "TaskRef"
 $script:typeSynonyms["определяемыйтип"]              = "DefinedType"
 $script:typeSynonyms["definedtype"]                   = "DefinedType"
+# English lowercase ref synonyms
+$script:typeSynonyms["catalogref"]                    = "CatalogRef"
+$script:typeSynonyms["documentref"]                   = "DocumentRef"
+$script:typeSynonyms["enumref"]                       = "EnumRef"
 
 function Resolve-TypeStr {
 	param([string]$typeStr)
@@ -198,6 +224,15 @@ function Emit-TypeContent {
 	param([string]$indent, [string]$typeStr)
 	if (-not $typeStr) { return }
 
+	# Composite type: "Type1 + Type2 + Type3"
+	if ($typeStr.Contains(' + ')) {
+		$parts = $typeStr -split '\s*\+\s*'
+		foreach ($part in $parts) {
+			Emit-TypeContent $indent $part.Trim()
+		}
+		return
+	}
+
 	$typeStr = Resolve-TypeStr $typeStr
 
 	# Boolean
@@ -208,12 +243,23 @@ function Emit-TypeContent {
 
 	# String or String(N)
 	if ($typeStr -match '^String(\((\d+)\))?$') {
-		$len = if ($Matches[2]) { $Matches[2] } else { "0" }
+		$len = if ($Matches[2]) { $Matches[2] } else { "10" }
 		X "$indent<v8:Type>xs:string</v8:Type>"
 		X "$indent<v8:StringQualifiers>"
 		X "$indent`t<v8:Length>$len</v8:Length>"
 		X "$indent`t<v8:AllowedLength>Variable</v8:AllowedLength>"
 		X "$indent</v8:StringQualifiers>"
+		return
+	}
+
+	# Number without params → Number(10,0)
+	if ($typeStr -eq "Number") {
+		X "$indent<v8:Type>xs:decimal</v8:Type>"
+		X "$indent<v8:NumberQualifiers>"
+		X "$indent`t<v8:Digits>10</v8:Digits>"
+		X "$indent`t<v8:FractionDigits>0</v8:FractionDigits>"
+		X "$indent`t<v8:AllowedSign>Any</v8:AllowedSign>"
+		X "$indent</v8:NumberQualifiers>"
 		return
 	}
 
@@ -254,9 +300,15 @@ function Emit-TypeContent {
 		return
 	}
 
-	# Reference types: CatalogRef.XXX, DocumentRef.XXX, etc.
+	# ValueStorage
+	if ($typeStr -eq "ValueStorage") {
+		X "$indent<v8:Type>xs:base64Binary</v8:Type>"
+		return
+	}
+
+	# Reference types — use local xmlns declaration for 1C compatibility
 	if ($typeStr -match '^(CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef)\.(.+)$') {
-		X "$indent<v8:Type>cfg:$typeStr</v8:Type>"
+		X "$indent<v8:Type xmlns:d5p1=`"http://v8.1c.ru/8.1/data/enterprise/current-config`">d5p1:$typeStr</v8:Type>"
 		return
 	}
 
@@ -302,6 +354,21 @@ function Emit-FillValue {
 
 # --- 5. Attribute shorthand parser ---
 
+function Build-TypeStr {
+	param($obj)
+	$t = if ($obj.valueType) { "$($obj.valueType)" } elseif ($obj.type) { "$($obj.type)" } else { "" }
+	if ($t -and -not $t.Contains('(')) {
+		if ($t -eq "String" -and $obj.length) {
+			$t = "String($($obj.length))"
+		} elseif ($t -eq "Number" -and $obj.length) {
+			$p = if ($obj.precision) { $obj.precision } else { 0 }
+			$nn = if ($obj.nonneg -or $obj.nonnegative) { ",nonneg" } else { "" }
+			$t = "Number($($obj.length),$p$nn)"
+		}
+	}
+	return $t
+}
+
 function Parse-AttributeShorthand {
 	param($val)
 
@@ -338,7 +405,7 @@ function Parse-AttributeShorthand {
 	$name = "$($val.name)"
 	return @{
 		name    = $name
-		type    = if ($val.type) { "$($val.type)" } else { "" }
+		type    = Build-TypeStr $val
 		synonym = if ($val.synonym) { "$($val.synonym)" } else { Split-CamelCase $name }
 		comment = if ($val.comment) { "$($val.comment)" } else { "" }
 		flags   = @(if ($val.flags) { $val.flags } else { @() })
@@ -412,12 +479,13 @@ $script:generatedTypes = @{
 		@{ prefix = "AccumulationRegisterRecordKey"; category = "RecordKey" }
 	)
 	"AccountingRegister" = @(
-		@{ prefix = "AccountingRegisterRecord";    category = "Record" }
-		@{ prefix = "AccountingRegisterManager";   category = "Manager" }
-		@{ prefix = "AccountingRegisterSelection"; category = "Selection" }
-		@{ prefix = "AccountingRegisterList";      category = "List" }
-		@{ prefix = "AccountingRegisterRecordSet"; category = "RecordSet" }
-		@{ prefix = "AccountingRegisterRecordKey"; category = "RecordKey" }
+		@{ prefix = "AccountingRegisterRecord";         category = "Record" }
+		@{ prefix = "AccountingRegisterExtDimensions";  category = "ExtDimensions" }
+		@{ prefix = "AccountingRegisterRecordSet";      category = "RecordSet" }
+		@{ prefix = "AccountingRegisterRecordKey";      category = "RecordKey" }
+		@{ prefix = "AccountingRegisterSelection";      category = "Selection" }
+		@{ prefix = "AccountingRegisterList";           category = "List" }
+		@{ prefix = "AccountingRegisterManager";        category = "Manager" }
 	)
 	"CalculationRegister" = @(
 		@{ prefix = "CalculationRegisterRecord";    category = "Record" }
@@ -426,20 +494,24 @@ $script:generatedTypes = @{
 		@{ prefix = "CalculationRegisterList";      category = "List" }
 		@{ prefix = "CalculationRegisterRecordSet"; category = "RecordSet" }
 		@{ prefix = "CalculationRegisterRecordKey"; category = "RecordKey" }
+		@{ prefix = "RecalculationsManager";        category = "Recalcs" }
 	)
 	"ChartOfAccounts" = @(
-		@{ prefix = "ChartOfAccountsObject";    category = "Object" }
-		@{ prefix = "ChartOfAccountsRef";       category = "Ref" }
-		@{ prefix = "ChartOfAccountsSelection"; category = "Selection" }
-		@{ prefix = "ChartOfAccountsList";      category = "List" }
-		@{ prefix = "ChartOfAccountsManager";   category = "Manager" }
+		@{ prefix = "ChartOfAccountsObject";              category = "Object" }
+		@{ prefix = "ChartOfAccountsRef";                 category = "Ref" }
+		@{ prefix = "ChartOfAccountsSelection";           category = "Selection" }
+		@{ prefix = "ChartOfAccountsList";                category = "List" }
+		@{ prefix = "ChartOfAccountsManager";             category = "Manager" }
+		@{ prefix = "ChartOfAccountsExtDimensionTypes";   category = "ExtDimensionTypes" }
+		@{ prefix = "ChartOfAccountsExtDimensionTypesRow"; category = "ExtDimensionTypesRow" }
 	)
 	"ChartOfCharacteristicTypes" = @(
-		@{ prefix = "ChartOfCharacteristicTypesObject";    category = "Object" }
-		@{ prefix = "ChartOfCharacteristicTypesRef";       category = "Ref" }
-		@{ prefix = "ChartOfCharacteristicTypesSelection"; category = "Selection" }
-		@{ prefix = "ChartOfCharacteristicTypesList";      category = "List" }
-		@{ prefix = "ChartOfCharacteristicTypesManager";   category = "Manager" }
+		@{ prefix = "ChartOfCharacteristicTypesObject";         category = "Object" }
+		@{ prefix = "ChartOfCharacteristicTypesRef";            category = "Ref" }
+		@{ prefix = "ChartOfCharacteristicTypesSelection";      category = "Selection" }
+		@{ prefix = "ChartOfCharacteristicTypesList";           category = "List" }
+		@{ prefix = "ChartOfCharacteristicTypesCharacteristic"; category = "Characteristic" }
+		@{ prefix = "ChartOfCharacteristicTypesManager";        category = "Manager" }
 	)
 	"ChartOfCalculationTypes" = @(
 		@{ prefix = "ChartOfCalculationTypesObject";    category = "Object" }
@@ -448,15 +520,19 @@ $script:generatedTypes = @{
 		@{ prefix = "ChartOfCalculationTypesList";      category = "List" }
 		@{ prefix = "ChartOfCalculationTypesManager";   category = "Manager" }
 		@{ prefix = "DisplacingCalculationTypes";       category = "DisplacingCalculationTypes" }
+		@{ prefix = "DisplacingCalculationTypesRow";    category = "DisplacingCalculationTypesRow" }
 		@{ prefix = "BaseCalculationTypes";             category = "BaseCalculationTypes" }
+		@{ prefix = "BaseCalculationTypesRow";          category = "BaseCalculationTypesRow" }
 		@{ prefix = "LeadingCalculationTypes";          category = "LeadingCalculationTypes" }
+		@{ prefix = "LeadingCalculationTypesRow";       category = "LeadingCalculationTypesRow" }
 	)
 	"BusinessProcess" = @(
-		@{ prefix = "BusinessProcessObject";    category = "Object" }
-		@{ prefix = "BusinessProcessRef";       category = "Ref" }
-		@{ prefix = "BusinessProcessSelection"; category = "Selection" }
-		@{ prefix = "BusinessProcessList";      category = "List" }
-		@{ prefix = "BusinessProcessManager";   category = "Manager" }
+		@{ prefix = "BusinessProcessObject";        category = "Object" }
+		@{ prefix = "BusinessProcessRef";            category = "Ref" }
+		@{ prefix = "BusinessProcessSelection";      category = "Selection" }
+		@{ prefix = "BusinessProcessList";           category = "List" }
+		@{ prefix = "BusinessProcessManager";        category = "Manager" }
+		@{ prefix = "BusinessProcessRoutePointRef";  category = "RoutePointRef" }
 	)
 	"Task" = @(
 		@{ prefix = "TaskObject";    category = "Object" }
@@ -472,16 +548,21 @@ $script:generatedTypes = @{
 		@{ prefix = "ExchangePlanList";      category = "List" }
 		@{ prefix = "ExchangePlanManager";   category = "Manager" }
 	)
+	"DefinedType" = @(
+		@{ prefix = "DefinedType"; category = "DefinedType" }
+	)
 	"DocumentJournal" = @(
 		@{ prefix = "DocumentJournalSelection"; category = "Selection" }
 		@{ prefix = "DocumentJournalList";      category = "List" }
 		@{ prefix = "DocumentJournalManager";   category = "Manager" }
 	)
 	"Report" = @(
-		@{ prefix = "ReportObject"; category = "Object" }
+		@{ prefix = "ReportObject";  category = "Object" }
+		@{ prefix = "ReportManager"; category = "Manager" }
 	)
 	"DataProcessor" = @(
-		@{ prefix = "DataProcessorObject"; category = "Object" }
+		@{ prefix = "DataProcessorObject";  category = "Object" }
+		@{ prefix = "DataProcessorManager"; category = "Manager" }
 	)
 }
 
@@ -575,9 +656,26 @@ function Emit-TabularStandardAttributes {
 
 # --- 8. Attribute emitter ---
 
+$script:reservedAttrNames = @{
+	"Ref"="Ссылка"; "DeletionMark"="ПометкаУдаления"; "Code"="Код"; "Description"="Наименование"
+	"Date"="Дата"; "Number"="Номер"; "Posted"="Проведен"; "Parent"="Родитель"; "Owner"="Владелец"
+	"IsFolder"="ЭтоГруппа"; "Predefined"="Предопределенный"; "PredefinedDataName"="ИмяПредопределенныхДанных"
+	"Recorder"="Регистратор"; "Period"="Период"; "LineNumber"="НомерСтроки"; "Active"="Активность"
+	"Order"="Порядок"; "Type"="Тип"; "OffBalance"="Забалансовый"
+	"Started"="Стартован"; "Completed"="Завершен"; "HeadTask"="ВедущаяЗадача"
+	"Executed"="Выполнена"; "RoutePoint"="ТочкаМаршрута"; "BusinessProcess"="БизнесПроцесс"
+	"ThisNode"="ЭтотУзел"; "SentNo"="НомерОтправленного"; "ReceivedNo"="НомерПринятого"
+	"CalculationType"="ВидРасчета"; "RegistrationPeriod"="ПериодРегистрации"; "ReversingEntry"="СторноЗапись"
+	"Account"="Счет"; "ValueType"="ТипЗначения"; "ActionPeriodIsBasic"="ПериодДействияБазовый"
+}
+
 function Emit-Attribute {
 	param([string]$indent, $parsed, [string]$context)
 	# $context: "catalog", "document", "object", "processor", "tabular", "processor-tabular", "register"
+	$attrName = $parsed.name
+	if ($script:reservedAttrNames.ContainsKey($attrName) -or $script:reservedAttrNames.ContainsValue($attrName)) {
+		Write-Warning "Attribute '$attrName' conflicts with a standard attribute name. This may cause errors when loading into 1C."
+	}
 	$uuid = New-Guid-String
 	X "$indent<Attribute uuid=`"$uuid`">"
 	X "$indent`t<Properties>"
@@ -1038,7 +1136,7 @@ function Emit-DocumentProperties {
 	if ($regRecords.Count -gt 0) {
 		X "$i<RegisterRecords>"
 		foreach ($rr in $regRecords) {
-			X "$i`t<xr:Record>$rr</xr:Record>"
+			X "$i`t<xr:Item xsi:type=`"xr:MDObjectRef`">$rr</xr:Item>"
 		}
 		X "$i</RegisterRecords>"
 	} else {
@@ -1100,7 +1198,8 @@ function Emit-ConstantProperties {
 	X "$i<Comment/>"
 
 	# Type
-	$valueType = if ($def.valueType) { "$($def.valueType)" } else { "String" }
+	$valueType = Build-TypeStr $def
+	if (-not $valueType) { $valueType = "String" }
 	Emit-ValueType $i $valueType
 
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
@@ -1225,17 +1324,19 @@ function Emit-DefinedTypeProperties {
 	Emit-MLText $i "Synonym" $synonym
 	X "$i<Comment/>"
 
-	# Type — composite type with multiple v8:Type entries
+	# Type — composite type with multiple v8:Type entries (accept both valueType and valueTypes)
 	$valueTypes = @()
 	if ($def.valueTypes) {
 		$valueTypes = @($def.valueTypes)
+	} elseif ($def.valueType) {
+		$valueTypes = @($def.valueType)
 	}
 	if ($valueTypes.Count -gt 0) {
 		X "$i<Type>"
 		foreach ($vt in $valueTypes) {
 			$resolved = Resolve-TypeStr "$vt"
 			if ($resolved -match '^(CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef)\.') {
-				X "$i`t<v8:Type>cfg:$resolved</v8:Type>"
+				X "$i`t<v8:Type xmlns:d5p1=`"http://v8.1c.ru/8.1/data/enterprise/current-config`">d5p1:$resolved</v8:Type>"
 			} elseif ($resolved -eq "Boolean") {
 				X "$i`t<v8:Type>xs:boolean</v8:Type>"
 			} elseif ($resolved -match '^String') {
@@ -1305,6 +1406,10 @@ function Emit-ScheduledJobProperties {
 	X "$i<Comment/>"
 
 	$methodName = if ($def.methodName) { "$($def.methodName)" } else { "" }
+	# Ensure CommonModule. prefix
+	if ($methodName -and -not $methodName.StartsWith("CommonModule.")) {
+		$methodName = "CommonModule.$methodName"
+	}
 	X "$i<MethodName>$(Esc-Xml $methodName)</MethodName>"
 
 	$description = if ($def.description) { "$($def.description)" } else { $synonym }
@@ -1340,7 +1445,7 @@ function Emit-EventSubscriptionProperties {
 		X "$i<Source>"
 		foreach ($src in $sources) {
 			$resolved = Resolve-TypeStr "$src"
-			X "$i`t<v8:Type>cfg:$resolved</v8:Type>"
+			X "$i`t<v8:Type xmlns:d5p1=`"http://v8.1c.ru/8.1/data/enterprise/current-config`">d5p1:$resolved</v8:Type>"
 		}
 		X "$i</Source>"
 	} else {
@@ -1351,6 +1456,10 @@ function Emit-EventSubscriptionProperties {
 	X "$i<Event>$event</Event>"
 
 	$handler = if ($def.handler) { "$($def.handler)" } else { "" }
+	# Ensure CommonModule. prefix
+	if ($handler -and -not $handler.StartsWith("CommonModule.")) {
+		$handler = "CommonModule.$handler"
+	}
 	X "$i<Handler>$(Esc-Xml $handler)</Handler>"
 }
 
@@ -1423,19 +1532,13 @@ function Emit-ExchangePlanProperties {
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "100" }
-	$codeType = if ($def.codeType) { "$($def.codeType)" } else { "String" }
 	$codeAllowedLength = if ($def.codeAllowedLength) { "$($def.codeAllowedLength)" } else { "Variable" }
-	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
-	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
 
 	X "$i<CodeLength>$codeLength</CodeLength>"
-	X "$i<CodeType>$codeType</CodeType>"
 	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
 	X "$i<EditType>InDialog</EditType>"
-	X "$i<CheckUnique>$checkUnique</CheckUnique>"
-	X "$i<Autonumbering>$autonumbering</Autonumbering>"
 
 	Emit-StandardAttributes $i "ExchangePlan"
 
@@ -1492,13 +1595,11 @@ function Emit-ChartOfCharacteristicTypesProperties {
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
-	$codeType = if ($def.codeType) { "$($def.codeType)" } else { "String" }
 	$codeAllowedLength = if ($def.codeAllowedLength) { "$($def.codeAllowedLength)" } else { "Variable" }
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
 	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
 
 	X "$i<CodeLength>$codeLength</CodeLength>"
-	X "$i<CodeType>$codeType</CodeType>"
 	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<CheckUnique>$checkUnique</CheckUnique>"
@@ -1524,7 +1625,7 @@ function Emit-ChartOfCharacteristicTypesProperties {
 		X "$i`t<v8:Type>xs:boolean</v8:Type>"
 		X "$i`t<v8:Type>xs:string</v8:Type>"
 		X "$i`t<v8:StringQualifiers>"
-		X "$i`t`t<v8:Length>0</v8:Length>"
+		X "$i`t`t<v8:Length>100</v8:Length>"
 		X "$i`t`t<v8:AllowedLength>Variable</v8:AllowedLength>"
 		X "$i`t</v8:StringQualifiers>"
 		X "$i`t<v8:Type>xs:decimal</v8:Type>"
@@ -1668,13 +1769,9 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<CodeSeries>$codeSeries</CodeSeries>"
 	X "$i<CheckUnique>false</CheckUnique>"
-	X "$i<Autonumbering>true</Autonumbering>"
 	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
 	X "$i<AutoOrderByCode>$autoOrder</AutoOrderByCode>"
 	X "$i<OrderLength>$orderLength</OrderLength>"
-
-	$hierarchical = if ($def.hierarchical -eq $true) { "true" } else { "false" }
-	X "$i<Hierarchical>$hierarchical</Hierarchical>"
 
 	X "$i<EditType>InDialog</EditType>"
 
@@ -1779,18 +1876,14 @@ function Emit-ChartOfCalculationTypesProperties {
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
 	$codeType = if ($def.codeType) { "$($def.codeType)" } else { "String" }
 	$codeAllowedLength = if ($def.codeAllowedLength) { "$($def.codeAllowedLength)" } else { "Variable" }
-	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
-	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
 
 	X "$i<CodeLength>$codeLength</CodeLength>"
 	X "$i<CodeType>$codeType</CodeType>"
 	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
-	X "$i<CheckUnique>$checkUnique</CheckUnique>"
-	X "$i<Autonumbering>$autonumbering</Autonumbering>"
 
-	$dependence = if ($def.dependenceOnCalculationTypes) { "$($def.dependenceOnCalculationTypes)" } else { "NotUsed" }
+	$dependence = if ($def.dependenceOnCalculationTypes) { "$($def.dependenceOnCalculationTypes)" } else { "DontUse" }
 	X "$i<DependenceOnCalculationTypes>$dependence</DependenceOnCalculationTypes>"
 
 	# BaseCalculationTypes
@@ -1923,6 +2016,13 @@ function Emit-BusinessProcessProperties {
 
 	Emit-StandardAttributes $i "BusinessProcess"
 	X "$i<Characteristics/>"
+
+	$task = if ($def.task) { "$($def.task)" } else { "" }
+	if ($task) {
+		X "$i<Task>$task</Task>"
+	} else {
+		X "$i<Task/>"
+	}
 
 	X "$i<BasedOn/>"
 	X "$i<InputByString>"
@@ -2313,13 +2413,11 @@ function Emit-AddressingAttribute {
 	$addressingDimension = ""
 	$indexing = "Index"
 
-	if ($addrDef -is [string]) {
-		$name = "$addrDef"
-		$attrSynonym = Split-CamelCase $name
-	} else {
-		$name = "$($addrDef.name)"
-		$attrSynonym = if ($addrDef.synonym) { "$($addrDef.synonym)" } else { Split-CamelCase $name }
-		if ($addrDef.type) { $typeStr = "$($addrDef.type)" }
+	$parsed = Parse-AttributeShorthand $addrDef
+	$name = $parsed.name
+	$attrSynonym = $parsed.synonym
+	$typeStr = $parsed.type
+	if ($addrDef -isnot [string]) {
 		if ($addrDef.addressingDimension) { $addressingDimension = "$($addrDef.addressingDimension)" }
 		if ($addrDef.indexing) { $indexing = "$($addrDef.indexing)" }
 	}
@@ -2691,7 +2789,7 @@ if ($objType -in $typesWithModule) {
 if ($objType -eq "ExchangePlan") {
 	$contentPath = Join-Path $extDir "Content.xml"
 	if (-not (Test-Path $contentPath)) {
-		$contentXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<ExchangePlanContent xmlns=`"http://v8.1c.ru/8.3/MDClasses`" xmlns:xs=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`"/>`r`n"
+		$contentXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<ExchangePlanContent xmlns=`"http://v8.1c.ru/8.3/xcf/extrnprops`" xmlns:xr=`"http://v8.1c.ru/8.3/xcf/readable`" version=`"2.17`"/>`r`n"
 		[System.IO.File]::WriteAllText($contentPath, $contentXml, $enc)
 		$modulesCreated += $contentPath
 	}
@@ -2699,7 +2797,7 @@ if ($objType -eq "ExchangePlan") {
 if ($objType -eq "BusinessProcess") {
 	$flowchartPath = Join-Path $extDir "Flowchart.xml"
 	if (-not (Test-Path $flowchartPath)) {
-		$flowchartXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<Flowchart xmlns=`"http://v8.1c.ru/8.3/MDClasses`"/>`r`n"
+		$flowchartXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<Flowchart xmlns=`"http://v8.1c.ru/8.3/MDClasses`" version=`"2.17`"/>`r`n"
 		[System.IO.File]::WriteAllText($flowchartPath, $flowchartXml, $enc)
 		$modulesCreated += $flowchartPath
 	}
@@ -2824,4 +2922,25 @@ switch ($regResult) {
 	"already"     { Write-Host "     Configuration.xml: <$childTag>$objName</$childTag> already registered" }
 	"no-childobj" { Write-Warning "Configuration.xml found but <ChildObjects> not found" }
 	"no-config"   { Write-Host "     Configuration.xml: not found at $configXmlPath (register manually)" }
+}
+
+# Cross-reference hints
+if ($objType -eq "AccountingRegister" -and -not $def.chartOfAccounts) {
+	Write-Host "[HINT] AccountingRegister requires ChartOfAccounts reference:"
+	Write-Host "       /meta-edit -Operation modify-property -Value `"ChartOfAccounts=ChartOfAccounts.XXX`""
+}
+if ($objType -eq "CalculationRegister" -and -not $def.chartOfCalculationTypes) {
+	Write-Host "[HINT] CalculationRegister requires ChartOfCalculationTypes reference:"
+	Write-Host "       /meta-edit -Operation modify-property -Value `"ChartOfCalculationTypes=ChartOfCalculationTypes.XXX`""
+}
+if ($objType -eq "BusinessProcess" -and -not $def.task) {
+	Write-Host "[HINT] BusinessProcess requires Task reference:"
+	Write-Host "       /meta-edit -Operation modify-property -Value `"Task=Task.XXX`""
+}
+if ($objType -eq "ChartOfAccounts") {
+	$maxExtDim = if ($null -ne $def.maxExtDimensionCount) { [int]$def.maxExtDimensionCount } else { 0 }
+	if ($maxExtDim -gt 0 -and -not $def.extDimensionTypes) {
+		Write-Host "[HINT] ChartOfAccounts with MaxExtDimensionCount>0 requires ExtDimensionTypes:"
+		Write-Host "       /meta-edit -Operation modify-property -Value `"ExtDimensionTypes=ChartOfCharacteristicTypes.XXX`""
+	}
 }

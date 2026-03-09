@@ -94,9 +94,10 @@ if (-not (Test-Path $V8Path)) {
     exit 1
 }
 
-# --- Validate connection ---
+# --- Validate database connection ---
 if (-not $InfoBasePath -and (-not $InfoBaseServer -or -not $InfoBaseRef)) {
-    Write-Host "Error: specify -InfoBasePath or -InfoBaseServer + -InfoBaseRef" -ForegroundColor Red
+    Write-Host "Error: database connection required. Specify -InfoBasePath or -InfoBaseServer/-InfoBaseRef" -ForegroundColor Red
+    Write-Host "Dump in an empty database loses reference types (CatalogRef, DocumentRef, etc.) irreversibly." -ForegroundColor Yellow
     exit 1
 }
 
@@ -135,7 +136,6 @@ try {
     $outFile = Join-Path $tempDir "dump_log.txt"
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
-    $arguments += "/DisableStartupMessages"
 
     # --- Execute ---
     Write-Host "Running: 1cv8.exe $($arguments -join ' ')"

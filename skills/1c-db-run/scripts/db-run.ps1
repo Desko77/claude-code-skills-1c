@@ -119,6 +119,15 @@ if ($Password) { $argString += " /P`"$Password`"" }
 
 # --- Optional params ---
 if ($Execute) {
+    $ext = [System.IO.Path]::GetExtension($Execute).ToLower()
+    if ($ext -eq ".erf") {
+        Write-Host "[WARN] /Execute не поддерживает ERF-файлы (внешние отчёты)." -ForegroundColor Yellow
+        Write-Host "       Откройте отчёт через «Файл -> Открыть»: $Execute" -ForegroundColor Yellow
+        Write-Host "       Запускаю базу без /Execute." -ForegroundColor Yellow
+        $Execute = ""
+    }
+}
+if ($Execute) {
     $argString += " /Execute `"$Execute`""
 }
 if ($CParam) {
@@ -129,7 +138,6 @@ if ($URL) {
 }
 
 $argString += " /DisableStartupDialogs"
-$argString += " /DisableStartupMessages"
 
 # --- Execute (background, no wait) ---
 Write-Host "Running: 1cv8.exe $argString"

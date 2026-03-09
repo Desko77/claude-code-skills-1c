@@ -1,6 +1,6 @@
 ---
 name: 1c-meta-compile
-description: Создать исходники объекта метаданных 1С (справочник, документ, регистр, перечисление, константа, общий модуль, обработка, HTTP-сервис и др.) в выгрузке конфигурации. Используй когда пользователь просит добавить или создать объект конфигурации
+description: Создать объект метаданных 1С. Используй когда пользователь просит создать или добавить справочник, документ, регистр, перечисление, константу, общий модуль, обработку, отчёт и др.
 argument-hint: <JsonPath> <OutputDir>
 allowed-tools:
   - Bash
@@ -13,99 +13,91 @@ allowed-tools:
 
 Принимает JSON-определение объекта метаданных → генерирует XML + модули в структуре выгрузки конфигурации + регистрирует в Configuration.xml.
 
-## Параметры и команда
+## Порядок работы
 
-| Параметр | Описание |
-|----------|----------|
-| `JsonPath` | Путь к JSON-определению объекта |
-| `OutputDir` | Корневая директория выгрузки конфигурации (где `Catalogs/`, `Documents/` и т.д.) |
+1. Составь JSON по синтаксису и примерам ниже → запиши во временный файл
+2. Запусти скрипт meta-compile
+3. Если нужно изменить созданный объект — `/meta-edit`
+4. Если нужно проверить — `/meta-validate`
+
+## Команда
 
 ```powershell
 powershell.exe -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
 ```
 
-`OutputDir` — директория, содержащая подпапки типов (`Catalogs/`, `Documents/`, ...) и `Configuration.xml`.
+| Параметр | Описание |
+|----------|----------|
+| `JsonPath` | Путь к JSON-файлу (один объект `{...}` или массив `[{...}, ...]`) |
+| `OutputDir` | Корень выгрузки конфигурации (где `Configuration.xml`, `Catalogs/`, `Documents/` и т.д.) |
 
-## Поддерживаемые типы (23)
+## JSON DSL
 
-### Ссылочные
-Catalog (Справочник), Document (Документ), Enum (Перечисление), ExchangePlan (ПланОбмена), ChartOfAccounts (ПланСчетов), ChartOfCharacteristicTypes (ПВХ), ChartOfCalculationTypes (ПВР), BusinessProcess (БизнесПроцесс), Task (Задача)
-
-### Регистры
-InformationRegister (РегистрСведений), AccumulationRegister (РегистрНакопления), AccountingRegister (РегистрБухгалтерии), CalculationRegister (РегистрРасчёта)
-
-### Отчёты/Обработки
-Report (Отчёт), DataProcessor (Обработка)
-
-### Сервисные
-Constant (Константа), DefinedType (ОпределяемыйТип), CommonModule (ОбщийМодуль), ScheduledJob (РегламентноеЗадание), EventSubscription (ПодпискаНаСобытие), DocumentJournal (ЖурналДокументов), HTTPService (HTTPСервис), WebService (ВебСервис)
-
-## JSON DSL — краткий справочник
-
-Полная спецификация: `docs/meta-dsl-spec.md`.
-
-### Корневая структура
+### Общая структура
 
 ```json
-{
-  "type": "Catalog",
-  "name": "Номенклатура",
-  "synonym": "авто из name",
-  ...type-specific...,
-  "attributes": [...],
-  "tabularSections": {...}
-}
+{ "type": "Catalog", "name": "Номенклатура", ...свойства типа... }
 ```
 
-### Реквизиты — shorthand
+`type` и `name` — обязательные. `synonym` генерируется из `name` автоматически (CamelCase → слова через пробел). Можно задать явно: `"synonym": "Мой синоним"`.
+
+### Shorthand реквизитов
+
+Используется в `attributes`, `dimensions`, `resources`, `tabularSections`:
 
 ```
-"ИмяРеквизита"                     — String без квалификаторов
-"ИмяРеквизита: Тип"                — с типом
-"ИмяРеквизита: Тип | req, index"  — с флагами
+"ИмяРеквизита"                    → String(10) по умолчанию
+"ИмяРеквизита: Тип"               → с типом
+"ИмяРеквизита: Тип | req, index"  → с флагами
 ```
 
-Типы: `String(100)`, `Number(15,2)`, `Boolean`, `Date`, `DateTime`, `CatalogRef.Xxx`, `DocumentRef.Xxx`, `EnumRef.Xxx`, `ChartOfAccountsRef.Xxx`, `ChartOfCharacteristicTypesRef.Xxx`, `ChartOfCalculationTypesRef.Xxx`, `ExchangePlanRef.Xxx`, `BusinessProcessRef.Xxx`, `TaskRef.Xxx`, `DefinedType.Xxx`.
+Типы: `String(100)`, `Number(15,2)`, `Boolean`, `Date`, `DateTime`, `CatalogRef.Xxx`, `DocumentRef.Xxx`, `EnumRef.Xxx`, `DefinedType.Xxx` и др. ссылочные.
 
-Русские синонимы типов: `Строка`, `Число`, `Булево`, `Дата`, `СправочникСсылка.Xxx`, `ДокументСсылка.Xxx`, `ПланСчетовСсылка.Xxx`.
+Составной тип: `"Значение: String + Number(15,2) + CatalogRef.Контрагенты"`.
 
 Флаги: `req`, `index`, `indexAdditional`, `nonneg`, `master`, `mainFilter`, `denyIncomplete`, `useInTotals`.
 
-## Примеры
+### Свойства по типам
 
-### Справочник
+Примеров и shorthand-синтаксиса выше достаточно для типовых задач. Если нужны свойства типа, не показанные в примерах, и их допустимые значения — см. reference-файл:
+
+- `reference/types-basic.md` — Catalog, Document, Enum, Constant, DefinedType, Report, DataProcessor
+- `reference/types-registers.md` — InformationRegister, AccumulationRegister, AccountingRegister, CalculationRegister, ChartOfAccounts, ChartOfCharacteristicTypes, ChartOfCalculationTypes
+- `reference/types-process.md` — BusinessProcess, Task, ExchangePlan, CommonModule, ScheduledJob, EventSubscription, DocumentJournal
+- `reference/types-web.md` — HTTPService, WebService
+
+Эта инструкция и reference-файлы — полная документация для генерации. Не ищи примеры XML в выгрузках конфигураций.
+
+## Примеры паттернов DSL
+
+### Минимальный объект
 
 ```json
 { "type": "Catalog", "name": "Валюты" }
 ```
 
-### Перечисление
+### С реквизитами
 
 ```json
-{ "type": "Enum", "name": "Статусы", "values": ["Новый", "Закрыт"] }
+{
+  "type": "Catalog", "name": "Организации",
+  "descriptionLength": 100,
+  "attributes": ["ИНН: String(12)", "КПП: String(9)", "Директор: CatalogRef.ФизическиеЛица"]
+}
 ```
 
-### Константа
+### С табличной частью
 
 ```json
-{ "type": "Constant", "name": "ОсновнаяВалюта", "valueType": "CatalogRef.Валюты" }
+{
+  "type": "Document", "name": "ПриходнаяНакладная",
+  "registerRecords": ["AccumulationRegister.ОстаткиТоваров"],
+  "attributes": ["Организация: CatalogRef.Организации", "Контрагент: CatalogRef.Контрагенты"],
+  "tabularSections": { "Товары": ["Номенклатура: CatalogRef.Номенклатура", "Количество: Number(15,3)", "Цена: Number(15,2)"] }
+}
 ```
 
-### Определяемый тип
-
-```json
-{ "type": "DefinedType", "name": "ДенежныеСредства", "valueTypes": ["CatalogRef.БанковскиеСчета", "CatalogRef.Кассы"] }
-```
-
-### Общий модуль
-
-```json
-{ "type": "CommonModule", "name": "ОбменДаннымиСервер", "context": "server", "returnValuesReuse": "DuringRequest" }
-```
-
-Шорткаты context: `"server"` → Server+ServerCall, `"client"` → ClientManagedApplication, `"serverClient"` → Server+ClientManagedApplication.
-
-### Регистр сведений
+### Регистровый паттерн (измерения + ресурсы)
 
 ```json
 {
@@ -115,70 +107,19 @@ Constant (Константа), DefinedType (ОпределяемыйТип), Com
 }
 ```
 
-### План обмена
+### Batch — несколько объектов в одном файле
 
 ```json
-{ "type": "ExchangePlan", "name": "ОбменССайтом", "attributes": ["АдресСервера: String(200)"] }
-```
-
-### Журнал документов
-
-```json
-{
-  "type": "DocumentJournal", "name": "Взаимодействия",
-  "registeredDocuments": ["Document.Встреча", "Document.ТелефонныйЗвонок"],
-  "columns": [{ "name": "Организация", "indexing": "Index", "references": ["Document.Встреча.Attribute.Организация"] }]
-}
-```
-
-### HTTP-сервис
-
-```json
-{
-  "type": "HTTPService", "name": "API", "rootURL": "api",
-  "urlTemplates": { "Users": { "template": "/v1/users", "methods": { "Get": "GET", "Create": "POST" } } }
-}
-```
-
-### Веб-сервис
-
-```json
-{
-  "type": "WebService", "name": "DataExchange", "namespace": "http://www.1c.ru/DataExchange",
-  "operations": { "TestConnection": { "returnType": "xs:boolean", "handler": "ПроверкаПодключения", "parameters": { "ErrorMessage": { "type": "xs:string", "direction": "Out" } } } }
-}
-```
-
-### План счетов
-
-```json
-{
-  "type": "ChartOfAccounts", "name": "Хозрасчетный",
-  "extDimensionTypes": "ChartOfCharacteristicTypes.ВидыСубконто", "maxExtDimensionCount": 3,
-  "codeMask": "@@@.@@.@", "codeLength": 8,
-  "accountingFlags": ["Валютный", "Количественный"],
-  "extDimensionAccountingFlags": ["Суммовой", "Валютный"]
-}
-```
-
-### Бизнес-процесс
-
-```json
-{ "type": "BusinessProcess", "name": "Задание", "attributes": ["Описание: String(200)"] }
+[
+  { "type": "Enum", "name": "Статусы", "values": ["Новый", "Закрыт"] },
+  { "type": "Catalog", "name": "Валюты" },
+  { "type": "Constant", "name": "ОсновнаяВалюта", "valueType": "CatalogRef.Валюты" }
+]
 ```
 
 ## Что генерируется
 
-- `{OutputDir}/{TypePlural}/{Name}.xml` — метаданные объекта
-- `{OutputDir}/{TypePlural}/{Name}/Ext/ObjectModule.bsl` — модуль объекта (Catalog, Document, Report, DataProcessor, ExchangePlan, ChartOfAccounts, ChartOfCharacteristicTypes, ChartOfCalculationTypes, BusinessProcess, Task)
-- `{OutputDir}/{TypePlural}/{Name}/Ext/RecordSetModule.bsl` — модуль набора записей (4 типа регистров)
-- `{OutputDir}/{TypePlural}/{Name}/Ext/Module.bsl` — модуль (CommonModule, HTTPService, WebService)
-- `{OutputDir}/{TypePlural}/{Name}/Ext/Content.xml` — состав плана обмена (ExchangePlan)
-- `{OutputDir}/{TypePlural}/{Name}/Ext/Flowchart.xml` — карта маршрута (BusinessProcess)
+- `{TypePlural}/{Name}.xml` — метаданные объекта
+- `{TypePlural}/{Name}/Ext/*.bsl` — модули (ObjectModule, RecordSetModule, Module — зависит от типа)
 - `Configuration.xml` — автоматическая регистрация в `<ChildObjects>`
 
-## Верификация
-
-```
-/meta-info <OutputDir>/<TypePlural>/<Name>.xml    — проверка структуры
-```

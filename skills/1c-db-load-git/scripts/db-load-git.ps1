@@ -104,81 +104,15 @@ param(
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# --- Helper: resolve file to list of entries for listFile ---
-# Returns array of relative paths (files and Ext/* wildcards) to include
-function Resolve-ConfigEntries {
-    param(
-        [string]$RelativePath,
-        [string]$ConfigRoot
-    )
+# --- Helper: map BSL path to object XML ---
+function Get-ObjectXmlFromBsl {
+    param([string]$RelativePath)
 
     $parts = $RelativePath -split '[\\/]'
-    $result = @()
-
-    # Find position of "Ext" segment
-    $extPos = -1
-    for ($i = 0; $i -lt $parts.Count; $i++) {
-        if ($parts[$i] -eq "Ext") {
-            $extPos = $i
-            break
-        }
+    if ($parts.Count -ge 2) {
+        return "$($parts[0])/$($parts[1]).xml"
     }
-
-    if ($extPos -lt 0) {
-        # CASE A: No Ext/ in path (XML descriptor or other file outside Ext/)
-        $result += $RelativePath
-        if ($parts.Count -ge 2) {
-            # parts[1] may be "Name.xml" — strip extension to get object folder name
-            $objName = [System.IO.Path]::GetFileNameWithoutExtension($parts[1])
-            $extDir = Join-Path $ConfigRoot (Join-Path $parts[0] (Join-Path $objName "Ext"))
-            if (Test-Path $extDir) {
-                Get-ChildItem -Path $extDir -Recurse -File | ForEach-Object {
-                    $rel = $_.FullName.Substring($ConfigRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
-                    $result += $rel
-                }
-            }
-        }
-    }
-    elseif ($extPos -eq 2) {
-        # CASE B: Ext at position 2 — Type/Name/Ext/... (top-level object module)
-        $rootXml = "$($parts[0])/$($parts[1]).xml"
-        $rootXmlFull = Join-Path $ConfigRoot $rootXml.Replace('/', '\')
-        if (Test-Path $rootXmlFull) {
-            $result += $rootXml
-        }
-        $extDir = Join-Path $ConfigRoot (Join-Path $parts[0] (Join-Path $parts[1] "Ext"))
-        if (Test-Path $extDir) {
-            Get-ChildItem -Path $extDir -Recurse -File | ForEach-Object {
-                $rel = $_.FullName.Substring($ConfigRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
-                $result += $rel
-            }
-        }
-    }
-    else {
-        # CASE C: Ext at position 4+ — Type/Name/SubType/SubName/Ext/... (sub-object)
-        # Root object XML
-        $rootXml = "$($parts[0])/$($parts[1]).xml"
-        $rootXmlFull = Join-Path $ConfigRoot $rootXml.Replace('/', '\')
-        if (Test-Path $rootXmlFull) {
-            $result += $rootXml
-        }
-        # Sub-object XML descriptor: Type/Name/SubType/SubName.xml
-        $subXml = "$($parts[0])/$($parts[1])/$($parts[2])/$($parts[3]).xml"
-        $subXmlFull = Join-Path $ConfigRoot $subXml.Replace('/', '\')
-        if (Test-Path $subXmlFull) {
-            $result += $subXml
-        }
-        # All files from sub-object Ext/ directory
-        $subExtDir = Join-Path $ConfigRoot ($parts[0..($extPos)] -join '\')
-        if (Test-Path $subExtDir) {
-            Get-ChildItem -Path $subExtDir -Recurse -File | ForEach-Object {
-                $rel = $_.FullName.Substring($ConfigRoot.TrimEnd('\', '/').Length + 1).Replace('\', '/')
-                $result += $rel
-            }
-        }
-    }
-
-    return $result
+    return $null
 }
 
 # --- Resolve V8Path (skip if DryRun) ---
@@ -277,8 +211,7 @@ if ($changedFiles.Count -eq 0) {
 Write-Host "Git changes detected: $($changedFiles.Count) files"
 
 # --- Filter and map to config files ---
-$configFileSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-$configDirNorm = $ConfigDir.TrimEnd('\', '/')
+$configFiles = @()
 
 foreach ($file in $changedFiles) {
     $file = $file.Trim().Replace('\', '/')
@@ -287,23 +220,48 @@ foreach ($file in $changedFiles) {
     # Skip service files
     if ($file -eq "ConfigDumpInfo.xml") { continue }
 
-    # Only process .xml, .bsl and .mxl files
-    if ($file -notmatch '\.(xml|bsl|mxl)$') { continue }
-
-    # Resolve all entries this file maps to
-    $entries = Resolve-ConfigEntries -RelativePath $file -ConfigRoot $configDirNorm
-
-    foreach ($entry in $entries) {
-        if (-not [string]::IsNullOrWhiteSpace($entry)) {
-            $fullPath = Join-Path $configDirNorm $entry.Replace('/', '\')
+    # Only process .xml and .bsl files
+    if ($file -match '\.(xml|bsl)$') {
+        # Check file exists in config dir
+        $fullPath = Join-Path $ConfigDir $file
+        if ($file -match '\.xml$') {
             if (Test-Path $fullPath) {
-                [void]$configFileSet.Add($entry)
+                if ($configFiles -notcontains $file) {
+                    $configFiles += $file
+                }
+            }
+        }
+        elseif ($file -match '\.bsl$') {
+            # For BSL: add the BSL itself + parent object XML + all Ext/ files
+            $objectXml = Get-ObjectXmlFromBsl -RelativePath $file
+            if ($objectXml) {
+                $fullXmlPath = Join-Path $ConfigDir $objectXml
+                if (Test-Path $fullXmlPath) {
+                    if ($configFiles -notcontains $objectXml) {
+                        $configFiles += $objectXml
+                    }
+                    if ($configFiles -notcontains $file) {
+                        $configFiles += $file
+                    }
+
+                    # Add all files from Ext/ directory of the object
+                    $parts = $file -split '[\\/]'
+                    if ($parts.Count -ge 2) {
+                        $extDir = Join-Path (Join-Path $ConfigDir $parts[0]) "$($parts[1])\Ext"
+                        if (Test-Path $extDir) {
+                            Get-ChildItem -Path $extDir -Recurse -File | ForEach-Object {
+                                $extRelPath = $_.FullName.Replace("$ConfigDir\", '').Replace('\', '/')
+                                if ($configFiles -notcontains $extRelPath) {
+                                    $configFiles += $extRelPath
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
-
-$configFiles = @($configFileSet)
 
 if ($configFiles.Count -eq 0) {
     Write-Host "No configuration files found in changes"
@@ -359,7 +317,6 @@ try {
     $outFile = Join-Path $tempDir "load_log.txt"
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
-    $arguments += "/DisableStartupMessages"
 
     # --- Execute ---
     Write-Host ""

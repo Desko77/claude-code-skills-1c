@@ -2,7 +2,7 @@
 # switch.py v1.1 — Переключение навыков 1С между AI-платформами и рантаймами
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """
-Копирует навыки из skills/ на другие AI-платформы (Cursor, Codex, Copilot,
+Копирует навыки из .claude/skills/ на другие AI-платформы (Cursor, Codex, Copilot,
 Kiro, Gemini CLI, OpenCode, Windsurf, Kilo Code, Cline, Roo Code, Augment и др.)
 с перезаписью путей, и/или переключает рантайм (PowerShell ↔ Python).
 
@@ -39,10 +39,10 @@ PLATFORMS = {
     'windsurf':    '.windsurf/skills',
 }
 
-SOURCE_PREFIX = 'skills'
+SOURCE_PREFIX = '.claude/skills'
 
 # ---------------------------------------------------------------------------
-# Runtime regex patterns
+# Runtime regex patterns (from switch-to-python.py / switch-to-powershell.py)
 # ---------------------------------------------------------------------------
 RX_PS = re.compile(r'powershell\.exe\s+(?:-NoProfile\s+)?-File\s+(.+?)\.ps1')
 RX_PY = re.compile(r"python\s+('?[\w./_-]+?)\.py")
@@ -54,14 +54,12 @@ def repo_root():
 
 
 def source_skills_dir():
-    return os.path.join(repo_root(), 'skills')
+    return os.path.join(repo_root(), '.claude', 'skills')
 
 
 def scan_skills(skills_dir):
     """Return sorted list of skill directory names that contain SKILL.md."""
     result = []
-    if not os.path.isdir(skills_dir):
-        return result
     for entry in sorted(os.listdir(skills_dir)):
         skill_path = os.path.join(skills_dir, entry)
         if os.path.isdir(skill_path) and os.path.isfile(os.path.join(skill_path, 'SKILL.md')):
@@ -78,7 +76,7 @@ def collect_md_files(skill_dir):
 # Transformations
 # ---------------------------------------------------------------------------
 def rewrite_paths(content, source_prefix, target_prefix):
-    """Replace skills/ path prefix with target platform prefix."""
+    """Replace .claude/skills/ path prefix with target platform prefix."""
     return content.replace(source_prefix + '/', target_prefix + '/')
 
 
@@ -91,6 +89,29 @@ def switch_runtime_content(content, target_runtime):
     else:
         return content, False
     return new, new != content
+
+
+def check_runtime_files(skills_dir, target_runtime, root):
+    """Check that target runtime script files exist. Returns list of warnings."""
+    warnings = []
+    for skill_name in scan_skills(skills_dir):
+        for md_path in collect_md_files(os.path.join(skills_dir, skill_name)):
+            with open(md_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            if target_runtime == 'python':
+                matches = RX_PS.findall(content)
+                for m in matches:
+                    py_path = m.lstrip("'") + '.py'
+                    if not os.path.isfile(os.path.join(root, py_path)):
+                        warnings.append(f"  {py_path} не найден")
+            elif target_runtime == 'powershell':
+                matches = RX_PY.findall(content)
+                for m in matches:
+                    ps1_path = m.lstrip("'") + '.ps1'
+                    if not os.path.isfile(os.path.join(root, ps1_path)):
+                        warnings.append(f"  {ps1_path} не найден")
+    return warnings
 
 
 # ---------------------------------------------------------------------------
@@ -124,9 +145,8 @@ def cmd_install(platform, runtime, project_dir):
         src_skill = os.path.join(src_dir, skill_name)
         dst_skill = os.path.join(target_dir, skill_name)
 
-        # Copy entire skill directory (skip evals/)
-        shutil.copytree(src_skill, dst_skill,
-                        ignore=shutil.ignore_patterns('evals'))
+        # Copy entire skill directory
+        shutil.copytree(src_skill, dst_skill)
 
         # Rewrite paths in all .md files
         for md_path in collect_md_files(dst_skill):
@@ -139,10 +159,12 @@ def cmd_install(platform, runtime, project_dir):
             if runtime == 'python':
                 new_content, _ = switch_runtime_content(new_content, 'python')
 
+                # Check .py files exist in source repo
                 for m in RX_PS.findall(content):
-                    py_path = m.lstrip("'") + '.py'
-                    if not os.path.isfile(os.path.join(repo_root(), py_path)):
-                        warnings.append(f"  {py_path} не найден ({skill_name})")
+                    clean = m.lstrip("'").replace(SOURCE_PREFIX, target_prefix)
+                    original_py = m.lstrip("'") + '.py'
+                    if not os.path.isfile(os.path.join(repo_root(), original_py)):
+                        warnings.append(f"  {original_py} не найден ({skill_name})")
 
             if new_content != content:
                 with open(md_path, 'w', encoding='utf-8') as f:
@@ -183,19 +205,15 @@ def cmd_undo(platform, project_dir):
 
 def cmd_switch_runtime(runtime, project_dir):
     """Switch runtime in-place for skills in the current project."""
-    # Find skills directory: try repo skills/ first, then platform dirs
-    skills_dir = os.path.join(project_dir, 'skills')
-    platform_name = 'repo'
-
-    if not (os.path.isdir(skills_dir) and scan_skills(skills_dir)):
-        # Try platform directories
-        skills_dir = None
-        for name, prefix in PLATFORMS.items():
-            candidate = os.path.join(project_dir, prefix.replace('/', os.sep))
-            if os.path.isdir(candidate) and scan_skills(candidate):
-                skills_dir = candidate
-                platform_name = name
-                break
+    # Find skills directory: try all known platform dirs
+    skills_dir = None
+    platform_name = None
+    for name, prefix in PLATFORMS.items():
+        candidate = os.path.join(project_dir, prefix.replace('/', os.sep))
+        if os.path.isdir(candidate) and scan_skills(candidate):
+            skills_dir = candidate
+            platform_name = name
+            break
 
     if not skills_dir:
         print("Ошибка: не найдена директория навыков в текущем каталоге.", file=sys.stderr)
@@ -205,8 +223,7 @@ def cmd_switch_runtime(runtime, project_dir):
     switched = 0
     warnings = []
 
-    label = 'skills/' if platform_name == 'repo' else PLATFORMS[platform_name] + '/'
-    print(f"\nПереключение на {runtime} в {label} ...")
+    print(f"\nПереключение на {runtime} в {PLATFORMS[platform_name]}/ ...")
 
     for skill_name in skills:
         skill_path = os.path.join(skills_dir, skill_name)
@@ -216,6 +233,7 @@ def cmd_switch_runtime(runtime, project_dir):
 
             new_content, changed = switch_runtime_content(content, runtime)
 
+            # Check target files exist
             if runtime == 'python':
                 for m in RX_PS.findall(content):
                     py_path = m.lstrip("'") + '.py'
@@ -384,7 +402,7 @@ def main():
         runtime = args.runtime or 'powershell'
         return cmd_install(args.platform, runtime, args.project_dir)
 
-    # No args at all
+    # No args at all — shouldn't reach here due to len(sys.argv)==1 check
     return interactive_mode()
 
 

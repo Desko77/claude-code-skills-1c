@@ -37,53 +37,7 @@
 
 ## Формат `.v8-project.json`
 
-Файл размещается в корне проекта (рядом с `.git/`).
-
-```json
-{
-  "v8path": "C:\\Program Files\\1cv8\\8.3.25.1257\\bin",
-  "databases": [
-    {
-      "id": "dev",
-      "name": "Разработка",
-      "type": "file",
-      "path": "C:\\Bases\\MyApp_Dev",
-      "user": "Admin",
-      "password": "",
-      "aliases": ["dev", "разработка"],
-      "branches": ["dev", "develop", "feature/*"],
-      "configSrc": "C:\\WS\\myapp\\cfsrc"
-    },
-    {
-      "id": "test",
-      "name": "Тестовая",
-      "type": "server",
-      "server": "srv01",
-      "ref": "MyApp_Test",
-      "user": "Admin",
-      "password": "123",
-      "aliases": ["test", "тест"]
-    }
-  ],
-  "default": "dev"
-}
-```
-
-### Поля базы данных
-
-| Поле | Тип | Обязательное | Описание |
-|------|-----|:------------:|----------|
-| `id` | string | да | Уникальный идентификатор |
-| `name` | string | да | Имя |
-| `type` | `"file"` / `"server"` | да | Тип подключения |
-| `path` | string | для file | Каталог файловой базы |
-| `server` | string | для server | Адрес сервера |
-| `ref` | string | для server | Имя базы на сервере |
-| `user` | string | нет | Пользователь 1С |
-| `password` | string | нет | Пароль |
-| `aliases` | string[] | нет | Альтернативные имена |
-| `branches` | string[] | нет | Git-ветки или glob-паттерны (`release/*`, `feature/*`) |
-| `configSrc` | string | нет | Каталог XML-выгрузки |
+Полное описание формата — в [справочнике .v8-project.json](v8-project-guide.md).
 
 ### Разрешение базы
 

@@ -10,6 +10,7 @@ so they never overlap with the form and remain readable at any grid density.
 """
 import argparse
 import os
+import sys
 from PIL import Image, ImageDraw, ImageFont
 
 MARGIN_TOP = 20
@@ -17,6 +18,8 @@ MARGIN_LEFT = 24
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Overlay numbered grid on image")
     parser.add_argument("image", help="Input image path")
     parser.add_argument("-c", "--cols", type=int, default=50,

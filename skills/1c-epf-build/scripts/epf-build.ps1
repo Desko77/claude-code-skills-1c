@@ -87,10 +87,21 @@ if (-not (Test-Path $V8Path)) {
     exit 1
 }
 
-# --- Validate connection ---
+# --- Auto-create stub database if no connection specified ---
+$autoCreatedBase = $null
 if (-not $InfoBasePath -and (-not $InfoBaseServer -or -not $InfoBaseRef)) {
-    Write-Host "Error: specify -InfoBasePath or -InfoBaseServer + -InfoBaseRef" -ForegroundColor Red
-    exit 1
+    $sourceDir = Split-Path $SourceFile -Parent
+    $autoBasePath = Join-Path $env:TEMP "epf_stub_db_$(Get-Random)"
+    $stubScript = Join-Path $PSScriptRoot "stub-db-create.ps1"
+    Write-Host "No database specified. Creating temporary stub database..."
+    $stubArgs = "-SourceDir `"$sourceDir`" -V8Path `"$V8Path`" -TempBasePath `"$autoBasePath`""
+    $stubProc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -File `"$stubScript`" $stubArgs" -NoNewWindow -Wait -PassThru
+    if ($stubProc.ExitCode -ne 0) {
+        Write-Host "Error: failed to create stub database" -ForegroundColor Red
+        exit 1
+    }
+    $InfoBasePath = $autoBasePath
+    $autoCreatedBase = $autoBasePath
 }
 
 # --- Validate source file ---
@@ -128,7 +139,6 @@ try {
     $outFile = Join-Path $tempDir "build_log.txt"
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
-    $arguments += "/DisableStartupMessages"
 
     # --- Execute ---
     Write-Host "Running: 1cv8.exe $($arguments -join ' ')"
@@ -156,5 +166,8 @@ try {
 } finally {
     if (Test-Path $tempDir) {
         Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if ($autoCreatedBase -and (Test-Path $autoCreatedBase)) {
+        Remove-Item -Path $autoCreatedBase -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
