@@ -1,0 +1,37 @@
+{
+  "skill_name": "1c-db-update",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Примени конфигурацию к базе данных dev",
+      "expected_output": "Скрипт db-update.ps1 вызван с параметрами подключения к базе dev. База обновлена.",
+      "expectations": [
+        "Скрипт db-update.ps1 вызван с параметрами подключения к базе dev из .v8-project.json",
+        "Параметр -InfoBasePath или -InfoBaseServer/-InfoBaseRef передан корректно",
+        "После выполнения прочитан лог и показан результат",
+        "Если user задан в .v8-project.json — передан параметр -UserName"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Обнови конфигурацию на серверной базе srv01/MyApp динамически, пользователь Admin пароль secret",
+      "expected_output": "Скрипт db-update.ps1 вызван с параметрами серверного подключения и флагом -Dynamic \"+\"",
+      "expectations": [
+        "Скрипт db-update.ps1 вызван с параметрами -InfoBaseServer \"srv01\" и -InfoBaseRef \"MyApp\"",
+        "Передан параметр -Dynamic \"+\" для динамического обновления",
+        "Переданы параметры -UserName \"Admin\" и -Password \"secret\"",
+        "После выполнения прочитан лог и показан результат"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Обнови расширение МоёРасширение в базе dev",
+      "expected_output": "Скрипт db-update.ps1 вызван с параметром -Extension \"МоёРасширение\" и подключением к базе dev",
+      "expectations": [
+        "Скрипт db-update.ps1 вызван с параметром -Extension \"МоёРасширение\"",
+        "Параметры подключения к базе dev взяты из .v8-project.json",
+        "После выполнения прочитан лог и показан результат"
+      ]
+    }
+  ]
+}

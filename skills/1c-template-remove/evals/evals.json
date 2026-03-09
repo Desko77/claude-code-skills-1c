@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-template-remove",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Удали макет СтарыйМакет из обработки ЗагрузкаДанных. Исходники в D:/Projects/App/src/.",
+      "expected_output": "Скрипт remove-template.ps1 вызван, папка Templates/СтарыйМакет/ и файл Templates/СтарыйМакет.xml удалены, из ЗагрузкаДанных.xml убрана запись Template.",
+      "expectations": [
+        "Скрипт remove-template.ps1 вызван с параметрами -ObjectName ЗагрузкаДанных и -TemplateName СтарыйМакет",
+        "Удалён файл Templates/СтарыйМакет.xml (метаданные макета)",
+        "Удалена папка Templates/СтарыйМакет/ (содержимое макета)",
+        "Из корневого XML объекта ЗагрузкаДанных.xml убран элемент Template для СтарыйМакет"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Удали схему компоновки ОсновнаяСхема из отчёта АнализПродаж. Исходники в src/.",
+      "expected_output": "Скрипт remove-template.ps1 вызван, макет ОсновнаяСхема удалён, поле MainDataCompositionSchema в АнализПродаж.xml очищено.",
+      "expectations": [
+        "Скрипт remove-template.ps1 вызван с параметрами -ObjectName АнализПродаж и -TemplateName ОсновнаяСхема",
+        "Удалены файлы Templates/ОсновнаяСхема.xml и папка Templates/ОсновнаяСхема/",
+        "Поле MainDataCompositionSchema в АнализПродаж.xml очищено (так как удалённый макет был основной схемой)",
+        "Claude сообщает об очистке MainDataCompositionSchema"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Удали макет ПФ_MXL_Счёт из справочника Договоры. Исходники в C:/Config/src/.",
+      "expected_output": "Скрипт remove-template.ps1 вызван, файлы макета ПФ_MXL_Счёт удалены, из Договоры.xml убрана соответствующая запись Template.",
+      "expectations": [
+        "Скрипт remove-template.ps1 вызван с параметрами -ObjectName Договоры и -TemplateName ПФ_MXL_Счёт",
+        "Параметр -SrcDir указывает на C:/Config/src/ или эквивалентный путь",
+        "Удалён файл Templates/ПФ_MXL_Счёт.xml и папка Templates/ПФ_MXL_Счёт/",
+        "Из корневого XML справочника Договоры.xml убран элемент Template для ПФ_MXL_Счёт"
+      ]
+    }
+  ]
+}

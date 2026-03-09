@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-template-add",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Добавь печатную форму МакетМ11 к обработке ЗагрузкаДанных. Исходники в D:/Projects/App/src/.",
+      "expected_output": "Скрипт add-template.ps1 вызван, создан файл ПФ_MXL_МакетМ11.xml и папка ПФ_MXL_МакетМ11/Ext/Template.xml, в ЗагрузкаДанных.xml добавлена запись Template.",
+      "expectations": [
+        "Скрипт add-template.ps1 вызван с параметрами -ObjectName ЗагрузкаДанных и -TemplateType SpreadsheetDocument",
+        "Применён префикс ПФ_MXL_ к имени макета (ПФ_MXL_МакетМ11)",
+        "Созданы файлы Templates/ПФ_MXL_МакетМ11.xml и Templates/ПФ_MXL_МакетМ11/Ext/Template.xml",
+        "В корневом XML объекта ЗагрузкаДанных.xml добавлен элемент Template",
+        "Claude уведомляет об автоматическом добавлении префикса ПФ_MXL_"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Добавь схему компоновки данных МоёСКД к отчёту АнализПродаж. Директория исходников: C:/Projects/ERP/src/.",
+      "expected_output": "Скрипт add-template.ps1 вызван с типом DataCompositionSchema, создан макет МоёСКД, в АнализПродаж.xml обновлено поле MainDataCompositionSchema.",
+      "expectations": [
+        "Скрипт add-template.ps1 вызван с параметром -TemplateType DataCompositionSchema",
+        "Параметр -ObjectName указывает АнализПродаж",
+        "Созданы файлы Templates/МоёСКД.xml и Templates/МоёСКД/Ext/Template.xml (DCS-схема)",
+        "Поле MainDataCompositionSchema в АнализПродаж.xml обновлено ссылкой на МоёСКД"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Добавь HTML-макет с именем Инструкция к справочнику Номенклатура. Исходники в src/.",
+      "expected_output": "Скрипт add-template.ps1 вызван с типом HTMLDocument, созданы файлы макета Инструкция.xml и Инструкция/Ext/Template.html, в Номенклатура.xml добавлен Template.",
+      "expectations": [
+        "Скрипт add-template.ps1 вызван с параметром -TemplateType HTMLDocument",
+        "Параметр -ObjectName указывает Номенклатура, параметр -TemplateName указывает Инструкция",
+        "Созданы файлы src/Catalogs/Номенклатура/Templates/Инструкция.xml и .../Инструкция/Ext/Template.html",
+        "В корневом XML справочника Номенклатура.xml добавлен элемент Template"
+      ]
+    }
+  ]
+}

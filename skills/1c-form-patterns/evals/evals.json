@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-form-patterns",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Мне нужно создать форму документа ПоступлениеТоваров, но я не знаю как правильно расположить поля шапки, табличную часть и итоги. Покажи стандартный паттерн.",
+      "expected_output": "Показан паттерн Document Form с описанием структуры: двухколоночная шапка, Pages с таблицей товаров, футер с итогами, рекомендуемые события и соглашения об именовании.",
+      "expectations": [
+        "Показан архетип 'Document Form' с текстовой схемой структуры (Header, Pages, Footer)",
+        "Упомянуты события OnCreateAtServer, OnReadAtServer, BeforeWriteAtServer",
+        "Показаны соглашения об именовании групп: HeaderGroup, HeaderLeftGroup, FooterGroup, TotalsGroup",
+        "Показаны примеры именования элементов для таблицы: [Table][Field]"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Создаю форму обработки для массовой замены цен. Покажи паттерн формы обработки: какие группы, кнопки, события стандартные для такого типа форм.",
+      "expected_output": "Показан паттерн Data Processor Form с зонами параметров, рабочей областью и кнопками действий, включая defaultButton и кнопку Close.",
+      "expectations": [
+        "Показан архетип 'Data Processor Form' со структурой Parameters / Working area / Action buttons",
+        "Упомянуто свойство windowOpeningMode=LockOwnerWindow для диалогов",
+        "Показана кнопка закрытия через stdCommand: Close",
+        "Упомянуто событие OnCreateAtServer"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Как правильно сделать форму-мастер (визард) в 1С? Нужно провести пользователя через 3 шага: ввод параметров, предпросмотр, результат.",
+      "expected_output": "Показан паттерн Wizard с Pages по шагам, кнопками Back/Next/Execute, рекомендациями по windowOpeningMode и отсутствию стандартной командной панели.",
+      "expectations": [
+        "Показан архетип 'Wizard' со структурой Pages (Step1, Step2, Step3)",
+        "Показаны кнопки Back, Next (defaultButton), Execute, Close",
+        "Упомянуты свойства windowOpeningMode=LockOwnerWindow и commandBarLocation=None",
+        "Показан JSON DSL-пример или текстовая схема мастера"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-role-validate",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Проверь роль МенеджерПродаж после создания. Rights.xml находится в C:/Projects/ERP/src/Roles/МенеджерПродаж/Ext/Rights.xml, метаданные в C:/Projects/ERP/src/Roles/МенеджерПродаж.xml.",
+      "expected_output": "Результат валидации: XML корректен, namespace верный, все объекты и права распознаны, UUID и имя в метаданных валидны. Итог: 0 errors, 0 warnings.",
+      "expectations": [
+        "Скрипт role-validate.ps1 вызван с параметрами -RightsPath и -MetadataPath",
+        "Вывод содержит строку 'OK  XML well-formed'",
+        "Вывод содержит строку 'OK  Root element: <Rights> with correct namespace'",
+        "Вывод содержит проверку метаданных: 'OK  Metadata: UUID valid' и 'OK  Metadata: Name'",
+        "Итоговая строка содержит '0 error(s)'"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Проверь Rights.xml роли БухгалтерБазовый: D:/1C/BP/src/Roles/БухгалтерБазовый/Ext/Rights.xml. Я недавно добавлял права вручную и хочу убедиться что не допустил опечаток в именах прав.",
+      "expected_output": "Валидация выявляет предупреждения или ошибки при опечатках в именах прав. При корректном файле — итог без ошибок.",
+      "expectations": [
+        "Скрипт role-validate.ps1 вызван с параметром -RightsPath",
+        "При наличии ошибки в имени права вывод содержит строку с маркером WARN и подсказку 'Did you mean: <корректное имя>?'",
+        "Вывод содержит проверку трёх глобальных флагов: setForNewObjects, setForAttributesByDefault, independentRightsOfChildObjects",
+        "Итоговая строка содержит количество ошибок и предупреждений в формате 'Result: N error(s), N warning(s)'"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "После /role-compile для роли ЧтениеСКД проверь что RLS-ограничения и шаблоны корректны. Путь: E:/EDT/MyProject/src/Roles/ЧтениеСКД/Ext/Rights.xml.",
+      "expected_output": "Валидация RLS: в блоках restrictionByCondition присутствует непустой condition, все шаблоны restrictionTemplate имеют непустые name и condition. Ошибок нет.",
+      "expectations": [
+        "Скрипт role-validate.ps1 вызван с -RightsPath для указанного файла",
+        "Вывод содержит строку с результатом проверки RLS-ограничений (OK или ERR для условий)",
+        "Вывод содержит строку с результатом проверки шаблонов restrictionTemplate",
+        "Код возврата скрипта: 0 при отсутствии ошибок, 1 при наличии ошибок"
+      ]
+    }
+  ]
+}

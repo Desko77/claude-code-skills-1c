@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-epf-scaffold",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Создай scaffold обработки ЗагрузкаКонтрагентов. Исходники положи в src/.",
+      "expected_output": "В папке src/ созданы корневой XML-файл и каталог обработки с ObjectModule.bsl.",
+      "expectations": [
+        "Скрипт init.ps1 вызван с параметром -Name ЗагрузкаКонтрагентов",
+        "Скрипт вызван с параметром -SrcDir src",
+        "Создан файл src/ЗагрузкаКонтрагентов.xml с корневой структурой MetaDataObject/ExternalDataProcessor",
+        "Создан файл src/ЗагрузкаКонтрагентов/Ext/ObjectModule.bsl",
+        "Корневой XML содержит ClassId c3831ec8-d8d5-4f93-8a22-f9bfae07327f"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Инициализируй новую обработку с именем PriceLoader и синонимом Загрузка прайс-листа. Папка исходников — sources/.",
+      "expected_output": "Scaffold создан с указанным именем и синонимом в папке sources/.",
+      "expectations": [
+        "Скрипт init.ps1 вызван с параметром -Name PriceLoader",
+        "Скрипт вызван с параметром -Synonym \"Загрузка прайс-листа\"",
+        "Скрипт вызван с параметром -SrcDir sources",
+        "Создан файл sources/PriceLoader.xml"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Создай пустую обработку МониторингЗадач. Параметры по умолчанию.",
+      "expected_output": "Scaffold обработки создан в папке src/ (по умолчанию).",
+      "expectations": [
+        "Скрипт init.ps1 вызван с параметром -Name МониторингЗадач",
+        "SrcDir не задан — используется значение по умолчанию src",
+        "Создан файл src/МониторингЗадач.xml",
+        "Создан ObjectModule.bsl с тремя регионами (#Область)"
+      ]
+    }
+  ]
+}

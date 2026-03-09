@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-erf-build",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Собери отчёт ОтчётПоПродажам из исходников src/ в build/. База файловая: C:\\Bases\\Trade.",
+      "expected_output": "ERF-файл ОтчётПоПродажам.erf собран в папке build/.",
+      "expectations": [
+        "Скрипт epf-build.ps1 вызван с параметром -SourceFile src\\ОтчётПоПродажам.xml",
+        "Скрипт вызван с параметром -OutputFile build\\ОтчётПоПродажам.erf",
+        "Скрипт вызван с параметром -InfoBasePath C:\\Bases\\Trade",
+        "Код возврата скрипта 0 (успешная сборка)",
+        "Файл build/ОтчётПоПродажам.erf создан"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Собери отчёт АнализОстатков. Исходники в sources/, результат положи в dist/. Используй серверную базу: srv-1c, база ERP_Prod.",
+      "expected_output": "ERF-файл АнализОстатков.erf собран в dist/ через серверное подключение.",
+      "expectations": [
+        "Скрипт epf-build.ps1 вызван с параметром -SourceFile sources\\АнализОстатков.xml",
+        "Скрипт вызван с параметром -OutputFile dist\\АнализОстатков.erf",
+        "Скрипт вызван с параметрами -InfoBaseServer srv-1c и -InfoBaseRef ERP_Prod"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Собери внешний отчёт ОтчётДебиторов. База не указана — определи автоматически.",
+      "expected_output": "База определена из .v8-project.json, ERF-файл собран в build/.",
+      "expectations": [
+        "Прочитан файл .v8-project.json для определения базы и v8path",
+        "Скрипт epf-build.ps1 вызван с параметром -SourceFile src\\ОтчётДебиторов.xml",
+        "Скрипт вызван с параметром -OutputFile build\\ОтчётДебиторов.erf",
+        "Использован путь к 1cv8.exe (автоопределён или из v8path)"
+      ]
+    }
+  ]
+}

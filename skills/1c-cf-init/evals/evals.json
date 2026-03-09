@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-cf-init",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Создай пустую конфигурацию с именем УчётЗаявок, синоним «Учёт заявок». Исходники сложи в src/.",
+      "expected_output": "Скрипт cf-init.ps1 создал файлы src/Configuration.xml и src/Languages/Русский.xml. Configuration.xml содержит имя УчётЗаявок и синоним «Учёт заявок».",
+      "expectations": [
+        "Скрипт cf-init.ps1 вызван с параметром -Name УчётЗаявок",
+        "Скрипт cf-init.ps1 вызван с параметром -Synonym «Учёт заявок»",
+        "Файл src/Configuration.xml создан",
+        "Файл src/Languages/Русский.xml создан"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Создай новую конфигурацию МоёРешение версии 1.0.0.1, поставщик «ООО Разработчик». Каталог вывода: D:/Projects/MySolution/src/.",
+      "expected_output": "Скрипт cf-init.ps1 создал Configuration.xml со свойствами Version=1.0.0.1 и Vendor=ООО Разработчик в каталоге D:/Projects/MySolution/src/.",
+      "expectations": [
+        "Скрипт cf-init.ps1 вызван с параметром -Name МоёРешение",
+        "Скрипт cf-init.ps1 вызван с параметром -Version 1.0.0.1",
+        "Скрипт cf-init.ps1 вызван с параметром -Vendor «ООО Разработчик»",
+        "Скрипт cf-init.ps1 вызван с параметром -OutputDir D:/Projects/MySolution/src/"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Создай конфигурацию TestConfig с режимом совместимости Version8_3_27 в папке test-tmp/cf3.",
+      "expected_output": "Скрипт cf-init.ps1 создал Configuration.xml с CompatibilityMode=Version8_3_27 в каталоге test-tmp/cf3.",
+      "expectations": [
+        "Скрипт cf-init.ps1 вызван с параметром -Name TestConfig",
+        "Скрипт cf-init.ps1 вызван с параметром -CompatibilityMode Version8_3_27",
+        "Скрипт cf-init.ps1 вызван с параметром -OutputDir test-tmp/cf3",
+        "Файл test-tmp/cf3/Configuration.xml создан",
+        "Файл test-tmp/cf3/Languages/Русский.xml создан"
+      ]
+    }
+  ]
+}

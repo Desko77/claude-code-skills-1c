@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-db-dump-cf",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Выгрузи конфигурацию базы C:\\Bases\\MyDB в CF-файл C:\\backup\\config.cf. Пользователь Admin, пароль не нужен.",
+      "expected_output": "Скрипт db-dump-cf.ps1 запущен с параметрами -InfoBasePath C:\\Bases\\MyDB, -UserName Admin, -OutputFile C:\\backup\\config.cf. Лог показан пользователю.",
+      "expectations": [
+        "Скрипт db-dump-cf.ps1 вызван с параметром -InfoBasePath C:\\Bases\\MyDB",
+        "Скрипт db-dump-cf.ps1 вызван с параметром -UserName Admin",
+        "Скрипт db-dump-cf.ps1 вызван с параметром -OutputFile C:\\backup\\config.cf",
+        "Лог-файл прочитан и результат показан пользователю после выполнения"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Сделай бэкап конфигурации серверной базы MyApp_Dev на сервере srv01. Логин Admin, пароль secret. Сохранить в config.cf.",
+      "expected_output": "Скрипт db-dump-cf.ps1 запущен с параметрами -InfoBaseServer srv01, -InfoBaseRef MyApp_Dev, -UserName Admin, -Password secret, -OutputFile config.cf.",
+      "expectations": [
+        "Скрипт db-dump-cf.ps1 вызван с параметром -InfoBaseServer srv01",
+        "Скрипт db-dump-cf.ps1 вызван с параметром -InfoBaseRef MyApp_Dev",
+        "Скрипт db-dump-cf.ps1 вызван с параметром -OutputFile config.cf",
+        "Лог-файл прочитан, при наличии ошибок — содержимое лога показано пользователю"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Выгрузи расширение МоёРасширение из базы C:\\Bases\\DevDB в файл ext.cfe. Пользователь Admin.",
+      "expected_output": "Скрипт db-dump-cf.ps1 запущен с параметрами -InfoBasePath C:\\Bases\\DevDB, -UserName Admin, -OutputFile ext.cfe, -Extension МоёРасширение.",
+      "expectations": [
+        "Скрипт db-dump-cf.ps1 вызван с параметром -Extension МоёРасширение",
+        "Скрипт db-dump-cf.ps1 вызван с параметром -InfoBasePath C:\\Bases\\DevDB",
+        "Скрипт db-dump-cf.ps1 вызван с параметром -OutputFile ext.cfe",
+        "Лог-файл прочитан и результат выгрузки расширения показан пользователю"
+      ]
+    }
+  ]
+}

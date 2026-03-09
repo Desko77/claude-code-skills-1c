@@ -1,0 +1,38 @@
+{
+  "skill_name": "powershell-windows",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Как выполнить HTTP-запрос к http://localhost:8080/api/status и вывести JSON-поле version на Windows PowerShell?",
+      "expected_output": "Приведён PowerShell-код с Invoke-WebRequest (не curl), парсингом JSON через ConvertFrom-Json и выводом нужного поля.",
+      "expectations": [
+        "Использован Invoke-WebRequest с параметром -UseBasicParsing вместо curl",
+        "Парсинг JSON выполнен через ConvertFrom-Json (не jq или внешние утилиты)",
+        "Приведён синтаксис доступа к полю JSON через $json.version или аналогичный",
+        "Не использован bash-синтаксис (&&, grep, curl)"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Напиши PowerShell-команду: перейти в папку 'D:\\My Projects\\MyApp', подождать 5 секунд, затем запустить gradlew clean build.",
+      "expected_output": "Приведён PowerShell-код: cd с двойными кавычками для пути с пробелами, точка с запятой как разделитель команд, Start-Sleep -Seconds 5, ./gradlew clean build.",
+      "expectations": [
+        "Используется точка с запятой ; как разделитель команд (не && из bash)",
+        "Путь с пробелами обёрнут в двойные кавычки",
+        "Ожидание реализовано через Start-Sleep -Seconds 5 (не через timeout)",
+        "Команда gradlew вызвана как ./gradlew или .\\gradlew.bat"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Как поднять Docker-контейнер из файла 'D:\\Projects\\App\\docker-compose.yml' и проверить, что процесс java запущен?",
+      "expected_output": "Приведён PowerShell-код: docker-compose с -f и полным путём в двойных кавычках, up -d, затем Get-Process -Name java с -ErrorAction SilentlyContinue.",
+      "expectations": [
+        "docker-compose вызван с флагом -f и полным путём к файлу в двойных кавычках",
+        "Команда docker-compose up содержит флаг -d для фонового запуска",
+        "Проверка процесса выполнена через Get-Process -Name java (не через ps или grep)",
+        "Использован параметр -ErrorAction SilentlyContinue для обработки случая, когда процесс не найден"
+      ]
+    }
+  ]
+}

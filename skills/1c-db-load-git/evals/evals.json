@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-db-load-git",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Загрузи все незафиксированные изменения из гита в базу dev",
+      "expected_output": "Скрипт db-load-git.ps1 вызван с параметром -Source All и подключением к базе dev. Показан список загруженных файлов.",
+      "expectations": [
+        "Скрипт db-load-git.ps1 вызван с параметром -Source All",
+        "Параметр -ConfigDir указывает на каталог XML-выгрузки (из поля configSrc базы или из аргумента)",
+        "Параметры подключения к базе dev взяты из .v8-project.json",
+        "После выполнения предложено выполнить /db-update"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Загрузи только staged изменения в базу разработки",
+      "expected_output": "Скрипт db-load-git.ps1 вызван с параметром -Source Staged",
+      "expectations": [
+        "Скрипт db-load-git.ps1 вызван с параметром -Source Staged",
+        "База определена автоматически из текущей Git-ветки или из поля default в .v8-project.json",
+        "Параметр -ConfigDir передан корректно",
+        "После выполнения показан список загруженных файлов и предложено /db-update"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Покажи что будет загружено из коммитов HEAD~3..HEAD, без реальной загрузки",
+      "expected_output": "Скрипт db-load-git.ps1 вызван с параметрами -Source Commit -CommitRange \"HEAD~3..HEAD\" -DryRun. Показан список файлов без загрузки.",
+      "expectations": [
+        "Скрипт db-load-git.ps1 вызван с параметром -DryRun",
+        "Передан параметр -Source Commit",
+        "Передан параметр -CommitRange \"HEAD~3..HEAD\"",
+        "Реальная загрузка в базу не выполнена — только показан список файлов"
+      ]
+    }
+  ]
+}

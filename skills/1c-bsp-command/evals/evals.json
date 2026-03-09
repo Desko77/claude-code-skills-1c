@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-bsp-command",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Добавь команду ОткрытьОтчёт в обработку АнализПродаж. Команда должна открывать форму. Исходники в src/.",
+      "expected_output": "В ObjectModule.bsl обработки АнализПродаж добавлен блок NewCommand в функцию ExternalDataProcessorInfo() перед Return RegistrationParameters, тип команды CommandTypeOpenForm().",
+      "expectations": [
+        "В файле src/АнализПродаж/Ext/ObjectModule.bsl найдена функция ExternalDataProcessorInfo()",
+        "Добавлен блок NewCommand с ID = \"ОткрытьОтчёт\" перед строкой Return RegistrationParameters",
+        "Поле NewCommand.Use содержит AdditionalReportsAndDataProcessorsClientServer.CommandTypeOpenForm()",
+        "Поле NewCommand.Presentation содержит NStr с текстом ОткрытьОтчёт или пользовательским именем",
+        "Флаг NewCommand.ShowNotification установлен в False"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Добавь команду ВыполнитьОбработку в обработку ОбработкаДокументов. Тип команды — серверный метод. Обработчик ExecuteCommand уже существует.",
+      "expected_output": "В ExternalDataProcessorInfo() добавлена команда с CommandTypeServerMethodCall(), в существующую процедуру ExecuteCommand добавлена ветка ElsIf для нового идентификатора.",
+      "expectations": [
+        "В блоке команды NewCommand.Use содержит CommandTypeServerMethodCall()",
+        "В существующую процедуру ExecuteCommand добавлена ветка ElsIf CommandID = \"ВыполнитьОбработку\"",
+        "Новая процедура ExecuteCommand не создана (она уже существовала)",
+        "Блок NewCommand вставлен перед Return RegistrationParameters"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Добавь команду ПечатьСчёта в обработку ПечатьДокументов с типом PrintForm. Исходники в D:/Projects/src/.",
+      "expected_output": "Добавлена команда с типом CommandTypeServerMethodCall() и Modifier = \"PrintMXL\". В процедуре Print добавлен блок для нового макета ПечатьСчёта.",
+      "expectations": [
+        "Блок NewCommand содержит NewCommand.Modifier = \"PrintMXL\"",
+        "NewCommand.Use содержит CommandTypeServerMethodCall()",
+        "В процедуре Print добавлен вызов PrintManagement.PrintFormInfo с идентификатором \"ПечатьСчёта\"",
+        "Блок Generate<Identifier> используется для формирования табличного документа"
+      ]
+    }
+  ]
+}

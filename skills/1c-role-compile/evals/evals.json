@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-role-compile",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Создай роль МенеджерПродаж. Нужен доступ к справочнику Контрагенты (чтение), документу РеализацияТоваровУслуг (чтение + проведение) и регистру накопления Продажи (чтение). Конфигурация в C:/Projects/ERP/src/.",
+      "expected_output": "В папке C:/Projects/ERP/src/Roles/ созданы файлы МенеджерПродаж.xml и МенеджерПродаж/Ext/Rights.xml. Роль добавлена в Configuration.xml.",
+      "expectations": [
+        "Создан файл Roles/МенеджерПродаж.xml с корректным UUID и элементом <Role>",
+        "Создан файл Roles/МенеджерПродаж/Ext/Rights.xml с namespace http://v8.1c.ru/8.2/roles",
+        "В Rights.xml присутствует блок <object> для Catalog.Контрагенты с правами Read, View, InputByString",
+        "В Rights.xml присутствует блок <object> для Document.РеализацияТоваровУслуг с правами Read, View, Posting, InteractivePosting",
+        "В Configuration.xml добавлена строка <Role>МенеджерПродаж</Role>"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Создай роль ПолныйДоступ с правами администратора: администрирование конфигурации, все права на справочник Номенклатура и справочник Склады. Выгрузка в D:/1C/Configs/UT/src/.",
+      "expected_output": "Файлы роли ПолныйДоступ созданы. Rights.xml содержит блок для Configuration с правами Administration и DataAdministration, а также полные права на оба справочника.",
+      "expectations": [
+        "Создан файл Roles/ПолныйДоступ.xml с корректным элементом <Role> и непустым <Synonym>",
+        "В Rights.xml присутствует блок <object> для Configuration с правами Administration и DataAdministration",
+        "Блоки для Catalog.Номенклатура и Catalog.Склады содержат полный набор прав: Read, Insert, Update, Delete, View, Edit, InteractiveInsert",
+        "UUID сгенерирован командой [guid]::NewGuid() и уникален"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Создай роль ЧтениеСКД с RLS-ограничением на справочник Организации: читать только те организации, которые доступны текущему пользователю через шаблон ДляПользователя. Конфигурация в E:/EDT/MyProject/src/.",
+      "expected_output": "Создана роль ЧтениеСКД. В Rights.xml для Catalog.Организации право Read содержит блок <restrictionByCondition> с ссылкой на шаблон. В конце файла присутствует блок <restrictionTemplate> с именем ДляПользователя.",
+      "expectations": [
+        "В Rights.xml право Read для Catalog.Организации содержит дочерний элемент <restrictionByCondition> с непустым <condition>",
+        "В конце Rights.xml присутствует блок <restrictionTemplate> с <name>ДляПользователя</name>",
+        "Амперсанды в тексте шаблона экранированы как &amp;",
+        "Файл Roles/ЧтениеСКД.xml создан с корректным UUID"
+      ]
+    }
+  ]
+}

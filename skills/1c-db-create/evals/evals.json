@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-db-create",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Создай новую файловую информационную базу по пути C:\\Bases\\TestDB.",
+      "expected_output": "Скрипт db-create.ps1 запущен с параметром -InfoBasePath C:\\Bases\\TestDB. База создана, лог показан пользователю. Предложено зарегистрировать базу в .v8-project.json.",
+      "expectations": [
+        "Скрипт db-create.ps1 вызван с параметром -InfoBasePath C:\\Bases\\TestDB",
+        "Лог-файл прочитан и содержимое показано пользователю",
+        "Предложена регистрация базы через /db-list add",
+        "Путь к платформе 1cv8.exe определён из .v8-project.json или автоопределён"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Создай серверную базу MyApp_Test на сервере srv01. Добавь её в список баз с именем «Тестовая MyApp».",
+      "expected_output": "Скрипт db-create.ps1 запущен с параметрами -InfoBaseServer srv01, -InfoBaseRef MyApp_Test, -AddToList, -ListName \"Тестовая MyApp\".",
+      "expectations": [
+        "Скрипт db-create.ps1 вызван с параметром -InfoBaseServer srv01",
+        "Скрипт db-create.ps1 вызван с параметром -InfoBaseRef MyApp_Test",
+        "Скрипт db-create.ps1 вызван с параметром -AddToList",
+        "Скрипт db-create.ps1 вызван с параметром -ListName \"Тестовая MyApp\"",
+        "Лог-файл прочитан и результат показан пользователю"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Создай базу C:\\Bases\\DevDB из шаблона CF-файла C:\\Templates\\erp.cf.",
+      "expected_output": "Скрипт db-create.ps1 запущен с параметрами -InfoBasePath C:\\Bases\\DevDB и -UseTemplate C:\\Templates\\erp.cf. Пользователь предупреждён что конфигурация будет загружена из шаблона.",
+      "expectations": [
+        "Скрипт db-create.ps1 вызван с параметром -InfoBasePath C:\\Bases\\DevDB",
+        "Скрипт db-create.ps1 вызван с параметром -UseTemplate C:\\Templates\\erp.cf",
+        "Пользователь предупреждён что конфигурация из шаблона CF будет загружена в новую базу",
+        "Лог-файл прочитан и результат показан пользователю"
+      ]
+    }
+  ]
+}

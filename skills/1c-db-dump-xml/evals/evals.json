@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-db-dump-xml",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Выгрузи конфигурацию базы C:\\Bases\\MyDB полностью в XML в папку C:\\WS\\cfsrc. Платформа 8.3.25.1257, пользователь Admin.",
+      "expected_output": "Скрипт db-dump-xml.ps1 запущен с параметрами -InfoBasePath C:\\Bases\\MyDB, -UserName Admin, -ConfigDir C:\\WS\\cfsrc, -Mode Full. XML-файлы всех объектов выгружены в указанный каталог.",
+      "expectations": [
+        "Скрипт db-dump-xml.ps1 вызван с параметром -InfoBasePath C:\\Bases\\MyDB",
+        "Скрипт db-dump-xml.ps1 вызван с параметром -ConfigDir C:\\WS\\cfsrc",
+        "Скрипт db-dump-xml.ps1 вызван с параметром -Mode Full",
+        "Скрипт db-dump-xml.ps1 вызван с параметром -UserName Admin",
+        "Лог-файл прочитан и результат показан пользователю"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Выгрузи только изменённые объекты из базы dev (из .v8-project.json) в папку src/config.",
+      "expected_output": "База dev разрешена через .v8-project.json. Скрипт db-dump-xml.ps1 запущен с параметром -Mode Changes, выгружены только объекты изменённые с последней выгрузки (по ConfigDumpInfo.xml).",
+      "expectations": [
+        "Прочитан файл .v8-project.json для разрешения базы по имени dev",
+        "Скрипт db-dump-xml.ps1 вызван с параметром -Mode Changes",
+        "Скрипт db-dump-xml.ps1 вызван с параметром -ConfigDir src/config",
+        "Лог-файл прочитан и результат инкрементальной выгрузки показан пользователю"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Выгрузи только справочник Номенклатура и документ РеализацияТоваровУслуг из базы C:\\Bases\\DevDB в папку src/. Пользователь Admin.",
+      "expected_output": "Скрипт db-dump-xml.ps1 запущен с параметрами -Mode Partial, -Objects \"Справочник.Номенклатура,Документ.РеализацияТоваровУслуг\". Выгружены только указанные объекты.",
+      "expectations": [
+        "Скрипт db-dump-xml.ps1 вызван с параметром -Mode Partial",
+        "Скрипт db-dump-xml.ps1 вызван с параметром -Objects содержащим Справочник.Номенклатура и Документ.РеализацияТоваровУслуг",
+        "Скрипт db-dump-xml.ps1 вызван с параметром -InfoBasePath C:\\Bases\\DevDB",
+        "Лог-файл прочитан и результат частичной выгрузки показан пользователю"
+      ]
+    }
+  ]
+}
