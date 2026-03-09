@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:gist.github.com)",
+      "WebSearch",
+      "WebFetch(domain:cursor.com)"
+    ]
+  }
+}

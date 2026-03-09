@@ -1,0 +1,37 @@
+{
+  "skill_name": "1c-db-run",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Запусти базу dev в режиме 1С:Предприятие",
+      "expected_output": "Скрипт db-run.ps1 вызван с параметрами подключения к базе dev. 1С запущена в фоне.",
+      "expectations": [
+        "Скрипт db-run.ps1 вызван с параметрами подключения к базе dev из .v8-project.json",
+        "Параметр -InfoBasePath или -InfoBaseServer/-InfoBaseRef передан корректно",
+        "1С запущена без ожидания (Start-Process без -Wait) — управление возвращено сразу",
+        "Если user задан в .v8-project.json — передан параметр -UserName"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Открой базу разработки и запусти обработку C:\\epf\\НастройкаПрав.epf",
+      "expected_output": "Скрипт db-run.ps1 вызван с параметром -Execute и путём к EPF-файлу",
+      "expectations": [
+        "Скрипт db-run.ps1 вызван с параметром -Execute \"C:\\epf\\НастройкаПрав.epf\"",
+        "База определена автоматически из текущей Git-ветки или поля default в .v8-project.json",
+        "Параметры подключения к базе переданы корректно"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Открой серверную базу srv01/MyApp_Prod с навигационной ссылкой e1cib/data/Справочник.Номенклатура, пользователь Admin",
+      "expected_output": "Скрипт db-run.ps1 вызван с параметрами -InfoBaseServer, -InfoBaseRef, -UserName и -URL",
+      "expectations": [
+        "Скрипт db-run.ps1 вызван с параметрами -InfoBaseServer \"srv01\" и -InfoBaseRef \"MyApp_Prod\"",
+        "Передан параметр -UserName \"Admin\"",
+        "Передан параметр -URL \"e1cib/data/Справочник.Номенклатура\"",
+        "1С запущена в фоне без ожидания"
+      ]
+    }
+  ]
+}

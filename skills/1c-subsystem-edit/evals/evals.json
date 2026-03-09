@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-subsystem-edit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Добавь документ ЗаказКлиента и справочник Контрагенты в подсистему Продажи. Конфигурация в D:/Projects/MyApp/src/.",
+      "expected_output": "Скрипт subsystem-edit.ps1 вызван с операцией add-content, объекты Document.ЗаказКлиента и Catalog.Контрагенты добавлены в Content подсистемы Продажи.xml.",
+      "expectations": [
+        "Скрипт subsystem-edit.ps1 вызван с параметром -Operation add-content",
+        "Параметр -Value содержит [\"Document.ЗаказКлиента\",\"Catalog.Контрагенты\"] или оба объекта",
+        "Параметр -SubsystemPath указывает на файл подсистемы Продажи.xml",
+        "После выполнения Claude сообщает об успешном добавлении объектов"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Удали отчёт СтарыйОтчёт из подсистемы Администрирование. Путь к XML-файлу подсистемы: src/Subsystems/Администрирование.xml.",
+      "expected_output": "Скрипт subsystem-edit.ps1 вызван с операцией remove-content, Report.СтарыйОтчёт удалён из Content подсистемы.",
+      "expectations": [
+        "Скрипт subsystem-edit.ps1 вызван с параметром -Operation remove-content",
+        "Параметр -Value содержит Report.СтарыйОтчёт",
+        "Параметр -SubsystemPath указывает на src/Subsystems/Администрирование.xml",
+        "Claude сообщает об успешном удалении объекта из состава подсистемы"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Добавь дочернюю подсистему НастройкиЗП в подсистему Зарплата. Файл подсистемы: C:/Config/src/Subsystems/Зарплата.xml. После добавления проверь корректность.",
+      "expected_output": "Скрипт subsystem-edit.ps1 вызван с операцией add-child, подсистема НастройкиЗП добавлена в ChildObjects. Затем вызвана валидация.",
+      "expectations": [
+        "Скрипт subsystem-edit.ps1 вызван с параметром -Operation add-child",
+        "Параметр -Value содержит НастройкиЗП",
+        "Параметр -SubsystemPath указывает на файл Зарплата.xml",
+        "После редактирования вызвана валидация подсистемы (subsystem-validate.ps1 или упомянут шаг проверки)"
+      ]
+    }
+  ]
+}

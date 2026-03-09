@@ -1,0 +1,40 @@
+{
+  "skill_name": "1c-cfe-borrow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Заимствуй справочник Контрагенты из конфигурации ERP в расширение. Расширение в папке src/, конфигурация в C:\\cfsrc\\erp.",
+      "expected_output": "В папке src/Catalogs/Контрагенты/ созданы XML-файлы с ObjectBelonging=Adopted. Запись добавлена в ChildObjects Configuration.xml расширения.",
+      "expectations": [
+        "Скрипт cfe-borrow.ps1 вызван с параметром -ExtensionPath src",
+        "Скрипт cfe-borrow.ps1 вызван с параметром -ConfigPath C:\\cfsrc\\erp",
+        "Скрипт cfe-borrow.ps1 вызван с параметром -Object \"Catalog.Контрагенты\"",
+        "В созданном XML-файле присутствует атрибут ObjectBelonging=Adopted",
+        "В Configuration.xml расширения добавлена запись Catalog.Контрагенты в ChildObjects"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Нужно заимствовать сразу несколько объектов в расширение: справочник Номенклатура, общий модуль РаботаСФайлами и перечисление ВидыОплат. Расширение в ext/src/, конфигурация в D:\\config\\ut.",
+      "expected_output": "Заимствованы три объекта: в ChildObjects расширения добавлены записи для Catalog.Номенклатура, CommonModule.РаботаСФайлами и Enum.ВидыОплат.",
+      "expectations": [
+        "Скрипт cfe-borrow.ps1 вызван с параметром -ExtensionPath ext/src",
+        "Скрипт cfe-borrow.ps1 вызван с параметром -ConfigPath D:\\config\\ut",
+        "Параметр -Object содержит все три объекта через разделитель ;;",
+        "Созданы каталоги для Catalogs/Номенклатура, CommonModules/РаботаСФайлами и Enums/ВидыОплат",
+        "Все три объекта добавлены в ChildObjects файла Configuration.xml расширения"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Хочу добавить перехватчик в документ РеализацияТоваровУслуг. Сначала нужно заимствовать его из конфигурации УТ. Расширение в C:\\ext\\МоёРасширение, конфигурация в C:\\cfsrc\\ut.",
+      "expected_output": "Документ РеализацияТоваровУслуг заимствован в расширение с атрибутом ExtendedConfigurationObject, указывающим UUID оригинального объекта.",
+      "expectations": [
+        "Скрипт cfe-borrow.ps1 вызван с параметром -Object \"Document.РеализацияТоваровУслуг\"",
+        "Скрипт cfe-borrow.ps1 вызван с параметром -ExtensionPath C:\\ext\\МоёРасширение",
+        "Созданная XML-структура содержит атрибут ExtendedConfigurationObject с UUID документа из конфигурации-источника",
+        "Запись Document.РеализацияТоваровУслуг добавлена в ChildObjects Configuration.xml расширения"
+      ]
+    }
+  ]
+}

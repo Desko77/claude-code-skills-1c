@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-db-load-cf",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Загрузи конфигурацию из файла C:\\backup\\УТ_2025.cf в базу dev",
+      "expected_output": "Скрипт db-load-cf.ps1 вызван с параметрами подключения к базе dev и путём к CF-файлу. После выполнения показан результат из лога.",
+      "expectations": [
+        "Запрошено подтверждение у пользователя перед загрузкой (так как операция полностью заменяет конфигурацию)",
+        "Скрипт db-load-cf.ps1 вызван с параметром -InputFile \"C:\\backup\\УТ_2025.cf\"",
+        "Параметры подключения к базе dev взяты из .v8-project.json (InfoBasePath или InfoBaseServer+InfoBaseRef)",
+        "После выполнения показан результат из лога и предложено выполнить /db-update"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Загрузи расширение ext.cfe как МоёРасширение в файловую базу C:\\Bases\\MyApp",
+      "expected_output": "Скрипт db-load-cf.ps1 вызван с параметрами -InputFile, -InfoBasePath и -Extension",
+      "expectations": [
+        "Скрипт db-load-cf.ps1 вызван с параметром -InputFile \"ext.cfe\"",
+        "Передан параметр -InfoBasePath \"C:\\Bases\\MyApp\"",
+        "Передан параметр -Extension \"МоёРасширение\"",
+        "После выполнения прочитан лог и показан результат"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Восстанови конфигурацию из бэкапа config.cf на серверную базу: сервер srv01, база MyApp_Prod, пользователь Admin, пароль secret",
+      "expected_output": "Скрипт db-load-cf.ps1 вызван с параметрами серверного подключения и путём к CF-файлу",
+      "expectations": [
+        "Запрошено подтверждение у пользователя перед выполнением",
+        "Скрипт db-load-cf.ps1 вызван с параметрами -InfoBaseServer \"srv01\" и -InfoBaseRef \"MyApp_Prod\"",
+        "Переданы параметры -UserName \"Admin\" и -Password \"secret\"",
+        "Передан параметр -InputFile \"config.cf\"",
+        "После выполнения предложено выполнить /db-update"
+      ]
+    }
+  ]
+}

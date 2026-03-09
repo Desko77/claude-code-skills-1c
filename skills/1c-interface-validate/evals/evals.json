@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-interface-validate",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Проверь командный интерфейс подсистемы Продажи после того, как я вручную добавил несколько команд. Файл: upload/acc_8.3.24/Subsystems/Продажи/Ext/CommandInterface.xml",
+      "expected_output": "Все 13 проверок пройдены: структура XML корректна, секции присутствуют в правильном порядке, ссылки на команды валидны, дубликатов нет.",
+      "expectations": [
+        "Скрипт interface-validate.ps1 вызван с параметром -CIPath",
+        "Вывод содержит заголовок '=== Validation: CommandInterface'",
+        "Все строки вывода содержат '[OK]' без '[ERROR]' или '[WARN]'",
+        "Вывод содержит итоговую строку 'Errors: 0, Warnings: 0'"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "После редактирования CommandInterface.xml подозреваю, что появились дублирующиеся команды в секции CommandsVisibility. Запусти валидацию и проверь. Файл: C:/Projects/Config/Ext/CommandInterface.xml",
+      "expected_output": "Валидация обнаружила предупреждение о дубликатах в CommandsVisibility, вывод содержит [WARN] для проверки #6.",
+      "expectations": [
+        "Скрипт interface-validate.ps1 вызван с параметром -CIPath",
+        "Вывод содержит '[WARN]' для проверки CommandsVisibility (дубликаты)",
+        "Итоговая строка содержит ненулевое количество предупреждений 'Warnings: N'",
+        "Код возврата скрипта равен 1"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Сгенерировал новый CommandInterface.xml для подсистемы Закупки и хочу убедиться в корректности структуры XML, порядка секций и формата ссылок на команды. Файл: src/Subsystems/Закупки/Ext/CommandInterface.xml",
+      "expected_output": "Валидация проверила 13 пунктов: корневой элемент, порядок секций, формат ссылок на команды — все проверки пройдены.",
+      "expectations": [
+        "Скрипт interface-validate.ps1 вызван с параметром -CIPath",
+        "Вывод содержит '[OK]    1. Root structure: CommandInterface, version 2.17'",
+        "Вывод содержит '[OK]    3. Section order: correct'",
+        "Вывод содержит '[OK]    13. Command reference format: all valid'"
+      ]
+    }
+  ]
+}

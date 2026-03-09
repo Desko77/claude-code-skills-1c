@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-form-edit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "В форму документа ПоступлениеТоваров добавь поле ввода Склад (привязка Object.Склад) в группу HeaderGroup после поля Контрагент. Форма лежит в src/Documents/ПоступлениеТоваров/Forms/ФормаДокумента/Ext/Form.xml",
+      "expected_output": "Скрипт form-edit.ps1 вызван, элемент InputField Склад добавлен в HeaderGroup после Контрагент, сформированы companion-элементы ContextMenu и ExtendedTooltip.",
+      "expectations": [
+        "Скрипт form-edit.ps1 вызван с параметрами -FormPath и -JsonPath",
+        "В выводе присутствует строка '+ [Input] Склад -> Object.Склад'",
+        "Позиция вставки: into HeaderGroup, after Контрагент",
+        "Сгенерированы companion-элементы ContextMenu и ExtendedTooltip для Склад",
+        "Вывод содержит 'Run 1c-form-validate to verify'"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Добавь в форму обработки ЗакрытиеМесяца атрибут ИтоговаяСумма типа decimal(15,2) и команду ПересчитатьИтоги с обработчиком ПересчитатьИтогиВыполнить. Форма: D:/Config/src/DataProcessors/ЗакрытиеМесяца/Forms/Форма/Ext/Form.xml",
+      "expected_output": "Атрибут ИтоговаяСумма типа decimal(15,2) и команда ПересчитатьИтоги добавлены в форму обработки.",
+      "expectations": [
+        "Скрипт form-edit.ps1 вызван с параметром -FormPath",
+        "В выводе присутствует строка '+ ИтоговаяСумма: decimal(15,2)'",
+        "В выводе присутствует строка с командой ПересчитатьИтоги -> ПересчитатьИтогиВыполнить",
+        "Вывод содержит счётчик '1 attribute(s)' и '1 command'"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "В таблицу Товары формы заказа клиента добавь колонку-чекбокс Выбран (check, привязка Object.Товары.Выбран) с событием OnChange. Форма: C:/Projects/Sales/src/Documents/ЗаказКлиента/Forms/ФормаДокумента/Ext/Form.xml",
+      "expected_output": "Элемент CheckBoxField Выбран добавлен как колонка таблицы Товары с обработчиком события OnChange.",
+      "expectations": [
+        "Скрипт form-edit.ps1 вызван с корректными параметрами -FormPath и -JsonPath",
+        "В выводе присутствует строка '+ [Check] Выбран -> Object.Товары.Выбран {OnChange}'",
+        "Указана позиция вставки into Товары",
+        "Сгенерированы companion-элементы ContextMenu и ExtendedTooltip для Выбран"
+      ]
+    }
+  ]
+}

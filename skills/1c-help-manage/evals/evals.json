@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-help-manage",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Добавь встроенную справку для обработки ЗагрузкаКонтрагентов. Исходники в папке src/.",
+      "expected_output": "Созданы файл Help.xml и страница ru.html с HTML-шаблоном справки для обработки ЗагрузкаКонтрагентов.",
+      "expectations": [
+        "Скрипт add-help.ps1 вызван с параметром -ProcessorName 'ЗагрузкаКонтрагентов'",
+        "Создан файл src/ЗагрузкаКонтрагентов/Ext/Help.xml с секцией <Page>ru</Page>",
+        "Создан файл src/ЗагрузкаКонтрагентов/Ext/Help/ru.html с HTML-разметкой",
+        "HTML-файл содержит ссылку на таблицу стилей v8help://service_book/service_style"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Нужно добавить справку для обработки ВыгрузкаДанных, исходники лежат в D:/Projects/MyConfig/src/. Язык справки — русский.",
+      "expected_output": "Файлы Help.xml и ru.html созданы по пути D:/Projects/MyConfig/src/ВыгрузкаДанных/Ext/.",
+      "expectations": [
+        "Скрипт add-help.ps1 вызван с параметрами -ProcessorName 'ВыгрузкаДанных' и -SrcDir 'D:/Projects/MyConfig/src'",
+        "Создан файл D:/Projects/MyConfig/src/ВыгрузкаДанных/Ext/Help.xml",
+        "Создан файл D:/Projects/MyConfig/src/ВыгрузкаДанных/Ext/Help/ru.html",
+        "Help.xml содержит namespace http://v8.1c.ru/8.3/xcf/extrnprops"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Добавь справку для обработки АнализПродаж и обнови метаданные формы, чтобы справка была доступна пользователям через кнопку помощи.",
+      "expected_output": "Созданы Help.xml и ru.html, в метаданные формы добавлен элемент IncludeHelpInContents, выведена инструкция по добавлению кнопки Help на форму.",
+      "expectations": [
+        "Скрипт add-help.ps1 вызван с параметром -ProcessorName 'АнализПродаж'",
+        "Создан файл Help.xml в Ext/ объекта",
+        "Создан файл Help/ru.html с HTML-шаблоном",
+        "Вывод содержит инструкцию по добавлению кнопки Form.StandardCommand.Help на форму"
+      ]
+    }
+  ]
+}

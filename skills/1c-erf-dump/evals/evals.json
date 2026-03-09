@@ -1,0 +1,39 @@
+{
+  "skill_name": "1c-erf-dump",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Разбери отчёт ОтчётПоПродажам.erf из build/ в исходники. База файловая: C:\\Bases\\ERP.",
+      "expected_output": "XML-исходники отчёта выгружены в src/ в иерархическом формате.",
+      "expectations": [
+        "Скрипт epf-dump.ps1 вызван с параметром -InputFile, указывающим на build\\ОтчётПоПродажам.erf",
+        "Скрипт вызван с параметром -InfoBasePath C:\\Bases\\ERP",
+        "Скрипт вызван с параметром -OutputDir src",
+        "Создана структура src/ОтчётПоПродажам/ с вложенными Ext/ и Forms/",
+        "Код возврата скрипта 0"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Разбери внешний отчёт АнализДолгов.erf в папку report-src/. Подключение: сервер buh-srv, база Buh_2024, пользователь Supervisor, пароль 12345.",
+      "expected_output": "XML-исходники выгружены в report-src/ через серверное подключение.",
+      "expectations": [
+        "Скрипт epf-dump.ps1 вызван с параметром -InputFile, указывающим на АнализДолгов.erf",
+        "Скрипт вызван с параметрами -InfoBaseServer buh-srv и -InfoBaseRef Buh_2024",
+        "Скрипт вызван с параметром -UserName Supervisor",
+        "Скрипт вызван с параметром -OutputDir report-src"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Разбери ОтчётОстатки.erf. Параметры подключения не указываю — возьми из проекта.",
+      "expected_output": "База определена из .v8-project.json, разборка выполнена в src/.",
+      "expectations": [
+        "Прочитан файл .v8-project.json для определения базы и v8path",
+        "Скрипт epf-dump.ps1 вызван с параметром -InputFile, указывающим на ОтчётОстатки.erf",
+        "Скрипт вызван с параметром -OutputDir src",
+        "Скрипт вызван с параметром -Format Hierarchical"
+      ]
+    }
+  ]
+}
