@@ -128,6 +128,7 @@ try {
     if ($Extension) {
         $arguments += "-Extension", "`"$Extension`""
     } elseif ($AllExtensions) {
+        Write-Warning "-AllExtensions for /DumpCfg is supported on platform 8.3.20+. Use -Extension <name> for older versions."
         $arguments += "-AllExtensions"
     }
 
@@ -135,6 +136,7 @@ try {
     $outFile = Join-Path $tempDir "dump_cf_log.txt"
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
+    $arguments += "/DisableStartupMessages"
 
     # --- Execute ---
     Write-Host "Running: 1cv8.exe $($arguments -join ' ')"

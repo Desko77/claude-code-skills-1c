@@ -199,6 +199,7 @@ try {
     $outFile = Join-Path $tempDir "load_log.txt"
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
+    $arguments += "/DisableStartupMessages"
 
     # --- Execute ---
     Write-Host "Running: 1cv8.exe $($arguments -join ' ')"

@@ -226,29 +226,18 @@ await fillFields({
 Returns `{ filled: [{ field, ok, value, method }], form: {...} }`.
 Method is one of: `'toggle'` | `'radio'` | `'paste'` | `'dropdown'` | `'form'` | `'typeahead'`
 
-#### `selectValue(field, search, opts?)` → form state with `selected`
+#### `selectValue(field, search)` → form state with `selected`
 Select a value from reference field via dropdown or selection form. More reliable than `fillFields` for reference fields that need exact selection from a catalog.
 
-`search` — string for simple search, or `{ field: value }` object for per-field advanced search:
 ```js
 await selectValue('Организация', 'Конфетпром');
 // result.selected = { field: 'Организация', search: 'Конфетпром', method: 'dropdown'|'form' }
-
-// Per-field search (disambiguate by multiple columns):
-await selectValue('Документ', { 'Номер': '0000-000601', 'Дата': '29.12.2016' }, { type: 'Реализация (акт' });
-```
-
-For **composite-type fields** (accepting multiple types), specify `type` to first select the type, then the value:
-```js
-await selectValue('Документ', '0000-000601', { type: 'Реализация (акт' });
-// Clears field → opens type dialog → picks type via Ctrl+F → picks value from selection form
-// result.selected = { field: 'Документ', search: '0000-000601', type: 'Реализация (акт', method: 'form' }
 ```
 
 Also supports DCS labels — auto-enables the paired checkbox.
 
 #### `fillTableRow(fields, opts)` → form state
-Fill table row cells via Tab navigation. Value is a plain string or `{ value, type }` for composite-type cells.
+Fill table row cells via Tab navigation.
 
 ```js
 // Add new row:
@@ -260,11 +249,6 @@ await fillTableRow(
 await fillTableRow(
   { 'Количество': '20' },
   { tab: 'Товары', row: 0 }
-);
-// Composite-type cell (e.g. SubConto accepting multiple types):
-await fillTableRow(
-  { 'СубконтоКт1': { value: 'Голованов', type: 'Физическое лицо' } },
-  { tab: 'Проводки' }
 );
 ```
 
@@ -404,4 +388,3 @@ On error (auto-screenshot taken):
 - **Clipboard paste** — all text fields filled via Ctrl+V (triggers 1C events properly)
 - **Cyrillic in bash** — use `cat <<'SCRIPT' | node $RUN exec -` to avoid escaping issues
 - **Non-breaking spaces** — 1C uses `\u00a0` instead of regular spaces. All matching is normalized internally
-- **Section panel display** — `navigateSection()` works with any panel position (side, top) but requires "Picture and text" or "Text" display mode. Icon-only mode is not supported — API cannot read section names from icons alone

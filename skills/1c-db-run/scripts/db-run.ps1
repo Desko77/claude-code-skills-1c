@@ -138,6 +138,7 @@ if ($URL) {
 }
 
 $argString += " /DisableStartupDialogs"
+$argString += " /DisableStartupMessages"
 
 # --- Execute (background, no wait) ---
 Write-Host "Running: 1cv8.exe $argString"
