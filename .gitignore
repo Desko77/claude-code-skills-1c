@@ -3,7 +3,6 @@ __pycache__/
 
 # Sync tools (not for versioning)
 sync_from_upstream.py
-tools/
 
 # Build artifacts
 build/
