@@ -4,7 +4,7 @@
 
 **81 скил** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С.
 
-**14 правил** — стандарты кода BSL, антипаттерны, оптимизация запросов, паттерны расширений, тестирование, ревью.
+**16 правил** — стандарты кода BSL, антипаттерны, оптимизация запросов, паттерны расширений, тестирование, ревью, выбор моделей, SDD-workflow.
 
 ## Установка
 
@@ -201,7 +201,7 @@ cp commands/* ~/.claude/commands/
 | `powershell-windows` | PowerShell на Windows |
 | `skill-creator` | Создание, тестирование и оптимизация скилов (evals, grading, description loop) |
 
-## Правила (14)
+## Правила (16)
 
 | Файл | Описание |
 |------|----------|
@@ -217,8 +217,10 @@ cp commands/* ~/.claude/commands/
 | `testing-patterns.md` | Паттерны тестирования: YaXUnit, Vanessa Automation |
 | `1c-mdo-integrity.md` | Целостность MDO-файлов: UUID, ссылки |
 | `v8unpack-source-structure.md` | Структура исходников v8unpack |
-| `refactoring.md` | Правила рефакторинга 1С |
+| `refactoring.md` | Правила рефакторинга 1С: техники, критерии, примеры BSL |
 | `routine_assignment_ext_processor.md` | Фоновые задания из внешней обработки через БСП |
+| `model-selection.md` | Стратегия выбора моделей: Opus/Sonnet/Haiku по типу задачи |
+| `sdd-workflow.md` | Specification-Driven Development: 9-фазный workflow разработки |
 
 ## Команды (2)
 

@@ -72,6 +72,14 @@ RULES_CONFIG = {
         "description": "Структура исходников v8unpack",
         "globs": [],
     },
+    "model-selection": {
+        "description": "Стратегия выбора моделей: Opus/Sonnet/Haiku по типу задачи",
+        "globs": [],
+    },
+    "sdd-workflow": {
+        "description": "Specification-Driven Development: 9-фазный workflow разработки",
+        "globs": [],
+    },
 }
 
 EXCLUDE_SKILLS = {"skill-creator"}
