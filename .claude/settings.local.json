@@ -3,7 +3,11 @@
     "allow": [
       "WebFetch(domain:gist.github.com)",
       "WebSearch",
-      "WebFetch(domain:cursor.com)"
+      "WebFetch(domain:cursor.com)",
+      "WebFetch(domain:developers.openai.com)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "thinking"
+  ]
 }
