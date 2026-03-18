@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# skd-compile v1.0 — Compile 1C DCS from JSON
+# skd-compile v1.1 — Compile 1C DCS from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import json
@@ -11,6 +11,25 @@ import uuid
 
 def esc_xml(s):
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+
+def resolve_query_value(val, base_dir):
+    if not val.startswith("@"):
+        return val
+    file_path = val[1:]
+    if os.path.isabs(file_path):
+        candidates = [file_path]
+    else:
+        candidates = [
+            os.path.join(base_dir, file_path),
+            os.path.join(os.getcwd(), file_path),
+        ]
+    for c in candidates:
+        if os.path.exists(c):
+            with open(c, 'r', encoding='utf-8-sig') as f:
+                return f.read().rstrip()
+    print(f"Query file not found: {file_path} (searched: {', '.join(candidates)})", file=sys.stderr)
+    sys.exit(1)
 
 
 def emit_mltext(lines, indent, tag, text):
@@ -506,7 +525,7 @@ def emit_field(lines, field_def, indent):
 
 # === DataSets ===
 
-def emit_data_set(lines, ds, indent, default_source):
+def emit_data_set(lines, ds, indent, default_source, qbase_dir=None):
     # Determine type
     if ds.get('items'):
         ds_type = 'DataSetUnion'
@@ -530,21 +549,22 @@ def emit_data_set(lines, ds, indent, default_source):
 
     # Type-specific content
     if ds_type == 'DataSetQuery':
-        lines.append(f'{indent}\t<query>{esc_xml(str(ds.get("query", "")))}</query>')
+        query_text = resolve_query_value(str(ds.get("query", "")), qbase_dir or query_base_dir)
+        lines.append(f'{indent}\t<query>{esc_xml(query_text)}</query>')
         if ds.get('autoFillFields') is False:
             lines.append(f'{indent}\t<autoFillFields>false</autoFillFields>')
     elif ds_type == 'DataSetObject':
         lines.append(f'{indent}\t<objectName>{esc_xml(str(ds["objectName"]))}</objectName>')
     elif ds_type == 'DataSetUnion':
         for item in ds['items']:
-            emit_data_set(lines, item, f'{indent}\t', default_source)
+            emit_data_set(lines, item, f'{indent}\t', default_source, qbase_dir)
 
     lines.append(f'{indent}</dataSet>')
 
 
-def emit_data_sets(lines, defn, default_source):
+def emit_data_sets(lines, defn, default_source, qbase_dir=None):
     for ds in defn['dataSets']:
-        emit_data_set(lines, ds, '\t', default_source)
+        emit_data_set(lines, ds, '\t', default_source, qbase_dir)
 
 
 # === DataSetLinks ===
@@ -1351,6 +1371,10 @@ def main():
         print("JSON must have at least one entry in 'dataSets'", file=sys.stderr)
         sys.exit(1)
 
+    # Base directory for resolving @file references in query
+    global query_base_dir
+    query_base_dir = os.path.dirname(def_file) if args.DefinitionFile else os.getcwd()
+
     # --- 2. Resolve defaults ---
 
     # DataSources
@@ -1387,7 +1411,7 @@ def main():
     lines.append('\t\txmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
 
     emit_data_sources(lines, data_sources)
-    emit_data_sets(lines, defn, default_source)
+    emit_data_sets(lines, defn, default_source, query_base_dir)
     emit_data_set_links(lines, defn)
     emit_calc_fields(lines, defn)
     emit_total_fields(lines, defn)

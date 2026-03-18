@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-load-git v1.0 — Load Git changes into 1C database
+# db-load-git v1.2 — Load Git changes into 1C database
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -84,6 +84,7 @@ def main():
         help="File format (default: Hierarchical)",
     )
     parser.add_argument("-DryRun", action="store_true", help="Only show what would be loaded (no actual load)")
+    parser.add_argument("-UpdateDB", action="store_true", help="Also update database configuration after load")
     args = parser.parse_args()
 
     # --- Resolve V8Path (skip if DryRun) ---
@@ -119,18 +120,18 @@ def main():
 
     if args.Source == "Staged":
         print("Getting staged changes...")
-        changed_files += run_git(args.ConfigDir, ["diff", "--cached", "--name-only"])
+        changed_files += run_git(args.ConfigDir, ["diff", "--cached", "--name-only", "--relative"])
     elif args.Source == "Unstaged":
         print("Getting unstaged changes...")
-        changed_files += run_git(args.ConfigDir, ["diff", "--name-only"])
+        changed_files += run_git(args.ConfigDir, ["diff", "--name-only", "--relative"])
         changed_files += run_git(args.ConfigDir, ["ls-files", "--others", "--exclude-standard"])
     elif args.Source == "Commit":
         print(f"Getting changes from {args.CommitRange}...")
-        changed_files += run_git(args.ConfigDir, ["diff", "--name-only", args.CommitRange])
+        changed_files += run_git(args.ConfigDir, ["diff", "--name-only", "--relative", args.CommitRange])
     elif args.Source == "All":
         print("Getting all uncommitted changes...")
-        changed_files += run_git(args.ConfigDir, ["diff", "--cached", "--name-only"])
-        changed_files += run_git(args.ConfigDir, ["diff", "--name-only"])
+        changed_files += run_git(args.ConfigDir, ["diff", "--cached", "--name-only", "--relative"])
+        changed_files += run_git(args.ConfigDir, ["diff", "--name-only", "--relative"])
         changed_files += run_git(args.ConfigDir, ["ls-files", "--others", "--exclude-standard"])
 
     # Deduplicate and filter blanks
@@ -237,6 +238,10 @@ def main():
             arguments += ["-Extension", args.Extension]
         elif args.AllExtensions:
             arguments.append("-AllExtensions")
+
+        # --- UpdateDB ---
+        if args.UpdateDB:
+            arguments.append("/UpdateDBCfg")
 
         # --- Output ---
         out_file = os.path.join(temp_dir, "load_log.txt")

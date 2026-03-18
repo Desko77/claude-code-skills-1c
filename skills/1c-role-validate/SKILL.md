@@ -1,7 +1,7 @@
 ---
 name: 1c-role-validate
 description: Валидация роли 1С. Используй после создания или модификации роли для проверки корректности
-argument-hint: <RightsPath>
+argument-hint: <RightsPath> [-Detailed] [-MaxErrors 30]
 allowed-tools:
   - Bash
   - Read
@@ -11,95 +11,32 @@ allowed-tools:
 
 Проверяет корректность `Rights.xml` роли: формат XML, namespace, глобальные флаги, типы объектов, имена прав, RLS-ограничения, шаблоны. Опционально проверяет метаданные роли (UUID, имя, синоним).
 
-## Использование
+## Параметры
 
-```
-/role-validate <RightsPath> [MetadataPath]
-```
+| Параметр     | Обяз. | Умолч. | Описание                                        |
+|--------------|:-----:|---------|-------------------------------------------------|
+| RightsPath   | да    | —       | Путь к роли (директория или `Rights.xml`)        |
+| Detailed     | нет   | —       | Показывать [OK] для каждой проверки              |
+| MaxErrors    | нет   | 30      | Макс. ошибок до остановки (по умолчанию 30)      |
+| OutFile      | нет   | —       | Записать результат в файл (UTF-8 BOM)            |
 
-## Запуск скрипта
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-role-validate/scripts/role-validate.ps1 -RightsPath <path> [-MetadataPath <path>] [-OutFile <output.txt>]
+powershell.exe -NoProfile -File skills/1c-role-validate/scripts/role-validate.ps1 -RightsPath "Roles/МояРоль"
 ```
-
-### Параметры
-
-| Параметр | Обязательный | Описание |
-|----------|:------------:|----------|
-| `-RightsPath` | да | Путь к `Rights.xml` роли |
-| `-MetadataPath` | нет | Путь к метаданным роли (`Roles/ИмяРоли.xml`) |
-| `-OutFile` | нет | Записать результат в файл (UTF-8 BOM). Без этого — вывод в консоль |
-
-**Важно:** Для кириллических путей используй `-OutFile` и читай результат через Read tool.
 
 ## Проверки
 
-### Rights.xml
-1. XML well-formed — парсинг без ошибок
-2. Корневой элемент `<Rights>` с namespace `http://v8.1c.ru/8.2/roles`
-3. Три глобальных флага: `setForNewObjects`, `setForAttributesByDefault`, `independentRightsOfChildObjects`
-4. Для каждого `<object>`:
-   - `<name>` не пуст
-   - Тип объекта распознан (Catalog, Document, InformationRegister и т.д.)
-   - Каждое `<right>` имеет `<name>` и `<value>` (`true`/`false`)
-   - Имя права валидно для данного типа объекта (с подсказкой при опечатке)
-5. Вложенные объекты (3+ сегмента через `.`): допустимы только View, Edit (или Use для IntegrationServiceChannel)
-6. RLS `<restrictionByCondition>`: `<condition>` не пуст
-7. Шаблоны `<restrictionTemplate>`: `<name>` и `<condition>` не пусты
+| # | Проверка | Серьёзность |
+|---|----------|-------------|
+| 1 | XML well-formed — парсинг без ошибок | ERROR |
+| 2 | Корневой элемент `<Rights>` с namespace `http://v8.1c.ru/8.2/roles` | ERROR |
+| 3 | Три глобальных флага: setForNewObjects, setForAttributesByDefault, independentRightsOfChildObjects | ERROR |
+| 4 | Объекты: name не пуст, тип распознан, права валидны для типа (с подсказкой при опечатке) | ERROR/WARN |
+| 5 | Вложенные объекты (3+ сегмента): допустимы только View, Edit (или Use для IntegrationServiceChannel) | ERROR |
+| 6 | RLS `<restrictionByCondition>`: condition не пуст | ERROR |
+| 7 | Шаблоны `<restrictionTemplate>`: name и condition не пусты | ERROR |
+| 8 | Метаданные (авто-определение из пути): UUID, Name, Synonym | ERROR/WARN |
 
-### Метаданные (опционально)
-- Элемент `<Role>` найден
-- UUID в корректном формате
-- `<Name>` не пуст
-- `<Synonym>` присутствует
-
-## Формат вывода
-
-```
-Validating: Roles/МояРоль/Ext/Rights.xml
-  OK  XML well-formed
-  OK  Root element: <Rights> with correct namespace
-  OK  3 global flags present
-  WARN  Document.Реализация: unknown right 'Rea'. Did you mean: Read?
-  OK  12 objects, 45 rights
-  OK  2 RLS restrictions
-  OK  1 templates: ДляОбъекта
-
-  OK  Metadata: UUID valid (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-  OK  Metadata: Name = МояРоль
-  OK  Metadata: Synonym present
----
-Result: 0 error(s), 1 warning(s)
-```
-
-### Уровни сообщений
-
-| Маркер | Значение |
-|--------|----------|
-| `OK` | Проверка пройдена |
-| `WARN` | Предупреждение (неизвестный тип объекта, подозрительное имя права) |
-| `ERR` | Ошибка (невалидный XML, отсутствие обязательных элементов) |
-
-Код возврата: `0` — без ошибок, `1` — есть ошибки.
-
-## Примеры
-
-### Только Rights.xml
-
-```
-/role-validate upload/acc_8.3.20/Roles/БазовыеПраваБП/Ext/Rights.xml
-```
-
-### С проверкой метаданных
-
-```
-/role-validate Roles/МояРоль/Ext/Rights.xml Roles/МояРоль.xml
-```
-
-### Верификация после /role-compile
-
-```
-/role-compile role.json Roles/
-/role-validate Roles/МояРоль/Ext/Rights.xml Roles/МояРоль.xml
-```
+Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

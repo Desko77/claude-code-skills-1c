@@ -1,7 +1,7 @@
 ---
 name: 1c-cf-validate
 description: Валидация конфигурации 1С. Используй после создания или модификации конфигурации для проверки корректности
-argument-hint: <ConfigPath> [-MaxErrors 30]
+argument-hint: <ConfigPath> [-Detailed] [-MaxErrors 30]
 allowed-tools:
   - Bash
   - Read
@@ -12,19 +12,23 @@ allowed-tools:
 
 Проверяет Configuration.xml на структурные ошибки: XML well-formedness, InternalInfo, свойства, enum-значения, ChildObjects, DefaultLanguage, файлы языков, каталоги объектов.
 
-## Параметры и команда
+## Параметры
 
-| Параметр | Описание |
-|----------|----------|
-| `ConfigPath` | Путь к Configuration.xml или каталогу выгрузки |
-| `MaxErrors` | Остановиться после N ошибок (default: 30) |
-| `OutFile` | Записать результат в файл (UTF-8 BOM) |
+| Параметр   | Обяз. | Умолч. | Описание                                      |
+|------------|:-----:|---------|-------------------------------------------------|
+| ConfigPath | да    | —       | Путь к Configuration.xml или каталогу выгрузки  |
+| Detailed   | нет   | —       | Показывать [OK] для каждой проверки             |
+| MaxErrors  | нет   | 30      | Остановиться после N ошибок                     |
+| OutFile    | нет   | —       | Записать результат в файл (UTF-8 BOM)           |
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-cf-validate/scripts/cf-validate.ps1 -ConfigPath "<путь>"
+powershell.exe -NoProfile -File skills/1c-cf-validate/scripts/cf-validate.ps1 -ConfigPath "upload/cfempty"
+powershell.exe -NoProfile -File skills/1c-cf-validate/scripts/cf-validate.ps1 -ConfigPath "upload/cfempty/Configuration.xml"
 ```
 
-## Выполняемые проверки
+## Проверки
 
 | # | Проверка | Серьёзность |
 |---|----------|-------------|
@@ -37,34 +41,4 @@ powershell.exe -NoProfile -File skills/1c-cf-validate/scripts/cf-validate.ps1 -C
 | 7 | Файлы языков Languages/<name>.xml существуют | WARN |
 | 8 | Каталоги объектов из ChildObjects существуют (spot-check) | WARN |
 
-## Вывод
-
-```
-=== Validation: Configuration.МояКонфигурация ===
-
-[OK]    1. Root structure: MetaDataObject/Configuration, version 2.17
-[OK]    2. InternalInfo: 7 ContainedObject, all ClassIds valid
-[OK]    3. Properties: Name="МояКонфигурация", Synonym present
-[OK]    4. Property values: 11 enum properties checked
-[OK]    5. ChildObjects: 1 types, 1 objects, order correct
-[OK]    6. DefaultLanguage "Language.Русский" found in ChildObjects
-[OK]    7. Language files: 1/1 exist
-[OK]    8. Object directories: spot-check passed
-
-=== Result: 0 errors, 0 warnings ===
-```
-
-Exit code: 0 = OK, 1 = errors.
-
-## Примеры
-
-```powershell
-# Пустая конфигурация
-... -ConfigPath upload/cfempty
-
-# Реальная конфигурация
-... -ConfigPath C:\WS\tasks\cfsrc\acc_8.3.24
-
-# С лимитом ошибок
-... -ConfigPath test-tmp/cf -MaxErrors 10
-```
+Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

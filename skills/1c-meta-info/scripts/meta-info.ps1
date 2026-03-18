@@ -1,4 +1,4 @@
-﻿# meta-info v1.0 — Compact summary of 1C metadata object
+﻿# meta-info v1.1 — Compact summary of 1C metadata object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory=$true)][string]$ObjectPath,
@@ -773,6 +773,13 @@ if (-not $drillDone) {
 			if ($hier -and $hier.InnerText -eq "true") {
 				$ht = $props.SelectSingleNode("md:HierarchyType", $ns)
 				$htText = if ($ht -and $ht.InnerText -eq "HierarchyFoldersAndItems") { "группы и элементы" } else { "элементы" }
+				$limitNode = $props.SelectSingleNode("md:LimitLevelCount", $ns)
+				$levelNode = $props.SelectSingleNode("md:LevelCount", $ns)
+				if ($limitNode -and $limitNode.InnerText -eq "true" -and $levelNode) {
+					$htText += ", уровней: $($levelNode.InnerText)"
+				} else {
+					$htText += ", без ограничения уровней"
+				}
 				$parts += "Иерархический: $htText"
 			}
 			$codeLen = $props.SelectSingleNode("md:CodeLength", $ns)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# form-info v1.0 — Analyze 1C managed form structure
+# form-info v1.1 — Analyze 1C managed form structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -264,7 +264,7 @@ def count_significant_children(child_items_node):
 
 # --- Build element tree recursively ---
 
-def build_tree(child_items_node, prefix, tree_lines):
+def build_tree(child_items_node, prefix, tree_lines, expand="", state=None):
     if child_items_node is None:
         return
 
@@ -316,17 +316,24 @@ def build_tree(child_items_node, prefix, tree_lines):
         line = f"{prefix}{connector} {tag} {name}{binding}{flags}{title_str}{events}"
         tree_lines.append(line)
 
-        # Recurse into containers (but not Page -- show summary)
+        # Recurse into containers (but not Page -- show summary unless expanded)
         local_name = etree.QName(child.tag).localname
         if local_name == "Page":
             ci = child.find("d:ChildItems", NSMAP)
-            cnt = count_significant_children(ci)
-            # Append count to last line
-            tree_lines[-1] = tree_lines[-1] + f" ({cnt} items)"
+            page_name = child.get("name", "")
+            page_title = test_title_differs(child, page_name)
+            should_expand = (expand == "*") or (expand == page_name) or (page_title and expand == page_title)
+            if should_expand and ci is not None:
+                build_tree(ci, prefix + continuation, tree_lines, expand, state)
+            else:
+                cnt = count_significant_children(ci)
+                tree_lines[-1] = tree_lines[-1] + f" ({cnt} items)"
+                if state is not None:
+                    state["has_collapsed"] = True
         elif local_name in ("UsualGroup", "Pages", "Table", "CommandBar", "ButtonGroup", "Popup"):
             ci = child.find("d:ChildItems", NSMAP)
             if ci is not None:
-                build_tree(ci, prefix + continuation, tree_lines)
+                build_tree(ci, prefix + continuation, tree_lines, expand, state)
 
 
 # --- Main ---
@@ -338,11 +345,13 @@ def main():
     parser.add_argument("-FormPath", required=True, help="Path to Form.xml")
     parser.add_argument("-Limit", type=int, default=150, help="Max lines to show")
     parser.add_argument("-Offset", type=int, default=0, help="Line offset for pagination")
+    parser.add_argument("-Expand", default="", help="Expand collapsed section by name, or * for all")
     args = parser.parse_args()
 
     form_path = args.FormPath
     limit = args.Limit
     offset = args.Offset
+    expand = args.Expand
 
     # --- Validate path ---
     if not os.path.isfile(form_path):
@@ -456,12 +465,13 @@ def main():
             lines.append(f"  {e_name}{ct_str} -> {e_handler}")
 
     # --- Element tree ---
+    tree_state = {"has_collapsed": False}
     child_items = root.find("d:ChildItems", NSMAP)
     if child_items is not None:
         lines.append("")
         lines.append("Elements:")
         tree_lines = []
-        build_tree(child_items, "  ", tree_lines)
+        build_tree(child_items, "  ", tree_lines, expand, tree_state)
         lines.extend(tree_lines)
 
     # --- Attributes ---
@@ -575,6 +585,11 @@ def main():
         bf_str = f"present (version {bf_version})" if bf_version else "present"
         lines.append("")
         lines.append(f"BaseForm: {bf_str}")
+
+    # --- Expand hint ---
+    if tree_state["has_collapsed"]:
+        lines.append("")
+        lines.append("Hint: use -Expand <name> to expand a collapsed section, -Expand * for all")
 
     # --- Truncation protection ---
     total_lines = len(lines)

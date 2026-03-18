@@ -1,10 +1,11 @@
-﻿# form-info v1.0 — Analyze 1C managed form structure
+﻿# form-info v1.1 — Analyze 1C managed form structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory=$true)]
 	[string]$FormPath,
 	[int]$Limit = 150,
-	[int]$Offset = 0
+	[int]$Offset = 0,
+	[string]$Expand
 )
 
 $ErrorActionPreference = "Stop"
@@ -232,6 +233,7 @@ function Count-SignificantChildren($childItemsNode) {
 # --- Build element tree recursively ---
 
 $treeLines = [System.Collections.Generic.List[string]]::new()
+$script:hasCollapsed = $false
 
 function Build-Tree($childItemsNode, [string]$prefix, [bool]$isLast) {
 	if (-not $childItemsNode) { return }
@@ -282,14 +284,21 @@ function Build-Tree($childItemsNode, [string]$prefix, [bool]$isLast) {
 		$line = "$prefix$connector $tag $name$binding$flags$titleStr$events"
 		$treeLines.Add($line)
 
-		# Recurse into containers (but not Page — show summary)
+		# Recurse into containers (but not Page — show summary unless expanded)
 		$localName = $child.LocalName
 		if ($localName -eq "Page") {
 			$ci = $child.SelectSingleNode("d:ChildItems", $ns)
-			$cnt = Count-SignificantChildren $ci
-			# Append count to last line
-			$idx = $treeLines.Count - 1
-			$treeLines[$idx] = $treeLines[$idx] + " ($cnt items)"
+			$pageName = $child.GetAttribute("name")
+			$pageTitle = Test-TitleDiffers $child $pageName
+			$shouldExpand = ($Expand -eq "*") -or ($Expand -eq $pageName) -or ($pageTitle -and $Expand -eq $pageTitle)
+			if ($shouldExpand -and $ci) {
+				Build-Tree $ci "$prefix$continuation" $last
+			} else {
+				$cnt = Count-SignificantChildren $ci
+				$idx = $treeLines.Count - 1
+				$treeLines[$idx] = $treeLines[$idx] + " ($cnt items)"
+				$script:hasCollapsed = $true
+			}
 		} elseif ($localName -in @("UsualGroup", "Pages", "Table", "CommandBar", "ButtonGroup", "Popup")) {
 			$ci = $child.SelectSingleNode("d:ChildItems", $ns)
 			if ($ci) {
@@ -538,6 +547,13 @@ if ($isExtension) {
 	$bfStr = if ($bfVersion) { "present (version $bfVersion)" } else { "present" }
 	$lines += ""
 	$lines += "BaseForm: $bfStr"
+}
+
+# --- Expand hint ---
+
+if ($script:hasCollapsed) {
+	$lines += ""
+	$lines += "Hint: use -Expand <name> to expand a collapsed section, -Expand * for all"
 }
 
 # --- Truncation protection ---

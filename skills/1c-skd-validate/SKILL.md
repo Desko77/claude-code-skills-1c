@@ -1,7 +1,7 @@
 ---
 name: 1c-skd-validate
 description: Валидация схемы компоновки данных 1С (СКД). Используй после создания или модификации СКД для проверки корректности
-argument-hint: <TemplatePath> [-MaxErrors 20]
+argument-hint: <TemplatePath> [-Detailed] [-MaxErrors 20]
 allowed-tools:
   - Bash
   - Read
@@ -12,16 +12,20 @@ allowed-tools:
 
 Проверяет структурную корректность Template.xml схемы компоновки данных. Выявляет ошибки формата, битые ссылки, дубликаты имён.
 
-## Параметры и команда
+## Параметры
 
-| Параметр | Описание |
-|----------|----------|
-| `TemplatePath` | Путь к Template.xml или каталогу макета (авто-резолв в `Ext/Template.xml`) |
-| `MaxErrors` | Макс. ошибок до остановки (по умолчанию 20) |
-| `OutFile` | Записать результат в файл |
+| Параметр     | Обяз. | Умолч. | Описание                                              |
+|--------------|:-----:|---------|---------------------------------------------------------|
+| TemplatePath | да    | —       | Путь к Template.xml или каталогу макета                 |
+| Detailed     | нет   | —       | Показывать [OK] для каждой проверки                     |
+| MaxErrors    | нет   | 20      | Остановиться после N ошибок                             |
+| OutFile      | нет   | —       | Записать результат в файл                               |
+
+## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-skd-validate/scripts/skd-validate.ps1 -TemplatePath "<путь>"
+powershell.exe -NoProfile -File skills/1c-skd-validate/scripts/skd-validate.ps1 -TemplatePath "src/МойОтчёт/Templates/ОсновнаяСхема"
+powershell.exe -NoProfile -File skills/1c-skd-validate/scripts/skd-validate.ps1 -TemplatePath "Catalogs/Номенклатура/Templates/СКД/Ext/Template.xml"
 ```
 
 ## Проверки (~30)
@@ -41,34 +45,4 @@ powershell.exe -NoProfile -File skills/1c-skd-validate/scripts/skd-validate.ps1 
 | **Variants** | Наличие, name не пуст, settings element присутствует |
 | **Settings** | selection/filter/order ссылаются на известные поля, comparisonType валиден, structure items типизированы |
 
-## Коды выхода
-
-| Код | Значение |
-|-----|----------|
-| 0 | Ошибок нет (могут быть предупреждения) |
-| 1 | Есть ошибки |
-
-## Пример вывода
-
-```
-=== Validation: Template.xml ===
-
-[OK]    XML parsed successfully
-[OK]    Root element: DataCompositionSchema
-[OK]    Default namespace correct
-[OK]    1 dataSource(s) found, names unique
-[OK]    1 dataSet(s) found, names unique
-[OK]    DataSet "НаборДанных1": 2 fields, dataPath unique
-[OK]    1 totalField(s): dataPath and expression present
-[OK]    1 settingsVariant(s) found
-
-=== Result: 0 errors, 0 warnings ===
-```
-
-## Верификация
-
-```
-/skd-compile <JsonPath> <OutputPath>    — генерация XML
-/skd-validate <OutputPath>              — проверка результата
-/skd-info <OutputPath>                  — визуальная сводка
-```
+Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

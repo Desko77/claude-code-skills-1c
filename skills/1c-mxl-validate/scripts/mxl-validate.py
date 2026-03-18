@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# mxl-validate v1.0 — Validate 1C spreadsheet document Template.xml
+# mxl-validate v1.1 — Validate 1C spreadsheet document Template.xml
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates spreadsheet Template.xml: height, palette refs, column/row indices, areas, merges."""
 import sys, os, argparse
@@ -17,24 +17,29 @@ NS = {
 
 
 class Reporter:
-    def __init__(self, max_errors):
+    def __init__(self, max_errors, detailed=False):
         self.errors = 0
         self.warnings = 0
+        self.ok_count = 0
         self.stopped = False
         self.max_errors = max_errors
+        self.detailed = detailed
+        self.lines = []
 
     def ok(self, msg):
-        print(f'[OK]    {msg}')
+        self.ok_count += 1
+        if self.detailed:
+            self.lines.append(f'[OK]    {msg}')
 
     def error(self, msg):
         self.errors += 1
-        print(f'[ERROR] {msg}')
+        self.lines.append(f'[ERROR] {msg}')
         if self.errors >= self.max_errors:
             self.stopped = True
 
     def warn(self, msg):
         self.warnings += 1
-        print(f'[WARN]  {msg}')
+        self.lines.append(f'[WARN]  {msg}')
 
 
 def int_text(node):
@@ -54,6 +59,7 @@ def main():
     parser.add_argument('-ProcessorName', dest='ProcessorName', default='')
     parser.add_argument('-TemplateName', dest='TemplateName', default='')
     parser.add_argument('-SrcDir', dest='SrcDir', default='src')
+    parser.add_argument('-Detailed', action='store_true')
     parser.add_argument('-MaxErrors', dest='MaxErrors', type=int, default=20)
     args = parser.parse_args()
 
@@ -61,6 +67,7 @@ def main():
     processor_name = args.ProcessorName
     template_name_arg = args.TemplateName
     src_dir = args.SrcDir
+    detailed = args.Detailed
     max_errors = args.MaxErrors
 
     # --- Resolve template path ---
@@ -74,6 +81,24 @@ def main():
     if not os.path.isabs(template_path):
         template_path = os.path.join(os.getcwd(), template_path)
 
+    # A: Directory → Ext/Template.xml
+    if os.path.isdir(template_path):
+        template_path = os.path.join(template_path, 'Ext', 'Template.xml')
+    # B1: Missing Ext/ (e.g. Templates/Макет/Template.xml → Templates/Макет/Ext/Template.xml)
+    if not os.path.exists(template_path):
+        fn = os.path.basename(template_path)
+        if fn == 'Template.xml':
+            c = os.path.join(os.path.dirname(template_path), 'Ext', fn)
+            if os.path.exists(c):
+                template_path = c
+    # B2: Descriptor (Templates/Макет.xml → Templates/Макет/Ext/Template.xml)
+    if not os.path.exists(template_path) and template_path.endswith('.xml'):
+        stem = os.path.splitext(os.path.basename(template_path))[0]
+        parent = os.path.dirname(template_path)
+        c = os.path.join(parent, stem, 'Ext', 'Template.xml')
+        if os.path.exists(c):
+            template_path = c
+
     if not os.path.exists(template_path):
         print(f'File not found: {template_path}', file=sys.stderr)
         sys.exit(1)
@@ -85,13 +110,13 @@ def main():
     xml_doc = etree.parse(resolved_path, xml_parser)
     root = xml_doc.getroot()
 
-    r = Reporter(max_errors)
+    r = Reporter(max_errors, detailed)
 
     # Derive template name from path: .../Templates/<Name>/Ext/Template.xml
     # Go up 2 levels from Template.xml -> Ext -> <Name>
     template_display_name = os.path.basename(os.path.dirname(os.path.dirname(resolved_path)))
-    print(f'=== Validation: {template_display_name} ===')
-    print()
+    r.lines.append(f'=== Validation: Template.{template_display_name} ===')
+    r.lines.append('')
 
     # --- Collect palettes ---
     line_nodes = root.findall(f'{{{NS_D}}}line')
@@ -176,8 +201,7 @@ def main():
             r.error(f'Font index {max_font_ref} exceeds palette size ({font_count})')
     elif max_font_ref > 0:
         r.error(f'Font index {max_font_ref} referenced but no fonts defined')
-    else:
-        r.ok('No font references')
+    # No font references — no check needed
 
     # --- Check 11: line/border indices in formats ---
     if line_count > 0:
@@ -187,8 +211,7 @@ def main():
             r.error(f'Line index {max_line_ref} exceeds palette size ({line_count})')
     elif max_line_ref > 0:
         r.error(f'Line index {max_line_ref} referenced but no lines defined')
-    else:
-        r.ok('No line/border references')
+    # No line/border references — no check needed
 
     # --- Check 3, 4, 5, 6: row/cell checks ---
     max_cell_format_ref = 0
@@ -348,17 +371,16 @@ def main():
                 draw_id = draw_id_node.text if draw_id_node is not None else '?'
                 r.error(f'Drawing id={draw_id}: pictureIndex={pic_idx} > picture count ({picture_count})')
 
-    # --- Summary ---
-    print()
-    print('---')
-
-    if r.stopped:
-        print(f'Stopped after {max_errors} errors. Fix and re-run.')
-
-    if r.errors == 0 and r.warnings == 0:
-        print('All checks passed.')
+    # --- Finalize ---
+    checks = r.ok_count + r.errors + r.warnings
+    if r.errors == 0 and r.warnings == 0 and not detailed:
+        result = f'=== Validation OK: Template.{template_display_name} ({checks} checks) ==='
     else:
-        print(f'Errors: {r.errors}, Warnings: {r.warnings}')
+        r.lines.append('')
+        r.lines.append(f'=== Result: {r.errors} errors, {r.warnings} warnings ({checks} checks) ===')
+        result = '\n'.join(r.lines)
+
+    print(result)
 
     sys.exit(1 if r.errors > 0 else 0)
 

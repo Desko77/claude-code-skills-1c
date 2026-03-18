@@ -1,14 +1,37 @@
-﻿# form-validate v1.0 — Validate 1C managed form
+﻿# form-validate v1.1 — Validate 1C managed form
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
 	[string]$FormPath,
+
+	[switch]$Detailed,
 
 	[int]$MaxErrors = 30
 )
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# --- Resolve path ---
+# A: Directory → Ext/Form.xml
+if (Test-Path $FormPath -PathType Container) {
+	$FormPath = Join-Path (Join-Path $FormPath "Ext") "Form.xml"
+}
+# B1: Missing Ext/ (e.g. Forms/Форма/Form.xml → Forms/Форма/Ext/Form.xml)
+if (-not (Test-Path $FormPath)) {
+	$fn = [System.IO.Path]::GetFileName($FormPath)
+	if ($fn -eq "Form.xml") {
+		$c = Join-Path (Join-Path (Split-Path $FormPath) "Ext") $fn
+		if (Test-Path $c) { $FormPath = $c }
+	}
+}
+# B2: Descriptor (Forms/Форма.xml → Forms/Форма/Ext/Form.xml)
+if (-not (Test-Path $FormPath) -and $FormPath.EndsWith(".xml")) {
+	$stem = [System.IO.Path]::GetFileNameWithoutExtension($FormPath)
+	$dir = Split-Path $FormPath
+	$c = Join-Path (Join-Path (Join-Path $dir $stem) "Ext") "Form.xml"
+	if (Test-Path $c) { $FormPath = $c }
+}
 
 # --- Load XML ---
 
@@ -40,10 +63,12 @@ $root = $xmlDoc.DocumentElement
 $errors = 0
 $warnings = 0
 $stopped = $false
+$script:okCount = 0
 
 function Report-OK {
 	param([string]$msg)
-	Write-Host "[OK]    $msg"
+	$script:okCount++
+	if ($Detailed) { Write-Host "[OK]    $msg" }
 }
 
 function Report-Error {
@@ -73,8 +98,10 @@ if ($parentDir) {
 	}
 }
 
-Write-Host "=== Validation: $formName ==="
-Write-Host ""
+if ($Detailed) {
+	Write-Host "=== Validation: $formName ==="
+	Write-Host ""
+}
 
 # Early BaseForm detection (used in Check 5 to skip base element DataPath validation)
 $hasBaseForm = ($root.SelectSingleNode("f:BaseForm", $nsMgr) -ne $null)
@@ -642,18 +669,22 @@ if (-not $stopped -and -not $isExtension) {
 
 # --- Summary ---
 
-Write-Host ""
-Write-Host "---"
-Write-Host "Total: $($allElements.Count) elements, $($attrNodes.Count) attributes, $($cmdNodes.Count) commands"
+$checks = $script:okCount + $errors + $warnings
 
-if ($stopped) {
-	Write-Host "Stopped after $MaxErrors errors. Fix and re-run."
-}
-
-if ($errors -eq 0 -and $warnings -eq 0) {
-	Write-Host "All checks passed."
+if ($errors -eq 0 -and $warnings -eq 0 -and -not $Detailed) {
+	Write-Host "=== Validation OK: Form.$formName ($checks checks) ==="
 } else {
-	Write-Host "Errors: $errors, Warnings: $warnings"
+	Write-Host ""
+	if ($Detailed) {
+		Write-Host "---"
+		Write-Host "Total: $($allElements.Count) elements, $($attrNodes.Count) attributes, $($cmdNodes.Count) commands"
+	}
+
+	if ($stopped) {
+		Write-Host "Stopped after $MaxErrors errors. Fix and re-run."
+	}
+
+	Write-Host "=== Result: $errors errors, $warnings warnings ($checks checks) ==="
 }
 
 if ($errors -gt 0) {

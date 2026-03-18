@@ -66,6 +66,9 @@ const form = await getFormState();
 console.log(JSON.stringify(form, null, 2));
 SCRIPT
 
+# 2b. Execute without video recording (for debugging/testing)
+cat script.js | node $RUN exec - --no-record
+
 # 3. Screenshot
 node $RUN shot result.png
 
@@ -118,12 +121,16 @@ Switch to an already-open tab/window (fuzzy match).
 
 ### Reading form state
 
-#### `getFormState()` → `{ fields, buttons, tabs, table, filters, reportSettings? }`
+#### `getFormState()` → `{ fields, buttons, tabs, navigation?, table, tables, filters, reportSettings? }`
 Returns current form structure. This is the primary way to understand what's on screen.
 
 **fields** — each field has: `name`, `value`, `label?`, `actions?` (select, clear, open), `required?` (true for unfilled mandatory fields)
 
-**table** — summary only: `{ name, columns, rowCount }`. Use `readTable()` for actual data.
+**navigation** — form navigation panel links (for objects with subordinate catalogs): `[{ name, active? }]`. Clickable via `clickElement()`. Only present when the form has a navigation panel (e.g. "Основное", "Объекты метаданных", "Подсистемы").
+
+**tables** — array of all visible grids: `[{ name, columns, rowCount, label? }]`. `label` is the visual group title shown on screen (e.g. "Входящие"), absent when grid has no visible title. Use `readTable()` for actual data.
+
+**table** — backward-compatible alias for the first grid: `{ present, columns, rowCount }`.
 
 **reportSettings** — for DCS reports: human-readable filter settings instead of raw technical names:
 ```js
@@ -140,13 +147,14 @@ const form = await getFormState();
 
 ### Reading data
 
-#### `readTable({ maxRows?, offset? })` → `{ columns, rows, total, shown, offset }`
+#### `readTable({ maxRows?, offset?, table? })` → `{ columns, rows, total, shown, offset }`
 Read actual grid data with pagination. Each row is `{ columnName: value }`.
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `maxRows` | 20 | Max rows to return per call |
 | `offset` | 0 | Skip first N rows |
+| `table` | — | Grid name from `tables[]` (for multi-grid forms) |
 
 Special row fields:
 - `_kind: 'group'` — hierarchical group row
@@ -190,9 +198,13 @@ Sections + all open tabs.
 
 ### Actions
 
-#### `clickElement(text, { dblclick? })` → form state
-Click button, hyperlink, tab, or grid row (fuzzy match).
+#### `clickElement(text, { dblclick?, table?, expand? })` → form state
+Click button, hyperlink, tab, navigation panel link, or grid row (fuzzy match).
 
+- `table` — scope button search to a specific grid's command panel (by name from `tables[]`):
+  ```js
+  await clickElement('Добавить', { table: 'Исходящие' }); // clicks "Добавить" near "Исходящие" grid
+  ```
 - Single click selects a row in a list. **Double-click opens** the item:
   ```js
   await clickElement('0000-000227', { dblclick: true }); // opens document
@@ -203,7 +215,11 @@ Click button, hyperlink, tab, or grid row (fuzzy match).
   // r.submenu = ['Расширенный поиск', 'Настройки', ...]
   await clickElement('Расширенный поиск');
   ```
-- Handles tree nodes: clicking a tree icon expands/collapses.
+- **Tree nodes**: default click = **select** (highlight row). Use `{ expand: true }` to **expand/collapse**:
+  ```js
+  await clickElement('ИСУ ФХД');                      // select row
+  await clickElement('ИСУ ФХД', { expand: true });    // expand/collapse
+  ```
 
 #### `fillFields({ name: value })` → `{ filled, form }`
 Fill form fields by label (fuzzy match). Auto-detects field type.
@@ -226,18 +242,36 @@ await fillFields({
 Returns `{ filled: [{ field, ok, value, method }], form: {...} }`.
 Method is one of: `'toggle'` | `'radio'` | `'paste'` | `'dropdown'` | `'form'` | `'typeahead'`
 
-#### `selectValue(field, search)` → form state with `selected`
+#### `selectValue(field, search, opts?)` → form state with `selected`
 Select a value from reference field via dropdown or selection form. More reliable than `fillFields` for reference fields that need exact selection from a catalog.
 
+`search` — string for simple search, or `{ field: value }` object for per-field advanced search:
 ```js
 await selectValue('Организация', 'Конфетпром');
 // result.selected = { field: 'Организация', search: 'Конфетпром', method: 'dropdown'|'form' }
+
+// Per-field search (disambiguate by multiple columns):
+await selectValue('Документ', { 'Номер': '0000-000601', 'Дата': '29.12.2016' }, { type: 'Реализация (акт' });
+```
+
+For **composite-type fields** (accepting multiple types), specify `type` to first select the type, then the value:
+```js
+await selectValue('Документ', '0000-000601', { type: 'Реализация (акт' });
+// Clears field → opens type dialog → picks type via Ctrl+F → picks value from selection form
+// result.selected = { field: 'Документ', search: '0000-000601', type: 'Реализация (акт', method: 'form' }
 ```
 
 Also supports DCS labels — auto-enables the paired checkbox.
 
 #### `fillTableRow(fields, opts)` → form state
-Fill table row cells via Tab navigation.
+Fill table row cells via Tab navigation. Value is a plain string or `{ value, type }` for composite-type cells.
+
+| Option | Description |
+|--------|-------------|
+| `tab` | Switch to tab before filling |
+| `add` | Add new row before filling |
+| `row` | Edit existing row by 0-based index |
+| `table` | Grid name from `tables[]` (for multi-grid forms) |
 
 ```js
 // Add new row:
@@ -250,14 +284,24 @@ await fillTableRow(
   { 'Количество': '20' },
   { tab: 'Товары', row: 0 }
 );
+// Multi-grid form — add row to specific table:
+await fillTableRow(
+  { 'Объект': 'БДДС' },
+  { table: 'Исходящие', add: true }
+);
+// Composite-type cell (e.g. SubConto accepting multiple types):
+await fillTableRow(
+  { 'СубконтоКт1': { value: 'Голованов', type: 'Физическое лицо' } },
+  { tab: 'Проводки' }
+);
 ```
 
 - Tab-based sequential navigation — field order set by 1C form config
 - Fuzzy cell match: "Количество" matches "ТоварыКоличество"
 - Reference cells auto-detected by autocomplete popup
 
-#### `deleteTableRow(row, { tab? })` → form state
-Delete row by 0-based index.
+#### `deleteTableRow(row, { tab?, table? })` → form state
+Delete row by 0-based index. `table` targets a specific grid on multi-grid forms.
 
 #### `closeForm({ save? })` → form state
 Close the current form via Escape.
@@ -289,12 +333,12 @@ Clear filters. Without arguments clears all, with `{ field }` clears specific ba
 #### `screenshot()` → PNG Buffer
 #### `wait(seconds)` → form state
 #### `getPage()` → Playwright Page (raw, for advanced scripting)
-#### `startRecording(path, opts?)` / `stopRecording()` → MP4 video recording
+#### `startRecording(path, opts?)` / `stopRecording()` → MP4 video recording (`{ force: true }` to restart if already recording)
 #### `showCaption(text, opts?)` / `hideCaption()` → text overlay on page
 #### `showTitleSlide(text, opts?)` / `hideTitleSlide()` → full-screen title card (intro/outro)
 #### `isRecording()` → boolean
 #### `setHighlight(on)` / `isHighlightMode()` → auto-highlight mode for video
-#### `highlight(text)` / `unhighlight()` → manual element highlighting
+#### `highlight(text)` / `unhighlight()` → manual element highlighting (error lists available elements)
 #### `addNarration(videoPath, opts?)` → narrated MP4 with TTS voiceover
 #### `getCaptions()` → caption timestamps from last recording
 
@@ -343,6 +387,37 @@ console.log('Title:', report.title);
 console.log('Data rows:', report.data?.length);
 ```
 
+### Work with multi-grid forms
+
+Some forms have multiple grids (e.g. "Входящие" and "Исходящие" tables on a single form). Without `table`, buttons like "Добавить" hit the first match and `readTable` reads the first grid — which may not be the one you need.
+
+**Step 1 — discover tables** via `getFormState()`:
+```js
+const form = await getFormState();
+// form.tables = [
+//   { name: "ДеревоБизнесПроцессов", columns: ["Полный код", "Бизнес-процесс"], rowCount: 21 },
+//   { name: "Входящие", label: "Входящие", columns: ["Объект", "Бизнес-процесс источник", ...], rowCount: 1 },
+//   { name: "Исходящие", label: "Исходящие", columns: ["Объект", "Бизнес-процесс приемник", ...], rowCount: 1 }
+// ]
+```
+
+**Step 2 — use `table` name** in any grid operation:
+```js
+// Read specific table
+const t = await readTable({ table: 'Исходящие' });
+
+// Add row — fillTableRow with add:true already clicks the right "Добавить" button
+await fillTableRow({ 'Объект': 'БДДС' }, { table: 'Исходящие', add: true });
+
+// Or click buttons separately
+await clickElement('Добавить', { table: 'Входящие' });
+
+// Delete from specific table
+await deleteTableRow(0, { table: 'Исходящие' });
+```
+
+Table matching accepts both technical name (`tables[].name`) and visual label (`tables[].label`). Label is the group title shown on screen — useful when working from screenshots. Name match takes priority over label match.
+
 ### Keyboard shortcuts (via `page.keyboard.press`)
 
 | Key | Context | Action |
@@ -388,3 +463,4 @@ On error (auto-screenshot taken):
 - **Clipboard paste** — all text fields filled via Ctrl+V (triggers 1C events properly)
 - **Cyrillic in bash** — use `cat <<'SCRIPT' | node $RUN exec -` to avoid escaping issues
 - **Non-breaking spaces** — 1C uses `\u00a0` instead of regular spaces. All matching is normalized internally
+- **Section panel display** — `navigateSection()` works with any panel position (side, top) but requires "Picture and text" or "Text" display mode. Icon-only mode is not supported — API cannot read section names from icons alone

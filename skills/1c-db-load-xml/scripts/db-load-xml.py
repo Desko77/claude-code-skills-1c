@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-load-xml v1.0 — Load 1C configuration from XML files
+# db-load-xml v1.1 — Load 1C configuration from XML files
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -62,6 +62,7 @@ def main():
         choices=["Hierarchical", "Plain"],
         help="File format (default: Hierarchical)",
     )
+    parser.add_argument("-UpdateDB", action="store_true", help="Also update database configuration after load")
     args = parser.parse_args()
 
     # --- Resolve V8Path ---
@@ -137,6 +138,10 @@ def main():
             arguments += ["-Extension", args.Extension]
         elif args.AllExtensions:
             arguments.append("-AllExtensions")
+
+        # --- UpdateDB ---
+        if args.UpdateDB:
+            arguments.append("/UpdateDBCfg")
 
         # --- Output ---
         out_file = os.path.join(temp_dir, "load_log.txt")

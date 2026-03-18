@@ -1,7 +1,7 @@
 ---
 name: 1c-meta-validate
 description: Валидация объекта метаданных 1С. Используй после создания или модификации объекта конфигурации для проверки корректности
-argument-hint: <ObjectPath> [-MaxErrors 30] — pipe-separated paths for batch
+argument-hint: <ObjectPath> [-Detailed] [-MaxErrors 30] — pipe-separated paths for batch
 allowed-tools:
   - Bash
   - Read
@@ -10,31 +10,22 @@ allowed-tools:
 
 # /meta-validate — валидация объекта метаданных 1С
 
-Проверяет XML объекта метаданных из выгрузки конфигурации на структурные ошибки: корневую структуру, InternalInfo, свойства, допустимые значения, StandardAttributes, ChildObjects, уникальность имён, табличные части, кросс-свойства, вложенные структуры HTTP/Web-сервисов.
-
-## Использование
-
-```
-/meta-validate <ObjectPath>
-/meta-validate path1.xml|path2.xml|path3.xml     — batch mode
-```
+Проверяет XML объекта метаданных из выгрузки конфигурации на структурные ошибки.
 
 ## Параметры
 
-| Параметр   | Обязательный | По умолчанию | Описание                                      |
-|------------|:------------:|--------------|-------------------------------------------------|
-| ObjectPath | да           | —            | Путь к XML-файлу или каталогу объекта. Несколько путей через `\|` для batch |
-| MaxErrors  | нет          | 30           | Остановиться после N ошибок (per object)        |
-| OutFile    | нет          | —            | Записать результат в файл (UTF-8 BOM)           |
-
-`ObjectPath` авторезолв: если указана директория — ищет `<dirName>/<dirName>.xml`.
-
-**Batch mode**: при нескольких путях через `|` каждый объект валидируется отдельно, в конце выводится сводка `=== Batch: N objects, X passed, Y failed ===`.
+| Параметр   | Обяз. | Умолч. | Описание                                      |
+|------------|:-----:|---------|-------------------------------------------------|
+| ObjectPath | да    | —       | Путь к XML-файлу или каталогу. Через `\|` для batch |
+| Detailed   | нет   | —       | Показывать [OK] для каждой проверки             |
+| MaxErrors  | нет   | 30      | Остановиться после N ошибок (per object)        |
+| OutFile    | нет   | —       | Записать результат в файл (UTF-8 BOM)           |
 
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps1 -ObjectPath "<путь>"
+powershell.exe -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps1 -ObjectPath "Catalogs/Номенклатура/Номенклатура.xml"
+powershell.exe -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps1 -ObjectPath "Catalogs/Банки|Documents/Заказ"
 ```
 
 ## Поддерживаемые типы (23)
@@ -45,7 +36,7 @@ powershell.exe -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps
 **Сервисные:** CommonModule, ScheduledJob, EventSubscription, HTTPService, WebService
 **Прочие:** Constant, DocumentJournal, DefinedType
 
-## Выполняемые проверки
+## Проверки
 
 | #  | Проверка                                | Серьёзность  |
 |----|------------------------------------------|--------------|
@@ -56,63 +47,13 @@ powershell.exe -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps
 | 5  | StandardAttributes                       | ERROR / WARN |
 | 6  | ChildObjects — допустимые элементы       | ERROR        |
 | 7  | Attributes/Dimensions/Resources — UUID, Name, Type | ERROR |
+| 7b | Reserved attribute names                 | WARN         |
 | 8  | Уникальность имён                       | ERROR        |
 | 9  | TabularSections — внутренняя структура   | ERROR / WARN |
 | 10 | Кросс-свойства                          | ERROR / WARN |
 | 11 | HTTPService/WebService — вложенная структура | ERROR   |
+| 12 | Forbidden properties per type            | ERROR        |
+| 13 | Method reference (Handler/MethodName)    | ERROR / WARN |
+| 14 | DocumentJournal Columns                  | ERROR        |
 
-## Вывод
-
-```
-=== Validation: Catalog.Номенклатура ===
-
-[OK]    1. Root structure: MetaDataObject/Catalog, version 2.17
-[OK]    2. InternalInfo: 5 GeneratedType (Object, Ref, Selection, List, Manager)
-[OK]    3. Properties: Name="Номенклатура", Synonym present
-[OK]    4. Property values: 12 enum properties checked
-[ERROR] 5. StandardAttributes: missing "PredefinedDataName"
-[OK]    6. ChildObjects types: Attribute(15), TabularSection(3), Form(4)
-[OK]    7. Attributes/Dimensions: all valid
-[WARN]  8. Name uniqueness: duplicate attribute "Комментарий" at positions 5, 12
-[OK]    9. TabularSections: 3 sections, structure valid
-[OK]    10. Cross-property consistency
-[OK]    11. N/A (not HTTPService/WebService)
----
-Errors: 1, Warnings: 1
-```
-
-Код возврата: 0 = все проверки пройдены, 1 = есть ошибки.
-
-## Примеры
-
-```powershell
-# Справочник из выгрузки конфигурации
-... -ObjectPath upload/acc_8.3.24/Catalogs/Банки/Банки.xml
-
-# Авторезолв из директории
-... -ObjectPath upload/acc_8.3.24/Documents/АвансовыйОтчет
-
-# С лимитом ошибок
-... -ObjectPath Catalogs/Номенклатура.xml -MaxErrors 10
-
-# С записью в файл
-... -ObjectPath Catalogs/Номенклатура.xml -OutFile result.txt
-
-# Batch: несколько объектов через |
-... -ObjectPath "Catalogs/Банки.xml|Documents/Заказ.xml|Enums/ВидДоговора.xml"
-```
-
-## Верификация
-
-```
-/meta-compile <JsonPath> <OutputDir>    — генерация XML
-/meta-validate <OutputDir>/<Type>/<Name>.xml  — проверка результата
-/meta-info <OutputDir>/<Type>/<Name>.xml      — визуальная сводка
-```
-
-## Когда использовать
-
-- **После `/meta-compile`**: проверить корректность сгенерированного XML
-- **После ручного редактирования**: убедиться что структура не нарушена
-- **После merge/импорта**: выявить конфликты и битые ссылки
-- **При отладке**: найти структурные ошибки до сборки EPF
+Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

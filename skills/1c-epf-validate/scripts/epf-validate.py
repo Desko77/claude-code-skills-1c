@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# epf-validate v1.0 — Validate 1C external data processor / report structure
+# epf-validate v1.1 — Validate 1C external data processor / report structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 # Works for both EPF (ExternalDataProcessor) and ERF (ExternalReport) — auto-detects
 
@@ -47,6 +47,7 @@ def main():
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Validate 1C external data processor/report structure", allow_abbrev=False)
     parser.add_argument("-ObjectPath", required=True)
+    parser.add_argument("-Detailed", action="store_true")
     parser.add_argument("-MaxErrors", type=int, default=30)
     parser.add_argument("-OutFile", default=None)
     args = parser.parse_args()
@@ -91,8 +92,10 @@ def main():
     src_dir = os.path.dirname(resolved_path)
 
     # --- Output infrastructure ---
+    detailed = args.Detailed
     errors = 0
     warnings = 0
+    ok_count = 0
     stopped = False
     output_lines = []
 
@@ -100,7 +103,10 @@ def main():
         output_lines.append(msg)
 
     def report_ok(msg):
-        out_line(f"[OK]    {msg}")
+        nonlocal ok_count
+        ok_count += 1
+        if detailed:
+            out_line(f"[OK]    {msg}")
 
     def report_error(msg):
         nonlocal errors, stopped
@@ -115,9 +121,13 @@ def main():
         out_line(f"[WARN]  {msg}")
 
     def finalize():
-        out_line("")
-        out_line(f"=== Result: {errors} errors, {warnings} warnings ===")
-        result = "\n".join(output_lines)
+        checks = ok_count + errors + warnings
+        if errors == 0 and warnings == 0 and not detailed:
+            result = f"=== Validation OK: {short_type}.{obj_name} ({checks} checks) ==="
+        else:
+            out_line("")
+            out_line(f"=== Result: {errors} errors, {warnings} warnings ({checks} checks) ===")
+            result = "\n".join(output_lines)
         print(result)
         if args.OutFile:
             with open(args.OutFile, "w", encoding="utf-8-sig") as fh:
@@ -352,7 +362,7 @@ def main():
             else:
                 report_ok("4. ChildObjects: empty")
     else:
-        report_ok("4. ChildObjects: absent")
+        pass  # no ChildObjects — nothing to check
 
     if stopped:
         finalize()
@@ -400,7 +410,7 @@ def main():
         if refs:
             report_ok(f"5. Cross-references: {', '.join(refs)} valid")
         else:
-            report_ok("5. Cross-references: none to check")
+            pass  # no cross-references to check
 
     if stopped:
         finalize()
@@ -461,9 +471,9 @@ def main():
             if check6_ok:
                 report_ok(f"6. Attributes: {attr_count} checked (UUID, Name, Type)")
         else:
-            report_ok("6. Attributes: none")
+            pass  # no attributes
     else:
-        report_ok("6. Attributes: N/A")
+        pass  # no ChildObjects
 
     if stopped:
         finalize()
@@ -527,9 +537,9 @@ def main():
             if check7_ok:
                 report_ok(f"7. TabularSections: {ts_count} sections, {ts_attr_total} inner attributes")
         else:
-            report_ok("7. TabularSections: none")
+            pass  # no tabular sections
     else:
-        report_ok("7. TabularSections: N/A")
+        pass  # no ChildObjects
 
     if stopped:
         finalize()
@@ -628,7 +638,7 @@ def main():
         if files_checked > 0:
             report_ok(f"9. File existence: {files_checked} files verified")
         else:
-            report_ok("9. File existence: no forms/templates to check")
+            pass  # no forms/templates to check
 
     if stopped:
         finalize()
@@ -684,7 +694,7 @@ def main():
         if forms_checked > 0:
             report_ok(f"10. Form descriptors: {forms_checked} checked")
         else:
-            report_ok("10. Form descriptors: none to check")
+            pass  # no form descriptors to check
 
     # --- Final output ---
     finalize()

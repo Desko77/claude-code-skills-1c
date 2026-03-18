@@ -1,4 +1,4 @@
-# skd-validate v1.0 — Validate 1C DCS structure (Python port)
+# skd-validate v1.1 — Validate 1C DCS structure (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import os
@@ -13,20 +13,35 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 parser = argparse.ArgumentParser(allow_abbrev=False)
 parser.add_argument("-TemplatePath", required=True)
+parser.add_argument("-Detailed", action="store_true")
 parser.add_argument("-MaxErrors", type=int, default=20)
 parser.add_argument("-OutFile", default="")
 args = parser.parse_args()
 
 template_path = args.TemplatePath
+detailed = args.Detailed
 max_errors = args.MaxErrors
 out_file = args.OutFile
 
 # ── resolve path ─────────────────────────────────────────────
 
-if not template_path.endswith(".xml"):
-    candidate = os.path.join(template_path, "Ext", "Template.xml")
-    if os.path.exists(candidate):
-        template_path = candidate
+# A: Directory → Ext/Template.xml
+if os.path.isdir(template_path):
+    template_path = os.path.join(template_path, 'Ext', 'Template.xml')
+# B1: Missing Ext/ (e.g. Templates/СКД/Template.xml → Templates/СКД/Ext/Template.xml)
+if not os.path.exists(template_path):
+    fn = os.path.basename(template_path)
+    if fn == 'Template.xml':
+        c = os.path.join(os.path.dirname(template_path), 'Ext', fn)
+        if os.path.exists(c):
+            template_path = c
+# B2: Descriptor (.xml → dir/Ext/Template.xml)
+if not os.path.exists(template_path) and template_path.endswith('.xml'):
+    stem = os.path.splitext(os.path.basename(template_path))[0]
+    parent = os.path.dirname(template_path)
+    c = os.path.join(parent, stem, 'Ext', 'Template.xml')
+    if os.path.exists(c):
+        template_path = c
 
 if not os.path.exists(template_path):
     print(f"File not found: {template_path}", file=sys.stderr)
@@ -39,6 +54,7 @@ file_name = os.path.basename(resolved_path)
 
 errors = 0
 warnings = 0
+ok_count = 0
 stopped = False
 output_lines = []
 
@@ -48,7 +64,10 @@ def out_line(msg):
 
 
 def report_ok(msg):
-    out_line(f"[OK]    {msg}")
+    global ok_count
+    ok_count += 1
+    if detailed:
+        out_line(f"[OK]    {msg}")
 
 
 def report_error(msg):
@@ -66,9 +85,13 @@ def report_warn(msg):
 
 
 def finalize():
-    out_line("")
-    out_line(f"=== Result: {errors} errors, {warnings} warnings ===")
-    result = "\n".join(output_lines)
+    checks = ok_count + errors + warnings
+    if errors == 0 and warnings == 0 and not detailed:
+        result = f"=== Validation OK: {file_name} ({checks} checks) ==="
+    else:
+        out_line("")
+        out_line(f"=== Result: {errors} errors, {warnings} warnings ({checks} checks) ===")
+        result = "\n".join(output_lines)
     print(result)
     if out_file:
         with open(out_file, "w", encoding="utf-8-sig") as f:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# interface-validate v1.0 — Validate 1C CommandInterface.xml structure
+# interface-validate v1.1 — Validate 1C CommandInterface.xml structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates CommandInterface.xml sections, command references, order, duplicates."""
 import sys, os, argparse, re
@@ -31,18 +31,22 @@ UUID_CMD_PATTERN   = re.compile(
 
 
 class Reporter:
-    def __init__(self, max_errors):
+    def __init__(self, max_errors, detailed=False):
         self.errors = 0
         self.warnings = 0
+        self.ok_count = 0
         self.stopped = False
         self.max_errors = max_errors
+        self.detailed = detailed
         self.lines = []
 
     def out(self, msg=''):
         self.lines.append(msg)
 
     def ok(self, msg):
-        self.lines.append(f'[OK]    {msg}')
+        self.ok_count += 1
+        if self.detailed:
+            self.lines.append(f'[OK]    {msg}')
 
     def error(self, msg):
         self.errors += 1
@@ -76,17 +80,30 @@ def main():
         description='Validate 1C CommandInterface.xml structure', allow_abbrev=False
     )
     parser.add_argument('-CIPath', dest='CIPath', required=True)
+    parser.add_argument('-Detailed', action='store_true')
     parser.add_argument('-MaxErrors', dest='MaxErrors', type=int, default=30)
     parser.add_argument('-OutFile', dest='OutFile', default='')
     args = parser.parse_args()
 
     ci_path = args.CIPath
+    detailed = args.Detailed
     max_errors = args.MaxErrors
     out_file = args.OutFile
 
     # --- Resolve path ---
     if not os.path.isabs(ci_path):
         ci_path = os.path.join(os.getcwd(), ci_path)
+
+    # A: Directory → Ext/CommandInterface.xml
+    if os.path.isdir(ci_path):
+        ci_path = os.path.join(ci_path, 'Ext', 'CommandInterface.xml')
+    # B1: Missing Ext/
+    if not os.path.exists(ci_path):
+        fn = os.path.basename(ci_path)
+        if fn == 'CommandInterface.xml':
+            c = os.path.join(os.path.dirname(ci_path), 'Ext', fn)
+            if os.path.exists(c):
+                ci_path = c
 
     if not os.path.exists(ci_path):
         print(f'[ERROR] File not found: {ci_path}')
@@ -103,7 +120,7 @@ def main():
     if not context_name:
         context_name = 'Root'
 
-    r = Reporter(max_errors)
+    r = Reporter(max_errors, detailed)
     all_command_names = []
 
     r.out(f'=== Validation: CommandInterface ({context_name}) ===')
@@ -210,8 +227,7 @@ def main():
                     vis_ok = False
             if vis_ok:
                 r.ok(f'5. CommandsVisibility: {vis_count} entries, all valid')
-        else:
-            r.ok('5. CommandsVisibility: not present')
+        # CommandsVisibility not present — no check needed
 
     # --- 6. CommandsVisibility duplicates ---
     if not r.stopped:
@@ -221,8 +237,6 @@ def main():
                 r.warn(f'6. CommandsVisibility: duplicates: {", ".join(dupes)}')
             else:
                 r.ok('6. CommandsVisibility: no duplicates')
-        else:
-            r.ok('6. CommandsVisibility: no duplicates (empty)')
 
     # --- 7. CommandsPlacement ---
     if not r.stopped:
@@ -253,8 +267,7 @@ def main():
                     r.warn(f"7. CommandsPlacement[{cmd_name}]: Placement='{(placement_el.text or '').strip()}' (expected Auto)")
             if plc_ok:
                 r.ok(f'7. CommandsPlacement: {plc_count} entries, all valid')
-        else:
-            r.ok('7. CommandsPlacement: not present')
+        # CommandsPlacement not present — no check needed
 
     # --- 8. CommandsOrder ---
     if not r.stopped:
@@ -278,8 +291,7 @@ def main():
                     ord_ok = False
             if ord_ok:
                 r.ok(f'8. CommandsOrder: {ord_count} entries, all valid')
-        else:
-            r.ok('8. CommandsOrder: not present')
+        # CommandsOrder not present — no check needed
 
     # --- 9. SubsystemsOrder format ---
     sub_names = []
@@ -302,8 +314,7 @@ def main():
                     sub_ok = False
             if sub_ok:
                 r.ok(f'9. SubsystemsOrder: {sub_count} entries, all valid format')
-        else:
-            r.ok('9. SubsystemsOrder: not present')
+        # SubsystemsOrder not present — no check needed
 
     # --- 10. SubsystemsOrder duplicates ---
     if not r.stopped:
@@ -313,8 +324,6 @@ def main():
                 r.warn(f'10. SubsystemsOrder: duplicates: {", ".join(dupes)}')
             else:
                 r.ok('10. SubsystemsOrder: no duplicates')
-        else:
-            r.ok('10. SubsystemsOrder: no duplicates (empty)')
 
     # --- 11. GroupsOrder entries ---
     grp_names = []
@@ -334,8 +343,7 @@ def main():
                     grp_ok = False
             if grp_ok:
                 r.ok(f'11. GroupsOrder: {grp_count} entries, all valid')
-        else:
-            r.ok('11. GroupsOrder: not present')
+        # GroupsOrder not present — no check needed
 
     # --- 12. GroupsOrder duplicates ---
     if not r.stopped:
@@ -345,8 +353,6 @@ def main():
                 r.warn(f'12. GroupsOrder: duplicates: {", ".join(dupes)}')
             else:
                 r.ok('12. GroupsOrder: no duplicates')
-        else:
-            r.ok('12. GroupsOrder: no duplicates (empty)')
 
     # --- 13. Command reference format ---
     if not r.stopped:
@@ -368,14 +374,16 @@ def main():
                 shown = bad_refs[:5]
                 suffix = ' ...' if len(bad_refs) > 5 else ''
                 r.warn(f'13. Command reference format: {len(bad_refs)} unrecognized: {", ".join(shown)}{suffix}')
-        else:
-            r.ok('13. Command reference format: n/a (no commands)')
 
     # --- Finalize ---
-    r.out('---')
-    r.out(f'Errors: {r.errors}, Warnings: {r.warnings}')
+    checks = r.ok_count + r.errors + r.warnings
+    if r.errors == 0 and r.warnings == 0 and not detailed:
+        result = f'=== Validation OK: CommandInterface ({context_name}) ({checks} checks) ==='
+    else:
+        r.out('')
+        r.out(f'=== Result: {r.errors} errors, {r.warnings} warnings ({checks} checks) ===')
+        result = '\r\n'.join(r.lines) + '\r\n'
 
-    result = r.text()
     print(result, end='')
 
     if out_file:

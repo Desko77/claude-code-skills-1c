@@ -91,6 +91,8 @@ Display a text overlay on the page (visible in recording). Calling again updates
 
 The overlay uses `pointer-events: none` — does not interfere with clicking.
 
+**Smart TTS wait** (during recording): `showCaption` automatically pauses for the estimated TTS speech duration (~100ms per character, min 2s). The next `wait()` call accounts for this — if the explicit pause is shorter than the TTS wait already done, no extra delay is added. If longer, only the remaining difference is waited. This means script authors don't need to calculate TTS timing manually.
+
 ### `hideCaption()`
 
 Remove the caption overlay.
@@ -135,10 +137,11 @@ Manually highlight a UI element by name (fuzzy match). Places a semi-transparent
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `text` | string | Element name — button, link, field, section, or command |
+| `text` | string | Element name — button, link, field, group/panel, section, or command |
 
 - Fuzzy match order: exact → startsWith → includes
-- Searches form elements first, then sections/commands
+- Search priority: popup items → commands → **form groups/panels** → form elements (buttons, fields) → sections
+- Groups are matched by visible title or internal name (e.g., `highlight('Оргструктура')` finds the group panel)
 - `pointer-events: none` — does not block clicks
 
 ### `unhighlight()`
@@ -181,7 +184,7 @@ const result = await stopRecording();
 console.log(`Recorded ${result.duration}s, ${(result.size / 1024 / 1024).toFixed(1)} MB`);
 ```
 
-**Caption timing**: show the caption *before* the action with a `wait(1.5)` pause — the viewer reads what will happen, then sees it happen. Add `wait()` *after* the action only when the next step needs the result to load (e.g., form opening).
+**Caption timing**: show the caption *before* the action — `showCaption` auto-waits for estimated TTS duration during recording. The subsequent `wait()` is absorbed by the credit system (no double-waiting). Add `wait()` *after* the action only when the next step needs the result to load (e.g., form opening).
 
 **Highlight timing**: `setHighlight(true)` enables auto-mode — each action function highlights the target for 500ms, then removes the highlight before performing the action. No manual `highlight()`/`unhighlight()` calls needed. Enable after title slide, disable before `stopRecording()`.
 
@@ -299,4 +302,4 @@ const result = await addNarration('recordings/demo.mp4', { voice: 'ru-RU-Svetlan
 | Recording stops on disconnect | Expected — auto-stop prevents orphaned ffmpeg processes |
 | "No captions available" | Use `showCaption()` during recording, or pass `opts.captions` |
 | TTS timeout | Check internet connection. Edge TTS requires network access |
-| Audio cuts off between captions | TTS is auto-trimmed to fit the timeline. Add longer `wait()` pauses |
+| Audio cuts off between captions | Smart TTS wait should handle this automatically. If warnings appear, add longer `wait()` after `showCaption` |

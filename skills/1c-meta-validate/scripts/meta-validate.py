@@ -1,4 +1,4 @@
-# meta-validate v1.1 — Validate 1C metadata object structure (Python port)
+# meta-validate v1.2 — Validate 1C metadata object structure (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import os
@@ -15,10 +15,12 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 parser = argparse.ArgumentParser(allow_abbrev=False)
 parser.add_argument("-ObjectPath", required=True)
+parser.add_argument("-Detailed", action="store_true")
 parser.add_argument("-MaxErrors", type=int, default=30)
 parser.add_argument("-OutFile", default="")
 args = parser.parse_args()
 
+detailed = args.Detailed
 max_errors = args.MaxErrors
 out_file = args.OutFile
 
@@ -30,6 +32,8 @@ if len(path_list) > 1:
     batch_fail = 0
     for single_path in path_list:
         cmd = [sys.executable, __file__, "-ObjectPath", single_path, "-MaxErrors", str(max_errors)]
+        if detailed:
+            cmd.append("-Detailed")
         if out_file:
             base, ext = os.path.splitext(out_file)
             obj_leaf = os.path.splitext(os.path.basename(single_path))[0]
@@ -98,6 +102,7 @@ for _ in range(4):
 
 errors = 0
 warnings = 0
+ok_count = 0
 stopped = False
 output_lines = []
 
@@ -107,7 +112,10 @@ def out_line(msg):
 
 
 def report_ok(msg):
-    out_line(f"[OK]    {msg}")
+    global ok_count
+    ok_count += 1
+    if detailed:
+        out_line(f"[OK]    {msg}")
 
 
 def report_error(msg):
@@ -125,9 +133,13 @@ def report_warn(msg):
 
 
 def finalize():
-    out_line("")
-    out_line(f"=== Result: {errors} errors, {warnings} warnings ===")
-    result = "\n".join(output_lines)
+    checks = ok_count + errors + warnings
+    if errors == 0 and warnings == 0 and not detailed:
+        result = f"=== Validation OK: {md_type}.{obj_name} ({checks} checks) ==="
+    else:
+        out_line("")
+        out_line(f"=== Result: {errors} errors, {warnings} warnings ({checks} checks) ===")
+        result = "\n".join(output_lines)
     print(result)
     if out_file:
         with open(out_file, "w", encoding="utf-8-sig") as f:
@@ -453,8 +465,6 @@ elif md_type in generated_type_categories:
         if check2_ok:
             cat_list = ", ".join(sorted(found_categories))
             report_ok(f"2. InternalInfo: {len(gen_types)} GeneratedType ({cat_list})")
-else:
-    report_ok(f"2. InternalInfo: N/A for {md_type}")
 
 if stopped:
     finalize()
@@ -560,8 +570,6 @@ if md_type in types_with_std_attrs:
 
         if check5_ok:
             report_ok(f"5. StandardAttributes: {len(std_attrs)} entries")
-else:
-    report_ok(f"5. StandardAttributes: N/A for {md_type}")
 
 if stopped:
     finalize()
@@ -663,8 +671,6 @@ if child_obj_node is not None:
         report_ok(f"7. Child elements: {check7_count} items checked (UUID, Name, Type)")
     elif check7_count == 0:
         report_ok("7. Child elements: none to check")
-else:
-    report_ok("7. Child elements: N/A (no ChildObjects)")
 
 if stopped:
     finalize()
@@ -694,8 +700,6 @@ if child_obj_node is not None:
                     check7b_ok = False
     if check7b_ok:
         report_ok("7b. Reserved attribute names: no conflicts")
-else:
-    report_ok("7b. Reserved attribute names: N/A")
 
 if stopped:
     finalize()
@@ -776,8 +780,6 @@ if child_obj_node is not None:
 
     if check8_ok:
         report_ok("8. Name uniqueness: all names unique")
-else:
-    report_ok("8. Name uniqueness: N/A")
 
 if stopped:
     finalize()
@@ -854,8 +856,6 @@ if child_obj_node is not None:
             report_ok(f"9. TabularSections: {ts_count} sections, structure valid")
     else:
         report_ok("9. TabularSections: none present")
-else:
-    report_ok("9. TabularSections: N/A")
 
 if stopped:
     finalize()
@@ -1083,8 +1083,6 @@ elif md_type == "WebService" and child_obj_node is not None:
 
     if check11_ok:
         report_ok(f"11. WebService: {len(operations)} operation(s), {param_count} parameter(s)")
-else:
-    report_ok("11. HTTPService/WebService: N/A")
 
 if stopped:
     finalize()
@@ -1102,8 +1100,6 @@ if props_node is not None and md_type in forbidden_properties:
             check12_ok = False
     if check12_ok:
         report_ok("12. Forbidden properties: none found")
-else:
-    report_ok("12. Forbidden properties: N/A")
 
 if stopped:
     finalize()
@@ -1161,8 +1157,6 @@ if props_node is not None and md_type in ("EventSubscription", "ScheduledJob") a
 
     if check13_ok:
         report_ok(f"13. Method reference: {prop_label} = '{method_ref}'")
-else:
-    report_ok("13. Method reference: N/A")
 
 if stopped:
     finalize()
@@ -1197,8 +1191,6 @@ if md_type == "DocumentJournal" and child_obj_node is not None:
         report_ok(f"14. DocumentJournal Columns: {col_count} column(s), all have References")
     elif col_count == 0:
         report_ok("14. DocumentJournal Columns: none")
-else:
-    report_ok("14. DocumentJournal Columns: N/A")
 
 # ── Final output ──────────────────────────────────────────────
 

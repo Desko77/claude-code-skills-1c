@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// web-test run v1.0 — CLI runner for 1C web client automation
+// web-test run v1.2 — CLI runner for 1C web client automation
 // Source: https://github.com/Desko77/claude-code-skills-1c
 /**
  * CLI runner for 1C web client automation.
@@ -24,12 +24,14 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SESSION_FILE = resolve(__dirname, '..', '.browser-session.json');
 
-const [,, cmd, ...args] = process.argv;
+const [,, cmd, ...rawArgs] = process.argv;
+const flags = { noRecord: rawArgs.includes('--no-record') };
+const args = rawArgs.filter(a => !a.startsWith('--'));
 
 switch (cmd) {
   case 'start':  await cmdStart(args[0]); break;
   case 'run':    await cmdRun(args[0], args[1]); break;
-  case 'exec':   await cmdExec(args[0]); break;
+  case 'exec':   await cmdExec(args[0], flags); break;
   case 'shot':   await cmdShot(args[0]); break;
   case 'stop':   await cmdStop(); break;
   case 'status': cmdStatus(); break;
@@ -72,7 +74,8 @@ async function handleRequest(req, res) {
   try {
     if (req.method === 'POST' && req.url === '/exec') {
       const code = await readBody(req);
-      const result = await executeScript(code);
+      const noRecord = req.headers['x-no-record'] === '1';
+      const result = await executeScript(code, { noRecord });
       json(res, result);
 
     } else if (req.method === 'GET' && req.url === '/shot') {
@@ -98,7 +101,7 @@ async function handleRequest(req, res) {
   }
 }
 
-async function executeScript(code) {
+async function executeScript(code, { noRecord } = {}) {
   const output = [];
   const origLog = console.log;
   const origErr = console.error;
@@ -115,10 +118,23 @@ async function executeScript(code) {
     exports.writeFileSync = writeFileSync;
     exports.readFileSync = readFileSync;
 
+    // --no-record: stub recording/narration functions to return safe defaults
+    if (noRecord) {
+      const noop = async () => {};
+      exports.startRecording = noop;
+      exports.stopRecording = async () => ({ file: null, duration: 0, size: 0 });
+      exports.addNarration = async () => ({ file: null, duration: 0, size: 0, captions: 0 });
+      for (const fn of ['showCaption', 'hideCaption', 'showTitleSlide', 'hideTitleSlide']) {
+        exports[fn] = noop;
+      }
+      exports.isRecording = () => false;
+      exports.getCaptions = () => [];
+    }
+
     // Wrap action functions to auto-detect 1C errors (modal, balloon)
     // and stop execution immediately with diagnostic info
     const ACTION_FNS = [
-      'clickElement', 'fillFields', 'selectValue', 'fillTableRow',
+      'clickElement', 'fillFields', 'fillField', 'selectValue', 'fillTableRow',
       'deleteTableRow', 'openCommand', 'navigateSection', 'navigateLink', 'openFile',
       'closeForm', 'filterList', 'unfilterList'
     ];
@@ -148,6 +164,11 @@ async function executeScript(code) {
   } catch (e) {
     console.log = origLog;
     console.error = origErr;
+
+    // Auto-stop recording if active (prevents "Already recording" on next exec)
+    if (browser.isRecording()) {
+      try { await browser.stopRecording(); } catch {}
+    }
 
     // Error screenshot
     let shotFile;
@@ -196,18 +217,20 @@ async function cmdRun(url, fileOrDash) {
 // exec: send script to running server
 // ============================================================
 
-async function cmdExec(fileOrDash) {
-  if (!fileOrDash) die('Usage: node src/run.mjs exec <file|->');
+async function cmdExec(fileOrDash, flags = {}) {
+  if (!fileOrDash) die('Usage: node src/run.mjs exec <file|-> [--no-record]');
 
-  const code = fileOrDash === '-'
+  let code = fileOrDash === '-'
     ? await readStdin()
     : readFileSync(resolve(fileOrDash), 'utf-8');
 
   const sess = loadSession();
+  const headers = {};
+  if (flags.noRecord) headers['x-no-record'] = '1';
   const result = await new Promise((resolve, reject) => {
     const req = http.request({
       hostname: '127.0.0.1', port: sess.port, path: '/exec',
-      method: 'POST', timeout: 10 * 60 * 1000,
+      method: 'POST', timeout: 10 * 60 * 1000, headers,
     }, res => {
       let data = '';
       res.on('data', chunk => data += chunk);
@@ -322,10 +345,13 @@ function usage() {
   die(`Usage: node src/run.mjs <command> [args]
 
 Commands:
-  start <url>            Launch browser and connect to 1C web client
-  run <url> <file|->     Autonomous: connect, execute script, disconnect
-  exec <file|->          Execute script (file path or - for stdin)
-  shot [file]            Take screenshot (default: shot.png)
-  stop                   Logout and close browser
-  status                 Check session status`);
+  start <url>              Launch browser and connect to 1C web client
+  run <url> <file|->       Autonomous: connect, execute script, disconnect
+  exec <file|-> [options]  Execute script (file path or - for stdin)
+  shot [file]              Take screenshot (default: shot.png)
+  stop                     Logout and close browser
+  status                   Check session status
+
+Options for exec:
+  --no-record              Skip video recording (record() becomes no-op)`);
 }

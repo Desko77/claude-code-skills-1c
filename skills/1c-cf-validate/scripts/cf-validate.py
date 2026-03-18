@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cf-validate v1.0 — Validate 1C configuration XML structure
+# cf-validate v1.1 — Validate 1C configuration XML structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates Configuration.xml: root structure, InternalInfo, properties, ChildObjects, languages."""
 import sys, os, argparse, re
@@ -108,18 +108,23 @@ EXPECTED_NS = 'http://v8.1c.ru/8.3/MDClasses'
 
 
 class Reporter:
-    def __init__(self, max_errors):
+    def __init__(self, max_errors, detailed=False):
         self.errors = 0
         self.warnings = 0
+        self.ok_count = 0
         self.stopped = False
         self.max_errors = max_errors
+        self.detailed = detailed
         self.lines = []
+        self.obj_name = '(unknown)'
 
     def out(self, msg=''):
         self.lines.append(msg)
 
     def ok(self, msg):
-        self.lines.append(f'[OK]    {msg}')
+        self.ok_count += 1
+        if self.detailed:
+            self.lines.append(f'[OK]    {msg}')
 
     def error(self, msg):
         self.errors += 1
@@ -135,11 +140,15 @@ class Reporter:
         return '\r\n'.join(self.lines) + '\r\n'
 
     def finalize(self, out_file):
-        self.out('')
-        self.out(f'=== Result: {self.errors} errors, {self.warnings} warnings ===')
+        checks = self.ok_count + self.errors + self.warnings
+        if self.errors == 0 and self.warnings == 0 and not self.detailed:
+            result = f'=== Validation OK: Configuration.{self.obj_name} ({checks} checks) ==='
+        else:
+            self.out('')
+            self.out(f'=== Result: {self.errors} errors, {self.warnings} warnings ({checks} checks) ===')
+            result = self.text()
 
-        result = self.text()
-        print(result, end='')
+        print(result, end='' if '\r\n' in result else '\n')
 
         if out_file:
             with open(out_file, 'w', encoding='utf-8-sig', newline='') as f:
@@ -154,6 +163,7 @@ def main():
         description='Validate 1C configuration XML structure', allow_abbrev=False
     )
     parser.add_argument('-ConfigPath', dest='ConfigPath', required=True)
+    parser.add_argument('-Detailed', action='store_true')
     parser.add_argument('-MaxErrors', dest='MaxErrors', type=int, default=30)
     parser.add_argument('-OutFile', dest='OutFile', default='')
     args = parser.parse_args()
@@ -184,7 +194,7 @@ def main():
     if out_file and not os.path.isabs(out_file):
         out_file = os.path.join(os.getcwd(), out_file)
 
-    r = Reporter(max_errors)
+    r = Reporter(max_errors, detailed=args.Detailed)
     r.out('')
 
     # --- 1. Parse XML ---
@@ -248,6 +258,7 @@ def main():
     props_node = cfg_node.find('md:Properties', NS)
     name_node = props_node.find('md:Name', NS) if props_node is not None else None
     obj_name = (name_node.text or '') if name_node is not None and name_node.text else '(unknown)'
+    r.obj_name = obj_name
 
     r.lines.insert(0, f'=== Validation: Configuration.{obj_name} ===')
 
@@ -521,7 +532,7 @@ def main():
             for md in missing_dirs:
                 r.warn(f'8. Missing directory: {md}')
     else:
-        r.ok('8. Object directories: N/A')
+        pass  # no ChildObjects
 
     # --- Final output ---
     r.finalize(out_file)

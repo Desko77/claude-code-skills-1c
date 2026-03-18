@@ -1,4 +1,4 @@
-// web-test dom v1.0 — DOM selectors and semantic mapping for 1C web client
+// web-test dom v1.1 — DOM selectors and semantic mapping for 1C web client
 // Source: https://github.com/Desko77/claude-code-skills-1c
 /**
  * DOM selectors and semantic mapping for 1C:Enterprise web client.
@@ -148,8 +148,17 @@ const READ_FORM_FN = `function readForm(p) {
   document.querySelectorAll('[id^="' + p + '"].frameButton, [id^="' + p + '"] .frameButton').forEach(el => {
     if (el.offsetWidth === 0) return;
     const text = el.innerText?.trim();
-    if (!text) return;
-    buttons.push({ name: text, frame: true });
+    const idName = el.id?.replace(p, '') || '';
+    if (!text && !idName) return;
+    buttons.push({ name: text || idName, frame: true });
+  });
+
+  // Tumbler items
+  document.querySelectorAll('[id^="' + p + '"].tumblerItem').forEach(el => {
+    if (el.offsetWidth === 0) return;
+    const text = el.innerText?.trim();
+    const idName = el.id?.replace(p, '') || '';
+    buttons.push({ name: text || idName, tumbler: true });
   });
 
   // Tabs — scoped to form by checking ancestor IDs
@@ -185,24 +194,48 @@ const READ_FORM_FN = `function readForm(p) {
     }
   });
 
-  // Table/grid — pick the first VISIBLE grid (tab switching hides inactive grids)
-  const grid = [...document.querySelectorAll('[id^="' + p + '"].grid, [id^="' + p + '"] .grid')]
-    .find(g => g.offsetWidth > 0 && g.offsetHeight > 0);
-  if (grid) {
-    const head = grid.querySelector('.gridHead');
-    const body = grid.querySelector('.gridBody');
-    const columns = [];
-    if (head) {
-      const headLine = head.querySelector('.gridLine') || head;
-      [...headLine.children].forEach(box => {
-        if (box.offsetWidth === 0) return;
-        const textEl = box.querySelector('.gridBoxText');
-        const text = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
-        if (text) columns.push(text);
-      });
-    }
-    const rowCount = body ? body.querySelectorAll('.gridLine').length : 0;
-    result.table = { present: true, columns, rowCount };
+  // Tables/grids — collect ALL visible grids
+  const allGrids = [...document.querySelectorAll('[id^="' + p + '"].grid, [id^="' + p + '"] .grid')]
+    .filter(g => g.offsetWidth > 0 && g.offsetHeight > 0);
+  if (allGrids.length > 0) {
+    const tables = allGrids.map(grid => {
+      const name = grid.id ? grid.id.replace(p, '') : '';
+      const head = grid.querySelector('.gridHead');
+      const body = grid.querySelector('.gridBody');
+      const columns = [];
+      if (head) {
+        const headLine = head.querySelector('.gridLine') || head;
+        [...headLine.children].forEach(box => {
+          if (box.offsetWidth === 0) return;
+          const textEl = box.querySelector('.gridBoxText');
+          const text = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
+          if (text) {
+            columns.push(text);
+          } else {
+            // Unnamed column — check if data cells contain checkboxes
+            const firstLine = body?.querySelector('.gridLine');
+            if (firstLine) {
+              const visibleHeaders = [...headLine.children].filter(c => c.offsetWidth > 0);
+              const idx = visibleHeaders.indexOf(box);
+              const cells = [...firstLine.children].filter(c => c.offsetWidth > 0);
+              if (cells[idx]?.querySelector('.checkbox')) {
+                columns.push('(checkbox)');
+              }
+            }
+          }
+        });
+      }
+      const rowCount = body ? body.querySelectorAll('.gridLine').length : 0;
+      // Visual label from group title (e.g. "Входящие:" for grid "Входящие")
+      const titleEl = document.getElementById(p + name + '#title_div')
+                   || document.getElementById(p + 'Группа' + name + '#title_div');
+      const label = titleEl ? (titleEl.innerText?.trim().replace(/:\\s*$/, '').replace(/\\u00a0/g, ' ') || null) : null;
+      return { name, columns, rowCount, ...(label ? { label } : {}) };
+    });
+    result.tables = tables;
+    // Backward compat: table = first grid summary
+    const first = tables[0];
+    result.table = { present: true, columns: first.columns, rowCount: first.rowCount };
   }
 
   // Active filters (train badges above grid: *СостояниеПросмотра)
@@ -224,6 +257,25 @@ const READ_FORM_FN = `function readForm(p) {
   }
   if (filters.length) result.filters = filters;
 
+  // Navigation panel (FormNavigationPanel) — lives in parent page{N} container
+  const navigation = [];
+  const formEl = document.querySelector('[id^="' + p + '"]');
+  if (formEl) {
+    let pageEl = formEl.parentElement;
+    while (pageEl && !(pageEl.id && /^page\\d+$/.test(pageEl.id))) pageEl = pageEl.parentElement;
+    if (pageEl) {
+      pageEl.querySelectorAll('.navigationItem').forEach(el => {
+        if (el.offsetWidth === 0) return;
+        const nameEl = el.querySelector('.navigationItemName');
+        const text = (nameEl?.innerText?.trim() || '').replace(/\\u00a0/g, ' ');
+        if (!text) return;
+        const nav = { name: text };
+        if (el.classList.contains('select')) nav.active = true;
+        navigation.push(nav);
+      });
+    }
+  }
+
   // Iframes
   let iframeCount = 0;
   document.querySelectorAll('[id^="' + p + '"] iframe, iframe[id^="' + p + '"]').forEach(el => {
@@ -234,6 +286,7 @@ const READ_FORM_FN = `function readForm(p) {
   if (fields.length) result.fields = fields;
   if (buttons.length) result.buttons = buttons;
   if (formTabs.length) result.tabs = formTabs;
+  if (navigation.length) result.navigation = navigation;
   if (texts.length) result.texts = texts;
   if (hyperlinks.length) result.hyperlinks = hyperlinks;
 
@@ -357,17 +410,80 @@ export function readFormScript(formNum) {
 }
 
 /**
+ * Resolve a specific grid by semantic name (table parameter).
+ * Cascade: exact gridName match → gridName contains → column contains.
+ * Returns { gridSelector, gridId, gridName, gridIndex, columns } or { error, available }.
+ */
+export function resolveGridScript(formNum, tableName) {
+  const p = `form${formNum}_`;
+  return `(() => {
+    const p = ${JSON.stringify(p)};
+    const target = ${JSON.stringify(tableName.toLowerCase().replace(/ё/g, 'е'))};
+    const norm = s => (s || '').replace(/ё/gi, 'е');
+    const allGrids = [...document.querySelectorAll('[id^="' + p + '"].grid, [id^="' + p + '"] .grid')]
+      .filter(g => g.offsetWidth > 0 && g.offsetHeight > 0);
+    if (!allGrids.length) return { error: 'no_grids', message: 'No grids found on form' };
+    const infos = allGrids.map((g, idx) => {
+      const gridId = g.id || '';
+      const gridName = gridId.replace(p, '');
+      const head = g.querySelector('.gridHead');
+      const columns = [];
+      if (head) {
+        const headLine = head.querySelector('.gridLine') || head;
+        [...headLine.children].forEach(box => {
+          if (box.offsetWidth === 0) return;
+          const textEl = box.querySelector('.gridBoxText');
+          const text = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
+          if (text) columns.push(text);
+        });
+      }
+      // Visual label from group title element
+      const titleEl = document.getElementById(p + gridName + '#title_div')
+                   || document.getElementById(p + 'Группа' + gridName + '#title_div');
+      const label = titleEl ? (titleEl.innerText?.trim().replace(/:\s*$/, '').replace(/\u00a0/g, ' ') || '') : '';
+      return { idx, gridId, gridName, label, columns, el: g };
+    });
+    // 1. Exact gridName match (case-insensitive)
+    let found = infos.find(i => norm(i.gridName).toLowerCase() === target);
+    // 2. Exact label match
+    if (!found) found = infos.find(i => i.label && norm(i.label).toLowerCase() === target);
+    // 3. gridName contains target
+    if (!found) found = infos.find(i => norm(i.gridName).toLowerCase().includes(target));
+    // 4. Label contains target
+    if (!found) found = infos.find(i => i.label && norm(i.label).toLowerCase().includes(target));
+    // 5. Any column contains target
+    if (!found) found = infos.find(i => i.columns.some(c => norm(c).toLowerCase().includes(target)));
+    if (found) {
+      return {
+        gridSelector: found.gridId ? '#' + CSS.escape(found.gridId) : null,
+        gridId: found.gridId,
+        gridName: found.gridName,
+        gridIndex: found.idx,
+        columns: found.columns
+      };
+    }
+    return {
+      error: 'not_found',
+      message: 'Table "' + ${JSON.stringify(tableName)} + '" not found',
+      available: infos.map(i => ({ name: i.gridName, ...(i.label ? { label: i.label } : {}), columns: i.columns }))
+    };
+  })()`;
+}
+
+/**
  * Read table/grid data with pagination.
  * Parses grid.innerText — \n separates rows, \t separates cells.
  * First row = column headers.
  * Returns { name, columns[], rows[{col:val}], total, offset, shown }.
  */
-export function readTableScript(formNum, { maxRows = 20, offset = 0 } = {}) {
+export function readTableScript(formNum, { maxRows = 20, offset = 0, gridSelector } = {}) {
   const p = `form${formNum}_`;
   return `(() => {
     const p = ${JSON.stringify(p)};
-    const grid = [...document.querySelectorAll('[id^="' + p + '"].grid, [id^="' + p + '"] .grid')]
-      .find(g => g.offsetWidth > 0 && g.offsetHeight > 0);
+    const grid = ${gridSelector
+      ? `document.querySelector(${JSON.stringify(gridSelector)})`
+      : `[...document.querySelectorAll('[id^="' + p + '"].grid, [id^="' + p + '"] .grid')]
+      .find(g => g.offsetWidth > 0 && g.offsetHeight > 0)`};
     if (!grid) return { error: 'no_table', message: 'No table found on form ${formNum}' };
     const name = grid.id ? grid.id.replace(p, '') : '';
 
@@ -389,7 +505,20 @@ export function readTableScript(formNum, { maxRows = 20, offset = 0 } = {}) {
       if (box.offsetWidth === 0) return;
       const textEl = box.querySelector('.gridBoxText');
       const text = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
-      if (!text) return;
+      if (!text) {
+        // Unnamed column — check if data cells contain checkboxes
+        const firstLine = body?.querySelector('.gridLine');
+        if (firstLine) {
+          const visibleHeaders = [...headLine.children].filter(c => c.offsetWidth > 0);
+          const idx = visibleHeaders.indexOf(box);
+          const cells = [...firstLine.children].filter(c => c.offsetWidth > 0);
+          if (cells[idx]?.querySelector('.checkbox')) {
+            const r = box.getBoundingClientRect();
+            columns.push({ text: '(checkbox)', x: r.x, w: r.width, right: r.x + r.width });
+          }
+        }
+        return;
+      }
       const r = box.getBoundingClientRect();
       columns.push({ text, x: r.x, w: r.width, right: r.x + r.width });
     });
@@ -407,8 +536,14 @@ export function readTableScript(formNum, { maxRows = 20, offset = 0 } = {}) {
       [...line.children].forEach(box => {
         if (box.offsetWidth === 0) return;
         const textEl = box.querySelector('.gridBoxText');
-        const val = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
-        if (!val) return;
+        const chk = box.querySelector('.checkbox');
+        let val;
+        if (chk) {
+          val = chk.classList.contains('select') ? 'true' : 'false';
+        } else {
+          val = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
+          if (!val) return;
+        }
         // Match cell to column by X-coordinate overlap
         const r = box.getBoundingClientRect();
         const cx = r.x + r.width / 2;
@@ -476,8 +611,8 @@ export function getFormStateScript() {
  */
 export function navigateSectionScript(name) {
   return `(() => {
-    const norm = s => (s?.trim().replace(/\\u00a0/g, ' ') || '').replace(/ё/gi, 'е');
-    const target = ${JSON.stringify(name.toLowerCase().replace(/ё/g, 'е'))};
+    const norm = s => (s?.trim().replace(/\\u00a0/g, ' ').replace(/[\\r\\n]+/g, ' ').replace(/  +/g, ' ') || '').replace(/ё/gi, 'е');
+    const target = ${JSON.stringify(name.toLowerCase().replace(/ё/g, 'е').replace(/[\r\n]+/g, ' ').replace(/  +/g, ' '))};
     const els = [...document.querySelectorAll('[id^="themesCell_theme_"]')];
     let bestEl = els.find(el => norm(el.innerText).toLowerCase() === target);
     if (!bestEl) bestEl = els.find(el => norm(el.innerText).toLowerCase().includes(target));
@@ -507,12 +642,14 @@ export function openCommandScript(name) {
  * Supports synonym matching: visible text AND internal name from DOM ID.
  * Fuzzy order: exact name -> exact label -> includes name -> includes label.
  */
-export function findClickTargetScript(formNum, text) {
+export function findClickTargetScript(formNum, text, { tableName, gridSelector } = {}) {
   const p = `form${formNum}_`;
   return `(() => {
     const norm = s => (s?.trim().replace(/\\u00a0/g, ' ') || '').replace(/ё/gi, 'е');
     const target = ${JSON.stringify(text.toLowerCase().replace(/ё/g, 'е'))};
     const p = ${JSON.stringify(p)};
+    const tableName = ${JSON.stringify(tableName || '')};
+    const gridSelector = ${JSON.stringify(gridSelector || '')};
     const items = [];
 
     // Buttons (a.press)
@@ -536,8 +673,16 @@ export function findClickTargetScript(formNum, text) {
     // Frame buttons
     [...document.querySelectorAll('[id^="' + p + '"] .frameButton, [id^="' + p + '"].frameButton')].filter(el => el.offsetWidth > 0).forEach(el => {
       const text = norm(el.innerText);
-      if (!text) return;
-      items.push({ id: el.id, name: text, label: '', kind: 'frameButton' });
+      const idName = el.id.replace(p, '');
+      if (!text && !idName) return;
+      items.push({ id: el.id, name: text || idName, label: text ? '' : idName, kind: 'frameButton' });
+    });
+
+    // Tumbler items (toggle switch segments)
+    [...document.querySelectorAll('[id^="' + p + '"].tumblerItem')].filter(el => el.offsetWidth > 0).forEach(el => {
+      const idName = el.id.replace(p, '');
+      const text = norm(el.innerText);
+      items.push({ id: el.id, name: text || idName, label: idName, kind: 'tumbler' });
     });
 
     // Checkboxes (div.checkbox) — match by label or internal name
@@ -558,47 +703,108 @@ export function findClickTargetScript(formNum, text) {
       }
       return false;
     }).forEach(el => {
-      items.push({ id: el.id, name: el.dataset.content, label: '', kind: 'tab' });
+      const r = el.getBoundingClientRect();
+      items.push({ id: el.id, name: el.dataset.content, label: '', kind: 'tab',
+        x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) });
     });
 
+    // Navigation panel items (FormNavigationPanel) — in parent page{N}
+    const formEl = document.querySelector('[id^="' + p + '"]');
+    if (formEl) {
+      let pageEl = formEl.parentElement;
+      while (pageEl && !(pageEl.id && /^page\\d+$/.test(pageEl.id))) pageEl = pageEl.parentElement;
+      if (pageEl) {
+        pageEl.querySelectorAll('.navigationItem').forEach(el => {
+          if (el.offsetWidth === 0) return;
+          const nameEl = el.querySelector('.navigationItemName');
+          const text = norm(nameEl?.innerText || '');
+          if (!text) return;
+          items.push({ id: el.id, name: text, label: '', kind: 'navigation' });
+        });
+      }
+    }
+
+    // When table is specified, scope button search to grid's parent container
+    if (gridSelector) {
+      const gridEl = document.querySelector(gridSelector);
+      if (gridEl) {
+        // Find parent container that has id with formPrefix and contains the grid
+        let container = gridEl.parentElement;
+        while (container && container !== document.body) {
+          if (container.id && container.id.startsWith(p)) break;
+          container = container.parentElement;
+        }
+        // Filter items to those inside the container
+        const containerItems = container && container !== document.body
+          ? items.filter(i => { const el = document.getElementById(i.id); return el && container.contains(el); })
+          : [];
+        // Try fuzzy match within container first
+        let cf = containerItems.find(i => i.name.toLowerCase() === target);
+        if (!cf) cf = containerItems.find(i => i.label && i.label.toLowerCase() === target);
+        if (!cf && target.length >= 4) cf = containerItems.find(i => i.name.toLowerCase().includes(target));
+        if (!cf && target.length >= 4) cf = containerItems.find(i => i.label && i.label.toLowerCase().includes(target));
+        if (cf) { const res = { id: cf.id, kind: cf.kind, name: cf.name }; if (cf.x != null) { res.x = cf.x; res.y = cf.y; } return res; }
+        // Fallback: filter by gridName id-prefix (e.g. ИсходящиеКоманднаяПанель_Добавить)
+        const gridName = gridEl.id ? gridEl.id.replace(p, '') : '';
+        if (gridName) {
+          const prefixItems = items.filter(i => i.label && i.label.includes(gridName));
+          let pf = prefixItems.find(i => i.name.toLowerCase() === target);
+          if (!pf && target.length >= 4) pf = prefixItems.find(i => i.label && i.label.toLowerCase().includes(target));
+          if (!pf && target.length >= 4) pf = prefixItems.find(i => i.name.toLowerCase().includes(target));
+          if (pf) { const res = { id: pf.id, kind: pf.kind, name: pf.name }; if (pf.x != null) { res.x = pf.x; res.y = pf.y; } return res; }
+        }
+      }
+      // Fall through to unscoped search
+    }
+
     // Fuzzy match: exact name -> exact label -> startsWith name -> startsWith label -> includes name -> includes label
+    // Skip includes() for short strings (< 4 chars) to avoid false positives
+    // e.g. "Да" matching "КомандаУстановитьВсе"
     let found = items.find(i => i.name.toLowerCase() === target);
     if (!found) found = items.find(i => i.label && i.label.toLowerCase() === target);
     if (!found) found = items.find(i => i.name.toLowerCase().startsWith(target));
     if (!found) found = items.find(i => i.label && i.label.toLowerCase().startsWith(target));
-    if (!found) found = items.find(i => i.name.toLowerCase().includes(target));
-    if (!found) found = items.find(i => i.label && i.label.toLowerCase().includes(target));
+    if (!found && target.length >= 4) found = items.find(i => i.name.toLowerCase().includes(target));
+    if (!found && target.length >= 4) found = items.find(i => i.label && i.label.toLowerCase().includes(target));
 
     if (found) {
-      return { id: found.id, kind: found.kind, name: found.name };
+      const res = { id: found.id, kind: found.kind, name: found.name };
+      if (found.x != null) { res.x = found.x; res.y = found.y; }
+      return res;
     }
 
     // Grid rows — fallback: search in table rows (for hierarchical/tree navigation)
-    const grid = document.querySelector('[id^="' + p + '"].grid');
-    if (grid) {
+    // Search ALL visible grids (or specific grid when table parameter is set)
+    let grids;
+    if (gridSelector) {
+      const g = document.querySelector(gridSelector);
+      grids = g ? [g] : [];
+    } else {
+      grids = [...document.querySelectorAll('[id^="' + p + '"].grid')].filter(g => g.offsetWidth > 0);
+    }
+    for (const grid of grids) {
       const body = grid.querySelector('.gridBody');
-      if (body) {
-        const lines = [...body.querySelectorAll('.gridLine')];
-        for (const line of lines) {
-          const textBoxes = [...line.querySelectorAll('.gridBoxText')].filter(b => b.offsetWidth > 0);
-          const rowTexts = textBoxes.map(b => b.innerText?.trim() || '').filter(Boolean);
-          const firstCell = rowTexts[0]?.toLowerCase() || '';
-          const rowText = rowTexts.join(' ').toLowerCase();
-          if (firstCell === target || rowText === target || firstCell.includes(target) || rowText.includes(target)) {
-            const imgBox = line.querySelector('.gridBoxImg');
-            const isGroup = imgBox?.querySelector('.gridListH') !== null;
-            const isParent = imgBox?.querySelector('.gridListV') !== null;
-            const isTreeNode = line.querySelector('.gridBoxTree') !== null;
-            const hasChildren = imgBox?.querySelector('[tree="true"]') !== null;
-            let kind;
-            if (isGroup) kind = 'gridGroup';
-            else if (isParent) kind = 'gridParent';
-            else if (isTreeNode && hasChildren) kind = 'gridTreeNode';
-            else kind = 'gridRow';
-            const r = line.getBoundingClientRect();
-            return { id: '', kind, name: rowTexts[0] || '',
-              x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
-          }
+      if (!body) continue;
+      const lines = [...body.querySelectorAll('.gridLine')];
+      for (const line of lines) {
+        const textBoxes = [...line.querySelectorAll('.gridBoxText')].filter(b => b.offsetWidth > 0);
+        const rowTexts = textBoxes.map(b => norm(b.innerText) || '').filter(Boolean);
+        const firstCell = rowTexts[0]?.toLowerCase() || '';
+        const rowText = rowTexts.join(' ').toLowerCase();
+        if (firstCell === target || rowText === target || (target.length >= 4 && (firstCell.includes(target) || rowText.includes(target)))) {
+          const imgBox = line.querySelector('.gridBoxImg');
+          const isGroup = imgBox?.querySelector('.gridListH') !== null;
+          const isParent = imgBox?.querySelector('.gridListV') !== null;
+          const isTreeNode = line.querySelector('.gridBoxTree') !== null;
+          const hasChildren = line.querySelector('[tree="true"]') !== null;
+          let kind;
+          if (isGroup) kind = 'gridGroup';
+          else if (isParent) kind = 'gridParent';
+          else if (isTreeNode && hasChildren) kind = 'gridTreeNode';
+          else kind = 'gridRow';
+          const r = line.getBoundingClientRect();
+          return { id: '', kind, name: rowTexts[0] || '', gridId: grid.id,
+            x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
         }
       }
     }
@@ -905,12 +1111,16 @@ export function checkErrorsScript() {
     }
 
     // Single-button modal: error dialog with pressDefault + staticText
+    // Skip forms with input fields — those are data entry forms (e.g. register record),
+    // not error dialogs. Real error modals only have staticText + buttons.
     if (!result.confirmation) {
       for (const [fn, buttons] of Object.entries(formButtons)) {
         const p = 'form' + fn + '_';
         const elCount = document.querySelectorAll('[id^="' + p + '"]').length;
         if (elCount > 100) continue;
         if (buttons.length !== 1 || !buttons[0].classList.contains('pressDefault')) continue;
+        const hasInputs = document.querySelectorAll('input.editInput[id^="' + p + '"]').length > 0;
+        if (hasInputs) continue;
         const texts = [...document.querySelectorAll('[id^="' + p + '"].staticText')]
           .filter(el => el.offsetWidth > 0)
           .map(el => el.innerText?.trim())

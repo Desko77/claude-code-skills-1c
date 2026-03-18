@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# form-validate v1.0 — Validate 1C managed form
+# form-validate v1.1 — Validate 1C managed form
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -23,11 +23,34 @@ def main():
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Validate 1C managed form", allow_abbrev=False)
     parser.add_argument("-FormPath", required=True)
+    parser.add_argument("-Detailed", action="store_true")
     parser.add_argument("-MaxErrors", type=int, default=30)
     args = parser.parse_args()
 
     form_path = args.FormPath
+    detailed = args.Detailed
     max_errors = args.MaxErrors
+
+    if not os.path.isabs(form_path):
+        form_path = os.path.join(os.getcwd(), form_path)
+
+    # A: Directory → Ext/Form.xml
+    if os.path.isdir(form_path):
+        form_path = os.path.join(form_path, 'Ext', 'Form.xml')
+    # B1: Missing Ext/ (e.g. Forms/Форма/Form.xml → Forms/Форма/Ext/Form.xml)
+    if not os.path.exists(form_path):
+        fn = os.path.basename(form_path)
+        if fn == 'Form.xml':
+            c = os.path.join(os.path.dirname(form_path), 'Ext', fn)
+            if os.path.exists(c):
+                form_path = c
+    # B2: Descriptor (Forms/Форма.xml → Forms/Форма/Ext/Form.xml)
+    if not os.path.exists(form_path) and form_path.endswith('.xml'):
+        stem = os.path.splitext(os.path.basename(form_path))[0]
+        parent = os.path.dirname(form_path)
+        c = os.path.join(parent, stem, 'Ext', 'Form.xml')
+        if os.path.exists(c):
+            form_path = c
 
     if not os.path.isfile(form_path):
         print(f"File not found: {form_path}", file=sys.stderr)
@@ -48,22 +71,27 @@ def main():
 
     errors = 0
     warnings = 0
+    ok_count = 0
     stopped = False
+    output_lines = []
 
     def report_ok(msg):
-        print(f"[OK]    {msg}")
+        nonlocal ok_count
+        ok_count += 1
+        if detailed:
+            output_lines.append(f"[OK]    {msg}")
 
     def report_error(msg):
         nonlocal errors, stopped
         errors += 1
-        print(f"[ERROR] {msg}")
+        output_lines.append(f"[ERROR] {msg}")
         if errors >= max_errors:
             stopped = True
 
     def report_warn(msg):
         nonlocal warnings
         warnings += 1
-        print(f"[WARN]  {msg}")
+        output_lines.append(f"[WARN]  {msg}")
 
     # --- Form name from path ---
     form_name = os.path.splitext(os.path.basename(form_path))[0]
@@ -75,8 +103,8 @@ def main():
             if form_dir:
                 form_name = os.path.basename(form_dir)
 
-    print(f"=== Validation: {form_name} ===")
-    print()
+    output_lines.append(f"=== Validation: Form.{form_name} ===")
+    output_lines.append("")
 
     # Early BaseForm detection
     has_base_form = root.find(f"{{{F_NS}}}BaseForm") is not None
@@ -319,8 +347,6 @@ def main():
             path_msg = f"{path_msg}, {skip_note}" if path_msg else skip_note
         if path_errors == 0 and path_msg:
             report_ok(f"DataPath references: {path_msg}")
-        elif path_errors == 0:
-            report_ok("DataPath references: none")
 
     # --- Check 6: Button command references ---
     if not stopped:
@@ -355,8 +381,6 @@ def main():
 
         if cmd_errors == 0 and cmd_checked > 0:
             report_ok(f"Command references: {cmd_checked} buttons checked")
-        elif cmd_checked == 0:
-            report_ok("Command references: none")
 
     # --- Check 7: Events have handler names ---
     if not stopped:
@@ -396,8 +420,6 @@ def main():
 
         if event_errors == 0 and event_checked > 0:
             report_ok(f"Event handlers: {event_checked} events checked")
-        elif event_checked == 0:
-            report_ok("Event handlers: none")
 
     # --- Check 8: Command actions ---
     if not stopped:
@@ -416,8 +438,6 @@ def main():
 
         if action_errors == 0 and action_checked > 0:
             report_ok(f"Command actions: {action_checked} commands checked")
-        elif action_checked == 0:
-            report_ok("Command actions: none")
 
     # --- Check 9: MainAttribute count ---
     if not stopped:
@@ -568,18 +588,18 @@ def main():
         if call_type_without_base:
             report_warn("callType attributes found but no BaseForm \u2014 possible incorrect structure")
 
-    # --- Summary ---
-    print()
-    print("---")
-    print(f"Total: {len(all_elements)} elements, {len(attr_nodes)} attributes, {len(cmd_nodes)} commands")
-
+    # --- Finalize ---
+    checks = ok_count + errors + warnings
     if stopped:
-        print(f"Stopped after {max_errors} errors. Fix and re-run.")
-
-    if errors == 0 and warnings == 0:
-        print("All checks passed.")
+        output_lines.append(f"Stopped after {max_errors} errors. Fix and re-run.")
+    if errors == 0 and warnings == 0 and not detailed:
+        result = f"=== Validation OK: Form.{form_name} ({checks} checks) ==="
     else:
-        print(f"Errors: {errors}, Warnings: {warnings}")
+        output_lines.append("")
+        output_lines.append(f"=== Result: {errors} errors, {warnings} warnings ({checks} checks) ===")
+        result = "\n".join(output_lines)
+
+    print(result)
 
     if errors > 0:
         sys.exit(1)

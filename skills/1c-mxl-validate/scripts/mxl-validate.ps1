@@ -1,10 +1,11 @@
-﻿# mxl-validate v1.0 — Validate 1C spreadsheet
+﻿# mxl-validate v1.1 — Validate 1C spreadsheet
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[string]$TemplatePath,
 	[string]$ProcessorName,
 	[string]$TemplateName,
 	[string]$SrcDir = "src",
+	[switch]$Detailed,
 	[int]$MaxErrors = 20
 )
 
@@ -19,6 +20,26 @@ if (-not $TemplatePath) {
 		exit 1
 	}
 	$TemplatePath = Join-Path (Join-Path (Join-Path (Join-Path (Join-Path $SrcDir $ProcessorName) "Templates") $TemplateName) "Ext") "Template.xml"
+}
+
+# A: Directory → Ext/Template.xml
+if (Test-Path $TemplatePath -PathType Container) {
+	$TemplatePath = Join-Path (Join-Path $TemplatePath "Ext") "Template.xml"
+}
+# B1: Missing Ext/ (e.g. Templates/Макет/Template.xml → Templates/Макет/Ext/Template.xml)
+if (-not (Test-Path $TemplatePath)) {
+	$fn = [System.IO.Path]::GetFileName($TemplatePath)
+	if ($fn -eq "Template.xml") {
+		$c = Join-Path (Join-Path (Split-Path $TemplatePath) "Ext") $fn
+		if (Test-Path $c) { $TemplatePath = $c }
+	}
+}
+# B2: Descriptor (Templates/Макет.xml → Templates/Макет/Ext/Template.xml)
+if (-not (Test-Path $TemplatePath) -and $TemplatePath.EndsWith(".xml")) {
+	$stem = [System.IO.Path]::GetFileNameWithoutExtension($TemplatePath)
+	$dir = Split-Path $TemplatePath
+	$c = Join-Path (Join-Path (Join-Path $dir $stem) "Ext") "Template.xml"
+	if (Test-Path $c) { $TemplatePath = $c }
 }
 
 if (-not (Test-Path $TemplatePath)) {
@@ -44,10 +65,12 @@ $root = $xmlDoc.DocumentElement
 $errors = 0
 $warnings = 0
 $stopped = $false
+$script:okCount = 0
 
 function Report-OK {
 	param([string]$msg)
-	Write-Host "[OK]    $msg"
+	$script:okCount++
+	if ($Detailed) { Write-Host "[OK]    $msg" }
 }
 
 function Report-Error {
@@ -66,8 +89,10 @@ function Report-Warn {
 }
 
 $templateName = [System.IO.Path]::GetFileName([System.IO.Path]::GetDirectoryName([System.IO.Path]::GetDirectoryName($TemplatePath)))
-Write-Host "=== Validation: $templateName ==="
-Write-Host ""
+if ($Detailed) {
+	Write-Host "=== Validation: $templateName ==="
+	Write-Host ""
+}
 
 # --- Collect palettes ---
 
@@ -376,18 +401,18 @@ foreach ($drawing in $root.SelectNodes("d:drawing", $nsMgr)) {
 
 # --- Summary ---
 
-# :finish label equivalent
-Write-Host ""
-Write-Host "---"
+$checks = $script:okCount + $errors + $warnings
 
-if ($stopped) {
-	Write-Host "Stopped after $MaxErrors errors. Fix and re-run."
-}
-
-if ($errors -eq 0 -and $warnings -eq 0) {
-	Write-Host "All checks passed."
+if ($errors -eq 0 -and $warnings -eq 0 -and -not $Detailed) {
+	Write-Host "=== Validation OK: Template.$templateName ($checks checks) ==="
 } else {
-	Write-Host "Errors: $errors, Warnings: $warnings"
+	Write-Host ""
+
+	if ($stopped) {
+		Write-Host "Stopped after $MaxErrors errors. Fix and re-run."
+	}
+
+	Write-Host "=== Result: $errors errors, $warnings warnings ($checks checks) ==="
 }
 
 if ($errors -gt 0) {

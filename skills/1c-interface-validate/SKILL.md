@@ -1,7 +1,7 @@
 ---
 name: 1c-interface-validate
 description: Валидация командного интерфейса 1С. Используй после настройки командного интерфейса подсистемы для проверки корректности
-argument-hint: <CIPath> [-MaxErrors 30]
+argument-hint: <CIPath> [-Detailed] [-MaxErrors 30]
 allowed-tools:
   - Bash
   - Read
@@ -10,20 +10,22 @@ allowed-tools:
 
 # /interface-validate — валидация CommandInterface.xml
 
-Проверяет XML командного интерфейса из выгрузки конфигурации на структурные ошибки: корневой элемент, допустимые секции, порядок, формат ссылок на команды, дубликаты.
+Проверяет XML командного интерфейса на структурные ошибки: корневой элемент, допустимые секции, порядок, формат ссылок на команды, дубликаты.
 
 ## Параметры
 
-| Параметр  | Обязательный | По умолчанию | Описание                            |
-|-----------|:------------:|--------------|------------------------------------|
-| CIPath    | да           | —            | Путь к CommandInterface.xml        |
-| MaxErrors | нет          | 30           | Остановиться после N ошибок         |
-| OutFile   | нет          | —            | Записать результат в файл (UTF-8 BOM) |
+| Параметр  | Обяз. | Умолч. | Описание                                |
+|-----------|:-----:|---------|-----------------------------------------|
+| CIPath    | да    | —       | Путь к CommandInterface.xml             |
+| Detailed  | нет   | —       | Показывать [OK] для каждой проверки      |
+| MaxErrors | нет   | 30      | Остановиться после N ошибок              |
+| OutFile   | нет   | —       | Записать результат в файл (UTF-8 BOM)   |
 
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File 'skills/1c-interface-validate/scripts/interface-validate.ps1' -CIPath '<path>'
+powershell.exe -NoProfile -File "skills/1c-interface-validate/scripts/interface-validate.ps1" -CIPath "Subsystems/Продажи"
+powershell.exe -NoProfile -File "skills/1c-interface-validate/scripts/interface-validate.ps1" -CIPath "Subsystems/Продажи/Ext/CommandInterface.xml"
 ```
 
 ## Проверки (13)
@@ -44,39 +46,4 @@ powershell.exe -NoProfile -File 'skills/1c-interface-validate/scripts/interface-
 | 12 | GroupsOrder — нет дубликатов                                 | WARN  |
 | 13 | Формат ссылок на команды                                     | WARN  |
 
-## Вывод
-
-```
-=== Validation: CommandInterface (Продажи) ===
-
-[OK]    1. Root structure: CommandInterface, version 2.17, namespace valid
-[OK]    2. Child elements: 5 valid sections
-[OK]    3. Section order: correct
-[OK]    4. No duplicate sections
-[OK]    5. CommandsVisibility: 55 entries, all valid
-[OK]    6. CommandsVisibility: no duplicates
-[OK]    7. CommandsPlacement: 3 entries, all valid
-[OK]    8. CommandsOrder: 12 entries, all valid
-[OK]    9. SubsystemsOrder: 9 entries, all valid format
-[OK]    10. SubsystemsOrder: no duplicates
-[OK]    11. GroupsOrder: 7 entries, all valid
-[OK]    12. GroupsOrder: no duplicates
-[OK]    13. Command reference format: all valid
----
-Errors: 0, Warnings: 0
-```
-
-Код возврата: 0 = все проверки пройдены, 1 = есть ошибки.
-
-## Примеры
-
-```powershell
-# CommandInterface подсистемы
-... -CIPath upload/acc_8.3.24/Subsystems/Продажи/Ext/CommandInterface.xml
-
-# Корневой CommandInterface конфигурации
-... -CIPath upload/acc_8.3.24/Ext/CommandInterface.xml
-
-# С лимитом ошибок
-... -CIPath <path> -MaxErrors 10
-```
+Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

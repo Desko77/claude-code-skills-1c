@@ -1,37 +1,33 @@
 ---
 name: 1c-form-validate
-description: Валидация управляемой формы 1С. Используй после создания или модификации формы для проверки корректности
-argument-hint: <FormPath>
+description: Валидация управляемой формы 1С. Используй после создания или модификации формы для проверки корректности. При наличии BaseForm автоматически проверяет callType и ID расширений
+argument-hint: <FormPath> [-Detailed] [-MaxErrors 30]
 allowed-tools:
   - Bash
   - Read
   - Glob
 ---
 
-# /form-validate — Валидатор формы
+# /form-validate — валидация управляемой формы 1С
 
-Проверяет Form.xml управляемой формы на структурные ошибки: уникальность ID, наличие companion-элементов, корректность ссылок DataPath и команд.
-
-## Использование
-
-```
-/form-validate <FormPath>
-```
+Проверяет Form.xml на структурные ошибки: уникальность ID, наличие companion-элементов, корректность ссылок DataPath и команд.
 
 ## Параметры
 
-| Параметр  | Обязательный | По умолчанию | Описание                    |
-|-----------|:------------:|--------------|-----------------------------|
-| FormPath  | да           | —            | Путь к файлу Form.xml       |
-| MaxErrors | нет          | 30           | Остановиться после N ошибок |
+| Параметр  | Обяз. | Умолч. | Описание                                |
+|-----------|:-----:|---------|-----------------------------------------|
+| FormPath  | да    | —       | Путь к файлу Form.xml                   |
+| Detailed  | нет   | —       | Показывать [OK] для каждой проверки      |
+| MaxErrors | нет   | 30      | Остановиться после N ошибок              |
 
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "<путь>"
+powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "Catalogs/Номенклатура/Forms/ФормаЭлемента"
+powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "src/МояОбработка/Forms/Форма/Ext/Form.xml"
 ```
 
-## Выполняемые проверки
+## Проверки
 
 | # | Проверка | Серьёзность |
 |---|---|---|
@@ -51,42 +47,4 @@ powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps
 | 14 | ID расширения >= 1000000 для добавленных attrs/commands | WARN |
 | 15 | callType без BaseForm — некорректная структура | WARN |
 
-## Вывод
-
-```
-=== Validation: ФормаДокумента ===
-
-[OK]    Root element: Form version=2.17
-[OK]    AutoCommandBar: name='ФормаКоманднаяПанель', id=-1
-[OK]    Unique element IDs: 96 elements
-[OK]    Unique attribute IDs: 38 entries
-[OK]    Unique command IDs: 5 entries
-[OK]    Companion elements: 86 elements checked
-[OK]    DataPath references: 53 paths checked
-[OK]    Command references: 2 buttons checked
-[OK]    Event handlers: 41 events checked
-[OK]    Command actions: 5 commands checked
-[OK]    MainAttribute: 1 main attribute
-
----
-Total: 96 elements, 38 attributes, 5 commands
-All checks passed.
-```
-
-Код возврата: 0 = все проверки пройдены, 1 = есть ошибки.
-
-### Расширения
-
-При обнаружении `<BaseForm>` автоматически активируются дополнительные проверки:
-- Валидность значений `callType` (Before/After/Override)
-- ID расширения >= 1000000 для добавленных атрибутов и команд
-- Наличие version на `<BaseForm>`
-
-Формы без `<BaseForm>` проверяются только стандартными проверками.
-
-## Когда использовать
-
-- **После `/form-compile`**: проверить корректность сгенерированной формы
-- **После `/form-edit`**: проверить добавленные элементы, особенно в extension-формах
-- **После ручного редактирования Form.xml**: убедиться что ID уникальны, companions на месте, ссылки валидны
-- **При отладке**: выявить ошибки в структуре формы до сборки EPF
+Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

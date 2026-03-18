@@ -1,8 +1,10 @@
-﻿# meta-validate v1.1 — Validate 1C metadata object structure
+﻿# meta-validate v1.2 — Validate 1C metadata object structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
 	[string]$ObjectPath,
+
+	[switch]$Detailed,
 
 	[int]$MaxErrors = 30,
 
@@ -19,7 +21,7 @@ if ($pathList.Count -gt 1) {
 	$batchOk = 0
 	$batchFail = 0
 	foreach ($singlePath in $pathList) {
-		$callArgs = @{ ObjectPath = $singlePath; MaxErrors = $MaxErrors }
+		$callArgs = @{ ObjectPath = $singlePath; MaxErrors = $MaxErrors; Detailed = $Detailed }
 		if ($OutFile) {
 			$baseName = [System.IO.Path]::GetFileNameWithoutExtension($OutFile)
 			$ext = [System.IO.Path]::GetExtension($OutFile)
@@ -96,6 +98,7 @@ for ($depth = 0; $depth -lt 4; $depth++) {
 
 $script:errors = 0
 $script:warnings = 0
+$script:okCount = 0
 $script:stopped = $false
 $script:output = New-Object System.Text.StringBuilder 8192
 
@@ -106,7 +109,8 @@ function Out-Line {
 
 function Report-OK {
 	param([string]$msg)
-	Out-Line "[OK]    $msg"
+	$script:okCount++
+	if ($Detailed) { Out-Line "[OK]    $msg" }
 }
 
 function Report-Error {
@@ -125,10 +129,14 @@ function Report-Warn {
 }
 
 $finalize = {
-	Out-Line ""
-	Out-Line "=== Result: $($script:errors) errors, $($script:warnings) warnings ==="
-
-	$result = $script:output.ToString()
+	$checks = $script:okCount + $script:errors + $script:warnings
+	if ($script:errors -eq 0 -and $script:warnings -eq 0 -and -not $Detailed) {
+		$result = "=== Validation OK: $mdType.$objName ($checks checks) ==="
+	} else {
+		Out-Line ""
+		Out-Line "=== Result: $($script:errors) errors, $($script:warnings) warnings ($checks checks) ==="
+		$result = $script:output.ToString()
+	}
 	Write-Host $result
 
 	if ($OutFile) {
@@ -449,8 +457,6 @@ if ($typesWithoutInternalInfo -contains $mdType) {
 			Report-OK "2. InternalInfo: $($genTypes.Count) GeneratedType ($catList)"
 		}
 	}
-} else {
-	Report-OK "2. InternalInfo: N/A for $mdType"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -569,8 +575,6 @@ if ($typesWithStdAttrs -contains $mdType) {
 			Report-OK "5. StandardAttributes: $($stdAttrs.Count) entries"
 		}
 	}
-} else {
-	Report-OK "5. StandardAttributes: N/A for $mdType"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -690,8 +694,6 @@ if ($childObjNode) {
 	} elseif ($check7Count -eq 0) {
 		Report-OK "7. Child elements: none to check"
 	}
-} else {
-	Report-OK "7. Child elements: N/A (no ChildObjects)"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -725,8 +727,6 @@ if ($childObjNode) {
 	if ($check7bOk) {
 		Report-OK "7b. Reserved attribute names: no conflicts"
 	}
-} else {
-	Report-OK "7b. Reserved attribute names: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -814,8 +814,6 @@ if ($childObjNode) {
 	if ($check8Ok) {
 		Report-OK "8. Name uniqueness: all names unique"
 	}
-} else {
-	Report-OK "8. Name uniqueness: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -901,8 +899,6 @@ if ($childObjNode) {
 	} else {
 		Report-OK "9. TabularSections: none present"
 	}
-} else {
-	Report-OK "9. TabularSections: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -1160,8 +1156,6 @@ if ($mdType -eq "HTTPService" -and $childObjNode) {
 	if ($check11Ok) {
 		Report-OK "11. WebService: $($operations.Count) operation(s), $paramCount parameter(s)"
 	}
-} else {
-	Report-OK "11. HTTPService/WebService: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -1181,8 +1175,6 @@ if ($propsNode -and $forbiddenProperties.ContainsKey($mdType)) {
 	if ($check12Ok) {
 		Report-OK "12. Forbidden properties: none found"
 	}
-} else {
-	Report-OK "12. Forbidden properties: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -1245,8 +1237,6 @@ if ($propsNode -and $mdType -in @("EventSubscription","ScheduledJob") -and $scri
 	if ($check13Ok) {
 		Report-OK "13. Method reference: $propLabel = '$methodRef'"
 	}
-} else {
-	Report-OK "13. Method reference: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -1283,8 +1273,6 @@ if ($mdType -eq "DocumentJournal" -and $childObjNode) {
 	} elseif ($colCount -eq 0) {
 		Report-OK "14. DocumentJournal Columns: none"
 	}
-} else {
-	Report-OK "14. DocumentJournal Columns: N/A"
 }
 
 # --- Final output ---

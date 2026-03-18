@@ -1,9 +1,11 @@
-﻿# epf-validate v1.0 — Validate 1C external data processor / report structure
+﻿# epf-validate v1.1 — Validate 1C external data processor / report structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 # Works for both EPF (ExternalDataProcessor) and ERF (ExternalReport) — auto-detects
 param(
 	[Parameter(Mandatory)]
 	[string]$ObjectPath,
+
+	[switch]$Detailed,
 
 	[int]$MaxErrors = 30,
 
@@ -60,6 +62,7 @@ $srcDir = Split-Path $resolvedPath -Parent
 
 $script:errors = 0
 $script:warnings = 0
+$script:okCount = 0
 $script:stopped = $false
 $script:output = New-Object System.Text.StringBuilder 8192
 
@@ -70,7 +73,8 @@ function Out-Line {
 
 function Report-OK {
 	param([string]$msg)
-	Out-Line "[OK]    $msg"
+	$script:okCount++
+	if ($Detailed) { Out-Line "[OK]    $msg" }
 }
 
 function Report-Error {
@@ -89,10 +93,14 @@ function Report-Warn {
 }
 
 $finalize = {
-	Out-Line ""
-	Out-Line "=== Result: $($script:errors) errors, $($script:warnings) warnings ==="
-
-	$result = $script:output.ToString()
+	$checks = $script:okCount + $script:errors + $script:warnings
+	if ($script:errors -eq 0 -and $script:warnings -eq 0 -and -not $Detailed) {
+		$result = "=== Validation OK: $shortType.$objName ($checks checks) ==="
+	} else {
+		Out-Line ""
+		Out-Line "=== Result: $($script:errors) errors, $($script:warnings) warnings ($checks checks) ==="
+		$result = $script:output.ToString()
+	}
 	Write-Host $result
 
 	if ($OutFile) {
@@ -554,8 +562,6 @@ if ($childObjNode) {
 	} else {
 		Report-OK "6. Attributes: none"
 	}
-} else {
-	Report-OK "6. Attributes: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
@@ -631,8 +637,6 @@ if ($childObjNode) {
 	} else {
 		Report-OK "7. TabularSections: none"
 	}
-} else {
-	Report-OK "7. TabularSections: N/A"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }

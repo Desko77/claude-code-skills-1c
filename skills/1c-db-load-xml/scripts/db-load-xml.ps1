@@ -1,4 +1,4 @@
-﻿# db-load-xml v1.0 — Load 1C configuration from XML files
+﻿# db-load-xml v1.1 — Load 1C configuration from XML files
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
@@ -95,7 +95,10 @@ param(
 
     [Parameter(Mandatory=$false)]
     [ValidateSet("Hierarchical", "Plain")]
-    [string]$Format = "Hierarchical"
+    [string]$Format = "Hierarchical",
+
+    [Parameter(Mandatory=$false)]
+    [switch]$UpdateDB
 )
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -195,11 +198,15 @@ try {
         $arguments += "-AllExtensions"
     }
 
+    # --- UpdateDB ---
+    if ($UpdateDB) {
+        $arguments += "/UpdateDBCfg"
+    }
+
     # --- Output ---
     $outFile = Join-Path $tempDir "load_log.txt"
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DisableStartupDialogs"
-    $arguments += "/DisableStartupMessages"
 
     # --- Execute ---
     Write-Host "Running: 1cv8.exe $($arguments -join ' ')"

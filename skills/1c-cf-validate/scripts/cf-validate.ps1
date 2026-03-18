@@ -1,8 +1,10 @@
-﻿# cf-validate v1.0 — Validate 1C configuration root structure
+﻿# cf-validate v1.1 — Validate 1C configuration root structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
 	[string]$ConfigPath,
+
+	[switch]$Detailed,
 
 	[int]$MaxErrors = 30,
 
@@ -38,6 +40,7 @@ $configDir = Split-Path $resolvedPath -Parent
 # --- Output infrastructure ---
 $script:errors = 0
 $script:warnings = 0
+$script:okCount = 0
 $script:stopped = $false
 $script:output = New-Object System.Text.StringBuilder 8192
 
@@ -48,7 +51,8 @@ function Out-Line {
 
 function Report-OK {
 	param([string]$msg)
-	Out-Line "[OK]    $msg"
+	$script:okCount++
+	if ($Detailed) { Out-Line "[OK]    $msg" }
 }
 
 function Report-Error {
@@ -67,10 +71,14 @@ function Report-Warn {
 }
 
 $finalize = {
-	Out-Line ""
-	Out-Line "=== Result: $($script:errors) errors, $($script:warnings) warnings ==="
-
-	$result = $script:output.ToString()
+	$checks = $script:okCount + $script:errors + $script:warnings
+	if ($script:errors -eq 0 -and $script:warnings -eq 0 -and -not $Detailed) {
+		$result = "=== Validation OK: Configuration.$objName ($checks checks) ==="
+	} else {
+		Out-Line ""
+		Out-Line "=== Result: $($script:errors) errors, $($script:warnings) warnings ($checks checks) ==="
+		$result = $script:output.ToString()
+	}
 	Write-Host $result
 
 	if ($OutFile) {
@@ -525,8 +533,6 @@ if ($childObjNode) {
 			Report-Warn "8. Missing directory: $md"
 		}
 	}
-} else {
-	Report-OK "8. Object directories: N/A"
 }
 
 # --- Final output ---

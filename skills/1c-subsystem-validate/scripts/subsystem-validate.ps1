@@ -1,7 +1,8 @@
-﻿# subsystem-validate v1.0 — Validate 1C subsystem XML structure
+﻿# subsystem-validate v1.1 — Validate 1C subsystem XML structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)][string]$SubsystemPath,
+	[switch]$Detailed,
 	[int]$MaxErrors = 30,
 	[string]$OutFile
 )
@@ -43,10 +44,14 @@ $resolvedPath = (Resolve-Path $SubsystemPath).Path
 $script:errors = 0
 $script:warnings = 0
 $script:stopped = $false
+$script:okCount = 0
 $script:output = New-Object System.Text.StringBuilder 8192
 
 function Out-Line([string]$msg) { $script:output.AppendLine($msg) | Out-Null }
-function Report-OK([string]$msg) { Out-Line "[OK]    $msg" }
+function Report-OK([string]$msg) {
+	$script:okCount++
+	if ($Detailed) { Out-Line "[OK]    $msg" }
+}
 function Report-Error([string]$msg) {
 	$script:errors++
 	Out-Line "[ERROR] $msg"
@@ -120,8 +125,6 @@ if (-not $script:stopped) {
 	# --- 3. Name ---
 	$nameEl = $props.SelectSingleNode("md:Name", $ns)
 	$subName = if ($nameEl) { $nameEl.InnerText.Trim() } else { "" }
-	Out-Line ""
-	Out-Line "=== Validation: Subsystem.$subName ==="
 	# Re-insert header at position 0
 	$headerLine = "=== Validation: Subsystem.$subName ==="
 	$script:output.Insert(0, "$headerLine`r`n`r`n") | Out-Null
@@ -256,8 +259,6 @@ if (-not $script:stopped) {
 		} else {
 			Report-Warn "10. ChildObjects files: missing: $($missingFiles -join ', ')"
 		}
-	} else {
-		Report-OK "10. ChildObjects files: n/a (no children)"
 	}
 
 	# --- 11. CommandInterface.xml ---
@@ -307,10 +308,16 @@ if (-not $script:stopped) {
 }
 
 # --- Finalize ---
-Out-Line "---"
-Out-Line "Errors: $($script:errors), Warnings: $($script:warnings)"
+$checks = $script:okCount + $script:errors + $script:warnings
 
-$result = $script:output.ToString()
+if ($script:errors -eq 0 -and $script:warnings -eq 0 -and -not $Detailed) {
+	$result = "=== Validation OK: Subsystem.$subName ($checks checks) ==="
+} else {
+	Out-Line ""
+	Out-Line "=== Result: $($script:errors) errors, $($script:warnings) warnings ($checks checks) ==="
+	$result = $script:output.ToString()
+}
+
 Write-Host $result
 
 if ($OutFile) {

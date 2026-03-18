@@ -1,4 +1,4 @@
-# meta-info v1.0 — Compact summary of 1C metadata object (Python port)
+# meta-info v1.1 — Compact summary of 1C metadata object (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import os
@@ -793,6 +793,12 @@ if not drill_done:
             if hier is not None and inner_text(hier) == "true":
                 ht = find(props, "md:HierarchyType")
                 ht_text = "группы и элементы" if ht is not None and inner_text(ht) == "HierarchyFoldersAndItems" else "элементы"
+                limit_node = find(props, "md:LimitLevelCount")
+                level_node = find(props, "md:LevelCount")
+                if limit_node is not None and inner_text(limit_node) == "true" and level_node is not None:
+                    ht_text += f", уровней: {inner_text(level_node)}"
+                else:
+                    ht_text += ", без ограничения уровней"
                 parts.append(f"Иерархический: {ht_text}")
             code_len = find(props, "md:CodeLength")
             desc_len = find(props, "md:DescriptionLength")

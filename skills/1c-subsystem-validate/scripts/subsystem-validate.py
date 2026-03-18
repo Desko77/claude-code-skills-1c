@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# subsystem-validate v1.0 — Validate 1C subsystem XML structure
+# subsystem-validate v1.1 — Validate 1C subsystem XML structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates subsystem XML file structure, properties, content items, child objects."""
 import sys, os, argparse, re
@@ -22,18 +22,22 @@ IDENT_PATTERN = re.compile(
 
 
 class Reporter:
-    def __init__(self, max_errors):
+    def __init__(self, max_errors, detailed=False):
         self.errors = 0
         self.warnings = 0
+        self.ok_count = 0
         self.stopped = False
         self.max_errors = max_errors
+        self.detailed = detailed
         self.lines = []
 
     def out(self, msg=''):
         self.lines.append(msg)
 
     def ok(self, msg):
-        self.lines.append(f'[OK]    {msg}')
+        self.ok_count += 1
+        if self.detailed:
+            self.lines.append(f'[OK]    {msg}')
 
     def error(self, msg):
         self.errors += 1
@@ -67,11 +71,13 @@ def main():
         description='Validate 1C subsystem XML structure', allow_abbrev=False
     )
     parser.add_argument('-SubsystemPath', dest='SubsystemPath', required=True)
+    parser.add_argument('-Detailed', action='store_true')
     parser.add_argument('-MaxErrors', dest='MaxErrors', type=int, default=30)
     parser.add_argument('-OutFile', dest='OutFile', default='')
     args = parser.parse_args()
 
     subsystem_path = args.SubsystemPath
+    detailed = args.Detailed
     max_errors = args.MaxErrors
     out_file = args.OutFile
 
@@ -105,7 +111,7 @@ def main():
         sys.exit(1)
 
     resolved_path = os.path.abspath(subsystem_path)
-    r = Reporter(max_errors)
+    r = Reporter(max_errors, detailed)
 
     # --- 1. XML well-formedness + root structure ---
     xml_doc = None
@@ -240,8 +246,6 @@ def main():
                 r.warn(f'7. Content: duplicates found: {", ".join(dupes)}')
             else:
                 r.ok('7. Content: no duplicates')
-        else:
-            r.ok('7. Content: no duplicates (empty)')
 
         # --- 8. ChildObjects entries non-empty ---
         child_objs = sub.find('md:ChildObjects', NS)
@@ -272,8 +276,6 @@ def main():
                 r.error(f'9. ChildObjects: duplicates: {", ".join(dupes)}')
             else:
                 r.ok('9. ChildObjects: no duplicates')
-        else:
-            r.ok('9. ChildObjects: no duplicates (empty)')
 
         # --- 10. ChildObjects files exist ---
         if len(child_names) > 0:
@@ -289,8 +291,6 @@ def main():
                 r.ok(f'10. ChildObjects files: all {len(child_names)} files exist')
             else:
                 r.warn(f'10. ChildObjects files: missing: {", ".join(missing_files)}')
-        else:
-            r.ok('10. ChildObjects files: n/a (no children)')
 
         # --- 11. CommandInterface.xml ---
         parent_dir2 = os.path.dirname(resolved_path)
@@ -331,10 +331,14 @@ def main():
             r.ok('13. UseOneCommand: false (no constraint)')
 
     # --- Finalize ---
-    r.out('---')
-    r.out(f'Errors: {r.errors}, Warnings: {r.warnings}')
+    checks = r.ok_count + r.errors + r.warnings
+    if r.errors == 0 and r.warnings == 0 and not detailed:
+        result = f'=== Validation OK: Subsystem.{sub_name} ({checks} checks) ==='
+    else:
+        r.out('')
+        r.out(f'=== Result: {r.errors} errors, {r.warnings} warnings ({checks} checks) ===')
+        result = '\r\n'.join(r.lines) + '\r\n'
 
-    result = r.text()
     print(result, end='')
 
     if out_file:
