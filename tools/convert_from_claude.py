@@ -80,6 +80,10 @@ RULES_CONFIG = {
         "description": "Specification-Driven Development: 9-фазный workflow разработки",
         "globs": [],
     },
+    "1c-form-reserved-names": {
+        "description": "Зарезервированные имена свойств в модулях форм 1С",
+        "globs": ["**/*.bsl"],
+    },
 }
 
 EXCLUDE_SKILLS = {"skill-creator"}
