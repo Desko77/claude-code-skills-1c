@@ -1,3 +1,9 @@
+---
+paths:
+  - "**/*.bsl"
+  - "**/*.os"
+---
+
 # 1C Code Review Checklist
 
 Применяется: при ревью кода 1С (*.bsl, *.os).
