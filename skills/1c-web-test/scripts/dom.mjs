@@ -1159,6 +1159,7 @@ export function resolveFieldsScript(formNum, fields) {
       const label = (titleEl?.innerText?.trim() || '').replace(/\\n/g, ' ').replace(/:$/, '');
       const last = { inputId: el.id, name, label };
       if (document.getElementById(p + name + '_DLB')?.offsetWidth > 0) last.hasSelect = true;
+      if (document.getElementById(p + name + '_CB')?.offsetWidth > 0) last.hasPick = true;
       allFields.push(last);
     });
     // Checkboxes
@@ -1236,6 +1237,7 @@ export function resolveFieldsScript(formNum, fields) {
         if (found.isCheckbox) { entry.isCheckbox = true; entry.checked = found.checked; }
         if (found.isRadio) { entry.isRadio = true; entry.options = found.options; }
         if (found.hasSelect) entry.hasSelect = true;
+        if (found.hasPick) entry.hasPick = true;
         if (found._dcsCheckbox) {
           entry.dcsCheckbox = { inputId: found._dcsCheckbox.inputId, checked: found._dcsCheckbox.checked };
           delete found._dcsCheckbox;

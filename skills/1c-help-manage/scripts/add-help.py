@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# add-help v1.0 — Add built-in help to 1C object
+# add-help v1.2 — Add built-in help to 1C object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -30,7 +30,7 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Add built-in help to 1C object", allow_abbrev=False)
-    parser.add_argument("-ObjectName", "-ProcessorName", required=True)
+    parser.add_argument("-ObjectName", required=True)
     parser.add_argument("-Lang", default="ru")
     parser.add_argument("-SrcDir", default="src")
     args = parser.parse_args()
@@ -41,11 +41,11 @@ def main():
 
     # --- Checks ---
 
-    processor_dir = os.path.join(src_dir, object_name)
-    ext_dir = os.path.join(processor_dir, "Ext")
+    object_dir = os.path.join(src_dir, object_name)
+    ext_dir = os.path.join(object_dir, "Ext")
 
     if not os.path.isdir(ext_dir):
-        print(f"Каталог обработки не найден: {ext_dir}. Сначала выполните epf-init.", file=sys.stderr)
+        print(f"Каталог объекта не найден: {ext_dir}. Проверьте путь ObjectName (например Catalogs/МойСправочник).", file=sys.stderr)
         sys.exit(1)
 
     help_xml_path = os.path.join(ext_dir, "Help.xml")
@@ -83,7 +83,7 @@ def main():
         '</head>\n'
         '<body>\n'
         f'    <h1>{object_name}</h1>\n'
-        '    <p>Описание обработки.</p>\n'
+        '    <p>Описание.</p>\n'
         '</body>\n'
         '</html>'
     )
@@ -92,7 +92,7 @@ def main():
 
     # --- 3. Check IncludeHelpInContents in form metadata ---
 
-    forms_dir = os.path.join(processor_dir, "Forms")
+    forms_dir = os.path.join(object_dir, "Forms")
     if os.path.isdir(forms_dir):
         for entry in os.listdir(forms_dir):
             if not entry.endswith(".xml"):

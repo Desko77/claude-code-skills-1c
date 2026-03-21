@@ -789,10 +789,6 @@ def main():
                                 src_enum_el = cn
                                 break
 
-                        if src_enum_el is None:
-                            print(f"  WARN: Cannot parse Enum XML structure: {enum_src_file}", file=sys.stderr)
-                            continue
-
                         # Find needed EnumValues
                         ev_xmls = []
                         for ev_node in src_enum_el.iter():

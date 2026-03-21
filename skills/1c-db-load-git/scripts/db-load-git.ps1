@@ -1,4 +1,4 @@
-﻿# db-load-git v1.2 — Load Git changes into 1C database
+﻿# db-load-git v1.3 — Load Git changes into 1C database
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
@@ -107,8 +107,8 @@ param(
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# --- Helper: map BSL path to object XML ---
-function Get-ObjectXmlFromBsl {
+# --- Helper: map sub-file path (BSL, HTML, etc.) to object XML ---
+function Get-ObjectXmlFromSubFile {
     param([string]$RelativePath)
 
     $parts = $RelativePath -split '[\\/]'
@@ -224,40 +224,38 @@ foreach ($file in $changedFiles) {
     # Skip service files
     if ($file -eq "ConfigDumpInfo.xml") { continue }
 
-    # Only process .xml, .bsl, and .mxl files
-    if ($file -match '\.(xml|bsl|mxl)$') {
-        # Check file exists in config dir
-        $fullPath = Join-Path $ConfigDir $file
-        if ($file -match '\.xml$') {
-            if (Test-Path $fullPath) {
-                if ($configFiles -notcontains $file) {
-                    $configFiles += $file
-                }
+    $fullPath = Join-Path $ConfigDir $file
+
+    if ($file -match '\.xml$') {
+        # XML file — add directly if exists
+        if (Test-Path $fullPath) {
+            if ($configFiles -notcontains $file) {
+                $configFiles += $file
             }
         }
-        elseif ($file -match '\.(bsl|mxl)$') {
-            # For BSL: add the BSL itself + parent object XML + all Ext/ files
-            $objectXml = Get-ObjectXmlFromBsl -RelativePath $file
-            if ($objectXml) {
-                $fullXmlPath = Join-Path $ConfigDir $objectXml
-                if (Test-Path $fullXmlPath) {
-                    if ($configFiles -notcontains $objectXml) {
-                        $configFiles += $objectXml
-                    }
-                    if ($configFiles -notcontains $file) {
-                        $configFiles += $file
-                    }
+    }
+    else {
+        # Non-XML (BSL, HTML, etc.) — map to parent object XML + include all Ext/ files
+        $objectXml = Get-ObjectXmlFromSubFile -RelativePath $file
+        if ($objectXml) {
+            $fullXmlPath = Join-Path $ConfigDir $objectXml
+            if (Test-Path $fullXmlPath) {
+                if ($configFiles -notcontains $objectXml) {
+                    $configFiles += $objectXml
+                }
+                if ((Test-Path $fullPath) -and $configFiles -notcontains $file) {
+                    $configFiles += $file
+                }
 
-                    # Add all files from Ext/ directory of the object
-                    $parts = $file -split '[\\/]'
-                    if ($parts.Count -ge 2) {
-                        $extDir = Join-Path (Join-Path $ConfigDir $parts[0]) "$($parts[1])\Ext"
-                        if (Test-Path $extDir) {
-                            Get-ChildItem -Path $extDir -Recurse -File | ForEach-Object {
-                                $extRelPath = $_.FullName.Replace("$ConfigDir\", '').Replace('\', '/')
-                                if ($configFiles -notcontains $extRelPath) {
-                                    $configFiles += $extRelPath
-                                }
+                # Add all files from Ext/ directory of the object
+                $parts = $file -split '[\\/]'
+                if ($parts.Count -ge 2) {
+                    $extDir = Join-Path (Join-Path $ConfigDir $parts[0]) "$($parts[1])\Ext"
+                    if (Test-Path $extDir) {
+                        Get-ChildItem -Path $extDir -Recurse -File | ForEach-Object {
+                            $extRelPath = $_.FullName.Replace("$ConfigDir\", '').Replace('\', '/')
+                            if ($configFiles -notcontains $extRelPath) {
+                                $configFiles += $extRelPath
                             }
                         }
                     }

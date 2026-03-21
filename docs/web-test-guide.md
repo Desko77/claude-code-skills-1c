@@ -262,10 +262,14 @@ await closeForm({ save: false });
 | `getPage()` | Сырой Playwright Page для горячих клавиш и нестандартных операций |
 | `startRecording(path, opts?)` | Начать запись видео (CDP screencast → ffmpeg → MP4) |
 | `stopRecording()` | Остановить запись, вернуть `{ file, duration, size }` |
-| `showCaption(text, opts?)` | Текстовая подпись поверх страницы (для видеозаписей) |
+| `showCaption(text, opts?)` | Текстовая подпись поверх страницы (`speech` — текст озвучки) |
 | `hideCaption()` | Убрать подпись |
-| `showTitleSlide(text, opts?)` | Полноэкранный титульный слайд (`\n` → перенос, `subtitle`, `background`) |
+| `showTitleSlide(text, opts?)` | Полноэкранный титульный слайд (`subtitle`, `background`, `speech`) |
 | `hideTitleSlide()` | Убрать титульный слайд |
+| `showImage(path, opts?)` | Полноэкранное изображение (`style`: blur/dark/light/full, `speech`) |
+| `hideImage()` | Убрать изображение |
+| `addNarration(videoPath, opts?)` | Озвучка видео по субтитрам (Edge TTS / ElevenLabs / OpenAI) |
+| `getCaptions()` | Субтитры из текущей/последней записи |
 | `isRecording()` | Идёт ли запись (boolean) |
 | `setHighlight(on)` | Включить/выключить авто-выделение элементов при действиях |
 | `isHighlightMode()` | Активен ли режим авто-выделения (boolean) |

@@ -37,6 +37,6 @@ powershell.exe -NoProfile -File skills/1c-role-validate/scripts/role-validate.ps
 | 5 | Вложенные объекты (3+ сегмента): допустимы только View, Edit (или Use для IntegrationServiceChannel) | ERROR |
 | 6 | RLS `<restrictionByCondition>`: condition не пуст | ERROR |
 | 7 | Шаблоны `<restrictionTemplate>`: name и condition не пусты | ERROR |
-| 8 | Метаданные (авто-определение из пути): UUID, Name, Synonym | ERROR/WARN |
+| 8 | Метаданные (если MetadataPath): UUID, Name, Synonym | ERROR/WARN |
 
 Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

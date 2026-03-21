@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-load-git v1.2 — Load Git changes into 1C database
+# db-load-git v1.3 — Load Git changes into 1C database
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -33,8 +33,8 @@ def resolve_v8path(v8path):
     return v8path
 
 
-def get_object_xml_from_bsl(relative_path):
-    """Map BSL path to object XML path."""
+def get_object_xml_from_subfile(relative_path):
+    """Map sub-file path (BSL, HTML, etc.) to object XML path."""
     parts = re.split(r"[\\/]", relative_path)
     if len(parts) >= 2:
         return f"{parts[0]}/{parts[1]}.xml"
@@ -47,6 +47,7 @@ def run_git(config_dir, git_args):
         ["git"] + git_args,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd=config_dir,
     )
     if result.returncode == 0:
@@ -155,26 +156,22 @@ def main():
         if file == "ConfigDumpInfo.xml":
             continue
 
-        # Only process .xml and .bsl files
-        if not re.search(r"\.(xml|bsl)$", file):
-            continue
-
-        # Check file exists in config dir
         full_path = os.path.join(args.ConfigDir, file)
 
         if file.endswith(".xml"):
+            # XML file — add directly if exists
             if os.path.exists(full_path):
                 if file not in config_files:
                     config_files.append(file)
-        elif file.endswith(".bsl"):
-            # For BSL: add the BSL itself + parent object XML + all Ext/ files
-            object_xml = get_object_xml_from_bsl(file)
+        else:
+            # Non-XML (BSL, HTML, etc.) — map to parent object XML + include all Ext/ files
+            object_xml = get_object_xml_from_subfile(file)
             if object_xml:
                 full_xml_path = os.path.join(args.ConfigDir, object_xml)
                 if os.path.exists(full_xml_path):
                     if object_xml not in config_files:
                         config_files.append(object_xml)
-                    if file not in config_files:
+                    if os.path.exists(full_path) and file not in config_files:
                         config_files.append(file)
 
                     # Add all files from Ext/ directory of the object
@@ -185,7 +182,6 @@ def main():
                             for root, dirs, files in os.walk(ext_dir):
                                 for fname in files:
                                     abs_path = os.path.join(root, fname)
-                                    # Build relative path from ConfigDir
                                     rel_path = os.path.relpath(abs_path, args.ConfigDir).replace("\\", "/")
                                     if rel_path not in config_files:
                                         config_files.append(rel_path)

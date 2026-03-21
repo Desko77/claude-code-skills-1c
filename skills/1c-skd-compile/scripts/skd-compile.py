@@ -525,7 +525,7 @@ def emit_field(lines, field_def, indent):
 
 # === DataSets ===
 
-def emit_data_set(lines, ds, indent, default_source, qbase_dir=None):
+def emit_data_set(lines, ds, indent, default_source):
     # Determine type
     if ds.get('items'):
         ds_type = 'DataSetUnion'
@@ -549,7 +549,7 @@ def emit_data_set(lines, ds, indent, default_source, qbase_dir=None):
 
     # Type-specific content
     if ds_type == 'DataSetQuery':
-        query_text = resolve_query_value(str(ds.get("query", "")), qbase_dir or query_base_dir)
+        query_text = resolve_query_value(str(ds.get("query", "")), query_base_dir)
         lines.append(f'{indent}\t<query>{esc_xml(query_text)}</query>')
         if ds.get('autoFillFields') is False:
             lines.append(f'{indent}\t<autoFillFields>false</autoFillFields>')
@@ -557,14 +557,14 @@ def emit_data_set(lines, ds, indent, default_source, qbase_dir=None):
         lines.append(f'{indent}\t<objectName>{esc_xml(str(ds["objectName"]))}</objectName>')
     elif ds_type == 'DataSetUnion':
         for item in ds['items']:
-            emit_data_set(lines, item, f'{indent}\t', default_source, qbase_dir)
+            emit_data_set(lines, item, f'{indent}\t', default_source)
 
     lines.append(f'{indent}</dataSet>')
 
 
-def emit_data_sets(lines, defn, default_source, qbase_dir=None):
+def emit_data_sets(lines, defn, default_source):
     for ds in defn['dataSets']:
-        emit_data_set(lines, ds, '\t', default_source, qbase_dir)
+        emit_data_set(lines, ds, '\t', default_source)
 
 
 # === DataSetLinks ===
@@ -1411,7 +1411,7 @@ def main():
     lines.append('\t\txmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
 
     emit_data_sources(lines, data_sources)
-    emit_data_sets(lines, defn, default_source, query_base_dir)
+    emit_data_sets(lines, defn, default_source)
     emit_data_set_links(lines, defn)
     emit_calc_fields(lines, defn)
     emit_total_fields(lines, defn)

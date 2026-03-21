@@ -21,7 +21,7 @@ if ($pathList.Count -gt 1) {
 	$batchOk = 0
 	$batchFail = 0
 	foreach ($singlePath in $pathList) {
-		$callArgs = @{ ObjectPath = $singlePath; MaxErrors = $MaxErrors; Detailed = $Detailed }
+		$callArgs = @{ ObjectPath = $singlePath; MaxErrors = $MaxErrors; Verbose = $Detailed }
 		if ($OutFile) {
 			$baseName = [System.IO.Path]::GetFileNameWithoutExtension($OutFile)
 			$ext = [System.IO.Path]::GetExtension($OutFile)

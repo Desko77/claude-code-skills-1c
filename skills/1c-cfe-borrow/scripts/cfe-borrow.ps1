@@ -637,10 +637,6 @@ function Borrow-Form {
 					foreach ($cn in $srcParser.DocumentElement.ChildNodes) {
 						if ($cn.NodeType -eq 'Element') { $srcEnumEl = $cn; break }
 					}
-					if ($null -eq $srcEnumEl) {
-						Write-Host "  WARN: Cannot parse Enum XML structure: $enumSrcFile"
-						continue
-					}
 					$srcEnumUuid = $srcEnumEl.GetAttribute("uuid")
 
 					# Find source EnumValues by name

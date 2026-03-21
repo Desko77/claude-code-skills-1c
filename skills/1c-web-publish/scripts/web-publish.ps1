@@ -1,4 +1,4 @@
-﻿# web-publish v1.0 — Publish 1C infobase via Apache
+﻿# web-publish v1.1 — Publish 1C infobase via Apache
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
@@ -116,6 +116,10 @@ if (-not $InfoBasePath -and (-not $InfoBaseServer -or -not $InfoBaseRef)) {
 if (-not $ApachePath) {
     $projectRoot = (Get-Item $PSScriptRoot).Parent.Parent.Parent.Parent.FullName
     $ApachePath = Join-Path $projectRoot "tools\apache24"
+}
+# Ensure absolute path (agent may pass relative like "tools/apache24")
+if (-not [System.IO.Path]::IsPathRooted($ApachePath)) {
+    $ApachePath = [System.IO.Path]::GetFullPath((Join-Path (Get-Location).Path $ApachePath))
 }
 
 # --- Check / Install Apache ---

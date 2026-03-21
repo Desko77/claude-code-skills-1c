@@ -590,8 +590,6 @@ def main():
 
     # --- Finalize ---
     checks = ok_count + errors + warnings
-    if stopped:
-        output_lines.append(f"Stopped after {max_errors} errors. Fix and re-run.")
     if errors == 0 and warnings == 0 and not detailed:
         result = f"=== Validation OK: Form.{form_name} ({checks} checks) ==="
     else:

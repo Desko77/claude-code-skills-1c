@@ -1,8 +1,7 @@
-﻿# help-add v1.1 — Add built-in help to 1C object
+﻿# help-add v1.2 — Add built-in help to 1C object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
-	[Alias("ProcessorName")]
 	[string]$ObjectName,
 
 	[string]$Lang = "ru",
@@ -14,11 +13,11 @@ $ErrorActionPreference = "Stop"
 
 # --- Проверки ---
 
-$processorDir = Join-Path $SrcDir $ObjectName
-$extDir = Join-Path $processorDir "Ext"
+$objectDir = Join-Path $SrcDir $ObjectName
+$extDir = Join-Path $objectDir "Ext"
 
 if (-not (Test-Path $extDir)) {
-	Write-Error "Каталог обработки не найден: $extDir. Сначала выполните epf-init."
+	Write-Error "Каталог объекта не найден: $extDir. Проверьте путь ObjectName (например Catalogs/МойСправочник)."
 	exit 1
 }
 
@@ -59,7 +58,7 @@ $helpHtml = @"
 </head>
 <body>
     <h1>$ObjectName</h1>
-    <p>Описание обработки.</p>
+    <p>Описание.</p>
 </body>
 </html>
 "@
@@ -68,7 +67,7 @@ $helpHtml = @"
 
 # --- 3. Проверка IncludeHelpInContents в метаданных форм ---
 
-$formsDir = Join-Path $processorDir "Forms"
+$formsDir = Join-Path $objectDir "Forms"
 if (Test-Path $formsDir) {
 	$formMetaFiles = Get-ChildItem -Path $formsDir -Filter "*.xml" -File
 	foreach ($formMeta in $formMetaFiles) {

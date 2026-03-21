@@ -21,6 +21,13 @@ import {
   switchTabScript, resolveGridScript
 } from './dom.mjs';
 
+// Project root: 4 levels up from skills/1c-web-test/scripts/browser.mjs
+const __fn_browser = fileURLToPath(import.meta.url);
+const projectRoot = pathResolve(dirname(__fn_browser), '..', '..', '..', '..');
+
+/** Resolve a user-provided path relative to the project root (not cwd). */
+const resolveProjectPath = (p) => pathResolve(projectRoot, p);
+
 let browser = null;
 let page = null;
 let sessionPrefix = null; // e.g. "http://localhost:8081/bpdemo/ru_RU"
@@ -34,8 +41,8 @@ const LOAD_TIMEOUT = 60000;
 const INIT_TIMEOUT = 60000;
 const ACTION_WAIT = 2000;   // fallback minimum wait
 
-/** Normalize ё→е for fuzzy matching (Russian letter yo vs ye). */
-const normYo = s => s.replace(/ё/gi, 'е');
+/** Normalize ё→е and \u00a0→space for fuzzy matching. */
+const normYo = s => s.replace(/ё/gi, 'е').replace(/\u00a0/g, ' ');
 const MAX_WAIT = 10000;     // max wait for stability
 const POLL_INTERVAL = 200;  // polling interval
 const STABLE_CYCLES = 3;    // consecutive stable cycles needed
@@ -483,7 +490,7 @@ function normalizeE1cibUrl(url) {
 export async function openFile(filePath) {
   ensureConnected();
   await dismissPendingErrors();
-  const absPath = pathResolve(filePath);
+  const absPath = resolveProjectPath(filePath);
 
   const MAX_ATTEMPTS = 2; // 1st may trigger security dialog, 2nd is the real open
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -1252,6 +1259,52 @@ async function fillReferenceField(selector, fieldName, value, formNum) {
   // 0. Dismiss any leftover error modal from a previous operation
   await dismissPendingErrors();
 
+  // 0a. Try DLB (DropListButton) first — works cleanly for combobox/enum fields
+  //     and also for reference fields that show a dropdown.
+  const inputId = selector.match(/\[id="(.+)"\]/)?.[1];
+  // DLB button ID uses field name without _iN suffix (e.g. form1_Field_DLB, not form1_Field_i0_DLB)
+  const dlbId = inputId.replace(/_i\d+$/, '') + '_DLB';
+  const dlbSelector = `[id="${dlbId}"]`;
+  try {
+    const dlbVisible = await page.evaluate(`document.querySelector('${dlbSelector.replace(/'/g, "\\'")}')?.offsetWidth > 0`);
+    if (dlbVisible) {
+      await page.click(dlbSelector);
+      await page.waitForTimeout(1000);
+      const eddState = await page.evaluate(`(() => {
+        const edd = document.getElementById('editDropDown');
+        if (!edd || edd.offsetWidth === 0) return { visible: false };
+        const eddTexts = [...edd.querySelectorAll('.eddText')].filter(el => el.offsetWidth > 0);
+        return {
+          visible: true,
+          items: eddTexts.map(el => {
+            const r = el.getBoundingClientRect();
+            return { name: el.innerText?.trim() || '', x: r.x + r.width / 2, y: r.y + r.height / 2 };
+          })
+        };
+      })()`);
+      if (eddState.visible && eddState.items?.length > 0) {
+        const target = normYo(text.toLowerCase());
+        const candidates = eddState.items.filter(i => !i.name.startsWith('Создать'));
+        let match = candidates.find(i => normYo(i.name.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase()) === target);
+        if (!match) match = candidates.find(i => normYo(i.name.toLowerCase()).includes(target));
+        if (!match) match = candidates.find(i => {
+          const name = normYo(i.name.replace(/\s*\([^)]*\)\s*$/, '').toLowerCase());
+          return name.includes(target) || target.includes(name);
+        });
+        if (match) {
+          await page.mouse.click(match.x, match.y);
+          await waitForStable();
+          await dismissPendingErrors();
+          return { field: fieldName, ok: true, method: 'dropdown',
+            value: match.name.replace(/\s*\([^)]*\)\s*$/, '') };
+        }
+        // No match in DLB dropdown — close and fall through to paste approach
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(300);
+      }
+    }
+  } catch { /* DLB approach failed — fall through to paste */ }
+
   // 1. Focus (handle surface/modal overlay from previous interaction)
   try {
     await page.click(selector);
@@ -1272,6 +1325,7 @@ async function fillReferenceField(selector, fieldName, value, formNum) {
   }
 
   // 2. If field already has a value, clear using Shift+F4 (native 1C mechanism).
+  //    This is needed for reference fields — Shift+F4 properly clears the ref link.
   const currentVal = await page.evaluate(`document.querySelector('${escapedSel}')?.value || ''`);
   if (currentVal) {
     await page.keyboard.press('Shift+F4');
@@ -1478,9 +1532,17 @@ export async function fillFields(fields) {
           results.push({ field: r.field, error: 'option_not_found', available: r.options.map(o => o.label) });
         }
       } else if (r.hasSelect) {
-        // Reference field: DLB-based selection (dropdown or selection form)
+        // Combobox/reference with DLB: DLB-first, then paste fallback
         const refResult = await fillReferenceField(selector, r.field, fields[r.field], formNum);
         results.push(refResult);
+      } else if (r.hasPick) {
+        // Reference field without DLB (non-editable): delegate to selectValue (F4 → selection form)
+        const svResult = await selectValue(r.field, String(fields[r.field]));
+        if (svResult?.error) {
+          results.push({ field: r.field, error: svResult.error, message: svResult.message });
+        } else {
+          results.push({ field: r.field, ok: true, value: svResult.value || String(fields[r.field]), method: svResult.method || 'form' });
+        }
       } else {
         // Plain field: clipboard paste + Tab to commit
         // page.fill() sets DOM value but doesn't trigger 1C input events;
@@ -1527,7 +1589,7 @@ export async function clickElement(text, { dblclick, table, toggle, expand } = {
   if (pending?.confirmation) {
     const btnResult = await page.evaluate(`(() => {
       const norm = s => s?.trim().replace(/\\u00a0/g, ' ') || '';
-      const ny = s => s.replace(/ё/gi, 'е');
+      const ny = s => s.replace(/ё/gi, 'е').replace(/\\u00a0/g, ' ');
       const target = ny(${JSON.stringify(text.toLowerCase())});
       const btns = [...document.querySelectorAll('a.press.pressButton')].filter(el => el.offsetWidth > 0);
       let best = btns.find(el => ny(norm(el.innerText).toLowerCase()) === target);
@@ -2003,20 +2065,28 @@ export async function selectValue(fieldName, searchText, { type } = {}) {
     return page.evaluate(`(() => {
       const edd = document.getElementById('editDropDown');
       if (!edd || edd.offsetWidth === 0) return null;
-      const ny = s => s.replace(/ё/gi, 'е');
+      const ny = s => s.replace(/ё/gi, 'е').replace(/\\u00a0/g, ' ');
       const target = ny(${JSON.stringify(itemName.toLowerCase())});
-      // Search .eddText items
-      for (const el of edd.querySelectorAll('.eddText')) {
-        if (el.offsetWidth === 0) continue;
+      const items = [...edd.querySelectorAll('.eddText')].filter(el => el.offsetWidth > 0);
+      function clickEl(el) {
+        const r = el.getBoundingClientRect();
+        const opts = { bubbles: true, cancelable: true, clientX: r.x + r.width/2, clientY: r.y + r.height/2 };
+        el.dispatchEvent(new MouseEvent('mousedown', opts));
+        el.dispatchEvent(new MouseEvent('mouseup', opts));
+        el.dispatchEvent(new MouseEvent('click', opts));
+        return el.innerText.trim();
+      }
+      // Pass 1: exact match (prefer over partial)
+      for (const el of items) {
         const t = ny((el.innerText?.trim() || '').toLowerCase());
-        if (t === target || t.includes(target) || target.includes(t.replace(/\\s*\\([^)]*\\)\\s*$/, ''))) {
-          const r = el.getBoundingClientRect();
-          const opts = { bubbles: true, cancelable: true, clientX: r.x + r.width/2, clientY: r.y + r.height/2 };
-          el.dispatchEvent(new MouseEvent('mousedown', opts));
-          el.dispatchEvent(new MouseEvent('mouseup', opts));
-          el.dispatchEvent(new MouseEvent('click', opts));
-          return el.innerText.trim();
-        }
+        if (t === target) return clickEl(el);
+        const stripped = t.replace(/\\s*\\([^)]*\\)\\s*$/, '');
+        if (stripped === target) return clickEl(el);
+      }
+      // Pass 2: partial match
+      for (const el of items) {
+        const t = ny((el.innerText?.trim() || '').toLowerCase());
+        if (t.includes(target) || target.includes(t.replace(/\\s*\\([^)]*\\)\\s*$/, ''))) return clickEl(el);
       }
       return null;
     })()`);
@@ -3400,7 +3470,7 @@ export async function filterList(text, { field, exact } = {}) {
     for (let i = 0; i < headers.length; i++) {
       const t = headers[i].innerText?.trim().replace(/\\u00a0/g, ' ');
       if (!t) continue;
-      const ny = s => s.replace(/ё/gi, 'е');
+      const ny = s => s.replace(/ё/gi, 'е').replace(/\\u00a0/g, ' ');
       const tl = ny(t.toLowerCase()), fl = ny(targetField.toLowerCase());
       if (tl === fl) { colIndex = i; break; }
       if (startsWithIdx < 0 && tl.startsWith(fl)) { startsWithIdx = i; }
@@ -3472,7 +3542,7 @@ export async function filterList(text, { field, exact } = {}) {
       const ddResult = await page.evaluate(`(() => {
         const edd = document.getElementById('editDropDown');
         if (!edd || edd.offsetWidth === 0) return { error: 'no_dropdown' };
-        const ny = s => s.replace(/ё/gi, 'е');
+        const ny = s => s.replace(/ё/gi, 'е').replace(/\\u00a0/g, ' ');
         const target = ny(${JSON.stringify(field.toLowerCase())});
         const items = [...edd.querySelectorAll('div')].filter(el =>
           el.offsetWidth > 0 && el.innerText?.trim() && !el.innerText.includes('\\n'));
@@ -3622,7 +3692,7 @@ export async function unfilterList({ field } = {}) {
     const closeBtn = await page.evaluate(`(() => {
       const p = 'form${formNum}_';
       const norm = s => s?.trim().replace(/\\u00a0/g, ' ').replace(/:$/, '').replace(/\\n/g, ' ') || '';
-      const ny = s => s.replace(/ё/gi, 'е');
+      const ny = s => s.replace(/ё/gi, 'е').replace(/\\u00a0/g, ' ');
       const target = ny(${JSON.stringify(field.toLowerCase())});
       const items = [...document.querySelectorAll('[id^="' + p + '"].trainItem')].filter(el => el.offsetWidth > 0);
       for (const item of items) {
@@ -3764,7 +3834,7 @@ export async function startRecording(outputPath, opts = {}) {
   const ffmpegPath = resolveFfmpeg(opts.ffmpegPath);
 
   // Ensure output directory exists
-  const resolvedPath = pathResolve(outputPath);
+  const resolvedPath = resolveProjectPath(outputPath);
   mkdirSync(dirname(resolvedPath), { recursive: true });
 
   // Create CDP session for screencast
@@ -3932,7 +4002,7 @@ export async function showCaption(text, opts = {}) {
     // Use video timeline position (accounts for frame duplication) instead of wall-clock
     recorder.captions.push({ text, speech, time: Math.round(recorder.videoTimeMs) });
     // Estimate TTS duration and wait so the video has enough screen time for voiceover
-    smartWaitMs = Math.max(2000, speech.length * 100);
+    smartWaitMs = Math.max(2000, speech.length * 70);
   }
   const position = opts.position || 'bottom';
   const fontSize = opts.fontSize || 24;
@@ -4009,6 +4079,7 @@ export function getCaptions() {
  */
 export async function addNarration(videoPath, opts = {}) {
   if (!videoPath) return { file: null, duration: 0, size: 0, captions: 0 };
+  videoPath = resolveProjectPath(videoPath);
   const ffmpegPath = resolveFfmpeg(opts.ffmpegPath);
   const ttsProvider = getTtsProvider(opts.provider || 'edge');
   const ttsOpts = { voice: opts.voice, apiKey: opts.apiKey, apiUrl: opts.apiUrl, model: opts.model };
@@ -4190,7 +4261,19 @@ export async function showTitleSlide(text, opts = {}) {
     background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
     color = '#fff',
     fontSize = 36,
+    speech,
   } = opts;
+
+  // Collect caption for TTS narration if recording
+  let smartWaitMs = 0;
+  if (recorder && speech && speech !== false) {
+    const captionText = typeof speech === 'string' ? speech : text.replace(/\n/g, ' ');
+    if (captionText) {
+      recorder.captions.push({ text: captionText, speech: captionText, time: Math.round(recorder.videoTimeMs) });
+      smartWaitMs = Math.max(2000, captionText.length * 70);
+    }
+  }
+
   await page.evaluate(({ text, subtitle, background, color, fontSize }) => {
     let div = document.getElementById('__web_test_title');
     if (!div) {
@@ -4202,8 +4285,11 @@ export async function showTitleSlide(text, opts = {}) {
       'position:fixed', 'top:0', 'left:0', 'width:100%', 'height:100%',
       `background:${background}`,
       'display:flex', 'align-items:center', 'justify-content:center',
-      'z-index:999999', 'pointer-events:none'
+      'z-index:999999', 'pointer-events:none',
     ].join(';');
+    // Remove other overlays to prevent flash between slides
+    const img = document.getElementById('__web_test_image');
+    if (img) img.remove();
     const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
     let html = `<div style="font-size:${fontSize}px;font-weight:600;line-height:1.4;">${esc(text)}</div>`;
     if (subtitle) {
@@ -4211,6 +4297,18 @@ export async function showTitleSlide(text, opts = {}) {
     }
     div.innerHTML = `<div style="text-align:center;max-width:70%;color:${color};font-family:'Segoe UI',Arial,sans-serif;">${html}</div>`;
   }, { text, subtitle, background, color, fontSize });
+
+  // Smart TTS wait (same pattern as showCaption/showImage)
+  if (smartWaitMs > 0) {
+    let remaining = smartWaitMs;
+    while (remaining > 0) {
+      const chunk = Math.min(remaining, 1000);
+      await page.waitForTimeout(chunk);
+      remaining -= chunk;
+      if (recorder?._flushFrames) recorder._flushFrames();
+    }
+    recorder.captionCredit = { waitedMs: smartWaitMs, at: Date.now() };
+  }
 }
 
 /** Remove the title slide overlay. */
@@ -4218,6 +4316,132 @@ export async function hideTitleSlide() {
   ensureConnected();
   await page.evaluate(() => {
     const el = document.getElementById('__web_test_title');
+    if (el) el.remove();
+  });
+}
+
+/**
+ * Show a full-screen image overlay (e.g. presentation slide screenshot).
+ * Reads the image file, base64-encodes it, and renders as a fixed overlay
+ * on the page — captured by CDP screencast automatically.
+ *
+ * Style presets:
+ *   - 'blur'  (default) — blurred+dimmed copy as background, image centered with shadow
+ *   - 'dark'  — dark background (#2a2a2a) with shadow
+ *   - 'light' — white background with shadow
+ *   - 'full'  — image covers entire screen, no padding/shadow
+ *
+ * Custom background overrides the preset (e.g. background: '#003366').
+ *
+ * @param {string} imagePath — path to the image file (PNG, JPG, etc.)
+ * @param {object} [opts]
+ * @param {'blur'|'dark'|'light'|'full'} [opts.style='blur'] — display style preset
+ * @param {string} [opts.background] — custom background color/gradient (overrides style preset)
+ * @param {boolean} [opts.shadow] — show drop shadow (default: true for blur/dark/light, false for full)
+ * @param {string|false} [opts.speech] — TTS narration text while image is shown.
+ *   Pass a string for narration, or false to skip. Omit to skip (no auto-text for images).
+ */
+export async function showImage(imagePath, opts = {}) {
+  ensureConnected();
+  const style = opts.style || 'blur';
+  const speech = opts.speech;
+
+  // Style presets
+  const presets = {
+    blur:  { bg: '#222',    fit: 'contain', shadow: true,  blur: true  },
+    dark:  { bg: '#2a2a2a', fit: 'contain', shadow: true,  blur: false },
+    light: { bg: '#ffffff', fit: 'contain', shadow: true,  blur: false },
+    full:  { bg: '#000',    fit: 'contain', shadow: false, blur: false },
+  };
+  const preset = presets[style] || presets.blur;
+
+  const bg      = opts.background || preset.bg;
+  const fit     = preset.fit;
+  const shadow  = opts.shadow !== undefined ? opts.shadow : preset.shadow;
+  const useBlur = opts.background ? false : preset.blur;
+
+  // Read image and base64-encode
+  const absPath = resolveProjectPath(imagePath);
+  if (!fsExistsSync(absPath)) {
+    throw new Error(`showImage: file not found: ${absPath}`);
+  }
+  const buf = readFileSync(absPath);
+  const ext = extname(absPath).toLowerCase().replace('.', '');
+  const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+    : ext === 'png' ? 'image/png'
+    : ext === 'gif' ? 'image/gif'
+    : ext === 'webp' ? 'image/webp'
+    : ext === 'svg' ? 'image/svg+xml'
+    : 'image/png';
+  const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+
+  // Collect caption for TTS narration if recording
+  let smartWaitMs = 0;
+  if (recorder && speech && speech !== false) {
+    const captionText = typeof speech === 'string' ? speech : '';
+    if (captionText) {
+      recorder.captions.push({ text: captionText, speech: captionText, time: Math.round(recorder.videoTimeMs) });
+      smartWaitMs = Math.max(2000, captionText.length * 70);
+    }
+  }
+
+  // Padding: full style uses 100%, others use 92% for breathing room
+  const isFull = style === 'full';
+  const maxSize = isFull ? '100%' : '92%';
+
+  await page.evaluate(({ dataUrl, fit, bg, useBlur, shadow, maxSize, isFull }) => {
+    let div = document.getElementById('__web_test_image');
+    if (!div) {
+      div = document.createElement('div');
+      div.id = '__web_test_image';
+      document.body.appendChild(div);
+    }
+    // Remove other overlays to prevent flash between slides
+    const title = document.getElementById('__web_test_title');
+    if (title) title.remove();
+
+    div.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'width:100%', 'height:100%',
+      `background:${bg}`,
+      'display:flex', 'align-items:center', 'justify-content:center',
+      'z-index:999999', 'pointer-events:none', 'overflow:hidden'
+    ].join(';');
+
+    let html = '';
+
+    // Blurred background layer: the same image stretched to cover, blurred and dimmed
+    if (useBlur) {
+      html += `<img src="${dataUrl}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;filter:blur(30px) brightness(0.5);transform:scale(1.1);" />`;
+    }
+
+    // Main image
+    const shadowCss = shadow ? 'box-shadow:0 4px 40px rgba(0,0,0,0.5);' : '';
+    const sizeCss = isFull
+      ? `width:100%;height:100%;object-fit:${fit};`
+      : `max-width:${maxSize};max-height:${maxSize};min-width:50%;min-height:50%;object-fit:${fit};`;
+    html += `<img src="${dataUrl}" style="position:relative;${sizeCss}${shadowCss}" />`;
+
+    div.innerHTML = html;
+  }, { dataUrl, fit, bg, useBlur, shadow, maxSize, isFull });
+
+  // Smart TTS wait (same pattern as showCaption)
+  if (smartWaitMs > 0) {
+    let remaining = smartWaitMs;
+    while (remaining > 0) {
+      const chunk = Math.min(remaining, 1000);
+      await page.waitForTimeout(chunk);
+      remaining -= chunk;
+      if (recorder?._flushFrames) recorder._flushFrames();
+    }
+    recorder.captionCredit = { waitedMs: smartWaitMs, at: Date.now() };
+  }
+}
+
+/** Remove the image overlay. */
+export async function hideImage() {
+  ensureConnected();
+  await page.evaluate(() => {
+    const el = document.getElementById('__web_test_image');
     if (el) el.remove();
   });
 }
@@ -4517,8 +4741,6 @@ function resolveFfmpeg(explicit) {
   catch { /* fall through */ }
 
   // 4. tools/ffmpeg/bin/ffmpeg.exe relative to project root
-  const __filename = fileURLToPath(import.meta.url);
-  const projectRoot = pathResolve(dirname(__filename), '..', '..', '..', '..');
   const localPath = pathResolve(projectRoot, 'tools', 'ffmpeg', 'bin', 'ffmpeg.exe');
   if (fsExistsSync(localPath)) {
     try { execFileSync(localPath, ['-version'], { stdio: 'ignore', timeout: 5000 }); return localPath; }
@@ -4548,8 +4770,6 @@ async function resolveEdgeTts() {
   } catch { /* fall through */ }
 
   // 2. tools/tts/ relative to project root
-  const __fn = fileURLToPath(import.meta.url);
-  const projectRoot = pathResolve(dirname(__fn), '..', '..', '..', '..');
   const localPath = pathResolve(projectRoot, 'tools', 'tts', 'node_modules', 'node-edge-tts', 'dist', 'edge-tts.js');
   if (fsExistsSync(localPath)) {
     try {

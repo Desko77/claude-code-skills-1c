@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# web-publish v1.0 — Publish 1C infobase via Apache
+# web-publish v1.1 — Publish 1C infobase via Apache
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 """
@@ -105,6 +105,9 @@ def main():
         script_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))))
         apache_path = os.path.join(project_root, 'tools', 'apache24')
+    # Ensure absolute path (agent may pass relative like "tools/apache24")
+    if not os.path.isabs(apache_path):
+        apache_path = os.path.abspath(apache_path)
 
     port = args.Port
 
