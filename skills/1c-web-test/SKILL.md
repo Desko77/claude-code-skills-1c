@@ -14,6 +14,8 @@ allowed-tools:
 
 Automates user interactions with 1C:Enterprise web client via Playwright — navigating sections, filling forms, reading tables and reports, filtering lists.
 
+> **Workflow:** `/web-info` → `/web-publish` → `/web-test` → `/web-unpublish` (или `/web-stop`)
+
 ## Quick start
 
 ```bash

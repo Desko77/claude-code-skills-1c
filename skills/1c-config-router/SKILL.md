@@ -69,7 +69,7 @@ allowed-tools:
 |--------|------|
 | Создать обработку | `/epf-init` |
 | Добавить форму к обработке | `/epf-add-form` |
-| БСП-регистрация обработки | `/epf-bsp-init` |
+| БСП-регистрация обработки | `/1c-bsp-registration` |
 | Добавить команду БСП | `/epf-bsp-add-command` |
 | Собрать EPF | `/epf-build` |
 | Разобрать EPF | `/epf-dump` |

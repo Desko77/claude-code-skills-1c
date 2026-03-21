@@ -13,6 +13,8 @@ allowed-tools:
 
 Генерирует `default.vrd`, настраивает `httpd.conf` и запускает Apache HTTP Server для веб-доступа к информационной базе. При необходимости скачивает portable Apache. Идемпотентный — повторный вызов обновляет конфигурацию.
 
+> **Workflow:** `/web-info` → `/web-publish` → `/web-test` → `/web-unpublish` (или `/web-stop`)
+
 ## Usage
 
 ```
