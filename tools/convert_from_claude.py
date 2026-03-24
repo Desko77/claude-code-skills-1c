@@ -247,9 +247,9 @@ def convert_skill(source_dir: Path, target_dir: Path, dry_run: bool) -> str:
     if not dry_run:
         (target_skill_dir / "SKILL.md").write_text(result, encoding="utf-8")
 
-    # Copy scripts/ and references/ directories
+    # Copy scripts/, references/, reference/, docs/ directories
     copied_dirs = []
-    for subdir_name in ("scripts", "references"):
+    for subdir_name in ("scripts", "references", "reference", "docs"):
         subdir = source_dir / subdir_name
         if subdir.is_dir():
             target_subdir = target_skill_dir / subdir_name
@@ -258,6 +258,12 @@ def convert_skill(source_dir: Path, target_dir: Path, dry_run: bool) -> str:
                     shutil.rmtree(target_subdir)
                 shutil.copytree(subdir, target_subdir)
             copied_dirs.append(subdir_name)
+
+    # Copy extra .md files at skill root (not SKILL.md)
+    for f in sorted(source_dir.iterdir()):
+        if f.is_file() and f.suffix == ".md" and f.name != "SKILL.md":
+            if not dry_run:
+                shutil.copy2(f, target_skill_dir / f.name)
 
     extra = f" + {', '.join(copied_dirs)}" if copied_dirs else ""
     return f"  {'[DRY] ' if dry_run else ''}skill: {skill_name}{extra}"
