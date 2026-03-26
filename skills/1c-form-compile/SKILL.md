@@ -410,8 +410,43 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 /form-info <OutputPath>        — визуальная сводка структуры
 ```
 
+## Особенности для EDT-проектов
+
+> **form-compile генерирует формы в формате logform (XML-выгрузка).** Для EDT-проектов форма будет работать, но дизайнер EDT может показать пустую форму из-за отсутствия EDT-специфичных свойств. Альтернативы: создать форму штатно через EDT или использовать MCP `generate_form_from_metadata` с `format="edt"`.
+
+Если форма создается вручную или через form-compile для EDT, после генерации необходимо добавить:
+
+### Критично (без этого дизайнер EDT пустой)
+
+- `<extInfo xsi:type="form:ТипFormExtInfo"/>` на корневом `form:Form` - тип формы:
+  - `CatalogFormExtInfo` - справочник
+  - `DocumentFormExtInfo` - документ
+  - `DataProcessorFormExtInfo` - обработка
+  - `InformationRegisterFormExtInfo` - регистр сведений
+
+### Обязательные свойства формы
+
+- `commandInterface` с `<navigationPanel/>` и `<commandBar/>`
+- `windowOpeningMode` = `LockOwnerWindow`
+- `autoFillCheck` = `true`
+- `showTitle`, `showCloseButton` = `true`
+- `allowFormCustomize`, `saveWindowSettings` = `true`
+
+### Обязательные свойства полей
+
+- `visible`, `enabled` = `true`
+- `userVisible` с `<common>true</common>`
+- `editMode` = `EnterOnInput`
+- `showInHeader`, `showInFooter` = `true`
+- `typeDomainEnabled` = `true`
+
+### Специфика объектов
+
+- Иерархический справочник - всегда добавлять поле Родитель (Parent)
+- DynamicList: `<extInfo xsi:type="form:DynamicListExtInfo">` на атрибуте с `mainTable`
+
 ## Особенности для внешних обработок (EPF)
 
 - **Тип главного реквизита**: `ExternalDataProcessorObject.ИмяОбработки` (не `DataProcessorObject`)
-- **DataPath**: используйте реквизиты формы (`ИмяРеквизита`), а не `Объект.ИмяРеквизита` — у внешних обработок нет реквизитов объекта в метаданных
+- **DataPath**: используйте реквизиты формы (`ИмяРеквизита`), а не `Объект.ИмяРеквизита` - у внешних обработок нет реквизитов объекта в метаданных
 - **Ссылочные типы**: `CatalogRef.XXX`, `DocumentRef.XXX` допустимы в XML, но для сборки EPF потребуется база с целевой конфигурацией (см. `/epf-build`)
