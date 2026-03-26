@@ -432,6 +432,7 @@ ChildItems
 | `<VerticalAlign>` | enum | `Top` / `Center` / `Bottom` |
 | `<GroupHorizontalAlign>` | enum | Горизонтальное выравнивание в группе |
 | `<GroupVerticalAlign>` | enum | Вертикальное выравнивание в группе |
+| `<UserVisible>` | struct | Видимость для пользователя (`<common>true/false</common>`) |
 | `<SkipOnInput>` | bool | Пропускать при вводе |
 | `<ContextMenu>` | ref | Контекстное меню (name + id) |
 | `<ExtendedTooltip>` | ref | Расширенная подсказка (name + id) |
@@ -518,6 +519,8 @@ ChildItems
   <CreateButton>true | false</CreateButton>
   <DropListButton>true | false</DropListButton>
   <TextEdit>true | false</TextEdit>
+  <ChooseType>true | false</ChooseType>
+  <TypeDomainEnabled>true | false</TypeDomainEnabled>
   <ListChoiceMode>true | false</ListChoiceMode>
 
   <!-- Автозаполнение и проверка -->
@@ -551,24 +554,24 @@ ChildItems
   <BorderColor>style:... | web:... | win:...</BorderColor>
   <Font>...</Font>
 
-  <!-- События -->
+  <!-- События на уровне элемента -->
   <Events>
     <Event name="OnChange">...</Event>
-    <Event name="StartChoice">...</Event>
-    <Event name="ChoiceProcessing">...</Event>
-    <Event name="Clearing">...</Event>
-    <Event name="AutoComplete">...</Event>
-    <Event name="TextEditEnd">...</Event>
-    <Event name="Opening">...</Event>
-    <Event name="OnEditEnd">...</Event>
     <Event name="DragCheck">...</Event>
     <Event name="Drag">...</Event>
     <Event name="DragStart">...</Event>
   </Events>
+
+  <!-- События внутри extInfo (тип-специфичные) -->
+  <!-- В EDT-формате: StartChoice, Clearing, Opening, ChoiceProcessing,
+       AutoComplete, TextEditEnd размещаются как <handlers> внутри
+       <extInfo xsi:type="form:InputFieldExtInfo">, а НЕ в <Events> элемента -->
 </InputField>
 ```
 
 ### 8.3. Button — кнопка
+
+Тип кнопки зависит от размещения: `UsualButton` для кнопок на форме (вне CommandBar), `CommandBarButton` для кнопок в командной панели (дефолт). Имя кнопки = имя команды.
 
 ```xml
 <Button name="..." id="...">

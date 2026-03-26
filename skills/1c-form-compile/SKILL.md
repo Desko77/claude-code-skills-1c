@@ -432,13 +432,35 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 - `showTitle`, `showCloseButton` = `true`
 - `allowFormCustomize`, `saveWindowSettings` = `true`
 
-### Обязательные свойства полей
+### Обязательные свойства полей (InputField, LabelField, CheckBoxField)
 
 - `visible`, `enabled` = `true`
 - `userVisible` с `<common>true</common>`
 - `editMode` = `EnterOnInput`
 - `showInHeader`, `showInFooter` = `true`
 - `typeDomainEnabled` = `true`
+- `chooseType` = `true`
+- `wrap` = `true`
+- `textEdit` = `true`
+- `headerHorizontalAlign` = `Left`
+
+### Обязательные свойства кнопок (Button)
+
+- Кнопка на форме (вне CommandBar): `type` = `UsualButton` (обязательно)
+- Кнопка в CommandBar: `type` = `CommandBarButton` (дефолт, можно не указывать)
+- Имя кнопки = имя команды (не `Кнопка[Команда]`, не `[Команда]Кнопка`)
+
+### Размещение обработчиков событий (Events)
+
+Обработчики InputField делятся по месту размещения в XML:
+
+**На уровне элемента** (`<Events>` внутри `<InputField>`):
+- `OnChange`, `DragCheck`, `Drag`, `DragStart`
+
+**Внутри `<extInfo xsi:type="form:InputFieldExtInfo">`** (`<handlers>`):
+- `StartChoice`, `Clearing`, `Opening`, `ChoiceProcessing`, `AutoComplete`, `TextEditEnd`
+
+Эти события специфичны для типа поля и размещаются внутри extInfo, а не на уровне элемента.
 
 ### Специфика объектов
 

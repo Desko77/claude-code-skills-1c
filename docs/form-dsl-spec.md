@@ -179,6 +179,11 @@
 | `spinButton` | bool | Показывать кнопку прокрутки |
 | `dropListButton` | bool | Показывать кнопку раскрытия |
 | `markIncomplete` | bool | Автопометка незаполненных |
+| `editMode` | string | `Enter`, `EnterOnInput` (рекомендуется `EnterOnInput`) |
+| `wrap` | bool | Перенос текста |
+| `chooseType` | bool | Разрешить выбор типа значения |
+| `textEdit` | bool | Разрешить ввод текста |
+| `typeDomainEnabled` | bool | Ограничение типа по домену |
 | `skipOnInput` | bool | Пропускать при вводе |
 | `inputHint` | string | Подсказка ввода (placeholder) |
 | `width` | int | Ширина |
@@ -248,6 +253,7 @@
 | `footer` | bool | Показывать подвал |
 | `commandBarLocation` | string | `None`, `Top`, `Bottom`, `Auto` |
 | `searchStringLocation` | string | `None`, `Top`, `Bottom`, `CommandBar`, `Auto` |
+| `titleLocation` | string | `Top`, `None` (убрать заголовок таблицы) |
 
 #### pages / page — Pages / Page
 
