@@ -52,7 +52,7 @@ Role JSON DSL — компактный JSON-формат, транслируем
 | `view` | Просмотр: Read, View (+InputByString для справочников/документов; Use+View для обработок/отчётов) |
 | `edit` | Полное редактирование: CRUD + Interactive* + Posting (документы) |
 
-Подробные таблицы прав для каждого типа объекта — в `.claude/skills/role-compile/dsl-reference.md`.
+Подробные таблицы прав для каждого типа объекта — в `.claude/skills/1c-role-compile/dsl-reference.md`.
 
 ## Шаблоны ограничений (RLS)
 
@@ -67,7 +67,7 @@ Role JSON DSL — компактный JSON-формат, транслируем
 
 ## Русские синонимы
 
-DSL принимает русские имена типов и прав, транслируя их в английские. Полные таблицы соответствий — в `.claude/skills/role-compile/dsl-reference.md`.
+DSL принимает русские имена типов и прав, транслируя их в английские. Полные таблицы соответствий — в `.claude/skills/1c-role-compile/dsl-reference.md`.
 
 Примеры: `Справочник` → Catalog, `Документ` → Document, `Чтение` → Read, `Просмотр` → View.
 

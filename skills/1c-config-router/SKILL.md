@@ -70,7 +70,7 @@ allowed-tools:
 | Создать обработку | `/epf-init` |
 | Добавить форму к обработке | `/epf-add-form` |
 | БСП-регистрация обработки | `/1c-bsp-registration` |
-| Добавить команду БСП | `/epf-bsp-add-command` |
+| Добавить команду БСП | `/1c-bsp-command` |
 | Собрать EPF | `/epf-build` |
 | Разобрать EPF | `/epf-dump` |
 | Создать отчёт | `/erf-init` |

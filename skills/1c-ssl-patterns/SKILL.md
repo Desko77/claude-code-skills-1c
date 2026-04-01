@@ -1,54 +1,94 @@
 ---
 name: 1c-ssl-patterns
-description: "SSL/БСП subsystems guidance. Use when working with standard library subsystems."
+description: "SSL/БСП subsystems guidance and search via 1c-mcp_ssl_server MCP. Use when working with standard library subsystems - users, files, print forms, background jobs, email, common utilities."
 ---
 
 # 1C SSL/БСП Subsystems Reference
 
-This skill provides guidance for using SSL subsystems via `ssl_search` MCP tool.
-
-For basic SSL usage (attribute access, user messages) — see `project_rules.mdc`.
+MCP-сервер: **1c-mcp_ssl_server**. Справочник по Библиотеке стандартных подсистем (БСП/SSL).
 
 ## When to Use
 
-Invoke this skill when:
-- Working with users and access rights
-- Working with files and attachments
-- Implementing print forms
-- Managing background jobs
-- Working with object versioning
-- Sending emails
-- Need common utility functions (arrays, structures, strings)
+- Работа с пользователями и правами доступа
+- Работа с файлами и вложениями
+- Печатные формы
+- Фоновые задания с прогрессом
+- Версионирование объектов
+- Отправка email
+- Общие утилиты (массивы, структуры, строки)
 
 ## Core Principle
 
-**ALWAYS check if SSL has a solution before writing custom code.**
+**ВСЕГДА проверяй, есть ли решение в БСП, прежде чем писать свой код.**
+
+## MCP Tools
+
+### `search_ssl` - Поиск функций БСП
+
+Полнотекстовый поиск по модулям и функциям БСП.
+
+| Параметр | Обязательный | Описание |
+|---|:---:|---|
+| `query` | да | Поисковый запрос (ключевые слова, описание задачи) |
+
+Примеры:
+- `search_ssl("фоновое задание прогресс")` - найти API длительных операций
+- `search_ssl("копирование структуры")` - утилиты работы со структурами
+- `search_ssl("значение реквизита объекта")` - получение реквизитов
+- `search_ssl("отправка почтового сообщения")` - API отправки email
+- `search_ssl("печатная форма макет")` - API управления печатью
+
+### `get_function_info` - Информация о функции
+
+Детальное описание конкретной функции БСП: параметры, возвращаемое значение, пример использования.
+
+| Параметр | Обязательный | Описание |
+|---|:---:|---|
+| `function_name` | да | Имя функции (например: `ЗначениеРеквизитаОбъекта`) |
+
+### `search_modules` - Поиск модулей
+
+Поиск общих модулей БСП по имени или описанию.
+
+| Параметр | Обязательный | Описание |
+|---|:---:|---|
+| `query` | да | Поисковый запрос |
+
+### `get_subsystem_info` - Информация о подсистеме
+
+Описание подсистемы БСП: назначение, состав, ключевые модули.
+
+| Параметр | Обязательный | Описание |
+|---|:---:|---|
+| `subsystem_name` | да | Имя подсистемы |
 
 ## SSL Search Workflow
 
-When implementing new functionality:
-
-1. **First, search SSL** — use `ssl_search` MCP tool with keywords describing your need
-   - Example: `ssl_search("фоновое задание прогресс")`
-   - Example: `ssl_search("копирование структуры")`
-
-2. **Check existing patterns** — use `codesearch` to find how similar tasks are solved in the codebase
-
-3. **Use SSL if available** — it's tested, optimized, and maintained
-
-4. **Only then write custom code** — and document why SSL wasn't suitable
+1. **Поиск в БСП** - `search_ssl` с ключевыми словами
+2. **Детали функции** - `get_function_info` для найденного метода
+3. **Поиск в проекте** - `search_in_code` (1c-edt) - как используется в кодовой базе
+4. **Только потом свой код** - если БСП не подходит
 
 ## Key SSL Modules
 
-- **Пользователи** — users, roles, access rights
-- **РаботаСФайлами** — file storage and attachments
-- **УправлениеПечатью** — print forms
-- **ДлительныеОперации** — background jobs with progress
-- **ВерсионированиеОбъектов** — object history
-- **РаботаСПочтовымиСообщениями** — email sending
-- **ОбщегоНазначения** / **ОбщегоНазначенияКлиентСервер** — common utilities
-- **СтроковыеФункцииКлиентСервер** — string functions
+| Модуль | Назначение |
+|--------|-----------|
+| **ОбщегоНазначения** | ЗначениеРеквизитаОбъекта, ЗначенияРеквизитовОбъектов, КопироватьРекурсивно, СообщитьПользователю |
+| **ОбщегоНазначенияКлиентСервер** | Проверки, работа со структурами, массивами |
+| **СтроковыеФункцииКлиентСервер** | Форматирование, разбор, подстановка параметров в строки |
+| **Пользователи** | Текущий пользователь, роли, права доступа |
+| **РаботаСФайлами** | Хранение, получение, присоединенные файлы |
+| **УправлениеПечатью** | Регистрация, генерация, управление печатными формами |
+| **ДлительныеОперации** | ВыполнитьВФоне, ОжидатьЗавершение, передача прогресса |
+| **ВерсионированиеОбъектов** | История изменений объектов |
+| **РаботаСПочтовымиСообщениями** | Отправка email через учетные записи |
 
----
+## Разграничение с другими MCP-серверами
 
-**Remember**: SSL is your first stop for common functionality. Writing custom code when SSL has a solution is technical debt.
+| Задача | Инструмент | Сервер |
+|--------|-----------|--------|
+| Поиск функции БСП по описанию | `search_ssl` | 1c-mcp_ssl_server |
+| Общий вопрос по 1С (не только БСП) | `ask_1c_ai` | 1c-naparnik |
+| Стандарт разработки ИТС | `its_help` | 1c-naparnik |
+| Код в проекте (полнотекстовый) | `search_in_code` | 1c-edt |
+| API платформы (встроенные функции) | `search` | bsl-platform-help |

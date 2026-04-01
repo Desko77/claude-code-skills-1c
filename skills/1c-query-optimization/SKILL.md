@@ -1,6 +1,6 @@
 ---
 name: 1c-query-optimization
-description: "Advanced query patterns for 1C: temporary tables, joins, DCS optimization. Use for complex queries beyond basic rules in project_rules.mdc."
+description: "Advanced query patterns for 1C: temporary tables, joins, DCS optimization. Use for complex queries beyond basic rules in query-optimization-tips.md."
 ---
 
 # 1C Query Optimization Skill (Advanced Patterns)
