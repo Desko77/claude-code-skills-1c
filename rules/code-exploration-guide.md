@@ -89,6 +89,8 @@ Data (База данных, регистры)
 | Implementation | `get_project_errors` (1c-edt) | Ошибки и предупреждения проекта |
 | Implementation | `validate_query` (1c-edt) | Валидация запросов (синтаксис + семантика) |
 | API платформы | `search` (bsl-platform-help) | Поиск встроенных функций и типов |
+| Методология | `its_help` + `fetch_its` (1c-naparnik) | Стандарты и методические рекомендации ИТС |
+| Справка | `search_1c_documentation` / `config_help` (1c-naparnik) | Документация платформы и конфигураций |
 
 ---
 
