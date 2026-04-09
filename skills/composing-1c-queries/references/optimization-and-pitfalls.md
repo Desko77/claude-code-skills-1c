@@ -8,6 +8,7 @@
 - [ИЛИ (OR) performance trap](#или-or-performance-trap)
 - [Compound-type dereferencing](#compound-type-dereferencing)
 - [Virtual table parameters](#virtual-table-parameters)
+- [Accounting register virtual table specifics](#accounting-register-virtual-table-specifics)
 - [Nested joins prohibition](#nested-joins-prohibition)
 - [Temporary table best practices](#temporary-table-best-practices)
 - [RLS impact](#rls-impact)
@@ -135,6 +136,48 @@ Virtual tables (Остатки, Обороты, СрезПоследних, etc.
 - NO subqueries inside parameters (use temp table + `В (ВЫБРАТЬ ... ИЗ ВТ)` pattern)
 - NO joins inside parameters
 - For Остатки without date parameter — returns current (latest) balances
+
+---
+
+## Accounting Register Virtual Table Specifics
+
+Accounting register virtual tables have different parameter semantics from accumulation registers.
+
+### Субконто parameter vs Условие
+
+The `Субконто` parameter accepts виды субконто references (types from plan of characteristic types), NOT values. To filter by subconto values, use the `Условие` parameter:
+
+```
+// BAD - subconto VALUE in Субконто parameter position:
+.Остатки(&Период, &Контрагент, )
+
+// GOOD - виды субконто in Субконто, VALUE in Условие:
+.Остатки(&Период, &ВидыСубконто, Субконто1 = &Контрагент)
+```
+
+### Счет conditions in Условие, not WHERE
+
+```
+// BAD - full table scan, then filter:
+ВЫБРАТЬ * ИЗ РегистрБухгалтерии.Хозрасчетный.Остатки() КАК Ост
+ГДЕ Ост.Счет = &Счет
+
+// GOOD - pre-filtered at storage level:
+ВЫБРАТЬ * ИЗ РегистрБухгалтерии.Хозрасчетный.Остатки(, , Счет = &Счет) КАК Ост
+```
+
+Use `Счет В ИЕРАРХИИ(&Счет)` to include all sub-accounts of a parent account.
+
+### Parameter distribution across virtual tables
+
+Each virtual table has its own parameter set. Do not mix them:
+
+- `Обороты` has `КорСубконто` (6th param) for correspondence filtering
+- `ОстаткиИОбороты` has `МетодДополненияПериодов` (4th param) instead
+- `ОборотыДтКт` has separate `СубконтоДт` and `СубконтоКт` params
+- `ДвиженияССубконто` has `Порядок` and `Первые` (no periodicity)
+
+See the parameter table in the main skill file for exact positional order.
 
 ---
 

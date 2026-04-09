@@ -4,10 +4,12 @@ description: >
   Compose correct and optimized 1C:Enterprise query language queries. Covers
   ВЫБРАТЬ/ИЗ/ГДЕ structure, table naming (catalogs, documents, registers,
   virtual tables), field selection, joins, grouping, totals, temporary tables,
-  and parameter usage. Use when the agent needs to compose a 1C query for
-  execute_query, or when the user asks to query, filter, aggregate, or analyze
-  data from a 1C database. Triggered by requests involving 1C data retrieval,
-  report building, or query debugging.
+  and parameter usage. Includes accounting register virtual tables (Остатки,
+  Обороты, ОстаткиИОбороты, ОборотыДтКт, ДвиженияССубконто) with Счет,
+  Субконто, and correspondence parameters. Use when the agent needs to compose
+  a 1C query for execute_query, or when the user asks to query, filter,
+  aggregate, or analyze data from a 1C database. Triggered by requests
+  involving 1C data retrieval, report building, or query debugging.
 ---
 
 # Composing 1C Queries
@@ -150,6 +152,45 @@ Virtual tables are computed on-the-fly from real register data. **Always pass fi
 РегистрСведений.КурсыВалют.СрезПервых(&Дата, Валюта = &Валюта)
 ```
 
+**Accounting register (Регистр бухгалтерии):**
+
+5 virtual tables: Остатки, Обороты, ОстаткиИОбороты, ОборотыДтКт, ДвиженияССубконто.
+
+```
+// Balances at date:
+РегистрБухгалтерии.Хозрасчетный.Остатки(&Период, , Счет = &Счет)
+
+// Turnovers for period:
+РегистрБухгалтерии.Хозрасчетный.Обороты(&НачДата, &КонДата, Месяц, , Счет В (&Счета), )
+
+// Balances and turnovers:
+РегистрБухгалтерии.Хозрасчетный.ОстаткиИОбороты(&НачДата, &КонДата, Авто, , , Счет = &Счет)
+
+// Debit-Credit turnovers (detailed correspondence):
+РегистрБухгалтерии.Хозрасчетный.ОборотыДтКт(&НачДата, &КонДата, , , , )
+
+// Detailed records with subconto:
+РегистрБухгалтерии.Хозрасчетный.ДвиженияССубконто(&НачДата, &КонДата, )
+```
+
+Virtual table parameters (positional order):
+
+| Virtual table | Parameters |
+|---------------|------------|
+| `.Остатки()` | Период, Субконто, Условие |
+| `.Обороты()` | НачалоПериода, КонецПериода, Периодичность, Субконто, Условие, КорСубконто |
+| `.ОстаткиИОбороты()` | НачалоПериода, КонецПериода, Периодичность, МетодДополненияПериодов, Субконто, Условие |
+| `.ОборотыДтКт()` | НачалоПериода, КонецПериода, Периодичность, СубконтоДт, СубконтоКт, Условие |
+| `.ДвиженияССубконто()` | НачалоПериода, КонецПериода, Условие, Порядок, Первые |
+
+**Key differences from accumulation register:**
+
+- **Субконто parameter** accepts виды субконто (plan of characteristic types references), NOT values. Filter by subconto values in Условие: `Субконто1 = &Контрагент`
+- **Счет/КорСчет** filtering in Условие: `Счет = &Счет`, `Счет В ИЕРАРХИИ(&Счет)`
+- **Периодичность** values: Авто, Период, Год, Полугодие, Квартал, Месяц, Декада, Неделя, День, Регистратор, Запись
+- **МетодДополненияПериодов** (ОстаткиИОбороты only): `Движения` or `ДвиженияИГраницыПериода` (default)
+- Resources have Дт/Кт (Debit/Credit) suffixes - see table below
+
 Parameter syntax inside virtual tables: `Dimension = Value` joined by commas. Keep it simple — no subqueries or joins inside parameters.
 
 **Accumulation register resource suffixes:**
@@ -177,6 +218,40 @@ When using virtual tables, resource fields get automatic suffixes:
     Об.КоличествоКонечныйОстаток
 ИЗ
     РегистрНакопления.ТоварыНаСкладах.ОстаткиИОбороты(&Нач, &Кон, , , ) КАК Об
+```
+
+**Accounting register resource suffixes:**
+
+Unlike accumulation register, accounting resources have Дт/Кт (Debit/Credit) variants:
+
+| Virtual table | Suffix format | Example |
+|---------------|---------------|---------|
+| `.Остатки()` | `<Resource>Остаток` | `СуммаОстаток` |
+| `.Остатки()` | `<Resource>ОстатокДт/Кт` | `СуммаОстатокДт` |
+| `.Остатки()` | `<Resource>РазвернутыйОстатокДт/Кт` | `СуммаРазвернутыйОстатокДт` |
+| `.Обороты()` | `<Resource>Оборот` | `СуммаОборот` |
+| `.Обороты()` | `<Resource>ОборотДт/Кт` | `СуммаОборотДт` |
+| `.Обороты()` | `<Resource>КорОборотДт/Кт` | `СуммаКорОборотДт` |
+| `.ОстаткиИОбороты()` | `<Resource>НачальныйОстатокДт/Кт` | `СуммаНачальныйОстатокДт` |
+| `.ОстаткиИОбороты()` | `<Resource>ОборотДт/Кт` | `СуммаОборотДт` |
+| `.ОстаткиИОбороты()` | `<Resource>КонечныйОстатокДт/Кт` | `СуммаКонечныйОстатокДт` |
+| `.ОстаткиИОбороты()` | `<Resource>НачальныйРазвернутыйОстатокДт/Кт` | `СуммаНачальныйРазвернутыйОстатокДт` |
+| `.ОстаткиИОбороты()` | `<Resource>КонечныйРазвернутыйОстатокДт/Кт` | `СуммаКонечныйРазвернутыйОстатокДт` |
+
+Suffixes without Дт/Кт (e.g. `СуммаОстаток`, `СуммаОборот`) are for balanced resources.
+
+```
+// Example - accounting register balances and turnovers:
+ВЫБРАТЬ
+    Об.Счет,
+    Об.Субконто1,
+    Об.СуммаНачальныйОстатокДт КАК НачОстДт,
+    Об.СуммаОборотДт,
+    Об.СуммаОборотКт,
+    Об.СуммаКонечныйОстатокДт КАК КонОстДт
+ИЗ
+    РегистрБухгалтерии.Хозрасчетный.ОстаткиИОбороты(
+        &НачДата, &КонДата, Авто, , , Счет = &Счет) КАК Об
 ```
 
 ### Table aliases
