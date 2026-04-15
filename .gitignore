@@ -17,6 +17,7 @@ test-tmp/
 # Local settings
 .claude/settings.local.json
 .v8-project.json
+.mcp.json
 
 # web-test runtime artifacts
 skills/1c-web-test/scripts/node_modules/
