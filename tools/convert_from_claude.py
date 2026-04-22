@@ -247,9 +247,9 @@ def convert_skill(source_dir: Path, target_dir: Path, dry_run: bool) -> str:
     if not dry_run:
         (target_skill_dir / "SKILL.md").write_text(result, encoding="utf-8")
 
-    # Copy scripts/, references/, reference/, docs/ directories
+    # Copy scripts/, references/, reference/, docs/, examples/ directories
     copied_dirs = []
-    for subdir_name in ("scripts", "references", "reference", "docs"):
+    for subdir_name in ("scripts", "references", "reference", "docs", "examples"):
         subdir = source_dir / subdir_name
         if subdir.is_dir():
             target_subdir = target_skill_dir / subdir_name
