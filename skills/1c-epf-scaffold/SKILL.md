@@ -33,20 +33,6 @@ allowed-tools:
 powershell.exe -NoProfile -File skills/1c-epf-scaffold/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"]
 ```
 
-## Что создаётся
-
-```
-<SrcDir>/
-├── <Name>.xml          # Корневой файл метаданных (4 UUID)
-└── <Name>/
-    └── Ext/
-        └── ObjectModule.bsl  # Модуль объекта с 3 регионами
-```
-
-- Корневой XML содержит `MetaDataObject/ExternalDataProcessor` с пустыми `DefaultForm` и `ChildObjects`
-- ClassId фиксирован: `c3831ec8-d8d5-4f93-8a22-f9bfae07327f`
-- Файл создаётся в UTF-8 с BOM
-
 ## Дальнейшие шаги
 
 - Добавить форму: `/epf-add-form`

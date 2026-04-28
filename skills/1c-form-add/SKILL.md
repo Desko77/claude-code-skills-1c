@@ -13,7 +13,7 @@ allowed-tools:
 
 # /form-add — Добавление формы к объекту конфигурации
 
-Создаёт каталог формы (metadata XML + Module.bsl) и регистрирует в корневом XML объекта конфигурации (Document, Catalog, InformationRegister и др.). Для генерации содержимого Form.xml — далее вызвать `/form-compile`.
+Создаёт управляемую форму (metadata XML + Form.xml + Module.bsl) и регистрирует её в корневом XML объекта конфигурации (Document, Catalog, InformationRegister и др.).
 
 ## Usage
 
@@ -43,26 +43,6 @@ powershell.exe -NoProfile -File skills/1c-form-add/scripts/form-add.ps1 -ObjectP
 | List    | Все кроме DataProcessor | Список (DynamicList) | DefaultListForm |
 | Choice  | Document, Catalog, ChartOf*, ExchangePlan, BusinessProcess, Task | Список (DynamicList) | DefaultChoiceForm |
 | Record  | InformationRegister | Запись (InformationRegisterRecordManager) | DefaultRecordForm |
-
-## Что создаётся
-
-```
-<ObjectDir>/Forms/
-├── <FormName>.xml                    # Метаданные формы (UUID)
-└── <FormName>/
-    └── Ext/
-        ├── Form.xml                  # Описание формы (logform namespace)
-        └── Form/
-            └── Module.bsl           # BSL-модуль с 5 регионами + ПриСозданииНаСервере
-```
-
-## Что модифицируется
-
-- `<ObjectPath>` — добавляется `<Form>` в `ChildObjects` (перед `<Template>` или `<TabularSection>`), обновляется Default*Form (автоматически если пустое, или явно при `--set-default`)
-
-## Поддерживаемые типы объектов
-
-Document, Catalog, DataProcessor, Report, ExternalDataProcessor, ExternalReport, InformationRegister, ChartOfAccounts, ChartOfCharacteristicTypes, ExchangePlan, BusinessProcess, Task
 
 ## Примеры
 

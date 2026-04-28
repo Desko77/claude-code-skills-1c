@@ -11,7 +11,7 @@ allowed-tools:
 
 # /cf-edit — редактирование конфигурации 1С
 
-Редактирует Configuration.xml: состав конфигурации, свойства, роли по умолчанию. Для реквизитов/ТЧ конкретного объекта — используй `/meta-edit`.
+Точечное редактирование Configuration.xml: свойства, состав ChildObjects, роли по умолчанию.
 
 ## Параметры и команда
 
@@ -32,13 +32,13 @@ powershell.exe -NoProfile -File skills/1c-cf-edit/scripts/cf-edit.ps1 -ConfigPat
 | Операция | Формат Value | Описание |
 |----------|-------------|----------|
 | `modify-property` | `Ключ=Значение` (batch `;;`) | Изменить свойство |
-| `add-childObject` | `Type.Name` (batch `;;`) | Добавить объект в ChildObjects |
+| `add-childObject` | `Type.Name` (batch `;;`) | Зарегистрировать уже существующий файл объекта в ChildObjects. Для создания нового объекта используй `/meta-compile`, `/role-compile`, `/subsystem-compile` — они регистрируют автоматически |
 | `remove-childObject` | `Type.Name` (batch `;;`) | Удалить объект из ChildObjects |
 | `add-defaultRole` | `Role.Name` или `Name` | Добавить роль по умолчанию |
 | `remove-defaultRole` | `Role.Name` или `Name` | Удалить роль по умолчанию |
 | `set-defaultRoles` | Имена через `;;` | Заменить список ролей по умолчанию |
 
-Подробнее: `reference.md` в каталоге навыка.
+Допустимые значения свойств, формат DefinitionFile (JSON), каноничный порядок: [reference.md](reference.md)
 
 ## Примеры
 

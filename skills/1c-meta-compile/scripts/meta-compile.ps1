@@ -1,4 +1,4 @@
-﻿# meta-compile v1.2 — Compile 1C metadata object from JSON
+﻿# meta-compile v1.10 — Compile 1C metadata object from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -77,6 +77,96 @@ $script:objectTypeSynonyms = @{
 	"HTTPСервис"              = "HTTPService"
 	"ВебСервис"               = "WebService"
 	"ОпределяемыйТип"         = "DefinedType"
+}
+
+# Enum property value synonyms — model often gets these slightly wrong
+$script:enumValueAliases = @{
+	# RegisterType (AccumulationRegister)
+	"Balances"  = "Balance";  "Остатки" = "Balance";  "Обороты" = "Turnovers"
+	# WriteMode (InformationRegister)
+	"RecordSubordinate" = "RecorderSubordinate"; "Subordinate" = "RecorderSubordinate"
+	"ПодчинениеРегистратору" = "RecorderSubordinate"; "Независимый" = "Independent"
+	# DependenceOnCalculationTypes (ChartOfCalculationTypes)
+	"NotDependOnCalculationTypes" = "DontUse"; "NoDependence" = "DontUse"; "NotUsed" = "DontUse"
+	"Depend" = "OnActionPeriod"; "ПоПериодуДействия" = "OnActionPeriod"
+	# InformationRegisterPeriodicity
+	"None" = "Nonperiodical"; "Daily" = "Day"; "Monthly" = "Month"
+	"Quarterly" = "Quarter"; "Yearly" = "Year"
+	"Непериодический" = "Nonperiodical"; "Секунда" = "Second"; "День" = "Day"
+	"Месяц" = "Month"; "Квартал" = "Quarter"; "Год" = "Year"
+	"ПозицияРегистратора" = "RecorderPosition"
+	# DataLockControlMode
+	"Автоматический" = "Automatic"; "Управляемый" = "Managed"
+	# FullTextSearch
+	"Использовать" = "Use"; "НеИспользовать" = "DontUse"
+	# Posting
+	"Разрешить" = "Allow"; "Запретить" = "Deny"
+	# EditType
+	"ВДиалоге" = "InDialog"; "ВСписке" = "InList"; "ОбаСпособа" = "BothWays"
+	# DefaultPresentation
+	"ВВидеНаименования" = "AsDescription"; "ВВидеКода" = "AsCode"
+	# FillChecking
+	"НеПроверять" = "DontCheck"; "Ошибка" = "ShowError"; "Предупреждение" = "ShowWarning"
+	# Indexing
+	"НеИндексировать" = "DontIndex"; "Индексировать" = "Index"
+	"ИндексироватьСДопУпорядочиванием" = "IndexWithAdditionalOrder"
+}
+
+# Valid enum values per property (from meta-validate)
+$script:validEnumValues = @{
+	"RegisterType"                   = @("Balance","Turnovers")
+	"WriteMode"                      = @("Independent","RecorderSubordinate")
+	"InformationRegisterPeriodicity" = @("Nonperiodical","Second","Day","Month","Quarter","Year","RecorderPosition")
+	"DependenceOnCalculationTypes"   = @("DontUse","OnActionPeriod")
+	"DataLockControlMode"            = @("Automatic","Managed")
+	"FullTextSearch"                 = @("Use","DontUse")
+	"DataHistory"                    = @("Use","DontUse")
+	"DefaultPresentation"            = @("AsDescription","AsCode")
+	"Posting"                        = @("Allow","Deny")
+	"RealTimePosting"                = @("Allow","Deny")
+	"EditType"                       = @("InDialog","InList","BothWays")
+	"HierarchyType"                  = @("HierarchyFoldersAndItems","HierarchyItemsOnly")
+	"CodeType"                       = @("String","Number")
+	"CodeAllowedLength"              = @("Variable","Fixed")
+	"NumberType"                     = @("String","Number")
+	"NumberAllowedLength"            = @("Variable","Fixed")
+	"RegisterRecordsDeletion"        = @("AutoDelete","AutoDeleteOnUnpost","AutoDeleteOff")
+	"RegisterRecordsWritingOnPost"   = @("WriteModified","WriteSelected","WriteAll")
+	"ReturnValuesReuse"              = @("DontUse","DuringRequest","DuringSession")
+	"ReuseSessions"                  = @("DontUse","AutoUse")
+	"FillChecking"                   = @("DontCheck","ShowError","ShowWarning")
+	"Indexing"                       = @("DontIndex","Index","IndexWithAdditionalOrder")
+	"SubordinationUse"               = @("ToItems","ToFolders","ToFoldersAndItems")
+	"CodeSeries"                     = @("WholeCatalog","WithinSubordination")
+	"ChoiceMode"                     = @("BothWays","QuickChoice","FromForm")
+}
+
+function Normalize-EnumValue {
+	param([string]$propName, [string]$value)
+	# 1. Check alias dictionary — silent auto-correct
+	if ($script:enumValueAliases.ContainsKey($value)) {
+		return $script:enumValueAliases[$value]
+	}
+	# 2. Case-insensitive match against valid values — silent
+	$valid = $script:validEnumValues[$propName]
+	if ($valid) {
+		foreach ($v in $valid) {
+			if ($v -ieq $value) { return $v }
+		}
+		# 3. Known property, unknown value — error with hint
+		Write-Error "Invalid value '$value' for property '$propName'. Valid values: $($valid -join ', ')"
+		exit 1
+	}
+	# 4. Unknown property — pass-through (no validation data)
+	return $value
+}
+
+# Helper: read enum property from $def with default and normalization
+function Get-EnumProp {
+	param([string]$propName, [string]$fieldName, [string]$default)
+	$val = $def.$fieldName
+	$raw = if ($val) { "$val" } else { $default }
+	return (Normalize-EnumValue $propName $raw)
 }
 
 if (-not $def.type) {
@@ -411,6 +501,7 @@ function Parse-AttributeShorthand {
 		flags   = @(if ($val.flags) { $val.flags } else { @() })
 		fillChecking = if ($val.fillChecking) { "$($val.fillChecking)" } else { "" }
 		indexing = if ($val.indexing) { "$($val.indexing)" } else { "" }
+		multiLine = if ($val.multiLine -eq $true) { $true } else { $false }
 	}
 }
 
@@ -673,7 +764,8 @@ function Emit-Attribute {
 	param([string]$indent, $parsed, [string]$context)
 	# $context: "catalog", "document", "object", "processor", "tabular", "processor-tabular", "register"
 	$attrName = $parsed.name
-	if ($script:reservedAttrNames.ContainsKey($attrName) -or $script:reservedAttrNames.ContainsValue($attrName)) {
+	if ($context -notin @("tabular", "processor-tabular") -and
+		($script:reservedAttrNames.ContainsKey($attrName) -or $script:reservedAttrNames.ContainsValue($attrName))) {
 		Write-Warning "Attribute '$attrName' conflicts with a standard attribute name. This may cause errors when loading into 1C."
 	}
 	$uuid = New-Guid-String
@@ -700,18 +792,20 @@ function Emit-Attribute {
 	X "$indent`t`t<ToolTip/>"
 	X "$indent`t`t<MarkNegatives>false</MarkNegatives>"
 	X "$indent`t`t<Mask/>"
-	X "$indent`t`t<MultiLine>false</MultiLine>"
+	$multiLine = if ($parsed.multiLine -eq $true -or $parsed.flags -contains "multiline") { "true" } else { "false" }
+	X "$indent`t`t<MultiLine>$multiLine</MultiLine>"
 	X "$indent`t`t<ExtendedEdit>false</ExtendedEdit>"
 	X "$indent`t`t<MinValue xsi:nil=`"true`"/>"
 	X "$indent`t`t<MaxValue xsi:nil=`"true`"/>"
 
-	# FillFromFillingValue — not for tabular/processor (non-stored objects don't have these)
-	if ($context -notin @("tabular", "processor")) {
+	# FillFromFillingValue — not for tabular/processor/chart/register-other
+	# (Chart*, AccumulationRegister/AccountingRegister/CalculationRegister don't support these)
+	if ($context -notin @("tabular", "processor", "chart", "register-other")) {
 		X "$indent`t`t<FillFromFillingValue>false</FillFromFillingValue>"
 	}
 
-	# FillValue — not for tabular/processor
-	if ($context -notin @("tabular", "processor")) {
+	# FillValue — same restriction
+	if ($context -notin @("tabular", "processor", "chart", "register-other")) {
 		Emit-FillValue "$indent`t`t" $typeStr
 	}
 
@@ -744,7 +838,10 @@ function Emit-Attribute {
 		X "$indent`t`t<Indexing>$indexing</Indexing>"
 
 		X "$indent`t`t<FullTextSearch>Use</FullTextSearch>"
-		X "$indent`t`t<DataHistory>Use</DataHistory>"
+		# DataHistory — not for Chart* types and non-InformationRegister register family
+		if ($context -notin @("chart", "register-other")) {
+			X "$indent`t`t<DataHistory>Use</DataHistory>"
+		}
 	}
 
 	X "$indent`t</Properties>"
@@ -840,7 +937,8 @@ function Emit-Dimension {
 	X "$indent`t`t<ToolTip/>"
 	X "$indent`t`t<MarkNegatives>false</MarkNegatives>"
 	X "$indent`t`t<Mask/>"
-	X "$indent`t`t<MultiLine>false</MultiLine>"
+	$multiLine = if ($parsed.multiLine -eq $true -or $parsed.flags -contains "multiline") { "true" } else { "false" }
+	X "$indent`t`t<MultiLine>$multiLine</MultiLine>"
 	X "$indent`t`t<ExtendedEdit>false</ExtendedEdit>"
 	X "$indent`t`t<MinValue xsi:nil=`"true`"/>"
 	X "$indent`t`t<MaxValue xsi:nil=`"true`"/>"
@@ -933,7 +1031,8 @@ function Emit-Resource {
 	X "$indent`t`t<ToolTip/>"
 	X "$indent`t`t<MarkNegatives>false</MarkNegatives>"
 	X "$indent`t`t<Mask/>"
-	X "$indent`t`t<MultiLine>false</MultiLine>"
+	$multiLine = if ($parsed.multiLine -eq $true -or $parsed.flags -contains "multiline") { "true" } else { "false" }
+	X "$indent`t`t<MultiLine>$multiLine</MultiLine>"
 	X "$indent`t`t<ExtendedEdit>false</ExtendedEdit>"
 	X "$indent`t`t<MinValue xsi:nil=`"true`"/>"
 	X "$indent`t`t<MaxValue xsi:nil=`"true`"/>"
@@ -984,20 +1083,33 @@ function Emit-CatalogProperties {
 	X "$i<Comment/>"
 
 	$hierarchical = if ($def.hierarchical -eq $true) { "true" } else { "false" }
-	$hierarchyType = if ($def.hierarchyType) { "$($def.hierarchyType)" } else { "HierarchyFoldersAndItems" }
+	$hierarchyType = Get-EnumProp "HierarchyType" "hierarchyType" "HierarchyFoldersAndItems"
 	X "$i<Hierarchical>$hierarchical</Hierarchical>"
 	X "$i<HierarchyType>$hierarchyType</HierarchyType>"
-	X "$i<LimitLevelCount>false</LimitLevelCount>"
-	X "$i<LevelCount>2</LevelCount>"
-	X "$i<FoldersOnTop>true</FoldersOnTop>"
+	$limitLevelCount = if ($def.limitLevelCount -eq $true) { "true" } else { "false" }
+	$levelCount = if ($null -ne $def.levelCount) { "$($def.levelCount)" } else { "2" }
+	$foldersOnTop = if ($def.foldersOnTop -eq $false) { "false" } else { "true" }
+	X "$i<LimitLevelCount>$limitLevelCount</LimitLevelCount>"
+	X "$i<LevelCount>$levelCount</LevelCount>"
+	X "$i<FoldersOnTop>$foldersOnTop</FoldersOnTop>"
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
-	X "$i<Owners/>"
-	X "$i<SubordinationUse>ToItems</SubordinationUse>"
+	if ($def.owners -and $def.owners.Count -gt 0) {
+		X "$i<Owners>"
+		foreach ($ownerRef in $def.owners) {
+			$fullRef = if ("$ownerRef" -match '\.') { "$ownerRef" } else { "Catalog.$ownerRef" }
+			X "$i`t<xr:Item xsi:type=`"xr:MDObjectRef`">$fullRef</xr:Item>"
+		}
+		X "$i</Owners>"
+	} else {
+		X "$i<Owners/>"
+	}
+	$subordinationUse = Get-EnumProp "SubordinationUse" "subordinationUse" "ToItems"
+	X "$i<SubordinationUse>$subordinationUse</SubordinationUse>"
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
-	$codeType = if ($def.codeType) { "$($def.codeType)" } else { "String" }
-	$codeAllowedLength = if ($def.codeAllowedLength) { "$($def.codeAllowedLength)" } else { "Variable" }
+	$codeType = Get-EnumProp "CodeType" "codeType" "String"
+	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
 	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
 
@@ -1005,19 +1117,22 @@ function Emit-CatalogProperties {
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<CodeType>$codeType</CodeType>"
 	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
-	X "$i<CodeSeries>WholeCatalog</CodeSeries>"
+	$codeSeries = Get-EnumProp "CodeSeries" "codeSeries" "WholeCatalog"
+	X "$i<CodeSeries>$codeSeries</CodeSeries>"
 	X "$i<CheckUnique>$checkUnique</CheckUnique>"
 	X "$i<Autonumbering>$autonumbering</Autonumbering>"
 
-	$defaultPresentation = if ($def.defaultPresentation) { "$($def.defaultPresentation)" } else { "AsDescription" }
+	$defaultPresentation = Get-EnumProp "DefaultPresentation" "defaultPresentation" "AsDescription"
 	X "$i<DefaultPresentation>$defaultPresentation</DefaultPresentation>"
 
 	Emit-StandardAttributes $i "Catalog"
 	X "$i<Characteristics/>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
 	X "$i<EditType>InDialog</EditType>"
-	X "$i<QuickChoice>true</QuickChoice>"
-	X "$i<ChoiceMode>BothWays</ChoiceMode>"
+	$quickChoice = if ($def.quickChoice -eq $false) { "false" } else { "true" }
+	$choiceMode = Get-EnumProp "ChoiceMode" "choiceMode" "BothWays"
+	X "$i<QuickChoice>$quickChoice</QuickChoice>"
+	X "$i<ChoiceMode>$choiceMode</ChoiceMode>"
 	X "$i<InputByString>"
 	X "$i`t<xr:Field>Catalog.$objName.StandardAttribute.Description</xr:Field>"
 	X "$i`t<xr:Field>Catalog.$objName.StandardAttribute.Code</xr:Field>"
@@ -1039,10 +1154,10 @@ function Emit-CatalogProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -1067,9 +1182,9 @@ function Emit-DocumentProperties {
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 	X "$i<Numerator/>"
 
-	$numberType = if ($def.numberType) { "$($def.numberType)" } else { "String" }
+	$numberType = Get-EnumProp "NumberType" "numberType" "String"
 	$numberLength = if ($null -ne $def.numberLength) { "$($def.numberLength)" } else { "11" }
-	$numberAllowedLength = if ($def.numberAllowedLength) { "$($def.numberAllowedLength)" } else { "Variable" }
+	$numberAllowedLength = Get-EnumProp "NumberAllowedLength" "numberAllowedLength" "Variable"
 	$numberPeriodicity = if ($def.numberPeriodicity) { "$($def.numberPeriodicity)" } else { "Year" }
 	$checkUnique = if ($def.checkUnique -eq $false) { "false" } else { "true" }
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
@@ -1099,10 +1214,10 @@ function Emit-DocumentProperties {
 	X "$i<AuxiliaryListForm/>"
 	X "$i<AuxiliaryChoiceForm/>"
 
-	$posting = if ($def.posting) { "$($def.posting)" } else { "Allow" }
-	$realTimePosting = if ($def.realTimePosting) { "$($def.realTimePosting)" } else { "Deny" }
-	$registerRecordsDeletion = if ($def.registerRecordsDeletion) { "$($def.registerRecordsDeletion)" } else { "AutoDelete" }
-	$registerRecordsWritingOnPost = if ($def.registerRecordsWritingOnPost) { "$($def.registerRecordsWritingOnPost)" } else { "WriteModified" }
+	$posting = Get-EnumProp "Posting" "posting" "Allow"
+	$realTimePosting = Get-EnumProp "RealTimePosting" "realTimePosting" "Deny"
+	$registerRecordsDeletion = Get-EnumProp "RegisterRecordsDeletion" "registerRecordsDeletion" "AutoDelete"
+	$registerRecordsWritingOnPost = Get-EnumProp "RegisterRecordsWritingOnPost" "registerRecordsWritingOnPost" "WriteModified"
 	$sequenceFilling = if ($def.sequenceFilling) { "$($def.sequenceFilling)" } else { "AutoFill" }
 	$postInPrivilegedMode = if ($def.postInPrivilegedMode -eq $false) { "false" } else { "true" }
 	$unpostInPrivilegedMode = if ($def.unpostInPrivilegedMode -eq $false) { "false" } else { "true" }
@@ -1148,10 +1263,10 @@ function Emit-DocumentProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -1225,7 +1340,7 @@ function Emit-ConstantProperties {
 	X "$i<LinkByType/>"
 	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 	X "$i<DataHistory>DontUse</DataHistory>"
 	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"
@@ -1248,8 +1363,8 @@ function Emit-InformationRegisterProperties {
 
 	Emit-StandardAttributes $i "InformationRegister"
 
-	$periodicity = if ($def.periodicity) { "$($def.periodicity)" } else { "Nonperiodical" }
-	$writeMode = if ($def.writeMode) { "$($def.writeMode)" } else { "Independent" }
+	$periodicity = Get-EnumProp "InformationRegisterPeriodicity" "periodicity" "Nonperiodical"
+	$writeMode = Get-EnumProp "WriteMode" "writeMode" "Independent"
 
 	# MainFilterOnPeriod: auto based on periodicity unless explicitly set
 	$mainFilterOnPeriod = "false"
@@ -1264,10 +1379,10 @@ function Emit-InformationRegisterProperties {
 	X "$i<MainFilterOnPeriod>$mainFilterOnPeriod</MainFilterOnPeriod>"
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<EnableTotalsSliceFirst>false</EnableTotalsSliceFirst>"
@@ -1293,17 +1408,17 @@ function Emit-AccumulationRegisterProperties {
 	X "$i<DefaultListForm/>"
 	X "$i<AuxiliaryListForm/>"
 
-	$registerType = if ($def.registerType) { "$($def.registerType)" } else { "Balance" }
+	$registerType = Get-EnumProp "RegisterType" "registerType" "Balance"
 	X "$i<RegisterType>$registerType</RegisterType>"
 
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 
 	Emit-StandardAttributes $i "AccumulationRegister"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	$enableTotalsSplitting = if ($def.enableTotalsSplitting -eq $false) { "false" } else { "true" }
@@ -1393,7 +1508,7 @@ function Emit-CommonModuleProperties {
 	X "$i<ServerCall>$serverCall</ServerCall>"
 	X "$i<Privileged>$privileged</Privileged>"
 
-	$returnValuesReuse = if ($def.returnValuesReuse) { "$($def.returnValuesReuse)" } else { "DontUse" }
+	$returnValuesReuse = Get-EnumProp "ReturnValuesReuse" "returnValuesReuse" "DontUse"
 	X "$i<ReturnValuesReuse>$returnValuesReuse</ReturnValuesReuse>"
 }
 
@@ -1532,7 +1647,7 @@ function Emit-ExchangePlanProperties {
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "100" }
-	$codeAllowedLength = if ($def.codeAllowedLength) { "$($def.codeAllowedLength)" } else { "Variable" }
+	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
 
 	X "$i<CodeLength>$codeLength</CodeLength>"
 	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
@@ -1566,10 +1681,10 @@ function Emit-ExchangePlanProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -1595,7 +1710,7 @@ function Emit-ChartOfCharacteristicTypesProperties {
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
-	$codeAllowedLength = if ($def.codeAllowedLength) { "$($def.codeAllowedLength)" } else { "Variable" }
+	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
 	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
 
@@ -1672,10 +1787,10 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -1809,10 +1924,10 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -1852,10 +1967,10 @@ function Emit-AccountingRegisterProperties {
 
 	Emit-StandardAttributes $i "AccountingRegister"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ListPresentation/>"
@@ -1874,8 +1989,8 @@ function Emit-ChartOfCalculationTypesProperties {
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
-	$codeType = if ($def.codeType) { "$($def.codeType)" } else { "String" }
-	$codeAllowedLength = if ($def.codeAllowedLength) { "$($def.codeAllowedLength)" } else { "Variable" }
+	$codeType = Get-EnumProp "CodeType" "codeType" "String"
+	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
 
 	X "$i<CodeLength>$codeLength</CodeLength>"
 	X "$i<CodeType>$codeType</CodeType>"
@@ -1883,7 +1998,7 @@ function Emit-ChartOfCalculationTypesProperties {
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
 
-	$dependence = if ($def.dependenceOnCalculationTypes) { "$($def.dependenceOnCalculationTypes)" } else { "DontUse" }
+	$dependence = Get-EnumProp "DependenceOnCalculationTypes" "dependenceOnCalculationTypes" "DontUse"
 	X "$i<DependenceOnCalculationTypes>$dependence</DependenceOnCalculationTypes>"
 
 	# BaseCalculationTypes
@@ -1925,10 +2040,10 @@ function Emit-ChartOfCalculationTypesProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -1955,7 +2070,7 @@ function Emit-CalculationRegisterProperties {
 	if ($chartOfCalcTypes) { X "$i<ChartOfCalculationTypes>$chartOfCalcTypes</ChartOfCalculationTypes>" }
 	else { X "$i<ChartOfCalculationTypes/>" }
 
-	$periodicity = if ($def.periodicity) { "$($def.periodicity)" } else { "Month" }
+	$periodicity = Get-EnumProp "InformationRegisterPeriodicity" "periodicity" "Month"
 	X "$i<Periodicity>$periodicity</Periodicity>"
 
 	$actionPeriod = if ($def.actionPeriod -eq $true) { "true" } else { "false" }
@@ -1977,10 +2092,10 @@ function Emit-CalculationRegisterProperties {
 
 	Emit-StandardAttributes $i "CalculationRegister"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ListPresentation/>"
@@ -1999,12 +2114,12 @@ function Emit-BusinessProcessProperties {
 	X "$i<Comment/>"
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
-	$editType = if ($def.editType) { "$($def.editType)" } else { "InDialog" }
+	$editType = Get-EnumProp "EditType" "editType" "InDialog"
 	X "$i<EditType>$editType</EditType>"
 
-	$numberType = if ($def.numberType) { "$($def.numberType)" } else { "String" }
+	$numberType = Get-EnumProp "NumberType" "numberType" "String"
 	$numberLength = if ($null -ne $def.numberLength) { "$($def.numberLength)" } else { "11" }
-	$numberAllowedLength = if ($def.numberAllowedLength) { "$($def.numberAllowedLength)" } else { "Variable" }
+	$numberAllowedLength = Get-EnumProp "NumberAllowedLength" "numberAllowedLength" "Variable"
 	$checkUnique = if ($def.checkUnique -eq $false) { "false" } else { "true" }
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
 
@@ -2041,10 +2156,10 @@ function Emit-BusinessProcessProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -2067,9 +2182,9 @@ function Emit-TaskProperties {
 	X "$i<Comment/>"
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
-	$numberType = if ($def.numberType) { "$($def.numberType)" } else { "String" }
+	$numberType = Get-EnumProp "NumberType" "numberType" "String"
 	$numberLength = if ($null -ne $def.numberLength) { "$($def.numberLength)" } else { "14" }
-	$numberAllowedLength = if ($def.numberAllowedLength) { "$($def.numberAllowedLength)" } else { "Variable" }
+	$numberAllowedLength = Get-EnumProp "NumberAllowedLength" "numberAllowedLength" "Variable"
 	$checkUnique = if ($def.checkUnique -eq $false) { "false" } else { "true" }
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
 
@@ -2114,10 +2229,10 @@ function Emit-TaskProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = if ($def.dataLockControlMode) { "$($def.dataLockControlMode)" } else { "Automatic" }
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = if ($def.fullTextSearch) { "$($def.fullTextSearch)" } else { "Use" }
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
@@ -2144,7 +2259,7 @@ function Emit-HTTPServiceProperties {
 	$rootURL = if ($def.rootURL) { "$($def.rootURL)" } else { $objName.ToLower() }
 	X "$i<RootURL>$(Esc-Xml $rootURL)</RootURL>"
 
-	$reuseSessions = if ($def.reuseSessions) { "$($def.reuseSessions)" } else { "DontUse" }
+	$reuseSessions = Get-EnumProp "ReuseSessions" "reuseSessions" "DontUse"
 	X "$i<ReuseSessions>$reuseSessions</ReuseSessions>"
 
 	$sessionMaxAge = if ($null -ne $def.sessionMaxAge) { "$($def.sessionMaxAge)" } else { "20" }
@@ -2165,7 +2280,7 @@ function Emit-WebServiceProperties {
 	$xdtoPackages = if ($def.xdtoPackages) { "$($def.xdtoPackages)" } else { "" }
 	if ($xdtoPackages) { X "$i<XDTOPackages>$xdtoPackages</XDTOPackages>" } else { X "$i<XDTOPackages/>" }
 
-	$reuseSessions = if ($def.reuseSessions) { "$($def.reuseSessions)" } else { "DontUse" }
+	$reuseSessions = Get-EnumProp "ReuseSessions" "reuseSessions" "DontUse"
 	X "$i<ReuseSessions>$reuseSessions</ReuseSessions>"
 
 	$sessionMaxAge = if ($null -ne $def.sessionMaxAge) { "$($def.sessionMaxAge)" } else { "20" }
@@ -2453,13 +2568,32 @@ function Emit-AddressingAttribute {
 
 $script:xmlnsDecl = 'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
 
+# --- 14a. Detect format version from existing Configuration.xml ---
+
+function Detect-FormatVersion([string]$dir) {
+	$d = $dir
+	while ($d) {
+		$cfgPath = Join-Path $d "Configuration.xml"
+		if (Test-Path $cfgPath) {
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
+		}
+		$parent = Split-Path $d -Parent
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return "2.17"
+}
+
+$script:formatVersion = Detect-FormatVersion $OutputDir
+
 # --- 15. Main assembler ---
 
 $uuid = New-Guid-String
 
 # XML declaration
 X '<?xml version="1.0" encoding="UTF-8"?>'
-X "<MetaDataObject $($script:xmlnsDecl) version=`"2.17`">"
+X "<MetaDataObject $($script:xmlnsDecl) version=`"$($script:formatVersion)`">"
 X "`t<$objType uuid=`"$uuid`">"
 
 # InternalInfo
@@ -2549,6 +2683,7 @@ if ($objType -in $typesWithAttrTS) {
 			"Catalog"  { "catalog" }
 			"Document" { "document" }
 			{ $_ -in @("DataProcessor","Report") } { "processor" }
+			{ $_ -in @("ChartOfAccounts","ChartOfCharacteristicTypes","ChartOfCalculationTypes") } { "chart" }
 			default    { "object" }
 		}
 		foreach ($a in $attrs) {
@@ -2559,10 +2694,12 @@ if ($objType -in $typesWithAttrTS) {
 			Emit-TabularSection "`t`t`t" $tsName $columns $objType $objName
 		}
 		foreach ($af in $acctFlags) {
-			Emit-AccountingFlag "`t`t`t" "$af"
+			$afName = if ($af.name) { $af.name } else { "$af" }
+			Emit-AccountingFlag "`t`t`t" $afName
 		}
 		foreach ($edf in $extDimFlags) {
-			Emit-ExtDimensionAccountingFlag "`t`t`t" "$edf"
+			$edfName = if ($edf.name) { $edf.name } else { "$edf" }
+			Emit-ExtDimensionAccountingFlag "`t`t`t" $edfName
 		}
 		foreach ($aa in $addrAttrs) {
 			Emit-AddressingAttribute "`t`t`t" $aa
@@ -2625,8 +2762,11 @@ if ($objType -in @("InformationRegister","AccumulationRegister","AccountingRegis
 		foreach ($d in $dims) {
 			Emit-Dimension "`t`t`t" $d $objType
 		}
+		# InformationRegister.Attribute supports FillFromFillingValue/FillValue/DataHistory;
+		# AccumulationRegister/AccountingRegister/CalculationRegister.Attribute do NOT.
+		$regCtx = if ($objType -eq "InformationRegister") { "register-info" } else { "register-other" }
 		foreach ($a in $regAttrs) {
-			Emit-Attribute "`t`t`t" $a "register"
+			Emit-Attribute "`t`t`t" $a $regCtx
 		}
 		X "`t`t</ChildObjects>"
 	} else {
@@ -2743,8 +2883,8 @@ if (-not (Test-Path $typeDir)) {
 	New-Item -ItemType Directory -Path $typeDir -Force | Out-Null
 }
 if ($objType -notin $typesNoSubDir) {
-	if (-not (Test-Path $extDir)) {
-		New-Item -ItemType Directory -Path $extDir -Force | Out-Null
+	if (-not (Test-Path $objSubDir)) {
+		New-Item -ItemType Directory -Path $objSubDir -Force | Out-Null
 	}
 }
 
@@ -2754,18 +2894,46 @@ $enc = New-Object System.Text.UTF8Encoding($true)
 # Module files
 $modulesCreated = @()
 
+# Helper: create Ext/ only when needed (avoids empty Ext/ for Constant, Enum, etc.)
+function Ensure-ExtDir {
+	if (-not (Test-Path $extDir)) {
+		New-Item -ItemType Directory -Path $extDir -Force | Out-Null
+	}
+}
+
 # Types with ObjectModule.bsl
 $typesWithObjectModule = @("Catalog","Document","Report","DataProcessor","ExchangePlan",
 	"ChartOfAccounts","ChartOfCharacteristicTypes","ChartOfCalculationTypes",
 	"BusinessProcess","Task")
 # Types with RecordSetModule.bsl
 $typesWithRecordSetModule = @("InformationRegister","AccumulationRegister","AccountingRegister","CalculationRegister")
+# Types with ManagerModule.bsl
+$typesWithManagerModule = @("Report","DataProcessor","Constant","Enum")
+# Types with ValueManagerModule.bsl
+$typesWithValueManagerModule = @("Constant")
 # Types with Module.bsl (general)
 $typesWithModule = @("CommonModule","HTTPService","WebService")
 
 if ($objType -in $typesWithObjectModule) {
 	$modulePath = Join-Path $extDir "ObjectModule.bsl"
 	if (-not (Test-Path $modulePath)) {
+		Ensure-ExtDir
+		[System.IO.File]::WriteAllText($modulePath, "", $enc)
+		$modulesCreated += $modulePath
+	}
+}
+if ($objType -in $typesWithManagerModule) {
+	$modulePath = Join-Path $extDir "ManagerModule.bsl"
+	if (-not (Test-Path $modulePath)) {
+		Ensure-ExtDir
+		[System.IO.File]::WriteAllText($modulePath, "", $enc)
+		$modulesCreated += $modulePath
+	}
+}
+if ($objType -in $typesWithValueManagerModule) {
+	$modulePath = Join-Path $extDir "ValueManagerModule.bsl"
+	if (-not (Test-Path $modulePath)) {
+		Ensure-ExtDir
 		[System.IO.File]::WriteAllText($modulePath, "", $enc)
 		$modulesCreated += $modulePath
 	}
@@ -2773,6 +2941,7 @@ if ($objType -in $typesWithObjectModule) {
 if ($objType -in $typesWithRecordSetModule) {
 	$modulePath = Join-Path $extDir "RecordSetModule.bsl"
 	if (-not (Test-Path $modulePath)) {
+		Ensure-ExtDir
 		[System.IO.File]::WriteAllText($modulePath, "", $enc)
 		$modulesCreated += $modulePath
 	}
@@ -2780,6 +2949,7 @@ if ($objType -in $typesWithRecordSetModule) {
 if ($objType -in $typesWithModule) {
 	$modulePath = Join-Path $extDir "Module.bsl"
 	if (-not (Test-Path $modulePath)) {
+		Ensure-ExtDir
 		[System.IO.File]::WriteAllText($modulePath, "", $enc)
 		$modulesCreated += $modulePath
 	}
@@ -2789,7 +2959,8 @@ if ($objType -in $typesWithModule) {
 if ($objType -eq "ExchangePlan") {
 	$contentPath = Join-Path $extDir "Content.xml"
 	if (-not (Test-Path $contentPath)) {
-		$contentXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<ExchangePlanContent xmlns=`"http://v8.1c.ru/8.3/xcf/extrnprops`" xmlns:xr=`"http://v8.1c.ru/8.3/xcf/readable`" version=`"2.17`"/>`r`n"
+		Ensure-ExtDir
+		$contentXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<ExchangePlanContent xmlns=`"http://v8.1c.ru/8.3/xcf/extrnprops`" xmlns:xr=`"http://v8.1c.ru/8.3/xcf/readable`" version=`"$($script:formatVersion)`"/>`r`n"
 		[System.IO.File]::WriteAllText($contentPath, $contentXml, $enc)
 		$modulesCreated += $contentPath
 	}
@@ -2797,7 +2968,8 @@ if ($objType -eq "ExchangePlan") {
 if ($objType -eq "BusinessProcess") {
 	$flowchartPath = Join-Path $extDir "Flowchart.xml"
 	if (-not (Test-Path $flowchartPath)) {
-		$flowchartXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<Flowchart xmlns=`"http://v8.1c.ru/8.3/MDClasses`" version=`"2.17`"/>`r`n"
+		Ensure-ExtDir
+		$flowchartXml = "<?xml version=`"1.0`" encoding=`"UTF-8`"?>`r`n<Flowchart xmlns=`"http://v8.1c.ru/8.3/MDClasses`" version=`"$($script:formatVersion)`"/>`r`n"
 		[System.IO.File]::WriteAllText($flowchartPath, $flowchartXml, $enc)
 		$modulesCreated += $flowchartPath
 	}

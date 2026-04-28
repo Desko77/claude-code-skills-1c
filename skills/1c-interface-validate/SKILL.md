@@ -17,7 +17,7 @@ allowed-tools:
 | Параметр  | Обяз. | Умолч. | Описание                                |
 |-----------|:-----:|---------|-----------------------------------------|
 | CIPath    | да    | —       | Путь к CommandInterface.xml             |
-| Detailed  | нет   | —       | Показывать [OK] для каждой проверки      |
+| Detailed  | нет   | —       | Подробный вывод (все проверки, включая успешные) |
 | MaxErrors | нет   | 30      | Остановиться после N ошибок              |
 | OutFile   | нет   | —       | Записать результат в файл (UTF-8 BOM)   |
 
@@ -27,23 +27,3 @@ allowed-tools:
 powershell.exe -NoProfile -File "skills/1c-interface-validate/scripts/interface-validate.ps1" -CIPath "Subsystems/Продажи"
 powershell.exe -NoProfile -File "skills/1c-interface-validate/scripts/interface-validate.ps1" -CIPath "Subsystems/Продажи/Ext/CommandInterface.xml"
 ```
-
-## Проверки (13)
-
-| #  | Проверка                                                    | Серьёзность |
-|----|--------------------------------------------------------------|-------------|
-| 1  | XML well-formedness + root element (CommandInterface, version, namespace) | ERROR |
-| 2  | Допустимые дочерние элементы (только 5 секций)               | ERROR |
-| 3  | Порядок секций корректен                                     | ERROR |
-| 4  | Нет дублирующихся секций                                     | ERROR |
-| 5  | CommandsVisibility — Command.name + Visibility/xr:Common     | ERROR |
-| 6  | CommandsVisibility — нет дубликатов по name                  | WARN  |
-| 7  | CommandsPlacement — Command.name + CommandGroup + Placement  | ERROR |
-| 8  | CommandsOrder — Command.name + CommandGroup                  | ERROR |
-| 9  | SubsystemsOrder — Subsystem непустой, формат Subsystem.X     | ERROR |
-| 10 | SubsystemsOrder — нет дубликатов                             | WARN  |
-| 11 | GroupsOrder — Group непустой                                 | ERROR |
-| 12 | GroupsOrder — нет дубликатов                                 | WARN  |
-| 13 | Формат ссылок на команды                                     | WARN  |
-
-Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

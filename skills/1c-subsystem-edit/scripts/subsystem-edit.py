@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# subsystem-edit v1.0 — Edit existing 1C subsystem XML
+# subsystem-edit v1.2 — Edit existing 1C subsystem XML
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -7,7 +7,63 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from lxml import etree
+
+
+def new_uuid():
+    return str(uuid.uuid4())
+
+
+def esc_xml(s):
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+
+def write_utf8_bom(path, content):
+    with open(path, 'w', encoding='utf-8-sig', newline='') as f:
+        f.write(content)
+
+
+def write_child_subsystem_stub(child_path, child_name, format_version):
+    child_uuid = new_uuid()
+    lines = []
+    lines.append('<?xml version="1.0" encoding="UTF-8"?>')
+    lines.append(
+        '<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" '
+        'xmlns:app="http://v8.1c.ru/8.2/managed-application/core" '
+        'xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" '
+        'xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" '
+        'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" '
+        'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" '
+        'xmlns:style="http://v8.1c.ru/8.1/data/ui/style" '
+        'xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" '
+        'xmlns:v8="http://v8.1c.ru/8.1/data/core" '
+        'xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" '
+        'xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" '
+        'xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" '
+        'xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" '
+        'xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" '
+        'xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" '
+        'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        f'version="{format_version}">'
+    )
+    lines.append(f'\t<Subsystem uuid="{child_uuid}">')
+    lines.append('\t\t<Properties>')
+    lines.append(f'\t\t\t<Name>{esc_xml(child_name)}</Name>')
+    lines.append('\t\t\t<Synonym/>')
+    lines.append('\t\t\t<Comment/>')
+    lines.append('\t\t\t<IncludeHelpInContents>true</IncludeHelpInContents>')
+    lines.append('\t\t\t<IncludeInCommandInterface>true</IncludeInCommandInterface>')
+    lines.append('\t\t\t<UseOneCommand>false</UseOneCommand>')
+    lines.append('\t\t\t<Explanation/>')
+    lines.append('\t\t\t<Picture/>')
+    lines.append('\t\t\t<Content/>')
+    lines.append('\t\t</Properties>')
+    lines.append('\t\t<ChildObjects/>')
+    lines.append('\t</Subsystem>')
+    lines.append('</MetaDataObject>')
+    write_utf8_bom(child_path, '\n'.join(lines) + '\n')
 
 MD_NS = "http://v8.1c.ru/8.3/MDClasses"
 XR_NS = "http://v8.1c.ru/8.3/xcf/readable"
@@ -22,6 +78,86 @@ NSMAP_WRAPPER = {
     "xr": XR_NS,
     "xs": XS_NS,
 }
+
+
+CONTENT_TYPE_MAP = {
+    'Catalogs': 'Catalog', 'Documents': 'Document', 'Enums': 'Enum',
+    'Constants': 'Constant', 'Reports': 'Report', 'DataProcessors': 'DataProcessor',
+    'InformationRegisters': 'InformationRegister', 'AccumulationRegisters': 'AccumulationRegister',
+    'AccountingRegisters': 'AccountingRegister', 'CalculationRegisters': 'CalculationRegister',
+    'ChartsOfAccounts': 'ChartOfAccounts', 'ChartsOfCharacteristicTypes': 'ChartOfCharacteristicTypes',
+    'ChartsOfCalculationTypes': 'ChartOfCalculationTypes',
+    'BusinessProcesses': 'BusinessProcess', 'Tasks': 'Task',
+    'ExchangePlans': 'ExchangePlan', 'DocumentJournals': 'DocumentJournal',
+    'CommonModules': 'CommonModule', 'CommonCommands': 'CommonCommand',
+    'CommonForms': 'CommonForm', 'CommonPictures': 'CommonPicture',
+    'CommonTemplates': 'CommonTemplate', 'CommonAttributes': 'CommonAttribute',
+    'CommandGroups': 'CommandGroup', 'Roles': 'Role',
+    'SessionParameters': 'SessionParameter', 'FilterCriteria': 'FilterCriterion',
+    'XDTOPackages': 'XDTOPackage', 'WebServices': 'WebService',
+    'HTTPServices': 'HTTPService', 'WSReferences': 'WSReference',
+    'EventSubscriptions': 'EventSubscription', 'ScheduledJobs': 'ScheduledJob',
+    'SettingsStorages': 'SettingsStorage', 'FunctionalOptions': 'FunctionalOption',
+    'FunctionalOptionsParameters': 'FunctionalOptionsParameter',
+    'DefinedTypes': 'DefinedType', 'DocumentNumerators': 'DocumentNumerator',
+    'Sequences': 'Sequence', 'Subsystems': 'Subsystem',
+    'StyleItems': 'StyleItem', 'IntegrationServices': 'IntegrationService',
+    # Russian singular
+    'Справочник': 'Catalog', 'Каталог': 'Catalog', 'Документ': 'Document',
+    'Перечисление': 'Enum', 'Константа': 'Constant',
+    'Отчёт': 'Report', 'Отчет': 'Report', 'Обработка': 'DataProcessor',
+    'РегистрСведений': 'InformationRegister', 'РегистрНакопления': 'AccumulationRegister',
+    'РегистрБухгалтерии': 'AccountingRegister',
+    'РегистрРасчёта': 'CalculationRegister', 'РегистрРасчета': 'CalculationRegister',
+    'ПланСчетов': 'ChartOfAccounts', 'ПланВидовХарактеристик': 'ChartOfCharacteristicTypes',
+    'ПланВидовРасчёта': 'ChartOfCalculationTypes', 'ПланВидовРасчета': 'ChartOfCalculationTypes',
+    'БизнесПроцесс': 'BusinessProcess', 'Задача': 'Task',
+    'ПланОбмена': 'ExchangePlan', 'ЖурналДокументов': 'DocumentJournal',
+    'ОбщийМодуль': 'CommonModule', 'ОбщаяКоманда': 'CommonCommand',
+    'ОбщаяФорма': 'CommonForm', 'ОбщаяКартинка': 'CommonPicture',
+    'ОбщийМакет': 'CommonTemplate', 'ОбщийРеквизит': 'CommonAttribute',
+    'ГруппаКоманд': 'CommandGroup', 'Роль': 'Role',
+    'ПараметрСеанса': 'SessionParameter', 'КритерийОтбора': 'FilterCriterion',
+    'ПакетXDTO': 'XDTOPackage', 'ВебСервис': 'WebService',
+    'HTTPСервис': 'HTTPService', 'WSСсылка': 'WSReference',
+    'ПодпискаНаСобытие': 'EventSubscription', 'РегламентноеЗадание': 'ScheduledJob',
+    'ХранилищеНастроек': 'SettingsStorage', 'ФункциональнаяОпция': 'FunctionalOption',
+    'ПараметрФункциональныхОпций': 'FunctionalOptionsParameter',
+    'ОпределяемыйТип': 'DefinedType', 'Подсистема': 'Subsystem',
+    'ЭлементСтиля': 'StyleItem', 'СервисИнтеграции': 'IntegrationService',
+    # Russian plural
+    'Справочники': 'Catalog', 'Документы': 'Document', 'Перечисления': 'Enum',
+    'Константы': 'Constant', 'Отчёты': 'Report', 'Отчеты': 'Report',
+    'Обработки': 'DataProcessor', 'РегистрыСведений': 'InformationRegister',
+    'РегистрыНакопления': 'AccumulationRegister', 'РегистрыБухгалтерии': 'AccountingRegister',
+    'РегистрыРасчёта': 'CalculationRegister', 'РегистрыРасчета': 'CalculationRegister',
+    'ПланыСчетов': 'ChartOfAccounts', 'ПланыВидовХарактеристик': 'ChartOfCharacteristicTypes',
+    'ПланыВидовРасчёта': 'ChartOfCalculationTypes', 'ПланыВидовРасчета': 'ChartOfCalculationTypes',
+    'БизнесПроцессы': 'BusinessProcess', 'Задачи': 'Task',
+    'ПланыОбмена': 'ExchangePlan', 'ЖурналыДокументов': 'DocumentJournal',
+    'ОбщиеМодули': 'CommonModule', 'ОбщиеКоманды': 'CommonCommand',
+    'ОбщиеФормы': 'CommonForm', 'ОбщиеКартинки': 'CommonPicture',
+    'ОбщиеМакеты': 'CommonTemplate', 'ОбщиеРеквизиты': 'CommonAttribute',
+    'ГруппыКоманд': 'CommandGroup', 'Роли': 'Role',
+    'ПараметрыСеанса': 'SessionParameter', 'КритерииОтбора': 'FilterCriterion',
+    'ПакетыXDTO': 'XDTOPackage', 'ВебСервисы': 'WebService',
+    'HTTPСервисы': 'HTTPService', 'WSСсылки': 'WSReference',
+    'ПодпискиНаСобытия': 'EventSubscription', 'РегламентныеЗадания': 'ScheduledJob',
+    'ХранилищаНастроек': 'SettingsStorage', 'ФункциональныеОпции': 'FunctionalOption',
+    'ОпределяемыеТипы': 'DefinedType', 'Подсистемы': 'Subsystem',
+    'ЭлементыСтиля': 'StyleItem', 'СервисыИнтеграции': 'IntegrationService',
+}
+
+
+def normalize_content_ref(ref):
+    if not ref or '.' not in ref:
+        return ref
+    dot_idx = ref.index('.')
+    type_part = ref[:dot_idx]
+    name_part = ref[dot_idx + 1:]
+    if type_part in CONTENT_TYPE_MAP:
+        type_part = CONTENT_TYPE_MAP[type_part]
+    return f'{type_part}.{name_part}'
 
 
 def localname(el):
@@ -122,7 +258,9 @@ def parse_value_list(val):
 
 def save_xml_bom(tree, path):
     xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
-    xml_bytes = xml_bytes.replace(b"encoding='UTF-8'", b'encoding="UTF-8"')
+    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
+    if not xml_bytes.endswith(b"\n"):
+        xml_bytes += b"\n"
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)
@@ -182,6 +320,7 @@ def main():
     xml_parser = etree.XMLParser(remove_blank_text=False)
     tree = etree.parse(resolved_path, xml_parser)
     xml_root = tree.getroot()
+    format_version = xml_root.get("version") or "2.17"
 
     add_count = 0
     remove_count = 0
@@ -237,7 +376,10 @@ def main():
             expand_self_closing(content_el, props_indent)
         content_indent = get_child_indent(content_el)
 
-        for item in items:
+        for raw_item in items:
+            item = normalize_content_ref(raw_item)
+            if item != raw_item:
+                print(f'[NORM] Content: {raw_item} -> {item}')
             if item in existing:
                 warn(f"Content already contains: {item}")
                 continue
@@ -295,6 +437,18 @@ def main():
         insert_before_closing(child_objs_el, new_el, ci)
         add_count += 1
         info(f"Added child subsystem: {child_name}")
+
+        # Write stub XML for the new child if it doesn't exist yet
+        parent_dir = os.path.dirname(resolved_path)
+        parent_base_name = os.path.splitext(os.path.basename(resolved_path))[0]
+        child_subs_dir = os.path.join(parent_dir, parent_base_name, 'Subsystems')
+        if not os.path.exists(child_subs_dir):
+            os.makedirs(child_subs_dir, exist_ok=True)
+            info(f"Created directory: {child_subs_dir}")
+        child_xml = os.path.join(child_subs_dir, f'{child_name}.xml')
+        if not os.path.exists(child_xml):
+            write_child_subsystem_stub(child_xml, child_name, format_version)
+            info(f"Created stub: {child_xml}")
 
     def do_remove_child(child_name):
         nonlocal remove_count

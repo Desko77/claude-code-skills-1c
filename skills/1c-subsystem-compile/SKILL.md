@@ -38,8 +38,7 @@ powershell.exe -NoProfile -File 'skills/1c-subsystem-compile/scripts/subsystem-c
   "useOneCommand": false,
   "explanation": "Описание раздела",
   "picture": "CommonPicture.МояКартинка",
-  "content": ["Catalog.Товары", "Document.Заказ"],
-  "children": ["ДочерняяА", "ДочерняяБ"]
+  "content": ["Catalog.Товары", "Document.Заказ"]
 }
 ```
 
@@ -58,8 +57,3 @@ powershell.exe -NoProfile -File 'skills/1c-subsystem-compile/scripts/subsystem-c
 ... -Value '{"name":"Дочерняя"}' -OutputDir config/ -Parent config/Subsystems/Продажи.xml
 ```
 
-## Что генерируется
-
-- `{OutputDir}/Subsystems/{Name}.xml` — определение подсистемы
-- `{OutputDir}/Subsystems/{Name}/` — каталог (если есть children)
-- `Configuration.xml` или родительская подсистема — регистрация в `<ChildObjects>`

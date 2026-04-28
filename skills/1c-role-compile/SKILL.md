@@ -1,7 +1,7 @@
 ---
 name: 1c-role-compile
 description: Создание роли 1С из описания прав. Используй когда нужно создать новую роль с набором прав на объекты
-argument-hint: <JsonPath> <RolesDir>
+argument-hint: <JsonPath> <OutputDir>
 allowed-tools:
   - Bash
   - Read
@@ -18,13 +18,13 @@ allowed-tools:
 | Параметр | Описание |
 |----------|----------|
 | `JsonPath` | Путь к JSON-определению роли |
-| `RolesDir` | Каталог `Roles/` в исходниках конфигурации |
+| `OutputDir` | Корень выгрузки конфигурации (где `Configuration.xml`, `Roles/` и т.д.) |
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 -JsonPath "<json>" -OutputDir "<RolesDir>"
+powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
 ```
 
-`<Role>ИмяРоли</Role>` автоматически добавляется в `<ChildObjects>` файла `Configuration.xml` (ожидается в parent от `RolesDir`).
+Создаёт `{OutputDir}/Roles/Имя.xml` и `{OutputDir}/Roles/Имя/Ext/Rights.xml`. Регистрирует `<Role>` в `Configuration.xml`.
 
 ## JSON DSL
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# form-add v1.0 — Add managed form to 1C config object
+# form-add v1.3 — Add managed form to 1C config object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
 import os
+import re
 import sys
 import uuid
 
@@ -15,10 +16,28 @@ NSMAP = {
 }
 
 
+def detect_format_version(d):
+    while d:
+        cfg_path = os.path.join(d, "Configuration.xml")
+        if os.path.isfile(cfg_path):
+            with open(cfg_path, "r", encoding="utf-8-sig") as f:
+                head = f.read(2000)
+            m = re.search(r'<MetaDataObject[^>]+version="(\d+\.\d+)"', head)
+            if m:
+                return m.group(1)
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return "2.17"
+
+
 def save_xml_with_bom(tree, path):
     """Save XML tree to file with UTF-8 BOM."""
     xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
-    xml_bytes = xml_bytes.replace(b"encoding='UTF-8'", b'encoding="UTF-8"')
+    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
+    if not xml_bytes.endswith(b"\n"):
+        xml_bytes += b"\n"
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)
@@ -49,13 +68,24 @@ def main():
 
     # --- Phase 1: Determine object type ---
 
+    # Resolve ObjectPath (directory → .xml)
+    if not os.path.isabs(object_path):
+        object_path = os.path.join(os.getcwd(), object_path)
     if os.path.isdir(object_path):
-        object_path = object_path.rstrip("/\\") + ".xml"
+        dir_name = os.path.basename(object_path.rstrip("/\\"))
+        candidate = os.path.join(object_path, dir_name + ".xml")
+        sibling = os.path.join(os.path.dirname(object_path.rstrip("/\\")), dir_name + ".xml")
+        if os.path.isfile(candidate):
+            object_path = candidate
+        elif os.path.isfile(sibling):
+            object_path = sibling
     if not os.path.isfile(object_path):
         print(f"Файл объекта не найден: {object_path}", file=sys.stderr)
         sys.exit(1)
 
     object_xml_full = os.path.abspath(object_path)
+    format_version = detect_format_version(os.path.dirname(object_xml_full))
+
     parser_xml = etree.XMLParser(remove_blank_text=False)
     tree = etree.parse(object_xml_full, parser_xml)
     root = tree.getroot()
@@ -63,7 +93,7 @@ def main():
     supported_types = [
         "Document", "Catalog", "DataProcessor", "Report",
         "ExternalDataProcessor", "ExternalReport",
-        "InformationRegister", "ChartOfAccounts", "ChartOfCharacteristicTypes",
+        "InformationRegister", "AccumulationRegister", "ChartOfAccounts", "ChartOfCharacteristicTypes",
         "ExchangePlan", "BusinessProcess", "Task",
     ]
 
@@ -160,7 +190,7 @@ def main():
         ' xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"'
         ' xmlns:xs="http://www.w3.org/2001/XMLSchema"'
         ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-        ' version="2.17">\n'
+        f' version="{format_version}">\n'
         f'\t<Form uuid="{form_uuid}">\n'
         '\t\t<Properties>\n'
         f'\t\t\t<Name>{form_name}</Name>\n'
@@ -177,8 +207,8 @@ def main():
         '\t\t\t\t<v8:Value xsi:type="app:ApplicationUsePurpose">PlatformApplication</v8:Value>\n'
         '\t\t\t\t<v8:Value xsi:type="app:ApplicationUsePurpose">MobilePlatformApplication</v8:Value>\n'
         '\t\t\t</UsePurposes>\n'
-        '\t\t\t<ExtendedPresentation/>\n'
-        '\t\t</Properties>\n'
+        + ('\t\t\t<ExtendedPresentation/>\n' if object_type in processor_like_types else '')
+        + '\t\t</Properties>\n'
         '\t</Form>\n'
         '</MetaDataObject>'
     )
@@ -214,7 +244,7 @@ def main():
 
         form_xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>\n'
-            f'<Form {form_ns_decl} version="2.17">\n'
+            f'<Form {form_ns_decl} version="{format_version}">\n'
             '\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">\n'
             '\t\t<Autofill>true</Autofill>\n'
             '\t</AutoCommandBar>\n'
@@ -243,7 +273,7 @@ def main():
 
         form_xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>\n'
-            f'<Form {form_ns_decl} version="2.17">\n'
+            f'<Form {form_ns_decl} version="{format_version}">\n'
             '\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">\n'
             '\t\t<Autofill>true</Autofill>\n'
             '\t</AutoCommandBar>\n'
@@ -280,13 +310,14 @@ def main():
             "BusinessProcess": "BusinessProcessObject",
             "Task": "TaskObject",
             "InformationRegister": "InformationRegisterRecordManager",
+            "AccumulationRegister": "AccumulationRegisterRecordSet",
         }
 
         main_attr_type = f"{attr_type_map[object_type]}.{object_name}"
 
         form_xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>\n'
-            f'<Form {form_ns_decl} version="2.17">\n'
+            f'<Form {form_ns_decl} version="{format_version}">\n'
             '\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">\n'
             '\t\t<Autofill>true</Autofill>\n'
             '\t</AutoCommandBar>\n'

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# meta-remove v1.0 — Remove metadata object from 1C configuration dump
+# meta-remove v1.1 — Remove metadata object from 1C configuration dump
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -99,7 +99,9 @@ def localname(el):
 
 def save_xml_bom(tree, path):
     xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
-    xml_bytes = xml_bytes.replace(b"encoding='UTF-8'", b'encoding="UTF-8"')
+    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
+    if not xml_bytes.endswith(b"\n"):
+        xml_bytes += b"\n"
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)
@@ -163,6 +165,19 @@ def main():
     has_dir = os.path.isdir(obj_dir)
 
     if not has_xml and not has_dir:
+        # Check if registered in Configuration.xml before proceeding
+        cfg_check_tree = etree.parse(config_xml, etree.XMLParser(remove_blank_text=False))
+        cfg_check_root = cfg_check_tree.getroot()
+        child_objects = cfg_check_root.find(f"{{{MD_NS}}}Configuration/{{{MD_NS}}}ChildObjects")
+        registered_in_cfg = False
+        if child_objects is not None:
+            for child in child_objects:
+                if isinstance(child.tag, str) and etree.QName(child.tag).localname == obj_type and (child.text or "").strip() == obj_name:
+                    registered_in_cfg = True
+                    break
+        if not registered_in_cfg:
+            print(f"[ERROR] Object not found: {type_plural}/{obj_name}.xml and not registered in Configuration.xml")
+            sys.exit(1)
         print(f"[WARN]  Object files not found: {type_plural}/{obj_name}.xml")
         print("        Proceeding with deregistration only...")
     else:

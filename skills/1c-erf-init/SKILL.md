@@ -34,32 +34,6 @@ allowed-tools:
 powershell.exe -NoProfile -File skills/1c-erf-init/scripts/init.ps1 -Name "<Name>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] [-WithSKD]
 ```
 
-## Что создаётся
-
-```
-<SrcDir>/
-├── <Name>.xml          # Корневой файл метаданных (4 UUID)
-└── <Name>/
-    └── Ext/
-        └── ObjectModule.bsl  # Модуль объекта с 3 регионами
-```
-
-При `--WithSKD` дополнительно:
-
-```
-<SrcDir>/<Name>/
-    Templates/
-    ├── ОсновнаяСхемаКомпоновкиДанных.xml        # Метаданные макета
-    └── ОсновнаяСхемаКомпоновкиДанных/
-        └── Ext/
-            └── Template.xml                      # Пустая СКД
-```
-
-- Корневой XML содержит `MetaDataObject/ExternalReport` с пустыми `DefaultForm`, `MainDataCompositionSchema` и `ChildObjects`
-- При `--WithSKD` — `MainDataCompositionSchema` заполняется ссылкой на макет, `ChildObjects` содержит `<Template>`
-- ClassId фиксирован: `e41aff26-25cf-4bb6-b6c1-3f478a75f374`
-- Файл создаётся в UTF-8 с BOM
-
 ## Дальнейшие шаги
 
 - Добавить форму: `/form-add`

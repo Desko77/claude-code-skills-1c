@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-load-xml v1.1 — Load 1C configuration from XML files
+# db-load-xml v1.3 — Load 1C configuration from XML files
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -63,6 +63,11 @@ def main():
         help="File format (default: Hierarchical)",
     )
     parser.add_argument("-UpdateDB", action="store_true", help="Also update database configuration after load")
+    parser.add_argument(
+        "-StrictLog",
+        action="store_true",
+        help="Treat silent rejection warnings in the log as errors (elevate exit code to 1)",
+    )
     args = parser.parse_args()
 
     # --- Resolve V8Path ---
@@ -157,22 +162,60 @@ def main():
         )
         exit_code = result.returncode
 
+        # --- Read log ---
+        log_content = ""
+        if os.path.isfile(out_file):
+            try:
+                with open(out_file, "r", encoding="utf-8-sig") as f:
+                    log_content = f.read()
+            except Exception:
+                log_content = ""
+
+        # --- Scan log for silent rejections ---
+        # Platform often writes load-time rejections into /Out but exits with code 0.
+        # These patterns flag cases where metadata was dropped or rejected silently.
+        fatal_log_patterns = [
+            "Неверное свойство объекта метаданных",
+            "не входит в состав объекта метаданных",
+            "Неизвестное имя типа",
+            "Неизвестный объект метаданных",
+            "Ни один из документов не является регистратором для регистра",
+            "Неверное значение перечисления",
+            "не может быть приведен к типу",
+        ]
+        silent_failures = []
+        if log_content:
+            for line in log_content.splitlines():
+                for pat in fatal_log_patterns:
+                    if pat in line:
+                        silent_failures.append(line.strip())
+                        break
+
         # --- Result ---
+        # Default: mirror platform's verdict via exit code. Log content (including any
+        # rejection warnings) is always printed to stdout for visibility. With -StrictLog,
+        # elevate exit code to 1 when rejection patterns are found even if platform said 0.
         if exit_code == 0:
             print("Load completed successfully")
         else:
             print(f"Error loading configuration (code: {exit_code})", file=sys.stderr)
 
-        if os.path.isfile(out_file):
-            try:
-                with open(out_file, "r", encoding="utf-8-sig") as f:
-                    log_content = f.read()
-                if log_content:
-                    print("--- Log ---")
-                    print(log_content)
-                    print("--- End ---")
-            except Exception:
-                pass
+        if log_content:
+            print("--- Log ---")
+            print(log_content)
+            print("--- End ---")
+
+        if silent_failures:
+            suffix = "" if args.StrictLog else " (pass -StrictLog to treat as error)"
+            print(
+                f"[warning] log contains {len(silent_failures)} rejection(s) — "
+                f"platform loaded config but dropped properties/refs{suffix}",
+                file=sys.stderr,
+            )
+            for f in silent_failures:
+                print(f"  {f}", file=sys.stderr)
+            if args.StrictLog and exit_code == 0:
+                exit_code = 1
 
         sys.exit(exit_code)
 

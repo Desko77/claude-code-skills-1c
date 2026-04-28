@@ -297,7 +297,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 ### Shorthand
 
 ```
-"<name>: <type> [= <default>] [@autoDates]"
+"<name>: <type> [= <default>] [@autoDates] [@valueList] [@hidden]"
 ```
 
 Примеры:
@@ -332,6 +332,25 @@ XML-маппинг — по `<group>` на каждый элемент:
 "parameters": ["Период: StandardPeriod = LastMonth @autoDates"]
 ```
 
+### @valueList
+
+Флаг `@valueList` генерирует `<valueListAllowed>true</valueListAllowed>` — разрешает передавать список значений в параметр:
+
+```json
+"parameters": ["Организации: CatalogRef.Организации @valueList"]
+```
+
+### @hidden
+
+Флаг `@hidden` — скрытый параметр. Автоматически ставит `availableAsField=false` и исключает параметр из автогенерируемых `dataParameters` при `"dataParameters": "auto"`:
+
+```json
+"parameters": [
+  { "name": "Счет43", "type": "ChartOfAccountsRef.Хозрасчетный", "value": "...", "hidden": true },
+  "СкрытыйПараметр: string = test @hidden"
+]
+```
+
 ### Объектная форма
 
 ```json
@@ -355,8 +374,31 @@ XML-маппинг — по `<group>` на каждый элемент:
 | `value` | Значение по умолчанию |
 | `expression` | Выражение для вычисления |
 | `availableAsField` | `false` — скрыть из полей |
+| `valueListAllowed` | `true` — разрешить список значений |
+| `hidden` | `true` — скрытый параметр (авто `availableAsField=false`, исключение из `dataParameters: auto`) |
 | `useRestriction` | `true` — скрыть от пользователя |
 | `use` | `"Always"`, `"Auto"` |
+| `denyIncompleteValues` | `true` — запретить произвольные значения (только из availableValues) |
+| `availableValues` | Массив `[{value, presentation}]` — допустимые значения с представлениями |
+
+### availableValues
+
+Список допустимых значений параметра. Тип значения определяется автоматически (`Перечисление.*`, `Справочник.*` и др. → `dcscor:DesignTimeValue`):
+
+```json
+{
+  "name": "ПорядокОкругления",
+  "type": "EnumRef.Округления",
+  "value": "Перечисление.Округления.Окр1_00",
+  "use": "Always",
+  "denyIncompleteValues": true,
+  "availableValues": [
+    {"value": "Перечисление.Округления.Окр1_00", "presentation": "руб. коп"},
+    {"value": "Перечисление.Округления.Окр1", "presentation": "руб."},
+    {"value": "Перечисление.Округления.Окр1000", "presentation": "тыс. руб"}
+  ]
+}
+```
 
 ### Значения параметров по типу
 
@@ -398,6 +440,8 @@ XML-маппинг — по `<group>` на каждый элемент:
   "appearance": { "Формат": "ЧДЦ=2" }
 }
 ```
+
+Ключ `field` — алиас для `dataPath` (используется если `dataPath` не указан).
 
 ---
 
@@ -458,6 +502,16 @@ XML-маппинг — по `<group>` на каждый элемент:
 - Строка → `SelectedItemField`
 - `"Auto"` → `SelectedItemAuto` (только на уровне группировок; на верхнем уровне settings игнорируется)
 - Объект с `field`/`title` → `SelectedItemField` с `lwsTitle`
+- Объект с `folder`/`items` → `SelectedItemFolder` — группа полей с заголовком и `placement=Auto`:
+
+```json
+"selection": [
+  "Auto",
+  "Счет",
+  {"folder": "Поступление", "items": ["ПолеА", "ПолеБ", "ПолеВ"]},
+  {"folder": "Выбытие", "items": ["ВыбытиеРеализовано", "ВыбытиеПрочее"]}
+]
+```
 
 ### filter
 
@@ -480,7 +534,8 @@ XML-маппинг — по `<group>` на каждый элемент:
 - `@quickAccess` → `viewMode=QuickAccess`
 - `@normal` → `viewMode=Normal`
 - `@inaccessible` → `viewMode=Inaccessible`
-- Типы значений автоопределяются: `true`/`false` → boolean, `2024-01-01T00:00:00` → dateTime, числа → decimal, прочее → string
+- Типы значений автоопределяются: `true`/`false` → boolean, `2024-01-01T00:00:00` → dateTime, числа → decimal, `Перечисление.*`/`Справочник.*`/`ПланСчетов.*`/`Документ.*` → DesignTimeValue, прочее → string
+- OrGroup: `{"group": "Or", "items": ["условие1", "условие2"]}` — объединяет условия через ИЛИ
 
 #### Объектная форма
 
@@ -574,7 +629,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 **Типы значений appearance** определяются автоматически:
 - `style:XXX`, `web:XXX`, `win:XXX` → `v8ui:Color`
 - `true`/`false` → `xs:boolean`
-- Параметр `Текст` или `Заголовок` → `v8:LocalStringType`
+- Параметр `Формат`, `Текст` или `Заголовок` → `v8:LocalStringType`
 - Прочее → `xs:string`
 
 Поддержка `use=false` на уровне параметра:
@@ -605,6 +660,14 @@ XML-маппинг — по `<group>` на каждый элемент:
 - Прочие → `xs:string`
 
 ### dataParameters
+
+#### Автогенерация
+
+```json
+"dataParameters": "auto"
+```
+
+Генерирует записи `dataParameters` для всех не-hidden параметров с `userSettingID`. Скрытые параметры (`hidden: true` / `@hidden`) исключаются.
 
 #### Shorthand-строка
 
@@ -712,9 +775,100 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 ## 10. Макеты и привязки (templates, groupTemplates)
 
-Редко используются. Поддерживаются в объектной форме, близкой к XML.
+### templates — компактный DSL (рекомендуемый)
 
-### templates
+Табличное описание шаблона вывода. Содержимое задаётся через `rows`, оформление — через именованный пресет `style`.
+
+```json
+"templates": [
+  {
+    "name": "Макет1",
+    "style": "header",
+    "widths": [36, 33, 16, 17],
+    "minHeight": 24.75,
+    "rows": [
+      ["Виды кассы", "Валюта", "Остаток на начало\nпериода", "Остаток на\nконец\nпериода"],
+      ["|", "|", "|", "|"],
+      ["К1", "К2", "К3", "К4"]
+    ]
+  },
+  {
+    "name": "Макет2",
+    "style": "data",
+    "widths": [36, 33, 16, 17],
+    "rows": [["{ВидКассы}", "{Валюта}", "{ОстатокНачало}", "{ОстатокКонец}"]],
+    "parameters": [
+      { "name": "ВидКассы", "expression": "Представление(СчетМеждународногоУчета)" },
+      { "name": "ОстатокНачало", "expression": "ОстатокНаНачалоПериода" }
+    ]
+  },
+  {
+    "name": "Макет3",
+    "style": "total",
+    "widths": [36, 33, 16, 17],
+    "rows": [["Итого", "Х", "{ОстатокНачало}", "{ОстатокКонец}"]],
+    "parameters": [
+      { "name": "ОстатокНачало", "expression": "ОстатокНаНачалоПериода" }
+    ]
+  }
+]
+```
+
+#### Свойства шаблона
+
+| Свойство | Описание |
+|----------|----------|
+| `name` | Имя макета (ссылаются groupTemplate) |
+| `rows` | Массив строк; каждая строка — массив ячеек |
+| `style` | Именованный пресет оформления (по умолчанию `"data"`) |
+| `widths` | Массив ширин колонок (применяется ко всем строкам) |
+| `minHeight` | Минимальная высота первой строки (для шапок) |
+| `parameters` | Параметры макета — выражения для подстановки (поддерживают `drilldown`) |
+
+#### Синтаксис ячеек
+
+| Значение | Описание |
+|----------|----------|
+| `"текст"` | Статический текст (`v8:LocalStringType`) |
+| `"{Имя}"` | Параметр шаблона (`dcscor:Parameter`), задаётся через `parameters` |
+| `"\|"` | Вертикальное объединение с ячейкой выше (`ОбъединятьПоВертикали`) |
+| `">"` | Горизонтальное объединение с ячейкой слева (`ОбъединятьПоГоризонтали`) |
+| `null` | Пустая ячейка (без содержимого) |
+
+#### Встроенные пресеты стилей
+
+| Пресет | Фон | Шрифт | Выравнивание | Перенос | Рамки |
+|--------|-----|-------|-------------|---------|-------|
+| `header` | ReportHeaderBackColor | Arial 10 | Center | да | Solid 1px |
+| `data` | ReportGroup1BackColor | Arial 10 | — | нет | Solid 1px |
+| `subheader` | — | Arial 10 | Center | да | Solid 1px |
+| `total` | — | Arial 10 | — | нет | Solid 1px |
+
+#### Пользовательские пресеты (skd-styles.json)
+
+Файл `skd-styles.json` в директории определения или в корне проекта. Переопределяет встроенные пресеты или добавляет новые:
+
+```json
+{
+  "header": {
+    "bgColor": "style:ReportHeaderBackColor",
+    "borderColor": "style:ReportLineColor",
+    "bold": true
+  },
+  "myStyle": {
+    "font": "Arial", "fontSize": 12,
+    "bgColor": "#FFE0E0"
+  }
+}
+```
+
+Допустимые ключи: `font`, `fontSize`, `bold`, `italic`, `hAlign`, `vAlign`, `wrap`, `bgColor`, `textColor`, `borderColor`, `borders`. Недостающие ключи берутся из пресета `data`.
+
+Формат цветов: `"style:ИмяСтиля"` (ссылка на стиль платформы) или `"#RRGGBB"` (прямой цвет).
+
+### templates — raw XML (fallback)
+
+Для нестандартных случаев — raw XML вставляется как есть:
 
 ```json
 "templates": [
@@ -728,13 +882,36 @@ XML-маппинг — по `<group>` на каждый элемент:
 ]
 ```
 
+Детект: если есть `rows` — используется компактный DSL, иначе — raw XML из `template`.
+
+#### Расшифровка (drilldown) в параметрах шаблона
+
+Ключ `drilldown` в параметре шаблона автоматически генерирует:
+1. `DetailsAreaTemplateParameter` с именем `Расшифровка_<значение>`, `fieldExpression` по полю `ИмяРесурса`, `mainAction=DrillDown`
+2. Привязку `Расшифровка` в appearance ячеек, ссылающихся на этот параметр через `{Имя}`
+
+```json
+"parameters": [
+  { "name": "Сырье", "expression": "ПоступлениеСырья", "drilldown": "ПоступлениеСырья" }
+]
+```
+
 ### groupTemplates
 
 ```json
 "groupTemplates": [
-  { "groupField": "ТипЦен", "templateType": "Header", "template": "Макет1" }
+  { "groupName": "ДанныеОтчета", "templateType": "GroupHeader", "template": "Макет1" },
+  { "groupField": "Счет", "templateType": "Header", "template": "Макет2" },
+  { "groupField": "Счет", "templateType": "OverallHeader", "template": "Макет3" }
 ]
 ```
+
+| Ключ | Описание |
+|------|----------|
+| `groupField` | Привязка к полю группировки → `<groupField>` |
+| `groupName` | Привязка к именованной группировке в структуре варианта → `<groupName>` |
+| `templateType` | `Header` / `OverallHeader` → `<groupTemplate>`, `GroupHeader` → `<groupHeaderTemplate>` |
+| `template` | Имя макета |
 
 ---
 

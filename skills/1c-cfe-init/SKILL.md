@@ -47,17 +47,6 @@ allowed-tools:
 powershell.exe -NoProfile -File skills/1c-cfe-init/scripts/cfe-init.ps1 -Name "МоёРасширение"
 ```
 
-## Что создаётся
-
-```
-<OutputDir>/
-├── Configuration.xml         # Свойства расширения
-├── Languages/
-│   └── Русский.xml           # Язык (заимствованный)
-└── Roles/                    # Если не -NoRole
-    └── <Prefix>ОсновнаяРоль.xml
-```
-
 ## Примеры
 
 ```powershell

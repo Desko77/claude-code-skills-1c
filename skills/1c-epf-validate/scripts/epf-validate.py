@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# epf-validate v1.1 — Validate 1C external data processor / report structure
+# epf-validate v1.2 — Validate 1C external data processor / report structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 # Works for both EPF (ExternalDataProcessor) and ERF (ExternalReport) — auto-detects
 
@@ -165,8 +165,8 @@ def main():
     version = root.get("version", "")
     if not version:
         report_warn("1. Missing version attribute on MetaDataObject")
-    elif version not in ("2.17", "2.20"):
-        report_warn(f"1. Unusual version '{version}' (expected 2.17 or 2.20)")
+    elif version not in ("2.17", "2.20", "2.21"):
+        report_warn(f"1. Unusual version '{version}' (expected 2.17, 2.20 or 2.21)")
 
     # Detect type
     child_elements = []

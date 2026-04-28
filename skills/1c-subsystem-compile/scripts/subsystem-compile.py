@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# subsystem-compile v1.0 — Create 1C subsystem from JSON definition
+# subsystem-compile v1.5 — Create 1C subsystem from JSON definition
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import json
@@ -8,6 +8,22 @@ import re
 import sys
 import uuid
 import xml.etree.ElementTree as ET
+
+
+def detect_format_version(d):
+    while d:
+        cfg_path = os.path.join(d, "Configuration.xml")
+        if os.path.isfile(cfg_path):
+            with open(cfg_path, "r", encoding="utf-8-sig") as f:
+                head = f.read(2000)
+            m = re.search(r'<MetaDataObject[^>]+version="(\d+\.\d+)"', head)
+            if m:
+                return m.group(1)
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return "2.17"
 
 
 def esc_xml(s):
@@ -42,6 +58,48 @@ def split_camel_case(name):
     if len(result) > 1:
         result = result[0] + result[1:].lower()
     return result
+
+
+def write_child_subsystem_stub(child_path, child_name, format_version):
+    child_uuid = new_uuid()
+    lines = []
+    lines.append('<?xml version="1.0" encoding="UTF-8"?>')
+    lines.append(
+        '<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" '
+        'xmlns:app="http://v8.1c.ru/8.2/managed-application/core" '
+        'xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" '
+        'xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" '
+        'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" '
+        'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" '
+        'xmlns:style="http://v8.1c.ru/8.1/data/ui/style" '
+        'xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" '
+        'xmlns:v8="http://v8.1c.ru/8.1/data/core" '
+        'xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" '
+        'xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" '
+        'xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" '
+        'xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" '
+        'xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" '
+        'xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" '
+        'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        f'version="{format_version}">'
+    )
+    lines.append(f'\t<Subsystem uuid="{child_uuid}">')
+    lines.append('\t\t<Properties>')
+    lines.append(f'\t\t\t<Name>{esc_xml(child_name)}</Name>')
+    lines.append('\t\t\t<Synonym/>')
+    lines.append('\t\t\t<Comment/>')
+    lines.append('\t\t\t<IncludeHelpInContents>true</IncludeHelpInContents>')
+    lines.append('\t\t\t<IncludeInCommandInterface>true</IncludeInCommandInterface>')
+    lines.append('\t\t\t<UseOneCommand>false</UseOneCommand>')
+    lines.append('\t\t\t<Explanation/>')
+    lines.append('\t\t\t<Picture/>')
+    lines.append('\t\t\t<Content/>')
+    lines.append('\t\t</Properties>')
+    lines.append('\t\t<ChildObjects/>')
+    lines.append('\t</Subsystem>')
+    lines.append('</MetaDataObject>')
+    write_utf8_bom(child_path, '\n'.join(lines) + '\n')
 
 
 def main():
@@ -88,7 +146,90 @@ def main():
     if not os.path.isabs(output_dir):
         output_dir = os.path.join(os.getcwd(), output_dir)
 
-    # --- 2. Resolve defaults ---
+    # --- 2. Content type normalization (plural→singular, Russian→English) ---
+    CONTENT_TYPE_MAP = {
+        # Plural English → Singular
+        'Catalogs': 'Catalog', 'Documents': 'Document', 'Enums': 'Enum',
+        'Constants': 'Constant', 'Reports': 'Report', 'DataProcessors': 'DataProcessor',
+        'InformationRegisters': 'InformationRegister', 'AccumulationRegisters': 'AccumulationRegister',
+        'AccountingRegisters': 'AccountingRegister', 'CalculationRegisters': 'CalculationRegister',
+        'ChartsOfAccounts': 'ChartOfAccounts', 'ChartsOfCharacteristicTypes': 'ChartOfCharacteristicTypes',
+        'ChartsOfCalculationTypes': 'ChartOfCalculationTypes',
+        'BusinessProcesses': 'BusinessProcess', 'Tasks': 'Task',
+        'ExchangePlans': 'ExchangePlan', 'DocumentJournals': 'DocumentJournal',
+        'CommonModules': 'CommonModule', 'CommonCommands': 'CommonCommand',
+        'CommonForms': 'CommonForm', 'CommonPictures': 'CommonPicture',
+        'CommonTemplates': 'CommonTemplate', 'CommonAttributes': 'CommonAttribute',
+        'CommandGroups': 'CommandGroup', 'Roles': 'Role',
+        'SessionParameters': 'SessionParameter', 'FilterCriteria': 'FilterCriterion',
+        'XDTOPackages': 'XDTOPackage', 'WebServices': 'WebService',
+        'HTTPServices': 'HTTPService', 'WSReferences': 'WSReference',
+        'EventSubscriptions': 'EventSubscription', 'ScheduledJobs': 'ScheduledJob',
+        'SettingsStorages': 'SettingsStorage', 'FunctionalOptions': 'FunctionalOption',
+        'FunctionalOptionsParameters': 'FunctionalOptionsParameter',
+        'DefinedTypes': 'DefinedType', 'DocumentNumerators': 'DocumentNumerator',
+        'Sequences': 'Sequence', 'Subsystems': 'Subsystem',
+        'StyleItems': 'StyleItem', 'IntegrationServices': 'IntegrationService',
+        # Russian singular → English
+        'Справочник': 'Catalog', 'Каталог': 'Catalog', 'Документ': 'Document',
+        'Перечисление': 'Enum', 'Константа': 'Constant',
+        'Отчёт': 'Report', 'Отчет': 'Report', 'Обработка': 'DataProcessor',
+        'РегистрСведений': 'InformationRegister', 'РегистрНакопления': 'AccumulationRegister',
+        'РегистрБухгалтерии': 'AccountingRegister',
+        'РегистрРасчёта': 'CalculationRegister', 'РегистрРасчета': 'CalculationRegister',
+        'ПланСчетов': 'ChartOfAccounts', 'ПланВидовХарактеристик': 'ChartOfCharacteristicTypes',
+        'ПланВидовРасчёта': 'ChartOfCalculationTypes', 'ПланВидовРасчета': 'ChartOfCalculationTypes',
+        'БизнесПроцесс': 'BusinessProcess', 'Задача': 'Task',
+        'ПланОбмена': 'ExchangePlan', 'ЖурналДокументов': 'DocumentJournal',
+        'ОбщийМодуль': 'CommonModule', 'ОбщаяКоманда': 'CommonCommand',
+        'ОбщаяФорма': 'CommonForm', 'ОбщаяКартинка': 'CommonPicture',
+        'ОбщийМакет': 'CommonTemplate', 'ОбщийРеквизит': 'CommonAttribute',
+        'ГруппаКоманд': 'CommandGroup', 'Роль': 'Role',
+        'ПараметрСеанса': 'SessionParameter', 'КритерийОтбора': 'FilterCriterion',
+        'ПакетXDTO': 'XDTOPackage', 'ВебСервис': 'WebService',
+        'HTTPСервис': 'HTTPService', 'WSСсылка': 'WSReference',
+        'ПодпискаНаСобытие': 'EventSubscription', 'РегламентноеЗадание': 'ScheduledJob',
+        'ХранилищеНастроек': 'SettingsStorage', 'ФункциональнаяОпция': 'FunctionalOption',
+        'ПараметрФункциональныхОпций': 'FunctionalOptionsParameter',
+        'ОпределяемыйТип': 'DefinedType', 'НумераторДокументов': 'DocumentNumerator',
+        'Последовательность': 'Sequence', 'Подсистема': 'Subsystem',
+        'ЭлементСтиля': 'StyleItem', 'СервисИнтеграции': 'IntegrationService',
+        # Russian plural → English
+        'Справочники': 'Catalog', 'Документы': 'Document', 'Перечисления': 'Enum',
+        'Константы': 'Constant', 'Отчёты': 'Report', 'Отчеты': 'Report',
+        'Обработки': 'DataProcessor', 'РегистрыСведений': 'InformationRegister',
+        'РегистрыНакопления': 'AccumulationRegister', 'РегистрыБухгалтерии': 'AccountingRegister',
+        'РегистрыРасчёта': 'CalculationRegister', 'РегистрыРасчета': 'CalculationRegister',
+        'ПланыСчетов': 'ChartOfAccounts', 'ПланыВидовХарактеристик': 'ChartOfCharacteristicTypes',
+        'ПланыВидовРасчёта': 'ChartOfCalculationTypes', 'ПланыВидовРасчета': 'ChartOfCalculationTypes',
+        'БизнесПроцессы': 'BusinessProcess', 'Задачи': 'Task',
+        'ПланыОбмена': 'ExchangePlan', 'ЖурналыДокументов': 'DocumentJournal',
+        'ОбщиеМодули': 'CommonModule', 'ОбщиеКоманды': 'CommonCommand',
+        'ОбщиеФормы': 'CommonForm', 'ОбщиеКартинки': 'CommonPicture',
+        'ОбщиеМакеты': 'CommonTemplate', 'ОбщиеРеквизиты': 'CommonAttribute',
+        'ГруппыКоманд': 'CommandGroup', 'Роли': 'Role',
+        'ПараметрыСеанса': 'SessionParameter', 'КритерииОтбора': 'FilterCriterion',
+        'ПакетыXDTO': 'XDTOPackage', 'ВебСервисы': 'WebService',
+        'HTTPСервисы': 'HTTPService', 'WSСсылки': 'WSReference',
+        'ПодпискиНаСобытия': 'EventSubscription', 'РегламентныеЗадания': 'ScheduledJob',
+        'ХранилищаНастроек': 'SettingsStorage', 'ФункциональныеОпции': 'FunctionalOption',
+        'ОпределяемыеТипы': 'DefinedType', 'Подсистемы': 'Subsystem',
+        'ЭлементыСтиля': 'StyleItem', 'СервисыИнтеграции': 'IntegrationService',
+    }
+
+    def normalize_content_ref(ref):
+        if not ref or '.' not in ref:
+            return ref
+        dot_idx = ref.index('.')
+        type_part = ref[:dot_idx]
+        name_part = ref[dot_idx + 1:]
+        if type_part in CONTENT_TYPE_MAP:
+            type_part = CONTENT_TYPE_MAP[type_part]
+        return f'{type_part}.{name_part}'
+
+    format_version = detect_format_version(output_dir)
+
+    # --- 3. Resolve defaults ---
     synonym = str(defn['synonym']) if defn.get('synonym') else split_camel_case(obj_name)
     comment = str(defn['comment']) if defn.get('comment') else ''
     include_help_in_contents = 'true'
@@ -97,10 +238,22 @@ def main():
     explanation = str(defn['explanation']) if defn.get('explanation') else ''
     picture = str(defn['picture']) if defn.get('picture') else ''
 
+    # Synonym: accept "objects" as alias for "content"
+    if not defn.get('content') and defn.get('objects'):
+        defn['content'] = defn['objects']
+
     content_items = []
+    normalized_count = 0
     if defn.get('content'):
         for c in defn['content']:
-            content_items.append(str(c))
+            raw = str(c)
+            normalized = normalize_content_ref(raw)
+            if normalized != raw:
+                print(f'[NORM] Content: {raw} -> {normalized}')
+                normalized_count += 1
+            content_items.append(normalized)
+    if normalized_count > 0:
+        print(f'[INFO] Normalized {normalized_count} content reference(s) to singular English form')
 
     children = []
     if defn.get('children'):
@@ -112,7 +265,7 @@ def main():
     lines = []
 
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">')
+    lines.append(f'<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="{format_version}">')
     lines.append(f'\t<Subsystem uuid="{uid}">')
     lines.append('\t\t<Properties>')
 
@@ -194,12 +347,21 @@ def main():
     write_utf8_bom(target_xml, xml_content)
     print(f"[OK] Created: {target_xml}")
 
-    # Create subdirectory if children exist
+    # Create subdirectory and stub files for children if they exist
     if len(children) > 0:
         child_subs_dir = os.path.join(subs_dir, obj_name, 'Subsystems')
         if not os.path.exists(child_subs_dir):
             os.makedirs(child_subs_dir, exist_ok=True)
             print(f"[OK] Created directory: {child_subs_dir}")
+        seen = set()
+        for ch in children:
+            if ch in seen:
+                continue
+            seen.add(ch)
+            child_xml = os.path.join(child_subs_dir, f'{ch}.xml')
+            if not os.path.exists(child_xml):
+                write_child_subsystem_stub(child_xml, ch, format_version)
+                print(f"[OK] Created stub: {child_xml}")
 
     # --- 5. Register in parent ---
     parent_xml_path = None

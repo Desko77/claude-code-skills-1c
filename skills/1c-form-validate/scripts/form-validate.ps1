@@ -1,4 +1,4 @@
-﻿# form-validate v1.1 — Validate 1C managed form
+﻿# form-validate v1.4 — Validate 1C managed form
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -58,6 +58,20 @@ $nsMgr.AddNamespace("v8", "http://v8.1c.ru/8.1/data/core")
 
 $root = $xmlDoc.DocumentElement
 
+# --- Detect context: config vs EPF/ERF ---
+# Walk up from FormPath looking for Configuration.xml → config context
+# No Configuration.xml → external data processor / report (EPF/ERF)
+$script:isConfigContext = $false
+$walkDir = Split-Path (Resolve-Path $FormPath) -Parent
+for ($i = 0; $i -lt 15; $i++) {
+	if (-not $walkDir -or $walkDir -eq (Split-Path $walkDir)) { break }
+	if (Test-Path (Join-Path $walkDir "Configuration.xml")) {
+		$script:isConfigContext = $true
+		break
+	}
+	$walkDir = Split-Path $walkDir
+}
+
 # --- Counters ---
 
 $errors = 0
@@ -112,10 +126,10 @@ if ($root.LocalName -ne "Form") {
 	Report-Error "Root element is '$($root.LocalName)', expected 'Form'"
 } else {
 	$version = $root.GetAttribute("version")
-	if ($version -eq "2.17") {
+	if ($version -eq "2.17" -or $version -eq "2.20") {
 		Report-OK "Root element: Form version=$version"
 	} elseif ($version) {
-		Report-Warn "Form version='$version' (expected 2.17)"
+		Report-Warn "Form version='$version' (expected 2.17 or 2.20)"
 	} else {
 		Report-Warn "Form version attribute missing"
 	}
@@ -664,6 +678,84 @@ if (-not $stopped -and -not $isExtension) {
 	}
 	if ($callTypeWithoutBase) {
 		Report-Warn "callType attributes found but no BaseForm — possible incorrect structure"
+	}
+}
+
+# --- Check 12: Type values validation ---
+
+$knownInvalidTypes = @(
+	"FormDataStructure","FormDataCollection","FormDataTree","FormDataTreeItem","FormDataCollectionItem"
+	"FormGroup","FormField","FormButton","FormDecoration","FormTable"
+)
+$validClosedTypes = @(
+	"xs:boolean","xs:string","xs:decimal","xs:dateTime","xs:binary"
+	"v8:FillChecking","v8:Null","v8:StandardPeriod","v8:StandardBeginningDate","v8:Type"
+	"v8:TypeDescription","v8:UUID","v8:ValueListType","v8:ValueTable","v8:ValueTree"
+	"v8:Universal","v8:FixedArray","v8:FixedStructure"
+	"v8ui:Color","v8ui:Font","v8ui:FormattedString","v8ui:HorizontalAlign"
+	"v8ui:Picture","v8ui:SizeChangeMode","v8ui:VerticalAlign"
+	"dcsset:DataCompositionComparisonType","dcsset:DataCompositionFieldPlacement"
+	"dcsset:Filter","dcsset:SettingsComposer","dcsset:DataCompositionSettings"
+	"dcssch:DataCompositionSchema"
+	"dcscor:DataCompositionComparisonType","dcscor:DataCompositionGroupType"
+	"dcscor:DataCompositionPeriodAdditionType","dcscor:DataCompositionSortDirection","dcscor:Field"
+	"ent:AccountType","ent:AccumulationRecordType","ent:AccountingRecordType"
+)
+$validCfgPrefixes = @(
+	"AccountingRegisterRecordSet","AccumulationRegisterRecordSet"
+	"BusinessProcessObject","BusinessProcessRef"
+	"CatalogObject","CatalogRef"
+	"ChartOfAccountsObject","ChartOfAccountsRef"
+	"ChartOfCalculationTypesObject","ChartOfCalculationTypesRef"
+	"ChartOfCharacteristicTypesObject","ChartOfCharacteristicTypesRef"
+	"ConstantsSet","DataProcessorObject","DocumentObject","DocumentRef"
+	"DynamicList","EnumRef","ExchangePlanObject","ExchangePlanRef"
+	"ExternalDataProcessorObject","ExternalReportObject"
+	"InformationRegisterRecordManager","InformationRegisterRecordSet"
+	"ReportObject","TaskObject","TaskRef"
+)
+
+if (-not $stopped) {
+	$typeNodes = $root.SelectNodes("//v8:Type", $nsMgr)
+	$typeOk = $true
+	$typeChecked = 0
+	$typeInvalid = 0
+	foreach ($tn in $typeNodes) {
+		$tv = $tn.InnerText.Trim()
+		if (-not $tv) { continue }
+		$typeChecked++
+		if ($tv -in $knownInvalidTypes) {
+			Report-Error "12. Type '$tv': invalid runtime/UI type (not valid in XDTO schema)"
+			$typeOk = $false; $typeInvalid++
+			continue
+		}
+		if ($tv -in $validClosedTypes) { continue }
+		if ($tv -match '^cfg:(.+)$') {
+			$cfgVal = $Matches[1]
+			if ($cfgVal -eq "DynamicList") { continue }
+			if ($cfgVal -match '^([^.]+)\.') {
+				$pfx = $Matches[1]
+				if ($pfx -in $validCfgPrefixes) {
+					# ExternalDataProcessorObject/ExternalReportObject valid only for EPF/ERF, not config
+					if ($script:isConfigContext -and ($pfx -eq "ExternalDataProcessorObject" -or $pfx -eq "ExternalReportObject")) {
+						Report-Error "12. Type '$tv': External* type in configuration context (use DataProcessorObject/ReportObject instead)"
+						$typeOk = $false; $typeInvalid++
+					}
+					continue
+				}
+			}
+			Report-Warn "12. Type '$tv': unrecognized cfg prefix"
+			$typeOk = $false
+			continue
+		}
+		if ($tv -match ':') { continue }
+		Report-Warn "12. Type '$tv': bare type without namespace prefix"
+		$typeOk = $false
+	}
+	if ($typeChecked -eq 0) {
+		Report-OK "12. Types: no type values to check"
+	} elseif ($typeOk) {
+		Report-OK "12. Types: $typeChecked values, all valid"
 	}
 }
 

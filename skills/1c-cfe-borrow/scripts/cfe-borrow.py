@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-borrow v1.1 — Borrow objects from configuration into extension (CFE)
+# cfe-borrow v1.3 — Borrow objects from configuration into extension (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -221,6 +221,9 @@ GENERATED_TYPES = {
         {"prefix": "DataProcessorObject", "category": "Object"},
         {"prefix": "DataProcessorManager", "category": "Manager"},
     ],
+    "DefinedType": [
+        {"prefix": "DefinedType", "category": "DefinedType"},
+    ],
 }
 
 TYPES_WITH_CHILD_OBJECTS = [
@@ -231,6 +234,12 @@ TYPES_WITH_CHILD_OBJECTS = [
 ]
 
 COMMON_MODULE_PROPS = ["Global", "ClientManagedApplication", "Server", "ExternalConnection", "ClientOrdinaryApplication", "ServerCall"]
+
+# Standard system fields to skip when collecting DataPath references
+STANDARD_FIELDS = [
+    "Code", "Description", "Ref", "Parent", "DeletionMark",
+    "Predefined", "IsFolder", "LineNumber", "RowsCount", "PredefinedDataName",
+]
 
 XMLNS_DECL = (
     'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" '
@@ -243,6 +252,22 @@ XMLNS_DECL = (
     'xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" '
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
 )
+
+
+def detect_format_version(d):
+    while d:
+        cfg_path = os.path.join(d, "Configuration.xml")
+        if os.path.isfile(cfg_path):
+            with open(cfg_path, "r", encoding="utf-8-sig") as f:
+                head = f.read(2000)
+            m = re.search(r'<MetaDataObject[^>]+version="(\d+\.\d+)"', head)
+            if m:
+                return m.group(1)
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return "2.17"
 
 
 def get_child_indent(container):
@@ -296,7 +321,9 @@ def expand_self_closing(container, parent_indent):
 
 def save_xml_bom(tree, path):
     xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
-    xml_bytes = xml_bytes.replace(b"encoding='UTF-8'", b'encoding="UTF-8"')
+    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
+    if not xml_bytes.endswith(b"\n"):
+        xml_bytes += b"\n"
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)
@@ -318,6 +345,7 @@ def main():
     parser.add_argument("-ExtensionPath", required=True)
     parser.add_argument("-ConfigPath", required=True)
     parser.add_argument("-Object", required=True)
+    parser.add_argument("-BorrowMainAttribute", nargs="?", const="Form", default=None)
     args = parser.parse_args()
 
     # --- 1. Resolve paths ---
@@ -352,6 +380,8 @@ def main():
         sys.exit(1)
     cfg_resolved = os.path.abspath(cfg_path)
     cfg_dir = os.path.dirname(cfg_resolved)
+
+    format_version = detect_format_version(ext_dir)
 
     # --- 2. Load extension Configuration.xml ---
     xml_parser = etree.XMLParser(remove_blank_text=False)
@@ -391,6 +421,9 @@ def main():
             name_prefix = (child.text or "").strip()
             break
     info(f"Extension NamePrefix: {name_prefix}")
+
+    # Module-level list for borrowed files (used by both main loop and borrow_main_attribute)
+    borrowed_files = []
 
     # --- Helper functions ---
     def read_source_object(type_name, obj_name):
@@ -486,7 +519,7 @@ def main():
 
         lines = []
         lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-        lines.append(f'<MetaDataObject {XMLNS_DECL} version="2.17">')
+        lines.append(f'<MetaDataObject {XMLNS_DECL} version="{format_version}">')
         lines.append(f'\t<{type_name} uuid="{new_uuid_val}">')
         lines.append(internal_info_xml)
         lines.append("\t\t<Properties>")
@@ -603,7 +636,456 @@ def main():
         save_xml_bom(obj_tree, obj_file)
         info(f"  Registered form in: {obj_file}")
 
-    def borrow_form(type_name, obj_name, form_name):
+    # --- 11b. Collect DataPath references from source Form.xml ---
+    def collect_form_data_paths(form_xml_path):
+        with open(form_xml_path, "r", encoding="utf-8-sig") as fh:
+            content = fh.read()
+
+        first_level = {}
+        deep_paths = []
+
+        for m in re.finditer(r'<DataPath>[^<]*\b\u041e\u0431\u044a\u0435\u043a\u0442\.(\w+(?:\.\w+)*)</DataPath>', content):
+            path = m.group(1)
+            segments = path.split(".")
+            seg0 = segments[0]
+            if seg0 in STANDARD_FIELDS:
+                continue
+            first_level[seg0] = True
+            if len(segments) >= 2:
+                seg1 = segments[1]
+                if seg1 in STANDARD_FIELDS:
+                    continue
+                deep_paths.append({"ObjectAttr": seg0, "SubAttr": seg1})
+
+        # Also collect from TitleDataPath
+        for m in re.finditer(r'<TitleDataPath>[^<]*\b\u041e\u0431\u044a\u0435\u043a\u0442\.(\w+(?:\.\w+)*)</TitleDataPath>', content):
+            path = m.group(1)
+            segments = path.split(".")
+            seg0 = segments[0]
+            if seg0 in STANDARD_FIELDS:
+                continue
+            first_level[seg0] = True
+
+        # Deduplicate deep paths
+        seen = set()
+        unique_deep = []
+        for dp in deep_paths:
+            key = f"{dp['ObjectAttr']}.{dp['SubAttr']}"
+            if key not in seen:
+                seen.add(key)
+                unique_deep.append(dp)
+
+        return {"FirstLevel": first_level, "DeepPaths": unique_deep}
+
+    # --- 11c. Resolve source attributes and tabular sections ---
+    def resolve_source_attributes(type_name, obj_name, first_level_names):
+        # first_level_names: dict of names, or None for "all"
+        dir_name = CHILD_TYPE_DIR_MAP[type_name]
+        src_file = os.path.join(cfg_dir, dir_name, f"{obj_name}.xml")
+        if not os.path.isfile(src_file):
+            print(f"Source object not found: {src_file}", file=sys.stderr)
+            sys.exit(1)
+
+        src_parser = etree.XMLParser(remove_blank_text=True)
+        src_tree = etree.parse(src_file, src_parser)
+        src_root = src_tree.getroot()
+
+        ns_strip = re.compile(r'\s+xmlns(?::\w+)?="[^"]*"')
+
+        src_el = None
+        for c in src_root:
+            if isinstance(c.tag, str):
+                src_el = c
+                break
+        if src_el is None:
+            print(f"No metadata element in source: {src_file}", file=sys.stderr)
+            sys.exit(1)
+
+        child_objs = src_el.find(f"{{{MD_NS}}}ChildObjects")
+        if child_objs is None:
+            return {"Attributes": [], "TabularSections": [], "ExtraProps": {}}
+
+        attrs = []
+        tab_sections = []
+
+        for child in child_objs:
+            if not isinstance(child.tag, str):
+                continue
+            ln = localname(child)
+
+            if ln == "Attribute":
+                name_node = child.find(f"{{{MD_NS}}}Properties/{{{MD_NS}}}Name")
+                if name_node is None:
+                    continue
+                attr_name = (name_node.text or "").strip()
+                if first_level_names is not None and attr_name not in first_level_names:
+                    continue
+
+                attr_uuid = child.get("uuid", "")
+                type_node = child.find(f"{{{MD_NS}}}Properties/{{{MD_NS}}}Type")
+                type_xml = ""
+                if type_node is not None:
+                    type_xml = etree.tostring(type_node, encoding="unicode")
+                    type_xml = ns_strip.sub("", type_xml)
+
+                attrs.append({"Name": attr_name, "Uuid": attr_uuid, "TypeXml": type_xml})
+
+            elif ln == "TabularSection":
+                name_node = child.find(f"{{{MD_NS}}}Properties/{{{MD_NS}}}Name")
+                if name_node is None:
+                    continue
+                ts_name = (name_node.text or "").strip()
+                if first_level_names is not None and ts_name not in first_level_names:
+                    continue
+
+                ts_uuid = child.get("uuid", "")
+
+                # Extract GeneratedTypes from InternalInfo
+                ts_gen_types = []
+                ii_node = child.find(f"{{{MD_NS}}}InternalInfo")
+                if ii_node is not None:
+                    for gt in ii_node:
+                        if isinstance(gt.tag, str) and localname(gt) == "GeneratedType":
+                            gt_name = gt.get("name", "")
+                            gt_category = gt.get("category", "")
+                            tid_el = gt.find(f"{{{XR_NS}}}TypeId")
+                            vid_el = gt.find(f"{{{XR_NS}}}ValueId")
+                            ts_gen_types.append({
+                                "Name": gt_name,
+                                "Category": gt_category,
+                                "TypeId": (tid_el.text or "") if tid_el is not None else "",
+                                "ValueId": (vid_el.text or "") if vid_el is not None else "",
+                            })
+
+                # Extract ALL child attributes of TabularSection
+                ts_attrs = []
+                ts_child_objs = child.find(f"{{{MD_NS}}}ChildObjects")
+                if ts_child_objs is not None:
+                    for ts_child in ts_child_objs:
+                        if not isinstance(ts_child.tag, str) or localname(ts_child) != "Attribute":
+                            continue
+                        ts_attr_name_el = ts_child.find(f"{{{MD_NS}}}Properties/{{{MD_NS}}}Name")
+                        if ts_attr_name_el is None:
+                            continue
+                        ts_attr_uuid = ts_child.get("uuid", "")
+                        ts_type_node = ts_child.find(f"{{{MD_NS}}}Properties/{{{MD_NS}}}Type")
+                        ts_type_xml = ""
+                        if ts_type_node is not None:
+                            ts_type_xml = etree.tostring(ts_type_node, encoding="unicode")
+                            ts_type_xml = ns_strip.sub("", ts_type_xml)
+                        ts_attrs.append({
+                            "Name": (ts_attr_name_el.text or "").strip(),
+                            "Uuid": ts_attr_uuid,
+                            "TypeXml": ts_type_xml,
+                        })
+
+                tab_sections.append({
+                    "Name": ts_name, "Uuid": ts_uuid,
+                    "GeneratedTypes": ts_gen_types, "Attributes": ts_attrs,
+                })
+
+        # Extract extra Properties for main object enrichment
+        extra_props = {}
+        props_node = src_el.find(f"{{{MD_NS}}}Properties")
+        if props_node is not None:
+            props_to_extract = [
+                "Hierarchical", "FoldersOnTop", "CodeLength", "DescriptionLength",
+                "CodeType", "CodeAllowedLength", "NumberType", "NumberLength",
+                "NumberAllowedLength", "NumberPeriodicity",
+            ]
+            for p_name in props_to_extract:
+                p_node = props_node.find(f"{{{MD_NS}}}{p_name}")
+                if p_node is not None:
+                    extra_props[p_name] = (p_node.text or "").strip()
+
+        return {"Attributes": attrs, "TabularSections": tab_sections, "ExtraProps": extra_props}
+
+    # --- 11d. Build adopted attribute XML ---
+    def build_adopted_attribute_xml(name, source_uuid, type_xml, indent):
+        new_uuid_val = new_guid()
+        lines = [
+            f'{indent}<Attribute uuid="{new_uuid_val}">',
+            f'{indent}\t<InternalInfo/>',
+            f'{indent}\t<Properties>',
+            f'{indent}\t\t<ObjectBelonging>Adopted</ObjectBelonging>',
+            f'{indent}\t\t<Name>{name}</Name>',
+            f'{indent}\t\t<Comment/>',
+            f'{indent}\t\t<ExtendedConfigurationObject>{source_uuid}</ExtendedConfigurationObject>',
+            f'{indent}\t\t{type_xml}',
+            f'{indent}\t</Properties>',
+            f'{indent}</Attribute>',
+        ]
+        return "\n".join(lines)
+
+    # --- 11e. Build adopted tabular section XML ---
+    def build_adopted_tabular_section_xml(ts_name, source_uuid, generated_types, child_attrs, indent):
+        new_uuid_val = new_guid()
+        lines = [f'{indent}<TabularSection uuid="{new_uuid_val}">']
+
+        # InternalInfo with GeneratedTypes (new UUIDs, referencing source names)
+        if generated_types:
+            lines.append(f'{indent}\t<InternalInfo>')
+            for gt in generated_types:
+                new_tid = new_guid()
+                new_vid = new_guid()
+                lines.append(f'{indent}\t\t<xr:GeneratedType name="{gt["Name"]}" category="{gt["Category"]}">')
+                lines.append(f'{indent}\t\t\t<xr:TypeId>{new_tid}</xr:TypeId>')
+                lines.append(f'{indent}\t\t\t<xr:ValueId>{new_vid}</xr:ValueId>')
+                lines.append(f'{indent}\t\t</xr:GeneratedType>')
+            lines.append(f'{indent}\t</InternalInfo>')
+        else:
+            lines.append(f'{indent}\t<InternalInfo/>')
+
+        lines.append(f'{indent}\t<Properties>')
+        lines.append(f'{indent}\t\t<ObjectBelonging>Adopted</ObjectBelonging>')
+        lines.append(f'{indent}\t\t<Name>{ts_name}</Name>')
+        lines.append(f'{indent}\t\t<Comment/>')
+        lines.append(f'{indent}\t\t<ExtendedConfigurationObject>{source_uuid}</ExtendedConfigurationObject>')
+        lines.append(f'{indent}\t</Properties>')
+
+        # ChildObjects with all attributes
+        if child_attrs:
+            lines.append(f'{indent}\t<ChildObjects>')
+            for ca in child_attrs:
+                ca_xml = build_adopted_attribute_xml(ca["Name"], ca["Uuid"], ca["TypeXml"], f"{indent}\t\t")
+                lines.append(ca_xml)
+            lines.append(f'{indent}\t</ChildObjects>')
+        else:
+            lines.append(f'{indent}\t<ChildObjects/>')
+
+        lines.append(f'{indent}</TabularSection>')
+        return "\n".join(lines)
+
+    # --- 11f. Collect reference types from attribute Type XML strings ---
+    def collect_reference_types(type_xmls):
+        result = {}
+        for type_xml in type_xmls:
+            # cfg:CatalogRef.XXX, cfg:EnumRef.XXX, cfg:DocumentRef.XXX, etc.
+            for m in re.finditer(r'cfg:(\w+)Ref\.(\w+)', type_xml):
+                ref_prefix = m.group(1)
+                obj_n = m.group(2)
+                key = f"{ref_prefix}.{obj_n}"
+                if key not in result:
+                    result[key] = {"TypeName": ref_prefix, "ObjName": obj_n}
+            # cfg:DefinedType.XXX
+            for m in re.finditer(r'cfg:DefinedType\.(\w+)', type_xml):
+                dt_name = m.group(1)
+                key = f"DefinedType.{dt_name}"
+                if key not in result:
+                    result[key] = {"TypeName": "DefinedType", "ObjName": dt_name}
+        return list(result.values())
+
+    # --- 11g. Merge adopted attributes into existing extension object XML ---
+    def merge_attributes_into_object(type_name, obj_name, attrs_to_add):
+        dir_name = CHILD_TYPE_DIR_MAP[type_name]
+        obj_file = os.path.join(ext_dir, dir_name, f"{obj_name}.xml")
+        if not os.path.isfile(obj_file):
+            warn(f"Cannot merge attributes: {obj_file} not found")
+            return
+
+        with open(obj_file, "r", encoding="utf-8-sig") as fh:
+            obj_content = fh.read()
+
+        # Collect existing attribute names for dedup (text-based)
+        existing_names = set()
+        for m in re.finditer(r'<Name>(\w+)</Name>', obj_content):
+            existing_names.add(m.group(1))
+
+        all_attr_xml = ""
+        added = 0
+        for attr in attrs_to_add:
+            if attr["Name"] in existing_names:
+                continue
+            all_attr_xml += "\r\n" + build_adopted_attribute_xml(attr["Name"], attr["Uuid"], attr["TypeXml"], "\t\t\t")
+            added += 1
+
+        if added > 0:
+            # Insert attributes — handle both <ChildObjects/> and <ChildObjects>...</ChildObjects>
+            if re.search(r'<ChildObjects\s*/>', obj_content):
+                obj_content = re.sub(r'<ChildObjects\s*/>', f"<ChildObjects>{all_attr_xml}\r\n\t\t</ChildObjects>", obj_content)
+            else:
+                obj_content = obj_content.replace("</ChildObjects>", f"{all_attr_xml}\r\n\t\t</ChildObjects>")
+            save_text_bom(obj_file, obj_content)
+            info(f"  Merged {added} attribute(s) into: {obj_file}")
+
+    # --- 11h. Borrow main attribute orchestrator ---
+    def borrow_main_attribute(type_name, obj_name, form_name, mode):
+        dir_name = CHILD_TYPE_DIR_MAP[type_name]
+        info(f"Borrowing main attribute for {type_name}.{obj_name} (mode: {mode})...")
+
+        # Step 1: Collect DataPaths (Form mode) or take all (All mode)
+        first_level_names = None
+        deep_paths = []
+        if mode == "Form":
+            src_form_xml_path = os.path.join(cfg_dir, dir_name, obj_name, "Forms", form_name, "Ext", "Form.xml")
+            if not os.path.isfile(src_form_xml_path):
+                print(f"Source Form.xml not found: {src_form_xml_path}", file=sys.stderr)
+                sys.exit(1)
+            dp = collect_form_data_paths(src_form_xml_path)
+            first_level_names = dp["FirstLevel"]
+            deep_paths = dp["DeepPaths"]
+            info(f"  Collected {len(first_level_names)} first-level DataPath references, {len(deep_paths)} deep paths")
+        else:
+            info("  Mode All: borrowing all attributes and tabular sections")
+
+        # Step 2: Resolve source attributes
+        resolved = resolve_source_attributes(type_name, obj_name, first_level_names)
+        src_attrs = resolved["Attributes"]
+        src_ts = resolved["TabularSections"]
+        extra_props = resolved["ExtraProps"]
+        info(f"  Resolved: {len(src_attrs)} attributes, {len(src_ts)} tabular section(s)")
+
+        # Identify which FirstLevel names are TabularSections (for deep path filtering)
+        ts_names = {ts["Name"]: True for ts in src_ts}
+
+        # Step 3: Build the adopted content and insert into main object XML
+        obj_file = os.path.join(ext_dir, dir_name, f"{obj_name}.xml")
+
+        # Generate full object XML with attributes and TS
+        content_parts = []
+        for attr in src_attrs:
+            attr_xml = build_adopted_attribute_xml(attr["Name"], attr["Uuid"], attr["TypeXml"], "\t\t\t")
+            content_parts.append(attr_xml)
+        for ts in src_ts:
+            ts_xml = build_adopted_tabular_section_xml(ts["Name"], ts["Uuid"], ts["GeneratedTypes"], ts["Attributes"], "\t\t\t")
+            content_parts.append(ts_xml)
+        adopted_content = "\n".join(content_parts).rstrip()
+
+        # Read existing object XML and inject
+        with open(obj_file, "r", encoding="utf-8-sig") as fh:
+            obj_content = fh.read()
+
+        # Inject extra properties after ExtendedConfigurationObject
+        if extra_props:
+            props_xml = ""
+            for p_name, p_val in extra_props.items():
+                props_xml += f"\r\n\t\t\t<{p_name}>{p_val}</{p_name}>"
+            obj_content = obj_content.replace("</ExtendedConfigurationObject>", f"</ExtendedConfigurationObject>{props_xml}")
+
+        # Replace empty ChildObjects with adopted content
+        if adopted_content:
+            # Handle <ChildObjects/> (self-closing)
+            if re.search(r'<ChildObjects\s*/>', obj_content):
+                obj_content = re.sub(r'<ChildObjects\s*/>', f"<ChildObjects>\r\n{adopted_content}\r\n\t\t</ChildObjects>", obj_content)
+            # Handle <ChildObjects>...</ChildObjects> (may already have Form entry)
+            elif re.search(r'(?s)<ChildObjects>(.*?)</ChildObjects>', obj_content):
+                m = re.search(r'(?s)<ChildObjects>(.*?)</ChildObjects>', obj_content)
+                existing_inner = m.group(1)
+                obj_content = obj_content.replace(
+                    f"<ChildObjects>{existing_inner}</ChildObjects>",
+                    f"<ChildObjects>{existing_inner}\r\n{adopted_content}\r\n\t\t</ChildObjects>"
+                )
+
+        save_text_bom(obj_file, obj_content)
+        info(f"  Enriched object: {obj_file}")
+
+        # Step 4: Collect all reference types and borrow as shells
+        all_type_xmls = []
+        for a in src_attrs:
+            all_type_xmls.append(a["TypeXml"])
+        for ts in src_ts:
+            for tsa in ts["Attributes"]:
+                all_type_xmls.append(tsa["TypeXml"])
+        ref_types = collect_reference_types(all_type_xmls)
+        info(f"  Reference types to borrow: {len(ref_types)}")
+
+        for rt in ref_types:
+            if rt["TypeName"] not in CHILD_TYPE_DIR_MAP:
+                warn(f"  Unknown reference type: {rt['TypeName']}.{rt['ObjName']}")
+                continue
+            if test_object_borrowed(rt["TypeName"], rt["ObjName"]):
+                info(f"  Already borrowed: {rt['TypeName']}.{rt['ObjName']}")
+                continue
+            rt_src_file = os.path.join(cfg_dir, CHILD_TYPE_DIR_MAP[rt["TypeName"]], f"{rt['ObjName']}.xml")
+            if not os.path.isfile(rt_src_file):
+                warn(f"  Source not found: {rt['TypeName']}.{rt['ObjName']}")
+                continue
+            src = read_source_object(rt["TypeName"], rt["ObjName"])
+            borrowed_xml = build_borrowed_object_xml(rt["TypeName"], rt["ObjName"], src["Uuid"], src["Properties"])
+            target_dir = os.path.join(ext_dir, CHILD_TYPE_DIR_MAP[rt["TypeName"]])
+            os.makedirs(target_dir, exist_ok=True)
+            target_file = os.path.join(target_dir, f"{rt['ObjName']}.xml")
+            save_text_bom(target_file, borrowed_xml)
+            add_to_child_objects(rt["TypeName"], rt["ObjName"])
+            borrowed_files.append(target_file)
+            info(f"  Auto-borrowed: {rt['TypeName']}.{rt['ObjName']}")
+
+        # Step 5: Handle deep paths (Form mode only)
+        if mode == "Form" and deep_paths:
+            # Filter out deep paths where ObjectAttr is a TabularSection
+            real_deep = [dp for dp in deep_paths if dp["ObjectAttr"] not in ts_names]
+
+            if real_deep:
+                info(f"  Processing {len(real_deep)} deep path(s)...")
+
+                # Group by ObjectAttr -> target catalog
+                deep_by_attr = {}
+                for dp in real_deep:
+                    if dp["ObjectAttr"] not in deep_by_attr:
+                        deep_by_attr[dp["ObjectAttr"]] = []
+                    deep_by_attr[dp["ObjectAttr"]].append(dp["SubAttr"])
+
+                for attr_name, sub_attr_names in deep_by_attr.items():
+                    # Find the attribute's type to determine target catalog
+                    attr_info = None
+                    for a in src_attrs:
+                        if a["Name"] == attr_name:
+                            attr_info = a
+                            break
+                    if not attr_info:
+                        continue
+
+                    # Extract catalog name from type: cfg:CatalogRef.XXX
+                    cat_match = re.search(r'cfg:(\w+)Ref\.(\w+)', attr_info["TypeXml"])
+                    if not cat_match:
+                        continue
+
+                    target_type_name = cat_match.group(1)
+                    target_obj_name = cat_match.group(2)
+
+                    # Ensure target is borrowed
+                    if not test_object_borrowed(target_type_name, target_obj_name):
+                        t_src = read_source_object(target_type_name, target_obj_name)
+                        t_borrowed_xml = build_borrowed_object_xml(target_type_name, target_obj_name, t_src["Uuid"], t_src["Properties"])
+                        t_target_dir = os.path.join(ext_dir, CHILD_TYPE_DIR_MAP[target_type_name])
+                        os.makedirs(t_target_dir, exist_ok=True)
+                        t_target_file = os.path.join(t_target_dir, f"{target_obj_name}.xml")
+                        save_text_bom(t_target_file, t_borrowed_xml)
+                        add_to_child_objects(target_type_name, target_obj_name)
+                        borrowed_files.append(t_target_file)
+                        info(f"  Auto-borrowed for deep path: {target_type_name}.{target_obj_name}")
+
+                    # Resolve sub-attributes in target catalog
+                    sub_names = {sn: True for sn in sub_attr_names}
+                    sub_resolved = resolve_source_attributes(target_type_name, target_obj_name, sub_names)
+
+                    if sub_resolved["Attributes"]:
+                        merge_attributes_into_object(target_type_name, target_obj_name, sub_resolved["Attributes"])
+
+                        # Collect and borrow ref types from deep attributes
+                        sub_type_xmls = [sa["TypeXml"] for sa in sub_resolved["Attributes"]]
+                        sub_ref_types = collect_reference_types(sub_type_xmls)
+                        for srt in sub_ref_types:
+                            if srt["TypeName"] not in CHILD_TYPE_DIR_MAP:
+                                continue
+                            if test_object_borrowed(srt["TypeName"], srt["ObjName"]):
+                                continue
+                            s_src_file = os.path.join(cfg_dir, CHILD_TYPE_DIR_MAP[srt["TypeName"]], f"{srt['ObjName']}.xml")
+                            if not os.path.isfile(s_src_file):
+                                continue
+                            s_src = read_source_object(srt["TypeName"], srt["ObjName"])
+                            s_borrowed_xml = build_borrowed_object_xml(srt["TypeName"], srt["ObjName"], s_src["Uuid"], s_src["Properties"])
+                            s_target_dir = os.path.join(ext_dir, CHILD_TYPE_DIR_MAP[srt["TypeName"]])
+                            os.makedirs(s_target_dir, exist_ok=True)
+                            s_target_file = os.path.join(s_target_dir, f"{srt['ObjName']}.xml")
+                            save_text_bom(s_target_file, s_borrowed_xml)
+                            add_to_child_objects(srt["TypeName"], srt["ObjName"])
+                            borrowed_files.append(s_target_file)
+                            info(f"  Auto-borrowed (deep): {srt['TypeName']}.{srt['ObjName']}")
+
+        info("  Main attribute borrowing complete")
+
+    def borrow_form(type_name, obj_name, form_name, borrow_main_attr=False):
         dir_name = CHILD_TYPE_DIR_MAP[type_name]
 
         # 1. Read source form UUID
@@ -622,7 +1104,7 @@ def main():
         new_form_uuid = new_guid()
         form_meta_lines = [
             '<?xml version="1.0" encoding="UTF-8"?>',
-            f'<MetaDataObject {XMLNS_DECL} version="2.17">',
+            f'<MetaDataObject {XMLNS_DECL} version="{format_version}">',
             f'\t<Form uuid="{new_form_uuid}">',
             '\t\t<InternalInfo/>',
             '\t\t<Properties>',
@@ -649,7 +1131,7 @@ def main():
         src_form_tree = etree.parse(src_form_xml_path, src_form_parser)
         src_form_el = src_form_tree.getroot()
 
-        form_version = src_form_el.get("version", "2.17")
+        form_version = src_form_el.get("version", format_version)
 
         src_auto_cmd = None
         form_props = []
@@ -671,7 +1153,7 @@ def main():
 
         ns_strip_pattern = re.compile(r'\s+xmlns(?::\w+)?="[^"]*"')
 
-        # AutoCommandBar: keep ChildItems (buttons with CommandName→0), Autofill→false
+        # AutoCommandBar: keep ChildItems (buttons with CommandName->0), Autofill->false
         auto_cmd_xml = ""
         if src_auto_cmd is not None:
             auto_cmd_xml = etree.tostring(src_auto_cmd, encoding="unicode")
@@ -680,8 +1162,12 @@ def main():
             auto_cmd_xml = auto_cmd_xml.replace('<Autofill>true</Autofill>', '<Autofill>false</Autofill>')
             # Strip ExcludedCommand (references to standard commands invalid in extension)
             auto_cmd_xml = re.sub(r'\s*<ExcludedCommand>[^<]*</ExcludedCommand>', '', auto_cmd_xml)
-            # Strip DataPath in AutoCommandBar buttons (e.g. Объект.Ref — invalid in extension)
-            auto_cmd_xml = re.sub(r'\s*<DataPath>[^<]*</DataPath>', '', auto_cmd_xml)
+            # Strip DataPath in AutoCommandBar buttons
+            if borrow_main_attr:
+                # Keep only Объект.* DataPaths
+                auto_cmd_xml = re.sub(r'\s*<DataPath>(?!\u041e\u0431\u044a\u0435\u043a\u0442\.)[^<]*</DataPath>', '', auto_cmd_xml)
+            else:
+                auto_cmd_xml = re.sub(r'\s*<DataPath>[^<]*</DataPath>', '', auto_cmd_xml)
 
         # ChildItems: copy full tree, clean up base-config references
         child_items_xml = ""
@@ -696,12 +1182,16 @@ def main():
             child_items_xml = ns_strip_pattern.sub("", child_items_xml)
             # Replace all CommandName values with 0
             child_items_xml = re.sub(r'<CommandName>[^<]*</CommandName>', '<CommandName>0</CommandName>', child_items_xml)
-            # Strip DataPath
-            child_items_xml = re.sub(r'\s*<DataPath>[^<]*</DataPath>', '', child_items_xml)
-            # Strip TitleDataPath
-            child_items_xml = re.sub(r'\s*<TitleDataPath>[^<]*</TitleDataPath>', '', child_items_xml)
-            # Strip RowPictureDataPath (e.g. Список.СостояниеДокумента — invalid in extension)
-            child_items_xml = re.sub(r'\s*<RowPictureDataPath>[^<]*</RowPictureDataPath>', '', child_items_xml)
+            # Strip DataPath / TitleDataPath / RowPictureDataPath
+            if borrow_main_attr:
+                # Keep only Объект.* DataPaths — strip form-attribute DataPaths (not borrowed)
+                child_items_xml = re.sub(r'\s*<DataPath>(?!\u041e\u0431\u044a\u0435\u043a\u0442\.)[^<]*</DataPath>', '', child_items_xml)
+                child_items_xml = re.sub(r'\s*<TitleDataPath>(?!\u041e\u0431\u044a\u0435\u043a\u0442\.)[^<]*</TitleDataPath>', '', child_items_xml)
+                child_items_xml = re.sub(r'\s*<RowPictureDataPath>[^<]*</RowPictureDataPath>', '', child_items_xml)
+            else:
+                child_items_xml = re.sub(r'\s*<DataPath>[^<]*</DataPath>', '', child_items_xml)
+                child_items_xml = re.sub(r'\s*<TitleDataPath>[^<]*</TitleDataPath>', '', child_items_xml)
+                child_items_xml = re.sub(r'\s*<RowPictureDataPath>[^<]*</RowPictureDataPath>', '', child_items_xml)
             # Strip ExcludedCommand in nested AutoCommandBars (references to standard commands invalid in extension)
             child_items_xml = re.sub(r'\s*<ExcludedCommand>[^<]*</ExcludedCommand>', '', child_items_xml)
             # Strip TypeLink blocks with human-readable DataPath (Items.XXX)
@@ -709,10 +1199,15 @@ def main():
             # Strip element-level Events
             child_items_xml = re.sub(r'\s*<Events>.*?</Events>', '', child_items_xml, flags=re.DOTALL)
 
-            # Auto-borrow referenced CommonPictures
-            pic_refs = re.findall(r'<xr:Ref>CommonPicture\.(\w+)</xr:Ref>', child_items_xml)
-            referenced_pictures = {name: True for name in pic_refs}
+            # Collect CommonPicture references from ChildItems and AutoCommandBar
+            referenced_pictures = {}
+            for name in re.findall(r'<xr:Ref>CommonPicture\.(\w+)</xr:Ref>', child_items_xml):
+                referenced_pictures[name] = True
+            if auto_cmd_xml:
+                for name in re.findall(r'<xr:Ref>CommonPicture\.(\w+)</xr:Ref>', auto_cmd_xml):
+                    referenced_pictures[name] = True
 
+            # Auto-borrow referenced CommonPictures
             auto_borrowed_pics = []
             for pic_name in referenced_pictures:
                 if not test_object_borrowed("CommonPicture", pic_name):
@@ -726,6 +1221,7 @@ def main():
                         save_text_bom(target_file, borrowed_xml)
                         add_to_child_objects("CommonPicture", pic_name)
                         auto_borrowed_pics.append(pic_name)
+                        borrowed_files.append(target_file)
                         info(f"  Auto-borrowed: CommonPicture.{pic_name}")
                     else:
                         warn(f"  CommonPicture.{pic_name} not found in source config — will strip from form")
@@ -746,6 +1242,15 @@ def main():
             # Strip StdPicture blocks (except Print)
             child_items_xml = re.sub(r'\s*<Picture>\s*<xr:Ref>StdPicture\.(?!Print\b)\w+</xr:Ref>.*?</Picture>', '', child_items_xml, flags=re.DOTALL)
 
+            # Same Picture strip for AutoCommandBar
+            if auto_cmd_xml:
+                ac_pic_matches = list(pic_block_pattern.finditer(auto_cmd_xml))
+                for pm in reversed(ac_pic_matches):
+                    cp_name = pm.group(1)
+                    if cp_name not in borrowed_pic_set:
+                        auto_cmd_xml = auto_cmd_xml[:pm.start()] + auto_cmd_xml[pm.end():]
+                auto_cmd_xml = re.sub(r'\s*<Picture>\s*<xr:Ref>StdPicture\.(?!Print\b)\w+</xr:Ref>.*?</Picture>', '', auto_cmd_xml, flags=re.DOTALL)
+
             # Auto-borrow StyleItems referenced in ChildItems
             referenced_styles = set()
             for m in re.finditer(r'ref="style:(\w+)"[^>]*kind="StyleItem"', child_items_xml):
@@ -764,6 +1269,7 @@ def main():
                         target_file = os.path.join(target_dir, f"{style_name}.xml")
                         save_text_bom(target_file, borrowed_xml)
                         add_to_child_objects("StyleItem", style_name)
+                        borrowed_files.append(target_file)
                         info(f"  Auto-borrowed: StyleItem.{style_name}")
                     else:
                         warn(f"  StyleItem.{style_name} not found in source config")
@@ -827,6 +1333,7 @@ def main():
                         target_file = os.path.join(target_dir, f"{enum_name}.xml")
                         save_text_bom(target_file, borrowed_xml)
                         add_to_child_objects("Enum", enum_name)
+                        borrowed_files.append(target_file)
                         info(f"  Auto-borrowed: Enum.{enum_name} (with {len(ev_xmls)} EnumValue(s))")
                     else:
                         warn(f"  Enum.{enum_name} not found in source config")
@@ -856,7 +1363,26 @@ def main():
             parts.append(f"\t{auto_cmd_xml}\r\n")
         if child_items_xml:
             parts.append(f"\t{child_items_xml}\r\n")
-        parts.append("\t<Attributes/>\r\n")
+
+        # Attributes: empty or with MainAttribute when borrow_main_attr
+        if borrow_main_attr:
+            obj_type_prefix = ""
+            gt_list = GENERATED_TYPES.get(type_name, [])
+            for g in gt_list:
+                if g["category"] == "Object":
+                    obj_type_prefix = g["prefix"]
+                    break
+            main_attr_type = f"cfg:{obj_type_prefix}.{obj_name}"
+            parts.append("\t<Attributes>\r\n")
+            parts.append('\t\t<Attribute name="\u041e\u0431\u044a\u0435\u043a\u0442" id="1000001">\r\n')
+            parts.append(f"\t\t\t<Type><v8:Type>{main_attr_type}</v8:Type></Type>\r\n")
+            parts.append("\t\t\t<MainAttribute>true</MainAttribute>\r\n")
+            parts.append("\t\t\t<SavedData>true</SavedData>\r\n")
+            parts.append("\t\t</Attribute>\r\n")
+            parts.append("\t</Attributes>")
+        else:
+            parts.append("\t<Attributes/>")
+        parts.append("\r\n")
 
         # BaseForm: same content, indented one more level
         parts.append(f'\t<BaseForm version="{form_version}">\r\n')
@@ -881,7 +1407,18 @@ def main():
                     parts.append(f"\t{line}")
                 parts.append("\r\n")
 
-        parts.append("\t\t<Attributes/>\r\n")
+        # BaseForm Attributes: same as main section
+        if borrow_main_attr:
+            parts.append("\t\t<Attributes>\r\n")
+            parts.append('\t\t\t<Attribute name="\u041e\u0431\u044a\u0435\u043a\u0442" id="1000001">\r\n')
+            parts.append(f"\t\t\t\t<Type><v8:Type>{main_attr_type}</v8:Type></Type>\r\n")
+            parts.append("\t\t\t\t<MainAttribute>true</MainAttribute>\r\n")
+            parts.append("\t\t\t\t<SavedData>true</SavedData>\r\n")
+            parts.append("\t\t\t</Attribute>\r\n")
+            parts.append("\t\t</Attributes>")
+        else:
+            parts.append("\t\t<Attributes/>")
+        parts.append("\r\n")
         parts.append("\t</BaseForm>\r\n")
         parts.append("</Form>")
 
@@ -914,8 +1451,19 @@ def main():
         print("No objects specified in -Object", file=sys.stderr)
         sys.exit(1)
 
+    # --- 9b. Validate -BorrowMainAttribute ---
+    borrow_main_attribute_mode = args.BorrowMainAttribute
+    if borrow_main_attribute_mode is not None:
+        if borrow_main_attribute_mode not in ("Form", "All"):
+            print("-BorrowMainAttribute accepts 'Form' or 'All' (default: Form)", file=sys.stderr)
+            sys.exit(1)
+        # Validate: only with .Form. pattern
+        has_form = any(".Form." in item for item in items)
+        if not has_form:
+            print("-BorrowMainAttribute requires a form in -Object (e.g. 'Catalog.X.Form.Y')", file=sys.stderr)
+            sys.exit(1)
+
     # --- 10. Process each item ---
-    borrowed_files = []
     borrowed_count = 0
 
     for item in items:
@@ -963,9 +1511,14 @@ def main():
                 add_to_child_objects(type_name, obj_name)
                 borrowed_files.append(target_file)
 
-            form_files = borrow_form(type_name, obj_name, form_name)
+            has_bma = borrow_main_attribute_mode is not None
+            form_files = borrow_form(type_name, obj_name, form_name, borrow_main_attr=has_bma)
             borrowed_files.extend(form_files)
             borrowed_count += 1
+
+            # Borrow main attribute if requested
+            if has_bma:
+                borrow_main_attribute(type_name, obj_name, form_name, borrow_main_attribute_mode)
         else:
             # --- Object borrowing ---
             info(f"Borrowing {type_name}.{obj_name}...")

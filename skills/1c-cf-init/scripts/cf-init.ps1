@@ -1,4 +1,4 @@
-﻿# cf-init v1.0 — Create empty 1C configuration scaffold
+﻿# cf-init v1.1 — Create empty 1C configuration scaffold
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -160,7 +160,7 @@ $cfgXml = @"
 			<ObjectAutonumerationMode>NotAutoFree</ObjectAutonumerationMode>
 			<ModalityUseMode>DontUse</ModalityUseMode>
 			<SynchronousPlatformExtensionAndAddInCallUseMode>DontUse</SynchronousPlatformExtensionAndAddInCallUseMode>
-			<InterfaceCompatibilityMode>Taxi</InterfaceCompatibilityMode>
+			<InterfaceCompatibilityMode>TaxiEnableVersion8_2</InterfaceCompatibilityMode>
 			<DatabaseTablespacesUseMode>DontUse</DatabaseTablespacesUseMode>
 			<CompatibilityMode>$CompatibilityMode</CompatibilityMode>
 			<DefaultConstantsForm/>

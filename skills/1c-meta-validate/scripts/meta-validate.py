@@ -1,4 +1,4 @@
-# meta-validate v1.2 — Validate 1C metadata object structure (Python port)
+# meta-validate v1.3 — Validate 1C metadata object structure (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import os
@@ -263,7 +263,7 @@ valid_property_values = {
     "FillChecking":                 ["DontCheck", "ShowError", "ShowWarning"],
     "Indexing":                     ["DontIndex", "Index", "IndexWithAdditionalOrder"],
     "DataHistory":                  ["Use", "DontUse"],
-    "DependenceOnCalculationTypes": ["DontUse", "RequireCalculationTypes"],
+    "DependenceOnCalculationTypes": ["DontUse", "OnActionPeriod"],
 }
 
 # Properties forbidden per type (would cause LoadConfigFromFiles error)
@@ -942,6 +942,15 @@ if props_node is not None:
             check10_issues += 1
             print('[HINT] /meta-edit -Operation modify-property -Value "Task=Task.XXX"')
 
+    # CalculationRegister: ActionPeriod=true requires non-empty Schedule
+    if md_type == 'CalculationRegister':
+        action_period = find(props_node, 'md:ActionPeriod')
+        if action_period is not None and text_of(action_period) == 'true':
+            schedule = find(props_node, 'md:Schedule')
+            if schedule is None or not text_of(schedule):
+                report_warn('10. CalculationRegister: ActionPeriod=true but Schedule is empty — platform requires a schedule register')
+                check10_issues += 1
+
     # DocumentJournal: RegisteredDocuments should not be empty
     if md_type == 'DocumentJournal':
         reg_docs = find(props_node, 'md:RegisteredDocuments')
@@ -968,6 +977,43 @@ if props_node is not None:
                     report_warn('10. ChartOfAccounts: MaxExtDimensionCount>0 but ExtDimensionTypes is empty')
                     check10_issues += 1
                     print('[HINT] /meta-edit -Operation modify-property -Value "ExtDimensionTypes=ChartOfCharacteristicTypes.XXX"')
+
+    # Register: must have at least one Dimension or Resource (platform rejects empty registers)
+    reg_types_all = ('AccumulationRegister', 'AccountingRegister', 'CalculationRegister', 'InformationRegister')
+    if md_type in reg_types_all and child_obj_node is not None:
+        dims = len(find_all(child_obj_node, 'md:Dimension'))
+        ress = len(find_all(child_obj_node, 'md:Resource'))
+        attrs = len(find_all(child_obj_node, 'md:Attribute'))
+        if dims + ress + attrs == 0:
+            report_warn(f"10. {md_type}: no Dimensions, Resources, or Attributes \u2014 platform will reject")
+            check10_issues += 1
+
+    # Document: RegisterRecords references should point to existing objects in config
+    if md_type == 'Document' and config_dir:
+        reg_records = find(props_node, 'md:RegisterRecords')
+        if reg_records is not None:
+            rr_items = find_all(reg_records, 'xr:Item')
+            for item in rr_items:
+                ref_val = (inner_text(item) or '').strip()
+                if not ref_val:
+                    continue
+                # Parse "AccumulationRegister.Name" -> dir AccumulationRegisters/Name
+                parts = ref_val.split('.', 1)
+                if len(parts) == 2:
+                    ref_type, ref_name = parts
+                    dir_map = {
+                        'AccumulationRegister': 'AccumulationRegisters',
+                        'InformationRegister': 'InformationRegisters',
+                        'AccountingRegister': 'AccountingRegisters',
+                        'CalculationRegister': 'CalculationRegisters',
+                    }
+                    ref_dir = dir_map.get(ref_type)
+                    if ref_dir:
+                        ref_path = os.path.join(config_dir, ref_dir, ref_name)
+                        ref_xml = os.path.join(config_dir, ref_dir, ref_name + '.xml')
+                        if not os.path.exists(ref_path) and not os.path.exists(ref_xml):
+                            report_warn(f"10. Document.RegisterRecords references '{ref_val}' but object not found in config")
+                            check10_issues += 1
 
     # Register: must have at least one registrar document
     register_types = ('AccumulationRegister', 'AccountingRegister', 'CalculationRegister', 'InformationRegister')

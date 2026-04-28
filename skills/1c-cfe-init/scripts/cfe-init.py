@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-init v1.0 — Create 1C configuration extension scaffold (CFE)
+# cfe-init v1.1 — Create 1C configuration extension scaffold (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Generates minimal XML source files for a 1C configuration extension."""
 import sys, os, argparse, uuid
@@ -84,7 +84,7 @@ def main():
         else:
             print(f"[WARN] Base config language not found: {base_lang_file}")
 
-        # Read CompatibilityMode from base config
+        # Read CompatibilityMode and InterfaceCompatibilityMode from base config
         try:
             base_cfg_tree = ET.parse(os.path.abspath(config_path))
             base_cfg_root = base_cfg_tree.getroot()
@@ -95,9 +95,18 @@ def main():
                 print(f"[INFO] Base config CompatibilityMode: {compat}")
             else:
                 print(f"[WARN] CompatibilityMode not found in base config, using default: {compat}")
+            ifc_node = base_cfg_root.find('.//md:Configuration/md:Properties/md:InterfaceCompatibilityMode', ns)
+            if ifc_node is not None and ifc_node.text:
+                ifc_mode = ifc_node.text.strip()
+                print(f"[INFO] Base config InterfaceCompatibilityMode: {ifc_mode}")
+            else:
+                ifc_mode = "TaxiEnableVersion8_2"
+                print(f"[WARN] InterfaceCompatibilityMode not found in base config, using default: {ifc_mode}")
         except Exception:
             print(f"[WARN] Could not parse base config, using default CompatibilityMode: {compat}")
+            ifc_mode = "TaxiEnableVersion8_2"
     else:
+        ifc_mode = "TaxiEnableVersion8_2"
         print("[WARN] Language ExtendedConfigurationObject set to zeros. Use -ConfigPath to auto-resolve from base config, or fix manually before loading.")
 
     # --- Generate UUIDs ---
@@ -173,7 +182,7 @@ def main():
 \t\t\t<Copyright/>
 \t\t\t<VendorInformationAddress/>
 \t\t\t<ConfigurationInformationAddress/>
-\t\t\t<InterfaceCompatibilityMode>TaxiEnableVersion8_2</InterfaceCompatibilityMode>
+\t\t\t<InterfaceCompatibilityMode>{ifc_mode}</InterfaceCompatibilityMode>
 \t\t</Properties>
 \t\t<ChildObjects>{child_objects_xml}</ChildObjects>
 \t</Configuration>

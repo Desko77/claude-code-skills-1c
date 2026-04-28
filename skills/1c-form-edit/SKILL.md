@@ -133,33 +133,6 @@ powershell.exe -NoProfile -File skills/1c-form-edit/scripts/form-edit.ps1 -FormP
 
 Все extension-секции опциональны — без них навык работает как с обычными формами.
 
-## Вывод
-
-```
-=== form-edit: Форма ===
-
-[EXTENSION] BaseForm detected — IDs start at 1000000+
-
-Added form events:
-  + OnCreateAtServer[After] -> Расш1_ПриСозданииПосле
-
-Added elements (into ГруппаШапка, after Контрагент):
-  + [Input] Склад -> Объект.Склад {OnChange}
-
-Added attributes:
-  + СуммаИтого: decimal(15,2) (id=1000000)
-
----
-Total: 1 form event(s), 1 element(s) (+2 companions), 1 attribute(s)
-Run /form-validate to verify.
-```
-
-## Когда использовать
-
-- **После `/form-compile`**: добавить элементы, которые не были в исходном JSON
-- **Модификация существующих форм**: добавить поле, реквизит или команду в форму из конфигурации
-- **Пакетное добавление**: один JSON может содержать элементы + реквизиты + команды
-
 ## Workflow
 
 1. `/form-info` — посмотреть текущую структуру формы

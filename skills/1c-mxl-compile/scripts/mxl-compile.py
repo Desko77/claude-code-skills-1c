@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# mxl-compile v1.0 — Compile 1C spreadsheet from JSON
+# mxl-compile v1.1 — Compile 1C spreadsheet from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import json
@@ -249,7 +249,7 @@ def main():
 
     # 6b. Column width formats
     col_format_map = {}  # 1-based col -> format index
-    for col in col_width_map:
+    for col in sorted(col_width_map):
         w = col_width_map[col]
         key = get_format_key(width=w)
         idx = register_format(key, {'Width': w})
@@ -288,6 +288,9 @@ def main():
     # Pre-register all formats from areas
     for area in defn['areas']:
         for row in area.get('rows', []):
+            # Skip list-of-values shorthand rows (treated as empty rows like PS1)
+            if isinstance(row, list):
+                continue
             # Skip empty row placeholder
             if row.get('empty'):
                 continue
@@ -356,6 +359,9 @@ def main():
         local_row = 0
 
         for row in area.get('rows', []):
+            # List-of-values shorthand: treat as row with no properties (like PS1)
+            if isinstance(row, list):
+                row = {}
             # Empty row placeholder: emit N empty rows
             if row.get('empty'):
                 count = int(row['empty'])

@@ -31,7 +31,7 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 
 ## JSON DSL — краткий справочник
 
-Полная спецификация: `docs/skd-dsl-spec.md`.
+Справочник ниже. Все примеры компилируемы как есть.
 
 ### Корневая структура
 
@@ -41,6 +41,8 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
   "calculatedFields": [...],
   "totalFields": [...],
   "parameters": [...],
+  "templates": [...],
+  "groupTemplates": [...],
   "dataSetLinks": [...],
   "settingsVariants": [...]
 }
@@ -58,7 +60,7 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 
 Запрос поддерживает `@file` — ссылку на внешний .sql файл вместо inline-текста: `"query": "@queries/sales.sql"`. Путь разрешается относительно JSON-файла, затем CWD.
 
-### Поля — shorthand
+### Поля — shorthand и объектная форма
 
 ```
 "Наименование"                              — просто имя
@@ -67,6 +69,12 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 "Служебное: string #noFilter #noOrder"       — + ограничения
 ```
 
+Объектная форма — когда нужен title или другие свойства:
+```json
+{ "field": "ОстатокНаНачалоПериода", "title": "Остаток на начало периода" }
+```
+`dataPath` автоматически берётся из `field`, если не указан явно.
+
 Типы: `string`, `string(N)`, `decimal(D,F)`, `boolean`, `date`, `dateTime`, `CatalogRef.X`, `DocumentRef.X`, `EnumRef.X`, `StandardPeriod`. Ссылочные типы эмитируются с inline namespace `d5p1:` (`http://v8.1c.ru/8.1/data/enterprise/current-config`). Сборка EPF со ссылочными типами требует базу с соответствующей конфигурацией.
 
 **Синонимы типов** (русские и альтернативные): `число` = decimal, `строка` = string, `булево` = boolean, `дата` = date, `датаВремя` = dateTime, `СтандартныйПериод` = StandardPeriod, `СправочникСсылка.X` = CatalogRef.X, `ДокументСсылка.X` = DocumentRef.X, `int`/`number` = decimal, `bool` = boolean. Регистронезависимые.
@@ -74,6 +82,25 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 Роли: `@dimension`, `@account`, `@balance`, `@period`.
 
 Ограничения: `#noField`, `#noFilter`, `#noGroup`, `#noOrder`.
+
+В объектной форме: `"useRestriction": { "field": true, "condition": true, "group": true, "order": true }` или `"restrict": ["noField", "noFilter"]`.
+
+### Вычисляемые поля (calculatedFields)
+
+Shorthand: `"Имя [Заголовок]: тип = Выражение #noField #noFilter #noGroup #noOrder"` — все части кроме имени опциональны.
+
+```json
+"calculatedFields": [
+  "Маржа = Цена - Закупка",
+  "Наценка [Наценка, %]: decimal(10,2) = Маржа / Закупка * 100",
+  "Служебное: string = \"\" #noField #noFilter #noGroup #noOrder"
+]
+```
+
+Объектная форма — когда нужна `appearance`:
+```json
+{ "name": "Маржа", "title": "Маржа", "expression": "Цена - Закупка", "type": "decimal(15,2)", "useRestriction": "#noField #noFilter" }
+```
 
 ### Итоги (shorthand)
 
@@ -85,11 +112,37 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 
 ```json
 "parameters": [
-  "Период: StandardPeriod = LastMonth @autoDates"
+  "Период [Отчетный период]: StandardPeriod = LastMonth @autoDates"
 ]
 ```
 
-`@autoDates` — автоматически генерирует параметры `ДатаНачала` и `ДатаОкончания` с выражениями `&Период.ДатаНачала` / `&Период.ДатаОкончания` и `availableAsField=false`. Заменяет 5 строк на 1.
+Shorthand: `"Имя [Заголовок]: тип = значение @флаги"`. `[Заголовок]` опциональный — добавляет `<title>` (LocalStringType).
+
+Флаги shorthand:
+- `@autoDates` — добавляет к параметру StandardPeriod пару дат `НачалоПериода`/`КонецПериода`, вычисляемых из него. Используй их в тексте запроса как `&НачалоПериода`/`&КонецПериода`; пользователь выбирает только сам период. По умолчанию сам параметр получает `use=Always` и `denyIncompleteValues=true` (чтобы производные даты всегда были заполнены); в объектной форме можно явно переопределить.
+- `@valueList` — `<valueListAllowed>true</valueListAllowed>` — разрешает передавать список значений
+- `@hidden` — скрытый параметр: `availableAsField=false` + исключается из `"dataParameters": "auto"`
+
+Объектная форма: `title`, `hidden: true`, `valueListAllowed: true`, `availableAsField: false`, `denyIncompleteValues: true`, `use: "Always"`.
+
+Список допустимых значений (availableValues):
+
+```json
+{
+  "name": "ПорядокОкругления",
+  "type": "EnumRef.Округления",
+  "value": "Перечисление.Округления.Окр1_00",
+  "use": "Always",
+  "denyIncompleteValues": true,
+  "availableValues": [
+    {"value": "Перечисление.Округления.Окр1_00", "presentation": "руб. коп"},
+    {"value": "Перечисление.Округления.Окр1", "presentation": "руб."},
+    {"value": "Перечисление.Округления.Окр1000", "presentation": "тыс. руб"}
+  ]
+}
+```
+
+В варианте настроек `"dataParameters": "auto"` выводит все не-hidden параметры с `userSettingID`. Значения по умолчанию наследуются и остаются активными; параметры без значения по умолчанию отключаются (пользователь включит их в настройках).
 
 ### Фильтры — shorthand
 
@@ -136,13 +189,27 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 
 `>` разделяет уровни группировки. `details` (или `детали`) = детальные записи. `selection` и `order` по умолчанию `["Auto"]` на каждом уровне.
 
-Для сложных случаев (таблицы, диаграммы, фильтры на уровне группировки) используется объектная форма.
+Объектная форма — для сложных случаев (именованные группировки, selection/filter на уровне группировки, таблицы, диаграммы):
+
+```json
+"structure": [
+  {
+    "name": "ПоОрганизациям",
+    "groupFields": ["Организация"],
+    "selection": ["Организация", "Сумма", "Auto"],
+    "children": [{ "groupFields": [] }]
+  }
+]
+```
+
+`type` по умолчанию `"group"` (можно не указывать). `groupFields` — алиас для `groupBy`. Поддержка `name`, `selection`, `order`, `filter`, `outputParameters`, рекурсивных `children`.
 
 ### Варианты настроек
 
 ```json
 "settingsVariants": [{
   "name": "Основной",
+  "title": "Продажи по организациям",
   "settings": {
     "selection": ["Номенклатура", "Количество", "Auto"],
     "filter": ["Организация = _ @off @user"],
@@ -178,7 +245,13 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 ]
 ```
 
-Типы значений appearance: `style:XXX`/`web:XXX`/`win:XXX` → Color, `true`/`false` → Boolean, параметр `Текст` → LocalStringType, прочее → String.
+Типы значений appearance: `style:XXX`/`web:XXX`/`win:XXX` → Color, `true`/`false` → Boolean, параметр `Формат`/`Текст`/`Заголовок` → LocalStringType, прочее → String.
+
+Типы значений фильтра: `Перечисление.*`/`Справочник.*`/`ПланСчетов.*`/`Документ.*` → DesignTimeValue (автодетект).
+
+OrGroup в фильтре: `{"group": "Or", "items": ["условие1", "условие2"]}`.
+
+Folder в selection: `{"folder": "Поступление", "items": ["ПолеА", "ПолеБ"]}` → SelectedItemFolder с lwsTitle и placement=Auto.
 
 ### Итоги с привязкой к группировкам
 
@@ -187,6 +260,79 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
   { "dataPath": "Кол", "expression": "Сумма(Кол)", "group": ["Группа1", "Группа1 Иерархия", "ОбщийИтог"] }
 ]
 ```
+
+### Шаблоны вывода — компактный DSL
+
+Вместо raw XML (`template`) — табличное описание через `rows` + именованный стиль `style`:
+
+```json
+"templates": [
+  {
+    "name": "Макет1",
+    "style": "header",
+    "widths": [36, 33, 16, 17],
+    "minHeight": 24.75,
+    "rows": [
+      ["Виды кассы", "Валюта", "Остаток на начало\nпериода", "Остаток на\nконец периода"],
+      ["|", "|", "|", "|"],
+      ["К1", "К2", "К3", "К4"]
+    ]
+  },
+  {
+    "name": "Макет2",
+    "style": "data",
+    "widths": [36, 33, 16, 17],
+    "rows": [["{ВидКассы}", "{Валюта}", "{Остаток}", "{ОстатокКонец}"]],
+    "parameters": [
+      { "name": "ВидКассы", "expression": "Представление(Счет)" },
+      { "name": "Остаток", "expression": "ОстатокНаНачалоПериода" }
+    ]
+  }
+]
+```
+
+Синтаксис ячеек: `"текст"` — статика, `"{Имя}"` — параметр, `"|"` — объединение с ячейкой выше, `">"` — объединение с ячейкой слева, `null` — пустая.
+
+Двухуровневая шапка с горизонтальным объединением:
+```json
+"rows": [
+  ["Вид актива", "Остаток начало", "Поступление", ">", ">", ">", "Выбытие", ">", ">", "Остаток конец"],
+  ["|",          "|",              "из произв.",   "из п/ф", "со сч.40", "прочее", "Реализ.", "отгруж.", "прочее", "|"],
+  ["К1",         "К2",             "К3",           "К4",     "К5",       "К6",     "К7",      "К8",      "К9",     "К10"]
+]
+```
+
+Встроенные стили: `header` (фон, центр, перенос), `data` (фон группы), `subheader` (без фона, центр), `total` (без фона). Все — Arial 10, рамки Solid 1px, цвета через стили платформы.
+
+Пользовательские стили: файл `skd-styles.json` рядом с JSON-определением, в текущей директории, или в `presets/skills/skd/skd-styles.json` (поиск вверх от OutputPath). Первый найденный файл побеждает. Все допустимые ключи и формат цветов — в `examples/skd-styles.json`.
+
+Raw XML (`"template": "<...>"`) остаётся как fallback. Детект: если есть `rows` — DSL, иначе — raw.
+
+### Расшифровка (drilldown) в параметрах шаблона
+
+Ключ `drilldown` в параметре шаблона автоматически генерирует `DetailsAreaTemplateParameter` и привязку `Расшифровка` в appearance ячеек:
+
+```json
+"parameters": [
+  { "name": "Сырье", "expression": "ПоступлениеСырья", "drilldown": "ПоступлениеСырья" }
+]
+```
+
+Генерирует: `ExpressionAreaTemplateParameter` (обычный) + `DetailsAreaTemplateParameter` с именем `Расшифровка_ПоступлениеСырья`, `fieldExpression` по полю `ИмяРесурса`, `mainAction=DrillDown`. Ячейки `{Сырье}` автоматически получают appearance `Расшифровка = Расшифровка_ПоступлениеСырья`.
+
+### Привязки макетов к группировкам
+
+```json
+"groupTemplates": [
+  { "groupName": "ДанныеОтчета", "templateType": "GroupHeader", "template": "Макет1" },
+  { "groupField": "Счет", "templateType": "Header", "template": "Макет2" },
+  { "groupField": "Счет", "templateType": "OverallHeader", "template": "Макет3" }
+]
+```
+
+`groupField` — привязка к полю группировки, `groupName` — к именованной группировке в структуре варианта.
+
+`templateType`: `Header` (строки данных) → `<groupTemplate>`, `OverallHeader` (итоги) → `<groupTemplate>`, `GroupHeader` (шапка) → `<groupHeaderTemplate>`.
 
 ## Примеры
 

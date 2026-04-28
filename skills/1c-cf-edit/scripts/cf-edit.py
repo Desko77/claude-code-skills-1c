@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cf-edit v1.0 — Edit 1C configuration root (Configuration.xml)
+# cf-edit v1.1 — Edit 1C configuration root (Configuration.xml)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -31,6 +31,22 @@ TYPE_ORDER = [
     "ChartOfCalculationTypes", "CalculationRegister",
     "BusinessProcess", "Task", "IntegrationService",
 ]
+
+# Type → on-disk directory name (plural)
+TYPE_TO_DIR = {
+    "Language": "Languages", "Subsystem": "Subsystems", "StyleItem": "StyleItems", "Style": "Styles",
+    "CommonPicture": "CommonPictures", "SessionParameter": "SessionParameters", "Role": "Roles", "CommonTemplate": "CommonTemplates",
+    "FilterCriterion": "FilterCriteria", "CommonModule": "CommonModules", "CommonAttribute": "CommonAttributes", "ExchangePlan": "ExchangePlans",
+    "XDTOPackage": "XDTOPackages", "WebService": "WebServices", "HTTPService": "HTTPServices", "WSReference": "WSReferences",
+    "EventSubscription": "EventSubscriptions", "ScheduledJob": "ScheduledJobs", "SettingsStorage": "SettingsStorages", "FunctionalOption": "FunctionalOptions",
+    "FunctionalOptionsParameter": "FunctionalOptionsParameters", "DefinedType": "DefinedTypes", "CommonCommand": "CommonCommands", "CommandGroup": "CommandGroups",
+    "Constant": "Constants", "CommonForm": "CommonForms", "Catalog": "Catalogs", "Document": "Documents",
+    "DocumentNumerator": "DocumentNumerators", "Sequence": "Sequences", "DocumentJournal": "DocumentJournals", "Enum": "Enums",
+    "Report": "Reports", "DataProcessor": "DataProcessors", "InformationRegister": "InformationRegisters", "AccumulationRegister": "AccumulationRegisters",
+    "ChartOfCharacteristicTypes": "ChartsOfCharacteristicTypes", "ChartOfAccounts": "ChartsOfAccounts", "AccountingRegister": "AccountingRegisters",
+    "ChartOfCalculationTypes": "ChartsOfCalculationTypes", "CalculationRegister": "CalculationRegisters",
+    "BusinessProcess": "BusinessProcesses", "Task": "Tasks", "IntegrationService": "IntegrationServices",
+}
 
 ML_PROPS = ["Synonym", "BriefInformation", "DetailedInformation", "Copyright", "VendorInformationAddress", "ConfigurationInformationAddress"]
 SCALAR_PROPS = ["Name", "Version", "Vendor", "Comment", "NamePrefix", "UpdateCatalogAddress"]
@@ -131,7 +147,9 @@ def parse_batch_value(val):
 
 def save_xml_bom(tree, path):
     xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
-    xml_bytes = xml_bytes.replace(b"encoding='UTF-8'", b'encoding="UTF-8"')
+    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
+    if not xml_bytes.endswith(b"\n"):
+        xml_bytes += b"\n"
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)
@@ -169,6 +187,7 @@ def main():
         print(f"File not found: {config_path}", file=sys.stderr)
         sys.exit(1)
     resolved_path = os.path.abspath(config_path)
+    config_dir = os.path.dirname(resolved_path)
 
     xml_parser = etree.XMLParser(remove_blank_text=False)
     tree = etree.parse(resolved_path, xml_parser)
@@ -282,6 +301,25 @@ def main():
                 print(f"Unknown type '{type_name}'", file=sys.stderr)
                 sys.exit(1)
             type_idx = TYPE_ORDER.index(type_name)
+
+            # Check that the referenced object actually exists on disk.
+            # cf-edit add-childObject is a low-level operation for rare scenarios
+            # (e.g. restoring a rolled-back Configuration.xml when object files are intact).
+            # For creating NEW objects, meta-compile/role-compile/subsystem-compile already
+            # auto-register in Configuration.xml — calling cf-edit add-childObject there is
+            # unnecessary and error-prone.
+            type_dir = TYPE_TO_DIR.get(type_name)
+            obj_file = os.path.join(config_dir, type_dir, f"{obj_name_val}.xml")
+            if not os.path.exists(obj_file):
+                hint_skill = {"Subsystem": "subsystem-compile", "Role": "role-compile"}.get(type_name, "meta-compile")
+                print(
+                    f"Object file not found: {type_dir}/{obj_name_val}.xml\n"
+                    f"cf-edit add-childObject only references objects that already exist on disk.\n"
+                    f"To create a new {type_name}, use {hint_skill} (auto-registers in Configuration.xml):\n"
+                    f'  /{hint_skill} with {{"type":"{type_name}","name":"{obj_name_val}"}}',
+                    file=sys.stderr
+                )
+                sys.exit(1)
 
             # Dedup
             exists = False

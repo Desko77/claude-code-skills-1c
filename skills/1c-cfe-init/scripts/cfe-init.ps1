@@ -1,4 +1,4 @@
-﻿# cfe-init v1.0 — Create 1C configuration extension scaffold (CFE)
+﻿# cfe-init v1.1 — Create 1C configuration extension scaffold (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -69,7 +69,7 @@ if ($ConfigPath) {
 		Write-Host "[WARN] Base config language not found: $baseLangFile"
 	}
 
-	# 3b. Read CompatibilityMode from base config
+	# 3b. Read CompatibilityMode and InterfaceCompatibilityMode from base config
 	$baseCfgDoc = New-Object System.Xml.XmlDocument
 	$baseCfgDoc.PreserveWhitespace = $false
 	$baseCfgDoc.Load((Resolve-Path $ConfigPath).Path)
@@ -82,7 +82,16 @@ if ($ConfigPath) {
 	} else {
 		Write-Host "[WARN] CompatibilityMode not found in base config, using default: $CompatibilityMode"
 	}
+	$ifcNode = $baseCfgDoc.SelectSingleNode("//md:Configuration/md:Properties/md:InterfaceCompatibilityMode", $baseCfgNs)
+	if ($ifcNode -and $ifcNode.InnerText) {
+		$InterfaceCompatibilityMode = $ifcNode.InnerText.Trim()
+		Write-Host "[INFO] Base config InterfaceCompatibilityMode: $InterfaceCompatibilityMode"
+	} else {
+		$InterfaceCompatibilityMode = "TaxiEnableVersion8_2"
+		Write-Host "[WARN] InterfaceCompatibilityMode not found in base config, using default: $InterfaceCompatibilityMode"
+	}
 } else {
+	$InterfaceCompatibilityMode = "TaxiEnableVersion8_2"
 	Write-Host "[WARN] Language ExtendedConfigurationObject set to zeros. Use -ConfigPath to auto-resolve from base config, or fix manually before loading."
 }
 
@@ -184,7 +193,7 @@ $cfgXml = @"
 			<Copyright/>
 			<VendorInformationAddress/>
 			<ConfigurationInformationAddress/>
-			<InterfaceCompatibilityMode>TaxiEnableVersion8_2</InterfaceCompatibilityMode>
+			<InterfaceCompatibilityMode>$InterfaceCompatibilityMode</InterfaceCompatibilityMode>
 		</Properties>
 		<ChildObjects>$childObjectsXml</ChildObjects>
 	</Configuration>

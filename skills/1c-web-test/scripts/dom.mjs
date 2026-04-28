@@ -1,4 +1,4 @@
-// web-test dom v1.1 — DOM selectors and semantic mapping for 1C web client
+// web-test dom v1.7 — DOM selectors and semantic mapping for 1C web client
 // Source: https://github.com/Desko77/claude-code-skills-1c
 /**
  * DOM selectors and semantic mapping for 1C:Enterprise web client.
@@ -10,11 +10,21 @@
 
 // --- Shared function strings (embedded in evaluate scripts) ---
 
+/** Find visible #modalSurface. 1C may leave multiple #modalSurface in DOM (duplicate id),
+ *  e.g. when a second form (drill-down) creates its own alongside a stale one from the first
+ *  form. getElementById returns the FIRST in document order, which may be hidden. Scan all. */
+const HAS_VISIBLE_MODAL_FN = `function hasVisibleModal() {
+  const all = document.querySelectorAll('#modalSurface');
+  for (const el of all) { if (el.offsetWidth > 0) return true; }
+  return false;
+}`;
+
 /** Detect active form number. Picks form with most visible elements, skipping form0.
  *  When modalSurface is visible — prefer the highest-numbered form (modal dialog). */
-const DETECT_FORM_FN = `function detectForm() {
+const DETECT_FORM_FN = HAS_VISIBLE_MODAL_FN + `
+function detectForm() {
   const counts = {};
-  document.querySelectorAll('input.editInput[id], a.press[id]').forEach(el => {
+  document.querySelectorAll('input.editInput[id], textarea[id], a.press[id]').forEach(el => {
     if (el.offsetWidth === 0) return;
     const m = el.id.match(/^form(\\d+)_/);
     if (m) counts[m[1]] = (counts[m[1]] || 0) + 1;
@@ -24,12 +34,25 @@ const DETECT_FORM_FN = `function detectForm() {
   const candidates = nums.filter(n => n > 0);
   if (!candidates.length) return nums[0];
   // When modal surface is visible, prefer the highest-numbered form (modal dialog)
-  const modal = document.getElementById('modalSurface');
-  if (modal && modal.offsetWidth > 0) {
+  if (hasVisibleModal()) {
     const maxForm = Math.max(...candidates);
     if (counts[maxForm] >= 1) return maxForm;
   }
   return candidates.reduce((best, n) => counts[n] > counts[best] ? n : best);
+}`;
+
+/** Detect all open forms + modal state. Returns { activeForm, allForms, formCount, modal }.
+ *  Works even when the open-windows tab bar is hidden. */
+const DETECT_FORMS_FN = HAS_VISIBLE_MODAL_FN + `
+function detectForms() {
+  const counts = {};
+  document.querySelectorAll('input.editInput[id], textarea[id], a.press[id]').forEach(el => {
+    if (el.offsetWidth === 0) return;
+    const m = el.id.match(/^form(\\d+)_/);
+    if (m) counts[m[1]] = (counts[m[1]] || 0) + 1;
+  });
+  const nums = Object.keys(counts).map(Number);
+  return { allForms: nums.sort((a, b) => a - b), formCount: nums.length, modal: hasVisibleModal() };
 }`;
 
 /** Read form state given prefix p. Returns { fields, buttons, tabs, texts, hyperlinks, table, iframes }. */
@@ -40,6 +63,8 @@ const READ_FORM_FN = `function readForm(p) {
   const formTabs = [];
   const texts = [];
   const hyperlinks = [];
+  // Normalize non-breaking spaces to regular spaces
+  const nbsp = s => (s || '').replace(/\\u00a0/g, ' ');
 
   // Fields (inputs)
   document.querySelectorAll('input.editInput[id^="' + p + '"]').forEach(el => {
@@ -47,13 +72,23 @@ const READ_FORM_FN = `function readForm(p) {
     const name = el.id.replace(p, '').replace(/_i\\d+$/, '');
     const titleEl = document.getElementById(p + name + '#title_text')
       || document.getElementById(p + name + '#title_div');
-    const label = (titleEl?.innerText?.trim() || '').replace(/\\n/g, ' ');
+    const label = nbsp((titleEl?.innerText?.trim() || '').replace(/\\n/g, ' '));
     const actions = [];
     if (document.getElementById(p + name + '_DLB')?.offsetWidth > 0) actions.push('select');
     if (document.getElementById(p + name + '_OB')?.offsetWidth > 0) actions.push('open');
     if (document.getElementById(p + name + '_CLR')?.offsetWidth > 0) actions.push('clear');
     if (document.getElementById(p + name + '_CB')?.offsetWidth > 0) actions.push('pick');
     const field = { name, value: el.value || '' };
+    // Multi-value reference fields keep their value in .chipsItem chips, not in input.value
+    if (!field.value) {
+      const labelEl = document.getElementById(p + name);
+      if (labelEl) {
+        const chipTexts = [...labelEl.querySelectorAll('.chipsItem .chipsTitle')]
+          .map(c => nbsp(c.innerText?.trim() || ''))
+          .filter(Boolean);
+        if (chipTexts.length) field.value = chipTexts.join(', ');
+      }
+    }
     if (label && label !== name) field.label = label;
     if (el.readOnly) field.readonly = true;
     if (el.disabled) field.disabled = true;
@@ -70,7 +105,7 @@ const READ_FORM_FN = `function readForm(p) {
     const name = el.id.replace(p, '').replace(/_i\\d+$/, '');
     const titleEl = document.getElementById(p + name + '#title_text')
       || document.getElementById(p + name + '#title_div');
-    const label = (titleEl?.innerText?.trim() || '').replace(/\\n/g, ' ');
+    const label = nbsp((titleEl?.innerText?.trim() || '').replace(/\\n/g, ' '));
     const field = { name, value: el.value || '', type: 'textarea' };
     if (label && label !== name) field.label = label;
     if (el.readOnly) field.readonly = true;
@@ -85,7 +120,7 @@ const READ_FORM_FN = `function readForm(p) {
     if (el.offsetWidth === 0) return;
     const name = el.id.replace(p, '');
     const titleEl = document.getElementById(p + name + '#title_text');
-    const label = titleEl?.innerText?.trim() || '';
+    const label = nbsp(titleEl?.innerText?.trim() || '');
     const field = {
       name,
       value: el.classList.contains('checked') || el.classList.contains('checkboxOn') || el.classList.contains('select'),
@@ -106,13 +141,13 @@ const READ_FORM_FN = `function readForm(p) {
       const [, groupName, idx] = m;
       if (!radioGroups[groupName]) radioGroups[groupName] = [];
       const labelEl = document.getElementById(p + groupName + '#' + idx + '#radio_text');
-      const label = labelEl?.innerText?.trim() || 'option' + idx;
+      const label = nbsp(labelEl?.innerText?.trim() || 'option' + idx);
       radioGroups[groupName].push({ index: parseInt(idx), label, selected: el.classList.contains('select') });
     } else if (!id.includes('#')) {
       // Base element = option 0 (no #0#radio suffix)
       if (!radioGroups[id]) radioGroups[id] = [];
       const labelEl = document.getElementById(p + id + '#0#radio_text');
-      const label = labelEl?.innerText?.trim() || 'option0';
+      const label = nbsp(labelEl?.innerText?.trim() || 'option0');
       radioGroups[id].unshift({ index: 0, label, selected: el.classList.contains('select') });
     }
   });
@@ -136,18 +171,23 @@ const READ_FORM_FN = `function readForm(p) {
     const idName = el.id.replace(p, '');
     if (/_(?:DLB|CLR|OB|CB)$/.test(idName)) return;
     const span = el.querySelector('.submenuText') || el.querySelector('span');
-    const text = span?.textContent?.trim() || el.innerText?.trim() || '';
+    const text = nbsp(span?.textContent?.trim() || el.innerText?.trim() || '');
     if (!text && !el.classList.contains('pressCommand')) return;
     const btn = { name: text || idName };
     if (el.classList.contains('pressDefault')) btn.default = true;
     if (el.classList.contains('pressDisabled')) btn.disabled = true;
+    // Icon-only buttons: expose tooltip from DOM title attribute (1C puts title on parent .framePress)
+    if (!text) {
+      const tip = nbsp(el.title || el.parentElement?.title || '');
+      if (tip) btn.tooltip = tip;
+    }
     buttons.push(btn);
   });
 
   // Frame buttons
   document.querySelectorAll('[id^="' + p + '"].frameButton, [id^="' + p + '"] .frameButton').forEach(el => {
     if (el.offsetWidth === 0) return;
-    const text = el.innerText?.trim();
+    const text = nbsp(el.innerText?.trim() || '');
     const idName = el.id?.replace(p, '') || '';
     if (!text && !idName) return;
     buttons.push({ name: text || idName, frame: true });
@@ -210,7 +250,8 @@ const READ_FORM_FN = `function readForm(p) {
           const textEl = box.querySelector('.gridBoxText');
           const text = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
           if (text) {
-            columns.push(text);
+            const r = box.getBoundingClientRect();
+            columns.push({ text, x: r.x, right: r.x + r.width, y: r.y, h: r.height });
           } else {
             // Unnamed column — check if data cells contain checkboxes
             const firstLine = body?.querySelector('.gridLine');
@@ -219,18 +260,47 @@ const READ_FORM_FN = `function readForm(p) {
               const idx = visibleHeaders.indexOf(box);
               const cells = [...firstLine.children].filter(c => c.offsetWidth > 0);
               if (cells[idx]?.querySelector('.checkbox')) {
-                columns.push('(checkbox)');
+                columns.push({ text: '(checkbox)', x: 0, right: 0, y: 0, h: 0 });
               }
             }
           }
         });
+        // Expand single merged headers with multiple data sub-rows (e.g. "Субконто Дт" → 1/2/3)
+        const firstLine = body?.querySelector('.gridLine');
+        if (firstLine && columns.length > 0) {
+          const xGrp = new Map();
+          columns.forEach(c => {
+            const k = Math.round(c.x) + ':' + Math.round(c.right);
+            if (!xGrp.has(k)) xGrp.set(k, []);
+            xGrp.get(k).push(c);
+          });
+          for (const [k, hdrs] of xGrp) {
+            if (hdrs.length !== 1) continue;
+            let cnt = 0;
+            [...firstLine.children].forEach(box => {
+              if (box.offsetWidth === 0) return;
+              const r = box.getBoundingClientRect();
+              const cx = r.x + r.width / 2;
+              if (cx >= hdrs[0].x && cx < hdrs[0].right) cnt++;
+            });
+            if (cnt > 1) {
+              const base = hdrs[0];
+              const baseIdx = columns.indexOf(base);
+              columns.splice(baseIdx, 1);
+              for (let si = 0; si < cnt; si++) {
+                columns.splice(baseIdx + si, 0, { text: base.text + ' ' + (si + 1), x: base.x, right: base.right, y: 0, h: 0 });
+              }
+            }
+          }
+        }
       }
+      const colNames = columns.map(c => c.text);
       const rowCount = body ? body.querySelectorAll('.gridLine').length : 0;
       // Visual label from group title (e.g. "Входящие:" for grid "Входящие")
       const titleEl = document.getElementById(p + name + '#title_div')
                    || document.getElementById(p + 'Группа' + name + '#title_div');
       const label = titleEl ? (titleEl.innerText?.trim().replace(/:\\s*$/, '').replace(/\\u00a0/g, ' ') || null) : null;
-      return { name, columns, rowCount, ...(label ? { label } : {}) };
+      return { name, columns: colNames, rowCount, ...(label ? { label } : {}) };
     });
     result.tables = tables;
     // Backward compat: table = first grid summary
@@ -307,9 +377,10 @@ const READ_FORM_FN = `function readForm(p) {
       result.reportSettings = dcsEntries.map(([, g]) => {
         const cb = g['Использование'];
         const val = g['Значение'];
-        if (!cb) return null;
-        const label = (val?.label || cb.label || cb.name).replace(/:$/, '').trim();
-        const s = { name: label, enabled: !!cb.value };
+        if (!cb && !val) return null;
+        // No checkbox present (class="staticText" instead of .checkbox) — setting is always enabled
+        const label = (val?.label || cb?.label || val?.name || cb?.name || '').replace(/:$/, '').trim();
+        const s = { name: label, enabled: cb ? !!cb.value : true };
         if (val) {
           s.value = val.value || '';
           if (val.actions && val.actions.length) s.actions = val.actions;
@@ -514,14 +585,90 @@ export function readTableScript(formNum, { maxRows = 20, offset = 0, gridSelecto
           const cells = [...firstLine.children].filter(c => c.offsetWidth > 0);
           if (cells[idx]?.querySelector('.checkbox')) {
             const r = box.getBoundingClientRect();
-            columns.push({ text: '(checkbox)', x: r.x, w: r.width, right: r.x + r.width });
+            columns.push({ text: '(checkbox)', x: r.x, w: r.width, right: r.x + r.width, y: r.y, h: r.height });
           }
         }
         return;
       }
       const r = box.getBoundingClientRect();
-      columns.push({ text, x: r.x, w: r.width, right: r.x + r.width });
+      columns.push({ text, x: r.x, w: r.width, right: r.x + r.width, y: r.y, h: r.height });
     });
+
+    // Multi-row grid support: detect stacked/merged headers.
+    // Group headers by X-range. For each group, count data sub-rows from first line.
+    // - Stacked headers (2+ headers at same X) with multiple data rows → match by Y-order
+    // - Single merged header with multiple data rows → expand to numbered columns (e.g. "Субконто Дт 1")
+    const xGroups = new Map();
+    columns.forEach(c => {
+      const key = Math.round(c.x) + ':' + Math.round(c.right);
+      if (!xGroups.has(key)) xGroups.set(key, []);
+      xGroups.get(key).push(c);
+    });
+    for (const [, hdrs] of xGroups) hdrs.sort((a, b) => a.y - b.y);
+
+    const firstDataLine = body?.querySelector('.gridLine');
+    const subRowMap = new Map();
+    if (firstDataLine) {
+      [...firstDataLine.children].forEach(box => {
+        if (box.offsetWidth === 0) return;
+        const r = box.getBoundingClientRect();
+        const cx = r.x + r.width / 2;
+        for (const [key, hdrs] of xGroups) {
+          const h0 = hdrs[0];
+          if (cx >= h0.x && cx < h0.right) {
+            if (!subRowMap.has(key)) subRowMap.set(key, []);
+            subRowMap.get(key).push({ y: r.y });
+            break;
+          }
+        }
+      });
+      for (const [, subs] of subRowMap) subs.sort((a, b) => a.y - b.y);
+    }
+
+    const multiRowGroups = new Map();
+    for (const [key, hdrs] of xGroups) {
+      const subs = subRowMap.get(key);
+      if (!subs || subs.length <= 1) continue;
+      if (hdrs.length >= 2) {
+        multiRowGroups.set(key, hdrs);
+      } else if (hdrs.length === 1 && subs.length > 1) {
+        const base = hdrs[0];
+        const baseIdx = columns.indexOf(base);
+        columns.splice(baseIdx, 1);
+        const expanded = [];
+        for (let si = 0; si < subs.length; si++) {
+          const numbered = {
+            text: base.text + ' ' + (si + 1),
+            x: base.x, w: base.w, right: base.right,
+            y: base.y + si, h: base.h / subs.length, _subIdx: si
+          };
+          columns.splice(baseIdx + si, 0, numbered);
+          expanded.push(numbered);
+        }
+        multiRowGroups.set(key, expanded);
+      }
+    }
+
+    function matchColumn(cellX, cellW, cellY) {
+      const cx = cellX + cellW / 2;
+      for (const [key, hdrs] of multiRowGroups) {
+        const h0 = hdrs[0];
+        if (cx >= h0.x && cx < h0.right) {
+          const subs = subRowMap.get(key);
+          if (subs) {
+            const subIdx = subs.findIndex(s => Math.abs(s.y - cellY) < 5);
+            if (subIdx >= 0 && subIdx < hdrs.length) return hdrs[subIdx];
+          }
+          let best = hdrs[0], bestDist = Infinity;
+          for (const h of hdrs) {
+            const dist = Math.abs(cellY - h.y);
+            if (dist < bestDist) { bestDist = dist; best = h; }
+          }
+          return best;
+        }
+      }
+      return columns.find(c => cx >= c.x && cx < c.right);
+    }
 
     // Extract data rows from gridBody
     const allLines = body.querySelectorAll('.gridLine');
@@ -544,10 +691,9 @@ export function readTableScript(formNum, { maxRows = 20, offset = 0, gridSelecto
           val = (textEl || box).innerText?.trim().replace(/\\n/g, ' ') || '';
           if (!val) return;
         }
-        // Match cell to column by X-coordinate overlap
+        // Match cell to column by X+Y overlap (multi-row aware)
         const r = box.getBoundingClientRect();
-        const cx = r.x + r.width / 2;
-        const col = columns.find(c => cx >= c.x && cx < c.right);
+        const col = matchColumn(r.x, r.width, r.y);
         if (col) {
           row[col.text] = row[col.text] ? row[col.text] + ' / ' + val : val;
         }
@@ -568,6 +714,8 @@ export function readTableScript(formNum, { maxRows = 20, offset = 0, gridSelecto
         }
         row._level = imgBox ? imgBox.querySelectorAll('.dIB').length - 1 : 0;
       }
+      // Selection state: selRow = selected row in grid
+      if (line.classList.contains('selRow') || line.classList.contains('select')) row._selected = true;
       rows.push(row);
     }
     const isTree = !!body.querySelector('.gridBoxTree');
@@ -586,12 +734,14 @@ export function readTableScript(formNum, { maxRows = 20, offset = 0, gridSelecto
 export function getFormStateScript() {
   return `(() => {
     ${DETECT_FORM_FN}
+    ${DETECT_FORMS_FN}
     ${READ_FORM_FN}
     const formNum = detectForm();
-    if (formNum === null) return { form: null, message: 'No form detected' };
+    const meta = detectForms();
+    if (formNum === null) return { form: null, formCount: 0, message: 'No form detected' };
     const p = 'form' + formNum + '_';
     const formData = readForm(p);
-    // Open tabs bar
+    // Open tabs bar (present only when tab panel is enabled in 1C settings)
     const openTabs = [];
     document.querySelectorAll('[id^="openedCell_cmd_"]').forEach(el => {
       const text = el.innerText?.trim();
@@ -601,7 +751,10 @@ export function getFormStateScript() {
       openTabs.push(entry);
     });
     const activeTab = openTabs.find(t => t.active)?.name || null;
-    return { form: formNum, activeTab, ...formData };
+    const result = { form: formNum, activeTab, openForms: meta.allForms, formCount: meta.formCount, ...formData };
+    if (meta.modal) result.modal = true;
+    if (openTabs.length) result.openTabs = openTabs;
+    return result;
   })()`;
 }
 
@@ -660,7 +813,10 @@ export function findClickTargetScript(formNum, text, { tableName, gridSelector }
       const text = norm(span?.textContent) || norm(el.innerText);
       if (!text && !el.classList.contains('pressCommand')) return;
       const isSubmenu = /^(?:Подменю|allActions)/i.test(idName);
-      items.push({ id: el.id, name: text || idName, label: idName, kind: isSubmenu ? 'submenu' : 'button' });
+      const item = { id: el.id, name: text || idName, label: idName, kind: isSubmenu ? 'submenu' : 'button' };
+      // Icon-only buttons: use tooltip for fuzzy match (1C puts title on parent .framePress)
+      if (!text) { const tip = norm(el.title || el.parentElement?.title || ''); if (tip) item.tooltip = tip; }
+      items.push(item);
     });
 
     // Hyperlinks (staticTextHyper)
@@ -757,15 +913,17 @@ export function findClickTargetScript(formNum, text, { tableName, gridSelector }
       // Fall through to unscoped search
     }
 
-    // Fuzzy match: exact name -> exact label -> startsWith name -> startsWith label -> includes name -> includes label
+    // Fuzzy match: exact name -> exact label -> exact tooltip -> startsWith name -> startsWith label -> includes name -> includes label -> includes tooltip
     // Skip includes() for short strings (< 4 chars) to avoid false positives
     // e.g. "Да" matching "КомандаУстановитьВсе"
     let found = items.find(i => i.name.toLowerCase() === target);
     if (!found) found = items.find(i => i.label && i.label.toLowerCase() === target);
+    if (!found) found = items.find(i => i.tooltip && i.tooltip.toLowerCase() === target);
     if (!found) found = items.find(i => i.name.toLowerCase().startsWith(target));
     if (!found) found = items.find(i => i.label && i.label.toLowerCase().startsWith(target));
     if (!found && target.length >= 4) found = items.find(i => i.name.toLowerCase().includes(target));
     if (!found && target.length >= 4) found = items.find(i => i.label && i.label.toLowerCase().includes(target));
+    if (!found && target.length >= 4) found = items.find(i => i.tooltip && i.tooltip.toLowerCase().includes(target));
 
     if (found) {
       const res = { id: found.id, kind: found.kind, name: found.name };
@@ -809,7 +967,7 @@ export function findClickTargetScript(formNum, text, { tableName, gridSelector }
       }
     }
 
-    return { error: 'not_found', available: items.map(i => i.name).filter(Boolean) };
+    return { error: 'not_found', available: items.map(i => i.tooltip ? i.name + ' [' + i.tooltip + ']' : i.name).filter(Boolean) };
   })()`;
 }
 
@@ -1119,7 +1277,7 @@ export function checkErrorsScript() {
         const elCount = document.querySelectorAll('[id^="' + p + '"]').length;
         if (elCount > 100) continue;
         if (buttons.length !== 1 || !buttons[0].classList.contains('pressDefault')) continue;
-        const hasInputs = document.querySelectorAll('input.editInput[id^="' + p + '"]').length > 0;
+        const hasInputs = document.querySelectorAll('input.editInput[id^="' + p + '"], textarea[id^="' + p + '"]').length > 0;
         if (hasInputs) continue;
         const texts = [...document.querySelectorAll('[id^="' + p + '"].staticText')]
           .filter(el => el.offsetWidth > 0)
@@ -1127,12 +1285,30 @@ export function checkErrorsScript() {
           .filter(Boolean);
         if (texts.length > 0) {
           result.modal = { message: texts.join(' '), formNum: parseInt(fn), button: buttons[0].innerText?.trim() || '' };
+          // Check if OpenReport link is available (platform exceptions have visible link text)
+          const reportLink = document.getElementById(p + 'OpenReport#text');
+          if (reportLink && reportLink.offsetWidth > 2 && reportLink.textContent.trim()) {
+            result.modal.hasReport = true;
+          }
+          // Grab AdditionalInfo/ServerText if filled (may contain extra error details)
+          const addInfo = document.getElementById(p + 'AdditionalInfo');
+          if (addInfo && addInfo.textContent && addInfo.textContent.trim()) result.modal.additionalInfo = addInfo.textContent.trim();
+          const srvText = document.getElementById(p + 'ServerText');
+          if (srvText && srvText.textContent && srvText.textContent.trim()) result.modal.serverText = srvText.textContent.trim();
           break;
         }
       }
     }
 
-    return (result.balloon || result.messages || result.modal || result.confirmation) ? result : null;
+    // 5. SpreadsheetDocument state window (info bar inside moxelContainer)
+    // Shows messages like "Не установлено значение параметра X" or "Отчет не сформирован"
+    const stateWins = [...document.querySelectorAll('.stateWindowSupportSurface')].filter(el => el.offsetWidth > 0);
+    if (stateWins.length) {
+      const texts = stateWins.map(el => el.innerText?.trim()).filter(Boolean);
+      if (texts.length) result.stateText = texts;
+    }
+
+    return (result.balloon || result.messages || result.modal || result.confirmation || result.stateText) ? result : null;
   })()`;
 }
 
@@ -1159,7 +1335,11 @@ export function resolveFieldsScript(formNum, fields) {
       const label = (titleEl?.innerText?.trim() || '').replace(/\\n/g, ' ').replace(/:$/, '');
       const last = { inputId: el.id, name, label };
       if (document.getElementById(p + name + '_DLB')?.offsetWidth > 0) last.hasSelect = true;
-      if (document.getElementById(p + name + '_CB')?.offsetWidth > 0) last.hasPick = true;
+      const cbEl = document.getElementById(p + name + '_CB');
+      if (cbEl?.offsetWidth > 0) {
+        last.hasPick = true;
+        if (cbEl.classList.contains('iCalendB')) last.isDate = true;
+      }
       allFields.push(last);
     });
     // Checkboxes
@@ -1238,6 +1418,7 @@ export function resolveFieldsScript(formNum, fields) {
         if (found.isRadio) { entry.isRadio = true; entry.options = found.options; }
         if (found.hasSelect) entry.hasSelect = true;
         if (found.hasPick) entry.hasPick = true;
+        if (found.isDate) entry.isDate = true;
         if (found._dcsCheckbox) {
           entry.dcsCheckbox = { inputId: found._dcsCheckbox.inputId, checked: found._dcsCheckbox.checked };
           delete found._dcsCheckbox;

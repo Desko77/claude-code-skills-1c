@@ -1,4 +1,4 @@
-﻿# cf-edit v1.0 — Edit 1C configuration root (Configuration.xml)
+﻿# cf-edit v1.1 — Edit 1C configuration root (Configuration.xml)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)][string]$ConfigPath,
@@ -27,6 +27,7 @@ if (Test-Path $ConfigPath -PathType Container) {
 }
 if (-not (Test-Path $ConfigPath)) { Write-Error "File not found: $ConfigPath"; exit 1 }
 $resolvedPath = (Resolve-Path $ConfigPath).Path
+$script:configDir = [System.IO.Path]::GetDirectoryName($resolvedPath)
 
 # --- Load XML with PreserveWhitespace ---
 $script:xmlDoc = New-Object System.Xml.XmlDocument
@@ -86,6 +87,22 @@ $script:typeOrder = @(
 	"ChartOfCalculationTypes","CalculationRegister",
 	"BusinessProcess","Task","IntegrationService"
 )
+
+# --- Type → on-disk directory name (plural) ---
+$script:typeToDir = @{
+	"Language"="Languages"; "Subsystem"="Subsystems"; "StyleItem"="StyleItems"; "Style"="Styles"
+	"CommonPicture"="CommonPictures"; "SessionParameter"="SessionParameters"; "Role"="Roles"; "CommonTemplate"="CommonTemplates"
+	"FilterCriterion"="FilterCriteria"; "CommonModule"="CommonModules"; "CommonAttribute"="CommonAttributes"; "ExchangePlan"="ExchangePlans"
+	"XDTOPackage"="XDTOPackages"; "WebService"="WebServices"; "HTTPService"="HTTPServices"; "WSReference"="WSReferences"
+	"EventSubscription"="EventSubscriptions"; "ScheduledJob"="ScheduledJobs"; "SettingsStorage"="SettingsStorages"; "FunctionalOption"="FunctionalOptions"
+	"FunctionalOptionsParameter"="FunctionalOptionsParameters"; "DefinedType"="DefinedTypes"; "CommonCommand"="CommonCommands"; "CommandGroup"="CommandGroups"
+	"Constant"="Constants"; "CommonForm"="CommonForms"; "Catalog"="Catalogs"; "Document"="Documents"
+	"DocumentNumerator"="DocumentNumerators"; "Sequence"="Sequences"; "DocumentJournal"="DocumentJournals"; "Enum"="Enums"
+	"Report"="Reports"; "DataProcessor"="DataProcessors"; "InformationRegister"="InformationRegisters"; "AccumulationRegister"="AccumulationRegisters"
+	"ChartOfCharacteristicTypes"="ChartsOfCharacteristicTypes"; "ChartOfAccounts"="ChartsOfAccounts"; "AccountingRegister"="AccountingRegisters"
+	"ChartOfCalculationTypes"="ChartsOfCalculationTypes"; "CalculationRegister"="CalculationRegisters"
+	"BusinessProcess"="BusinessProcesses"; "Task"="Tasks"; "IntegrationService"="IntegrationServices"
+}
 
 # --- XML manipulation helpers (from subsystem-edit pattern) ---
 function Get-ChildIndent($container) {
@@ -244,6 +261,29 @@ function Do-AddChildObject([string]$batchVal) {
 		$typeIdx = $script:typeOrder.IndexOf($typeName)
 		if ($typeIdx -lt 0) {
 			Write-Error "Unknown type '$typeName'"
+			exit 1
+		}
+
+		# Check that the referenced object actually exists on disk.
+		# cf-edit add-childObject is a low-level operation for rare scenarios
+		# (e.g. restoring a rolled-back Configuration.xml when object files are intact).
+		# For creating NEW objects, meta-compile/role-compile/subsystem-compile already
+		# auto-register in Configuration.xml — calling cf-edit add-childObject there is
+		# unnecessary and error-prone.
+		$typeDir = $script:typeToDir[$typeName]
+		$objFile = Join-Path (Join-Path $script:configDir $typeDir) "$objNameVal.xml"
+		if (-not (Test-Path $objFile)) {
+			$hintSkill = switch ($typeName) {
+				"Subsystem" { "subsystem-compile" }
+				"Role"      { "role-compile" }
+				default     { "meta-compile" }
+			}
+			Write-Error @"
+Object file not found: $typeDir/$objNameVal.xml
+cf-edit add-childObject only references objects that already exist on disk.
+To create a new $typeName, use $hintSkill (auto-registers in Configuration.xml):
+  /$hintSkill with {"type":"$typeName","name":"$objNameVal"}
+"@
 			exit 1
 		}
 

@@ -1,4 +1,4 @@
-# skd-edit v1.2 — Atomic 1C DCS editor (Python port)
+# skd-edit v1.11 — Atomic 1C DCS editor (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import os
@@ -16,9 +16,10 @@ sys.stderr.reconfigure(encoding="utf-8")
 VALID_OPS = [
     "add-field", "add-total", "add-calculated-field", "add-parameter", "add-filter",
     "add-dataParameter", "add-order", "add-selection", "add-dataSetLink",
-    "add-dataSet", "add-variant", "add-conditionalAppearance",
-    "set-query", "set-outputParameter", "set-structure",
-    "modify-field", "modify-filter", "modify-dataParameter",
+    "add-dataSet", "add-variant", "add-conditionalAppearance", "add-drilldown",
+    "set-query", "patch-query", "set-outputParameter", "set-structure",
+    "modify-field", "modify-filter", "modify-dataParameter", "modify-parameter",
+    "rename-parameter", "reorder-parameters",
     "clear-selection", "clear-order", "clear-filter",
     "remove-field", "remove-total", "remove-calculated-field", "remove-parameter", "remove-filter",
 ]
@@ -259,31 +260,56 @@ def parse_total_shorthand(s):
 
 
 def parse_calc_shorthand(s):
-    title = ""
-    m = re.search(r'\[([^\]]+)\]', s)
-    if m:
-        title = m.group(1)
-        s = re.sub(r'\s*\[[^\]]+\]', '', s)
+    # Pattern: "Name [Title]: type = Expression #noField #noFilter ...".
+    # - `[Title]` is extracted only from the LHS of '=' so that `[...]` inside
+    #   an expression (e.g. index access) isn't interpreted as a title.
+    # - `#restrict` flags use a known-names pattern and are extracted globally —
+    #   the docs put them after `=`, and the closed flag set avoids matching
+    #   `#word` that happens to appear inside a string literal.
+    restrict_pattern = r'#(noField|noFilter|noCondition|noGroup|noOrder)\b'
+
+    restrict_matches = re.findall(restrict_pattern, s)
+    s = re.sub(r'\s*' + restrict_pattern, '', s)
 
     eq_idx = s.find("=")
     if eq_idx > 0:
-        left = s[:eq_idx].strip()
-        expression = s[eq_idx + 1:].strip()
-        if ":" in left:
-            colon_idx = left.index(":")
-            data_path = left[:colon_idx].strip()
-            type_str = resolve_type_str(left[colon_idx + 1:].strip())
-            return {"dataPath": data_path, "expression": expression, "type": type_str, "title": title}
-        return {"dataPath": left, "expression": expression, "type": "", "title": title}
-    return {"dataPath": s.strip(), "expression": "", "type": "", "title": title}
+        lhs = s[:eq_idx]
+        rhs = s[eq_idx + 1:].strip()
+        has_rhs = True
+    else:
+        lhs = s
+        rhs = ""
+        has_rhs = False
+
+    title = ""
+    m = re.search(r'\[([^\]]+)\]', lhs)
+    if m:
+        title = m.group(1)
+        lhs = re.sub(r'\s*\[[^\]]+\]', '', lhs)
+    lhs = lhs.strip()
+
+    if has_rhs:
+        if ":" in lhs:
+            colon_idx = lhs.index(":")
+            data_path = lhs[:colon_idx].strip()
+            type_str = resolve_type_str(lhs[colon_idx + 1:].strip())
+            return {"dataPath": data_path, "expression": rhs, "type": type_str, "title": title, "restrict": restrict_matches}
+        return {"dataPath": lhs, "expression": rhs, "type": "", "title": title, "restrict": restrict_matches}
+    return {"dataPath": lhs, "expression": "", "type": "", "title": title, "restrict": restrict_matches}
 
 
 def parse_param_shorthand(s):
-    result = {"name": "", "type": "", "value": None, "autoDates": False}
+    result = {"name": "", "type": "", "value": None, "autoDates": False, "title": None}
 
     if re.search(r'@autoDates', s):
         result["autoDates"] = True
         s = re.sub(r'\s*@autoDates', '', s)
+
+    # Extract optional [Title] (mirrors parse_field_shorthand)
+    m = re.search(r'\[([^\]]*)\]', s)
+    if m:
+        result["title"] = m.group(1).strip()
+        s = re.sub(r'\s*\[[^\]]*\]\s*', ' ', s).strip()
 
     m = re.match(r'^([^:]+):\s*(\S+)(\s*=\s*(.+))?$', s)
     if m:
@@ -298,7 +324,9 @@ def parse_param_shorthand(s):
 
 
 def parse_filter_shorthand(s):
-    result = {"field": "", "op": "Equal", "value": None, "use": True, "userSettingID": None, "viewMode": None}
+    # use is tristate: None = not specified (modify-* won't touch),
+    # False = @off (explicit), True = @on (explicit). add-* writes <use>false</use> only when False.
+    result = {"field": "", "op": "Equal", "value": None, "use": None, "userSettingID": None, "viewMode": None}
 
     if re.search(r'@user', s):
         result["userSettingID"] = "auto"
@@ -306,6 +334,9 @@ def parse_filter_shorthand(s):
     if re.search(r'@off', s):
         result["use"] = False
         s = re.sub(r'\s*@off', '', s)
+    if re.search(r'@on\b', s):
+        result["use"] = True
+        s = re.sub(r'\s*@on\b', '', s)
     if re.search(r'@quickAccess', s):
         result["viewMode"] = "QuickAccess"
         s = re.sub(r'\s*@quickAccess', '', s)
@@ -350,6 +381,9 @@ def parse_filter_shorthand(s):
             elif re.match(r'^\d+(\.\d+)?$', val_part):
                 result["value"] = val_part
                 result["valueType"] = "xs:decimal"
+            elif re.match(r'^(Перечисление|Справочник|ПланСчетов|Документ|ПланВидовХарактеристик|ПланВидовРасчета)\.', val_part):
+                result["value"] = val_part
+                result["valueType"] = "dcscor:DesignTimeValue"
             else:
                 result["value"] = val_part
                 result["valueType"] = "xs:string"
@@ -360,7 +394,9 @@ def parse_filter_shorthand(s):
 
 
 def parse_data_param_shorthand(s):
-    result = {"parameter": "", "value": None, "use": True, "userSettingID": None, "viewMode": None}
+    # use is tristate: None = not specified (modify-* won't touch),
+    # False = @off (explicit), True = @on (explicit). add-* writes <use>false</use> only when False.
+    result = {"parameter": "", "value": None, "use": None, "userSettingID": None, "viewMode": None}
 
     if re.search(r'@user', s):
         result["userSettingID"] = "auto"
@@ -368,6 +404,9 @@ def parse_data_param_shorthand(s):
     if re.search(r'@off', s):
         result["use"] = False
         s = re.sub(r'\s*@off', '', s)
+    if re.search(r'@on\b', s):
+        result["use"] = True
+        s = re.sub(r'\s*@on\b', '', s)
     if re.search(r'@quickAccess', s):
         result["viewMode"] = "QuickAccess"
         s = re.sub(r'\s*@quickAccess', '', s)
@@ -408,7 +447,7 @@ def parse_order_shorthand(s):
     parts = s.split(None, 1)
     field = parts[0]
     direction = "Asc"
-    if len(parts) > 1 and re.match(r'(?i)^desc$', parts[1]):
+    if len(parts) > 1 and re.match(r'^desc$', parts[1], re.IGNORECASE):
         direction = "Desc"
     return {"field": field, "direction": direction}
 
@@ -480,7 +519,11 @@ def parse_conditional_appearance_shorthand(s):
         if for_idx > when_idx:
             when_end = for_idx
         when_part = s[when_idx + 6:when_end].strip()
-        result["filter"] = parse_filter_shorthand(when_part)
+        or_parts = re.split(r'\s+or\s+', when_part)
+        if len(or_parts) > 1:
+            result["filter"] = [parse_filter_shorthand(p.strip()) for p in or_parts]
+        else:
+            result["filter"] = parse_filter_shorthand(when_part)
 
     main_part = s[:main_end].strip()
     eq_idx = main_part.find("=")
@@ -502,7 +545,12 @@ def parse_structure_shorthand(s):
         seg = segments[i].strip()
         group = {"type": "group"}
 
-        if re.match(r'^(?i)(details|\u0434\u0435\u0442\u0430\u043b\u0438)$', seg):
+        name_m = re.search(r'\s*@name=(.+)', seg)
+        if name_m:
+            group["name"] = name_m.group(1).strip()
+            seg = re.sub(r'\s*@name=.+', '', seg).strip()
+
+        if re.match(r'^(details|\u0434\u0435\u0442\u0430\u043b\u0438)$', seg, re.IGNORECASE):
             group["groupBy"] = []
         else:
             group["groupBy"] = [seg]
@@ -666,6 +714,8 @@ def build_calc_field_fragment(parsed, indent):
     ]
     if parsed.get("title"):
         lines.append(build_mltext_xml("title", parsed["title"], f"{i}\t"))
+    if parsed.get("restrict"):
+        lines.append(build_restriction_xml(parsed["restrict"], f"{i}\t"))
     if parsed.get("type"):
         lines.append(f"{i}\t<valueType>")
         lines.append(build_value_type_xml(parsed["type"], f"{i}\t\t"))
@@ -679,6 +729,10 @@ def build_param_fragment(parsed, indent):
     fragments = []
 
     lines = [f"{i}<parameter>", f"{i}\t<name>{esc_xml(parsed['name'])}</name>"]
+
+    if parsed.get("title"):
+        lines.append(build_mltext_xml("title", parsed["title"], f"{i}\t"))
+
     if parsed.get("type"):
         lines.append(f"{i}\t<valueType>")
         lines.append(build_value_type_xml(parsed["type"], f"{i}\t\t"))
@@ -689,6 +743,8 @@ def build_param_fragment(parsed, indent):
         if parsed.get("type") == "StandardPeriod":
             lines.append(f'{i}\t<value xsi:type="v8:StandardPeriod">')
             lines.append(f'{i}\t\t<v8:variant xsi:type="v8:StandardPeriodVariant">{esc_xml(val_str)}</v8:variant>')
+            lines.append(f"{i}\t\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>")
+            lines.append(f"{i}\t\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>")
             lines.append(f"{i}\t</value>")
         elif parsed.get("type", "").startswith("date"):
             lines.append(f'{i}\t<value xsi:type="xs:dateTime">{esc_xml(val_str)}</value>')
@@ -704,14 +760,17 @@ def build_param_fragment(parsed, indent):
 
     if parsed.get("autoDates"):
         param_name = parsed["name"]
+        # Canonical БСП pattern: title + valueType + value + useRestriction + expression
         b_lines = [
             f"{i}<parameter>",
             f"{i}\t<name>\u0414\u0430\u0442\u0430\u041d\u0430\u0447\u0430\u043b\u0430</name>",
+            build_mltext_xml("title", "\u041d\u0430\u0447\u0430\u043b\u043e \u043f\u0435\u0440\u0438\u043e\u0434\u0430", f"{i}\t"),
             f"{i}\t<valueType>",
             build_value_type_xml("date", f"{i}\t\t"),
             f"{i}\t</valueType>",
+            f'{i}\t<value xsi:type="xs:dateTime">0001-01-01T00:00:00</value>',
+            f"{i}\t<useRestriction>true</useRestriction>",
             f"{i}\t<expression>{esc_xml('&' + param_name + '.\u0414\u0430\u0442\u0430\u041d\u0430\u0447\u0430\u043b\u0430')}</expression>",
-            f"{i}\t<availableAsField>false</availableAsField>",
             f"{i}</parameter>",
         ]
         fragments.append("\r\n".join(b_lines))
@@ -719,11 +778,13 @@ def build_param_fragment(parsed, indent):
         e_lines = [
             f"{i}<parameter>",
             f"{i}\t<name>\u0414\u0430\u0442\u0430\u041e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u044f</name>",
+            build_mltext_xml("title", "\u041a\u043e\u043d\u0435\u0446 \u043f\u0435\u0440\u0438\u043e\u0434\u0430", f"{i}\t"),
             f"{i}\t<valueType>",
             build_value_type_xml("date", f"{i}\t\t"),
             f"{i}\t</valueType>",
+            f'{i}\t<value xsi:type="xs:dateTime">0001-01-01T00:00:00</value>',
+            f"{i}\t<useRestriction>true</useRestriction>",
             f"{i}\t<expression>{esc_xml('&' + param_name + '.\u0414\u0430\u0442\u0430\u041e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u044f')}</expression>",
-            f"{i}\t<availableAsField>false</availableAsField>",
             f"{i}</parameter>",
         ]
         fragments.append("\r\n".join(e_lines))
@@ -760,6 +821,31 @@ def build_selection_item_fragment(field_name, indent):
     i = indent
     if field_name == "Auto":
         return f'{i}<dcsset:item xsi:type="dcsset:SelectedItemAuto"/>'
+    m = re.match(r'^Folder\((.+)\)$', field_name)
+    if m:
+        inner = m.group(1)
+        colon_idx = inner.find(':')
+        if colon_idx > 0:
+            title = inner[:colon_idx].strip()
+            items = [x.strip() for x in inner[colon_idx + 1:].split(',') if x.strip()]
+        else:
+            title = ""
+            items = [x.strip() for x in inner.split(',') if x.strip()]
+        lines = [f'{i}<dcsset:item xsi:type="dcsset:SelectedItemFolder">']
+        if title:
+            lines.append(f"{i}\t<dcsset:lwsTitle>")
+            lines.append(f"{i}\t\t<v8:item>")
+            lines.append(f"{i}\t\t\t<v8:lang>ru</v8:lang>")
+            lines.append(f"{i}\t\t\t<v8:content>{esc_xml(title)}</v8:content>")
+            lines.append(f"{i}\t\t</v8:item>")
+            lines.append(f"{i}\t</dcsset:lwsTitle>")
+        for item in items:
+            lines.append(f'{i}\t<dcsset:item xsi:type="dcsset:SelectedItemField">')
+            lines.append(f"{i}\t\t<dcsset:field>{esc_xml(item)}</dcsset:field>")
+            lines.append(f"{i}\t</dcsset:item>")
+        lines.append(f"{i}\t<dcsset:placement>Auto</dcsset:placement>")
+        lines.append(f"{i}</dcsset:item>")
+        return "\r\n".join(lines)
     lines = [
         f'{i}<dcsset:item xsi:type="dcsset:SelectedItemField">',
         f"{i}\t<dcsset:field>{esc_xml(field_name)}</dcsset:field>",
@@ -782,6 +868,8 @@ def build_data_param_fragment(parsed, indent):
         if isinstance(val, dict) and val.get("variant"):
             lines.append(f'{i}\t<dcscor:value xsi:type="v8:StandardPeriod">')
             lines.append(f'{i}\t\t<v8:variant xsi:type="v8:StandardPeriodVariant">{esc_xml(val["variant"])}</v8:variant>')
+            lines.append(f"{i}\t\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>")
+            lines.append(f"{i}\t\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>")
             lines.append(f"{i}\t</dcscor:value>")
         elif re.match(r'^\d{4}-\d{2}-\d{2}T', str(val)):
             lines.append(f'{i}\t<dcscor:value xsi:type="xs:dateTime">{esc_xml(str(val))}</dcscor:value>')
@@ -866,6 +954,16 @@ def build_variant_fragment(parsed, indent):
     return "\r\n".join(lines)
 
 
+def _emit_filter_comparison(lines, f, indent):
+    lines.append(f'{indent}<dcsset:item xsi:type="dcsset:FilterItemComparison">')
+    lines.append(f'{indent}\t<dcsset:left xsi:type="dcscor:Field">{esc_xml(f["field"])}</dcsset:left>')
+    lines.append(f"{indent}\t<dcsset:comparisonType>{esc_xml(f['op'])}</dcsset:comparisonType>")
+    if f.get("value") is not None:
+        vt = f.get("valueType", "xs:string")
+        lines.append(f'{indent}\t<dcsset:right xsi:type="{vt}">{esc_xml(str(f["value"]))}</dcsset:right>')
+    lines.append(f"{indent}</dcsset:item>")
+
+
 def build_conditional_appearance_item_fragment(parsed, indent):
     i = indent
     lines = [f"{i}<dcsset:item>"]
@@ -881,15 +979,17 @@ def build_conditional_appearance_item_fragment(parsed, indent):
         lines.append(f"{i}\t<dcsset:selection/>")
 
     if parsed.get("filter"):
-        f = parsed["filter"]
+        flt = parsed["filter"]
         lines.append(f"{i}\t<dcsset:filter>")
-        lines.append(f'{i}\t\t<dcsset:item xsi:type="dcsset:FilterItemComparison">')
-        lines.append(f'{i}\t\t\t<dcsset:left xsi:type="dcscor:Field">{esc_xml(f["field"])}</dcsset:left>')
-        lines.append(f"{i}\t\t\t<dcsset:comparisonType>{esc_xml(f['op'])}</dcsset:comparisonType>")
-        if f.get("value") is not None:
-            vt = f.get("valueType", "xs:string")
-            lines.append(f'{i}\t\t\t<dcsset:right xsi:type="{vt}">{esc_xml(str(f["value"]))}</dcsset:right>')
-        lines.append(f"{i}\t\t</dcsset:item>")
+        if isinstance(flt, list):
+            # OrGroup
+            lines.append(f'{i}\t\t<dcsset:item xsi:type="dcsset:FilterItemGroup">')
+            lines.append(f"{i}\t\t\t<dcsset:groupType>OrGroup</dcsset:groupType>")
+            for f in flt:
+                _emit_filter_comparison(lines, f, f"{i}\t\t\t")
+            lines.append(f"{i}\t\t</dcsset:item>")
+        else:
+            _emit_filter_comparison(lines, flt, f"{i}\t\t")
         lines.append(f"{i}\t</dcsset:filter>")
     else:
         lines.append(f"{i}\t<dcsset:filter/>")
@@ -897,15 +997,23 @@ def build_conditional_appearance_item_fragment(parsed, indent):
     # appearance
     lines.append(f"{i}\t<dcsset:appearance>")
     val = parsed["value"]
-    val_type = "xs:string"
-    if re.match(r'^(web|style|win):', val):
-        val_type = "v8ui:Color"
-    elif val in ("true", "false"):
-        val_type = "xs:boolean"
-
     lines.append(f'{i}\t\t<dcscor:item xsi:type="dcsset:SettingsParameterValue">')
     lines.append(f"{i}\t\t\t<dcscor:parameter>{esc_xml(parsed['param'])}</dcscor:parameter>")
-    lines.append(f'{i}\t\t\t<dcscor:value xsi:type="{val_type}">{esc_xml(val)}</dcscor:value>')
+
+    if re.match(r'^(web|style|win):', val):
+        lines.append(f'{i}\t\t\t<dcscor:value xsi:type="v8ui:Color">{esc_xml(val)}</dcscor:value>')
+    elif val in ("true", "false"):
+        lines.append(f'{i}\t\t\t<dcscor:value xsi:type="xs:boolean">{esc_xml(val)}</dcscor:value>')
+    elif parsed["param"] in ("Формат", "Текст", "Заголовок"):
+        lines.append(f'{i}\t\t\t<dcscor:value xsi:type="v8:LocalStringType">')
+        lines.append(f"{i}\t\t\t\t<v8:item>")
+        lines.append(f"{i}\t\t\t\t\t<v8:lang>ru</v8:lang>")
+        lines.append(f"{i}\t\t\t\t\t<v8:content>{esc_xml(val)}</v8:content>")
+        lines.append(f"{i}\t\t\t\t</v8:item>")
+        lines.append(f"{i}\t\t\t</dcscor:value>")
+    else:
+        lines.append(f'{i}\t\t\t<dcscor:value xsi:type="xs:string">{esc_xml(val)}</dcscor:value>')
+
     lines.append(f"{i}\t\t</dcscor:item>")
     lines.append(f"{i}\t</dcsset:appearance>")
 
@@ -916,6 +1024,9 @@ def build_conditional_appearance_item_fragment(parsed, indent):
 def build_structure_item_fragment(item, indent):
     i = indent
     lines = [f'{i}<dcsset:item xsi:type="dcsset:StructureItemGroup">']
+
+    if item.get("name"):
+        lines.append(f"{i}\t<dcsset:name>{esc_xml(item['name'])}</dcsset:name>")
 
     group_by = item.get("groupBy", [])
     if not group_by:
@@ -1165,7 +1276,7 @@ def resolve_variant_settings():
                             break
                 if sv:
                     break
-        if not sv:
+        if sv is None:
             print(f"Variant '{variant_arg}' not found", file=sys.stderr)
             sys.exit(1)
     else:
@@ -1173,7 +1284,7 @@ def resolve_variant_settings():
             if isinstance(child.tag, str) and local_name(child) == "settingsVariant" and etree.QName(child.tag).namespace == SCH_NS:
                 sv = child
                 break
-        if not sv:
+        if sv is None:
             print("No settingsVariant found in DCS", file=sys.stderr)
             sys.exit(1)
 
@@ -1252,6 +1363,13 @@ xml_doc = tree.getroot()
 
 if operation in ("set-query", "set-structure", "add-dataSet"):
     values = [value_arg]
+elif operation == "patch-query":
+    values = [v for v in value_arg.split(";;") if v.strip()]
+elif operation == "add-drilldown":
+    if ";;" in value_arg:
+        values = [v.strip() for v in value_arg.split(";;") if v.strip()]
+    else:
+        values = [v.strip() for v in value_arg.split(",") if v.strip()]
 else:
     values = [v.strip() for v in value_arg.split(";;") if v.strip()]
 
@@ -1406,6 +1524,220 @@ elif operation == "add-parameter":
         if parsed.get("autoDates"):
             print('[OK] Auto-parameters "\u0414\u0430\u0442\u0430\u041d\u0430\u0447\u0430\u043b\u0430", "\u0414\u0430\u0442\u0430\u041e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u044f" added')
 
+elif operation == "modify-parameter":
+    for val in values:
+        # Extract optional [Title] first (mirrors parse_field_shorthand)
+        title_val = None
+        m_title = re.search(r'\[([^\]]*)\]', val)
+        if m_title:
+            title_val = m_title.group(1).strip()
+            val = re.sub(r'\s*\[[^\]]*\]\s*', ' ', val).strip()
+
+        parts = val.split(None, 1)
+        param_name = parts[0].strip()
+        rest = parts[1].strip() if len(parts) > 1 else ""
+
+        param_el = find_element_by_child_value(xml_doc, "parameter", "name", param_name, SCH_NS)
+        if param_el is None:
+            print(f'[WARN] Parameter "{param_name}" not found -- skipped')
+            continue
+
+        child_indent = get_child_indent(param_el)
+
+        # Set/replace title (must come right after <name>, before <valueType>)
+        if title_val is not None:
+            existing_title = next((ch for ch in param_el if isinstance(ch.tag, str) and local_name(ch) == "title"), None)
+            if existing_title is not None:
+                remove_node_with_whitespace(existing_title)
+            # Insert before the first child after <name>
+            title_ref = next((ch for ch in param_el if isinstance(ch.tag, str) and local_name(ch) != "name"), None)
+            title_frag = build_mltext_xml("title", title_val, child_indent)
+            for node in import_fragment(xml_doc, title_frag):
+                insert_before_element(param_el, node, title_ref, child_indent)
+            print(f'[OK] Parameter "{param_name}": title set to "{title_val}"')
+
+        # Separate availableValue=... from simple kv pairs
+        simple_rest = rest
+        av_part = None
+        av_idx = rest.find("availableValue=")
+        if av_idx >= 0:
+            simple_rest = rest[:av_idx].strip()
+            av_part = rest[av_idx:]
+
+        # Process simple key=value pairs (use, denyIncompleteValues, etc.)
+        if simple_rest:
+            for m in re.finditer(r'(\w+)=(\S+)', simple_rest):
+                key, value = m.group(1), m.group(2)
+                existing = next((ch for ch in param_el if isinstance(ch.tag, str) and local_name(ch) == key), None)
+                if existing is not None:
+                    existing.text = value
+                    print(f'[OK] Parameter "{param_name}": {key} updated to {value}')
+                else:
+                    # Schema order: ...value, useRestriction, availableValue*, denyIncompleteValues, use
+                    ref_node = None
+                    if key == "denyIncompleteValues":
+                        ref_node = next((ch for ch in param_el if isinstance(ch.tag, str) and local_name(ch) == "use"), None)
+                    frag_xml = f"{child_indent}<{key}>{esc_xml(value)}</{key}>"
+                    nodes = import_fragment(xml_doc, frag_xml)
+                    for node in nodes:
+                        insert_before_element(param_el, node, ref_node, child_indent)
+                    print(f'[OK] Parameter "{param_name}": {key}={value} added')
+
+        # Process availableValue
+        if av_part:
+            av_rest = av_part[len("availableValue="):]
+            # Parse: "Перечисление...X presentation=текст с пробелами"
+            av_parts = re.split(r'\s+presentation=', av_rest, 1)
+            av_value = av_parts[0].strip()
+            av_presentation = av_parts[1].strip() if len(av_parts) > 1 else ""
+
+            av_type = "xs:string"
+            if re.match(r'^(Перечисление|Справочник|ПланСчетов|Документ|ПланВидовХарактеристик|ПланВидовРасчета)\.', av_value):
+                av_type = "dcscor:DesignTimeValue"
+
+            av_lines = [f"{child_indent}<availableValue>"]
+            av_lines.append(f'{child_indent}\t<value xsi:type="{av_type}">{esc_xml(av_value)}</value>')
+            if av_presentation:
+                av_lines.append(f'{child_indent}\t<presentation xsi:type="v8:LocalStringType">')
+                av_lines.append(f"{child_indent}\t\t<v8:item>")
+                av_lines.append(f"{child_indent}\t\t\t<v8:lang>ru</v8:lang>")
+                av_lines.append(f"{child_indent}\t\t\t<v8:content>{esc_xml(av_presentation)}</v8:content>")
+                av_lines.append(f"{child_indent}\t\t</v8:item>")
+                av_lines.append(f"{child_indent}\t</presentation>")
+            av_lines.append(f"{child_indent}</availableValue>")
+            frag_xml = "\r\n".join(av_lines)
+
+            # Insert before first of (denyIncompleteValues, use) in document order
+            ref_node = None
+            for child in param_el:
+                if isinstance(child.tag, str) and local_name(child) in ("denyIncompleteValues", "use"):
+                    ref_node = child
+                    break
+            nodes = import_fragment(xml_doc, frag_xml)
+            for node in nodes:
+                insert_before_element(param_el, node, ref_node, child_indent)
+            print(f'[OK] Parameter "{param_name}": availableValue added')
+
+elif operation == "rename-parameter":
+    root = xml_doc
+    for val in values:
+        m_rn = re.match(r'^\s*(.+?)\s*=>\s*(.+?)\s*$', val)
+        if not m_rn:
+            print(f'[WARN] rename-parameter expects "OldName => NewName", got: {val}')
+            continue
+        old_name = m_rn.group(1).strip()
+        new_name = m_rn.group(2).strip()
+
+        if old_name == new_name:
+            print('[WARN] rename-parameter: old and new names are equal -- skipped')
+            continue
+
+        # 1. Rename <parameter><name>OldName</name>
+        param_el = find_element_by_child_value(root, "parameter", "name", old_name, SCH_NS)
+        if param_el is None:
+            print(f'[WARN] Parameter "{old_name}" not found -- skipped')
+            continue
+        for ch in param_el:
+            if isinstance(ch.tag, str) and local_name(ch) == "name" and etree.QName(ch.tag).namespace == SCH_NS:
+                ch.text = new_name
+                break
+
+        # 2. Update <expression> in other <parameter> elements.
+        # Regex matches "&OldName" only when followed by a non-identifier char (or end),
+        # so "&Период" matches "&Период.ДатаНачала" but NOT "&ПериодОтчета".
+        esc_old = re.escape(old_name)
+        expr_regex = re.compile(rf'&{esc_old}(?=[^\w\u0400-\u04FF]|$)')
+        expr_updated = 0
+        for ch in root:
+            if not (isinstance(ch.tag, str) and local_name(ch) == "parameter" and etree.QName(ch.tag).namespace == SCH_NS):
+                continue
+            for gc in ch:
+                if isinstance(gc.tag, str) and local_name(gc) == "expression" and etree.QName(gc.tag).namespace == SCH_NS:
+                    old_expr = gc.text or ""
+                    new_expr = expr_regex.sub(f'&{new_name}', old_expr)
+                    if new_expr != old_expr:
+                        gc.text = new_expr
+                        expr_updated += 1
+
+        # 3. Update <dcscor:parameter>OldName</dcscor:parameter> in dataParameters of all variants.
+        dp_updated = 0
+        for variant_node in root:
+            if not (isinstance(variant_node.tag, str) and local_name(variant_node) == "settingsVariant" and etree.QName(variant_node.tag).namespace == SCH_NS):
+                continue
+            settings_node = find_first_element(variant_node, ["settings"], SET_NS)
+            if settings_node is None:
+                continue
+            dp_el = find_first_element(settings_node, ["dataParameters"], SET_NS)
+            if dp_el is None:
+                continue
+            for item in dp_el:
+                if not (isinstance(item.tag, str) and local_name(item) == "item"):
+                    continue
+                for gc in item:
+                    if isinstance(gc.tag, str) and local_name(gc) == "parameter" and etree.QName(gc.tag).namespace == COR_NS:
+                        if (gc.text or "").strip() == old_name:
+                            gc.text = new_name
+                            dp_updated += 1
+
+        print(f'[OK] Parameter renamed: "{old_name}" => "{new_name}" (expressions updated: {expr_updated}, dataParameters updated: {dp_updated})')
+
+elif operation == "reorder-parameters":
+    root = xml_doc
+    for val in values:
+        order = [s.strip() for s in val.split(",") if s.strip()]
+        if not order:
+            print('[WARN] reorder-parameters: empty list -- skipped')
+            continue
+
+        all_params = []
+        for ch in root:
+            if isinstance(ch.tag, str) and local_name(ch) == "parameter" and etree.QName(ch.tag).namespace == SCH_NS:
+                all_params.append(ch)
+        if not all_params:
+            print('[WARN] reorder-parameters: no parameters in schema')
+            continue
+
+        child_indent = get_child_indent(root)
+
+        by_name = {}
+        for pe in all_params:
+            for gc in pe:
+                if isinstance(gc.tag, str) and local_name(gc) == "name" and etree.QName(gc.tag).namespace == SCH_NS:
+                    by_name[(gc.text or "").strip()] = pe
+                    break
+
+        new_order = []
+        used = set()
+        for name in order:
+            if name in by_name:
+                new_order.append(by_name[name])
+                used.add(name)
+            else:
+                print(f'[WARN] reorder-parameters: parameter "{name}" not found -- skipped')
+
+        for pe in all_params:
+            pe_name = None
+            for gc in pe:
+                if isinstance(gc.tag, str) and local_name(gc) == "name" and etree.QName(gc.tag).namespace == SCH_NS:
+                    pe_name = (gc.text or "").strip()
+                    break
+            if pe_name and pe_name not in used:
+                new_order.append(pe)
+
+        # Anchor: element right after the last parameter in original order
+        last_param = all_params[-1]
+        anchor = last_param.getnext()
+
+        # Remove all parameters with surrounding whitespace
+        for pe in all_params:
+            remove_node_with_whitespace(pe)
+
+        # Re-insert in new order before anchor
+        for pe in new_order:
+            insert_before_element(root, pe, anchor, child_indent)
+
+        print(f'[OK] Parameters reordered ({len(all_params)} total, {len(order)} explicit)')
+
 elif operation == "add-filter":
     settings = resolve_variant_settings()
     var_name = get_variant_name()
@@ -1470,13 +1802,53 @@ elif operation == "add-selection":
     var_name = get_variant_name()
     for val in values:
         field_name = val.strip()
-        selection = ensure_settings_child(settings, "selection", [])
+        group_name = None
+
+        # Extract @group=Name
+        gm = re.search(r'\s*@group=(\S+)', field_name)
+        if gm:
+            group_name = gm.group(1)
+            field_name = re.sub(r'\s*@group=\S+', '', field_name).strip()
+
+        if group_name:
+            # Find named StructureItemGroup
+            target_el = None
+            for item in settings.iter(f"{{{SET_NS}}}item"):
+                xsi_type = item.get(f"{{{XSI_NS}}}type", "")
+                if "StructureItemGroup" in xsi_type:
+                    name_el = item.find(f"{{{SET_NS}}}name")
+                    if name_el is not None and name_el.text == group_name:
+                        target_el = item
+                        break
+            if target_el is None:
+                print(f'[WARN] StructureItemGroup "{group_name}" not found -- adding to variant level')
+                target_el = settings
+        else:
+            target_el = settings
+
+        selection = ensure_settings_child(target_el, "selection", [])
+
+        # Dedup: skip if SelectedItemAuto already exists
+        if field_name == "Auto":
+            is_dup = False
+            for ch in selection:
+                if isinstance(ch.tag, str) and local_name(ch) == "item":
+                    type_attr = ch.get(XSI_TYPE, "")
+                    if "SelectedItemAuto" in type_attr:
+                        is_dup = True
+                        break
+            if is_dup:
+                target = f'group "{group_name}"' if group_name else f'variant "{var_name}"'
+                print(f'[WARN] SelectedItemAuto already exists in {target} -- skipped')
+                continue
+
         sel_indent = get_container_child_indent(selection)
         sel_xml = build_selection_item_fragment(field_name, sel_indent)
         sel_nodes = import_fragment(xml_doc, sel_xml)
         for node in sel_nodes:
             insert_before_element(selection, node, None, sel_indent)
-        print(f'[OK] Selection "{field_name}" added to variant "{var_name}"')
+        target = f'group "{group_name}"' if group_name else f'variant "{var_name}"'
+        print(f'[OK] Selection "{field_name}" added to {target}')
 
 elif operation == "set-query":
     ds_node = resolve_data_set()
@@ -1487,6 +1859,27 @@ elif operation == "set-query":
         sys.exit(1)
     query_el.text = resolve_query_value(value_arg, query_base_dir)
     print(f'[OK] Query replaced in dataset "{ds_name}"')
+
+elif operation == "patch-query":
+    ds_node = resolve_data_set()
+    ds_name = get_data_set_name(ds_node)
+    query_el = find_first_element(ds_node, ["query"], SCH_NS)
+    if query_el is None:
+        print(f"No <query> element found in dataset '{ds_name}'", file=sys.stderr)
+        sys.exit(1)
+    for val in values:
+        sep_idx = val.find(" => ")
+        if sep_idx < 0:
+            print("patch-query value must contain ' => ' separator: old => new", file=sys.stderr)
+            sys.exit(1)
+        old_str = val[:sep_idx]
+        new_str = val[sep_idx + 4:]
+        query_text = query_el.text or ""
+        if old_str not in query_text:
+            print(f"Substring not found in query of dataset '{ds_name}': {old_str}", file=sys.stderr)
+            sys.exit(1)
+        query_el.text = query_text.replace(old_str, new_str)
+        print(f'[OK] Query patched in dataset "{ds_name}": replaced \'{old_str}\'')
 
 elif operation == "set-outputParameter":
     settings = resolve_variant_settings()
@@ -1653,7 +2046,11 @@ elif operation == "add-conditionalAppearance":
 
         desc = f"{parsed['param']} = {parsed['value']}"
         if parsed.get("filter"):
-            desc += f" when {parsed['filter']['field']} {parsed['filter']['op']}"
+            flt = parsed["filter"]
+            if isinstance(flt, list):
+                desc += f" when OrGroup({len(flt)} conditions)"
+            else:
+                desc += f" when {flt['field']} {flt['op']}"
         if parsed.get("fields"):
             desc += f" for {', '.join(parsed['fields'])}"
         print(f'[OK] ConditionalAppearance "{desc}" added to variant "{var_name}"')
@@ -1710,9 +2107,11 @@ elif operation == "modify-filter":
             vt = parsed.get("valueType", "xs:string")
             set_or_create_child_element_with_attr(filter_item, "right", SET_NS, str(parsed["value"]), vt, item_indent)
 
+        # Update use (only when explicitly set via @off / @on)
         if parsed.get("use") is False:
             set_or_create_child_element(filter_item, "use", SET_NS, "false", item_indent)
-        else:
+        elif parsed.get("use") is True:
+            # @on: remove existing use=false if any
             for ch in filter_item:
                 if isinstance(ch.tag, str) and local_name(ch) == "use" and etree.QName(ch.tag).namespace == SET_NS:
                     if (ch.text or "").strip() == "false":
@@ -1759,6 +2158,8 @@ elif operation == "modify-dataParameter":
             if isinstance(pv, dict) and pv.get("variant"):
                 val_lines.append(f'{item_indent}<dcscor:value xsi:type="v8:StandardPeriod">')
                 val_lines.append(f'{item_indent}\t<v8:variant xsi:type="v8:StandardPeriodVariant">{esc_xml(pv["variant"])}</v8:variant>')
+                val_lines.append(f"{item_indent}\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>")
+                val_lines.append(f"{item_indent}\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>")
                 val_lines.append(f"{item_indent}</dcscor:value>")
             elif re.match(r'^\d{4}-\d{2}-\d{2}T', str(pv)):
                 val_lines.append(f'{item_indent}<dcscor:value xsi:type="xs:dateTime">{esc_xml(str(pv))}</dcscor:value>')
@@ -1772,9 +2173,11 @@ elif operation == "modify-dataParameter":
             for node in val_nodes:
                 insert_before_element(dp_item, node, None, item_indent)
 
+        # Update use (only when explicitly set via @off / @on)
         if parsed.get("use") is False:
             set_or_create_child_element(dp_item, "use", COR_NS, "false", item_indent)
-        else:
+        elif parsed.get("use") is True:
+            # @on: remove existing use=false if any
             for ch in dp_item:
                 if isinstance(ch.tag, str) and local_name(ch) == "use" and etree.QName(ch.tag).namespace == COR_NS:
                     if (ch.text or "").strip() == "false":
@@ -1916,10 +2319,157 @@ elif operation == "remove-filter":
         remove_node_with_whitespace(filter_item)
         print(f'[OK] Filter for "{field_name}" removed from variant "{var_name}"')
 
+elif operation == "add-drilldown":
+    # String-based manipulation — templates use dcsat namespace with inline xmlns
+    with open(resolved_path, "r", encoding="utf-8-sig") as f:
+        raw_text = f.read()
+    nl = "\r\n"
+    dcsat_ns_decl = 'xmlns:dcsat="http://v8.1c.ru/8.1/data-composition-system/area-template"'
+
+    # Find all outer <template> blocks by nesting-aware scan
+    name_regex = re.compile(r'<template>\s*<name>([^<]+)</name>')
+    tpl_starts = [(m.start(), m.group(1)) for m in name_regex.finditer(raw_text)]
+
+    # For each start, find closing </template> at nesting depth 0
+    tpl_blocks = []
+    for ts_pos, ts_name in tpl_starts:
+        depth = 1
+        scan_pos = ts_pos + 10  # skip past opening <template>
+        while depth > 0 and scan_pos < len(raw_text):
+            next_open = raw_text.find("<template", scan_pos)
+            next_close = raw_text.find("</template>", scan_pos)
+            if next_close < 0:
+                break
+            if next_open >= 0 and next_open < next_close:
+                depth += 1
+                scan_pos = next_open + 10
+            else:
+                depth -= 1
+                if depth == 0:
+                    end_pos = next_close + len("</template>")
+                    tpl_blocks.append((ts_name, ts_pos, raw_text[ts_pos:end_pos]))
+                scan_pos = next_close + 11
+
+    if not tpl_blocks:
+        print("[WARN] No named templates found in schema")
+
+    # Collect all insertions as (position, text) — apply in reverse order
+    insertions = []
+
+    expr_regex = re.compile(
+        r'(?s)<parameter[^>]*ExpressionAreaTemplateParameter[^>]*>\s*'
+        r'<dcsat:name>([^<]+)</dcsat:name>\s*'
+        r'<dcsat:expression>([^<]+)</dcsat:expression>\s*</parameter>'
+    )
+
+    for tpl_name, tpl_start, tpl_text in tpl_blocks:
+
+        # Build map: expression → paramName from ExpressionAreaTemplateParameter
+        expr_map = {}
+        for em in expr_regex.finditer(tpl_text):
+            p_name = em.group(1)
+            p_expr = em.group(2)
+            expr_map[p_expr] = p_name
+
+        for resource in values:
+            drill_name = f"Расшифровка_{resource}"
+
+            # Idempotency: check if already exists
+            if drill_name in tpl_text:
+                print(f"[INFO] {drill_name} already exists in {tpl_name} — skipped")
+                continue
+
+            # Find ExpressionAreaTemplateParameter by expression
+            param_name = expr_map.get(resource)
+            if param_name is None:
+                print(f'[WARN] Expression "{resource}" not found in template {tpl_name} — skipped')
+                continue
+
+            cell_count = 0
+
+            # Step 1: Insert DetailsAreaTemplateParameter after last </parameter> in template
+            last_param_end_tag = "</parameter>"
+            last_param_pos = tpl_text.rfind(last_param_end_tag)
+            if last_param_pos >= 0:
+                insert_pos = tpl_start + last_param_pos + len(last_param_end_tag)
+                # Detect indent from context
+                prev_nl = tpl_text.rfind("\n", 0, last_param_pos)
+                indent = "\t\t"
+                if prev_nl >= 0:
+                    line_start = prev_nl + 1
+                    indent_match = re.match(r'^(\s*)', tpl_text[line_start:])
+                    if indent_match:
+                        indent = indent_match.group(1)
+                details_xml = (
+                    f'{nl}{indent}<parameter {dcsat_ns_decl} xsi:type="dcsat:DetailsAreaTemplateParameter">'
+                    f'{nl}{indent}\t<dcsat:name>{drill_name}</dcsat:name>'
+                    f'{nl}{indent}\t<dcsat:fieldExpression>'
+                    f'{nl}{indent}\t\t<dcsat:field>ИмяРесурса</dcsat:field>'
+                    f'{nl}{indent}\t\t<dcsat:expression>"{resource}"</dcsat:expression>'
+                    f'{nl}{indent}\t</dcsat:fieldExpression>'
+                    f'{nl}{indent}\t<dcsat:mainAction>DrillDown</dcsat:mainAction>'
+                    f'{nl}{indent}</parameter>'
+                )
+                insertions.append((insert_pos, details_xml))
+
+            # Step 2: Insert appearance binding in cells referencing this parameter
+            cell_tag = f'<dcsat:value xsi:type="dcscor:Parameter">{param_name}</dcsat:value>'
+            search_start = 0
+            while True:
+                cell_idx = tpl_text.find(cell_tag, search_start)
+                if cell_idx < 0:
+                    break
+                cell_end = tpl_text.find("</dcsat:tableCell>", cell_idx)
+                if cell_end < 0:
+                    break
+                app_end = tpl_text.rfind("</dcsat:appearance>", cell_idx, cell_end)
+                if app_end < cell_idx:
+                    search_start = cell_end + 1
+                    continue
+
+                # Detect indent for appearance items — insert after \n, before indent of </dcsat:appearance>
+                app_prev_nl = tpl_text.rfind("\n", 0, app_end)
+                app_indent = "\t\t\t\t\t\t"
+                if app_prev_nl >= 0:
+                    app_line_start = app_prev_nl + 1
+                    app_indent_match = re.match(r'^(\s*)', tpl_text[app_line_start:])
+                    if app_indent_match:
+                        app_indent = app_indent_match.group(1)
+                item_indent = app_indent + "\t"
+                appearance_xml = (
+                    f'{item_indent}<dcscor:item>{nl}'
+                    f'{item_indent}\t<dcscor:parameter>Расшифровка</dcscor:parameter>{nl}'
+                    f'{item_indent}\t<dcscor:value xsi:type="dcscor:Parameter">{drill_name}</dcscor:value>{nl}'
+                    f'{item_indent}</dcscor:item>{nl}'
+                )
+                # Insert after \n (before indent of closing tag), not before the tag itself
+                insert_at = (tpl_start + app_prev_nl + 1) if app_prev_nl >= 0 else (tpl_start + app_end)
+                insertions.append((insert_at, appearance_xml))
+                cell_count += 1
+                search_start = cell_end + 1
+
+            print(f"[OK] {drill_name} \u2192 {tpl_name} (param + {cell_count} cell(s))")
+
+    # Apply insertions in reverse order to preserve offsets.
+    # For same position: reverse insertion order so first resource ends up first in file.
+    insertions = [(pos, text, seq) for seq, (pos, text) in enumerate(insertions)]
+    insertions.sort(key=lambda x: (x[0], x[2]), reverse=True)
+    for pos, text, _seq in insertions:
+        raw_text = raw_text[:pos] + text + raw_text[pos:]
+
+    # Write directly — skip lxml save
+    with open(resolved_path, "wb") as f:
+        f.write(b'\xef\xbb\xbf')
+        f.write(raw_text.encode("utf-8"))
+    print(f"[OK] Saved {resolved_path}")
+    sys.exit(0)
+
 # ── 9. Save ─────────────────────────────────────────────────
 
 xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
-xml_bytes = xml_bytes.replace(b"encoding='UTF-8'", b'encoding="UTF-8"')
+xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
+if not xml_bytes.endswith(b"\n"):
+    xml_bytes += b"\n"
 with open(resolved_path, "wb") as f:
     f.write(b'\xef\xbb\xbf')
     f.write(xml_bytes)

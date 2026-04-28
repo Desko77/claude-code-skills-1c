@@ -27,15 +27,6 @@ allowed-tools:
 powershell.exe -NoProfile -File skills/1c-cf-init/scripts/cf-init.ps1 -Name "МояКонфигурация"
 ```
 
-## Что создаётся
-
-```
-<OutputDir>/
-├── Configuration.xml         # Корневой файл — все свойства
-└── Languages/
-    └── Русский.xml           # Язык по умолчанию
-```
-
 ## Примеры
 
 ```powershell

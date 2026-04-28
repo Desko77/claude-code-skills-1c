@@ -12,8 +12,6 @@ allowed-tools:
 
 Останавливает Apache HTTP Server. Публикации сохраняются — при следующем `/web-publish` сервер запустится снова.
 
-> **Workflow:** `/web-info` → `/web-publish` → `/web-test` → `/web-unpublish` (или `/web-stop`)
-
 ## Usage
 
 ```

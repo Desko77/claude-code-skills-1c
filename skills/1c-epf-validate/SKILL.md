@@ -17,7 +17,7 @@ allowed-tools:
 | Параметр   | Обяз. | Умолч. | Описание                                      |
 |------------|:-----:|---------|-------------------------------------------------|
 | ObjectPath | да    | —       | Путь к корневому XML или каталогу обработки     |
-| Detailed   | нет   | —       | Показывать [OK] для каждой проверки             |
+| Detailed   | нет   | —       | Подробный вывод (все проверки, включая успешные) |
 | MaxErrors  | нет   | 30      | Остановиться после N ошибок                     |
 | OutFile    | нет   | —       | Записать результат в файл (UTF-8 BOM)           |
 
@@ -28,19 +28,3 @@ powershell.exe -NoProfile -File skills/1c-epf-validate/scripts/epf-validate.ps1 
 powershell.exe -NoProfile -File skills/1c-epf-validate/scripts/epf-validate.ps1 -ObjectPath "src/МояОбработка/МояОбработка.xml"
 ```
 
-## Проверки
-
-| #  | Проверка                                              | Серьёзность  |
-|----|-------------------------------------------------------|--------------|
-| 1  | Root structure: MetaDataObject/ExternalDataProcessor   | ERROR        |
-| 2  | InternalInfo: ClassId, ContainedObject, GeneratedType  | ERROR / WARN |
-| 3  | Properties: Name (identifier), Synonym                 | ERROR / WARN |
-| 4  | ChildObjects: допустимые типы, порядок                 | ERROR / WARN |
-| 5  | Cross-references: DefaultForm → Form, AuxiliaryForm    | ERROR / WARN |
-| 6  | Attributes: UUID, Name, Type                           | ERROR        |
-| 7  | TabularSections: UUID, Name, GeneratedType, Attributes | ERROR / WARN |
-| 8  | Уникальность имён (Attribute, TS, Form, Template, Command) | ERROR   |
-| 9  | Файлы: формы (.xml + Ext/Form.xml), макеты            | ERROR        |
-| 10 | Дескрипторы форм: корневая структура, uuid, Name, FormType | ERROR / WARN |
-
-Exit code: 0 = OK, 1 = есть ошибки. По умолчанию краткий вывод. `-Detailed` для поштучной детализации.

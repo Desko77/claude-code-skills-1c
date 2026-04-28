@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# web-publish v1.1 — Publish 1C infobase via Apache
+# web-publish v1.2 — Publish 1C infobase via Apache
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 """
@@ -125,12 +125,37 @@ def main():
             sys.exit(1)
 
         print('Apache не найден. Скачиваю...')
-        zip_url = 'https://www.apachelounge.com/download/VS18/binaries/httpd-2.4.66-260131-Win64-VS18.zip'
         tmp_zip = os.path.join(tempfile.gettempdir(), 'apache24.zip')
         tmp_dir = os.path.join(tempfile.gettempdir(), 'apache24_extract')
 
         try:
+            # Parse Apache Lounge download page for latest Win64 zip URL
+            download_page = 'https://www.apachelounge.com/download/'
+            print(f'Определяю актуальную версию с {download_page} ...')
+            req = urllib.request.Request(download_page, headers={
+                'User-Agent': 'Mozilla/5.0',
+            })
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                html = resp.read().decode('utf-8', errors='replace')
+
+            # Links are typically relative (/download/...), try that first
+            m = re.search(r'(?i)href="(/download/[^"]*?httpd-[^"]*?Win64[^"]*?\.zip)"', html)
+            if not m:
+                m = re.search(r'(?i)href="(https://[^"]*?httpd-[^"]*?Win64[^"]*?\.zip)"', html)
+
+            if m:
+                zip_url = m.group(1)
+                if zip_url.startswith('/'):
+                    zip_url = f'https://www.apachelounge.com{zip_url}'
+                print(f'Найдено: {zip_url}')
+            else:
+                print('Не удалось определить ссылку автоматически.', file=sys.stderr)
+                print(f'Скачайте вручную: {download_page}')
+                sys.exit(1)
+
             urllib.request.urlretrieve(zip_url, tmp_zip)
+        except SystemExit:
+            raise
         except Exception as e:
             print(f'Error: не удалось скачать Apache: {e}', file=sys.stderr)
             print('Скачайте вручную: https://www.apachelounge.com/download/')

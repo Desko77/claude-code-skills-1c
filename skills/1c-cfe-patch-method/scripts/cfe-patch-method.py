@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-patch-method v1.0 — Generate method interceptor for 1C extension (CFE)
+# cfe-patch-method v1.1 — Generate method interceptor for 1C extension (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -84,6 +84,22 @@ def main():
         "AccumulationRegister": "AccumulationRegisters",
         "AccountingRegister": "AccountingRegisters",
         "CalculationRegister": "CalculationRegisters",
+        "Catalogs": "Catalogs",
+        "Documents": "Documents",
+        "Enums": "Enums",
+        "CommonModules": "CommonModules",
+        "Reports": "Reports",
+        "DataProcessors": "DataProcessors",
+        "ExchangePlans": "ExchangePlans",
+        "ChartsOfAccounts": "ChartsOfAccounts",
+        "ChartsOfCharacteristicTypes": "ChartsOfCharacteristicTypes",
+        "ChartsOfCalculationTypes": "ChartsOfCalculationTypes",
+        "BusinessProcesses": "BusinessProcesses",
+        "Tasks": "Tasks",
+        "InformationRegisters": "InformationRegisters",
+        "AccumulationRegisters": "AccumulationRegisters",
+        "AccountingRegisters": "AccountingRegisters",
+        "CalculationRegisters": "CalculationRegisters",
     }
 
     parts = module_path.split(".")

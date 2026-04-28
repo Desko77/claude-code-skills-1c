@@ -117,9 +117,3 @@ powershell.exe -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 
 ]
 ```
 
-## Что генерируется
-
-- `{TypePlural}/{Name}.xml` — метаданные объекта
-- `{TypePlural}/{Name}/Ext/*.bsl` — модули (ObjectModule, RecordSetModule, Module — зависит от типа)
-- `Configuration.xml` — автоматическая регистрация в `<ChildObjects>`
-

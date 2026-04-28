@@ -1,4 +1,4 @@
-// web-test browser v1.4 — Playwright browser management for 1C web client
+// web-test browser v1.9 — Playwright browser management for 1C web client
 // Source: https://github.com/Desko77/claude-code-skills-1c
 /**
  * Playwright browser management for 1C web client.
@@ -314,6 +314,62 @@ async function waitForStable(previousFormNum = null) {
 }
 
 /**
+ * Start monitoring network activity via CDP.
+ * Must be called BEFORE the click so it captures all server requests.
+ * Returns a monitor object with waitDone() and cleanup() methods.
+ */
+async function startNetworkMonitor() {
+  const client = await page.context().newCDPSession(page);
+  await client.send('Network.enable');
+
+  let pending = 0;
+  let total = 0;
+  let lastZeroTime = null;
+  const DEBOUNCE = 300;
+
+  client.on('Network.requestWillBeSent', () => {
+    pending++;
+    total++;
+    lastZeroTime = null;
+  });
+  client.on('Network.loadingFinished', () => {
+    if (--pending === 0) lastZeroTime = Date.now();
+  });
+  client.on('Network.loadingFailed', () => {
+    if (--pending === 0) lastZeroTime = Date.now();
+  });
+
+  return {
+    /** Wait until all network requests complete (300ms debounce) or UI element appears. */
+    async waitDone(timeout = 10000) {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        await page.waitForTimeout(50);
+
+        // Check for UI elements (modal, balloon, confirm)
+        const ui = await page.evaluate(`(() => {
+          const modal = document.querySelector('#modalSurface:not([style*="display: none"])');
+          const balloon = document.querySelector('.balloon');
+          const confirm = document.querySelector('.confirm');
+          return !!(modal || balloon || confirm);
+        })()`);
+        if (ui) return;
+
+        // CDP debounce: pending===0 held for DEBOUNCE ms
+        if (total > 0 && pending === 0 && lastZeroTime !== null) {
+          if (Date.now() - lastZeroTime >= DEBOUNCE) return;
+        }
+      }
+    },
+    /** Detach CDP session. Always call this when done. */
+    async cleanup() {
+      await client.send('Network.disable').catch(() => {});
+      await client.detach().catch(() => {});
+    }
+  };
+}
+
+/**
  * Poll until a JS expression returns truthy, or timeout (ms) expires.
  * Resolves early — typically within 100-300ms instead of fixed delays.
  */
@@ -344,6 +400,12 @@ async function checkForErrors() {
  * Returns the dismissed error object or null.
  */
 async function dismissPendingErrors() {
+  // Close leftover platform dialogs first (About, Support Info, Error Report)
+  // These block all interaction via modalSurface and are invisible to 1C form detection
+  try {
+    const pd = await _detectPlatformDialogs();
+    if (pd.length) await _closePlatformDialogs();
+  } catch { /* OK */ }
   const err = await checkForErrors();
   if (!err?.modal) return null;
   try {
@@ -357,6 +419,266 @@ async function dismissPendingErrors() {
   } catch { /* OK */ }
   await waitForStable();
   return err;
+}
+
+/**
+ * Detect open platform-level dialogs (About, Support Info, Error Report).
+ * Returns array of { type, title? } for each detected dialog, or empty array.
+ */
+async function _detectPlatformDialogs() {
+  return await page.evaluate(() => {
+    const result = [];
+    // "О программе" dialog
+    const about = document.getElementById('aboutContainer');
+    if (about && about.offsetWidth > 0) result.push({ type: 'about', title: 'О программе' });
+    // "Информация для технической поддержки" (inside a ps*win with errJournalInput)
+    const errJ = document.getElementById('errJournalInput');
+    if (errJ && errJ.offsetWidth > 0) result.push({ type: 'supportInfo', title: 'Информация для технической поддержки' });
+    // "Отчет об ошибке" / "Подробный текст ошибки" — ps*win cloud windows without aboutContainer
+    if (!result.length) {
+      document.querySelectorAll('[id^="ps"][id$="win"]').forEach(w => {
+        if (w.offsetWidth === 0 || w.offsetHeight === 0) return;
+        // Skip the main app window (ps*win that contains the 1C forms)
+        if (w.querySelector('[id^="form"][id$="_container"]')) return;
+        // Check title text
+        const titleEl = w.querySelector('[id$="headerTopLine_cmd_Title"]');
+        const title = titleEl?.textContent?.trim() || '';
+        if (title) result.push({ type: 'platformWindow', title });
+      });
+    }
+    return result;
+  });
+}
+
+/**
+ * Close any platform-level dialogs that may be left open (about, support info, error report).
+ * These are NOT 1C forms — they are platform UI overlays invisible to getFormState().
+ * Each close is wrapped in try/catch to avoid cascading failures.
+ */
+async function _closePlatformDialogs() {
+  await page.evaluate(() => {
+    // "Подробный текст ошибки" OK button (inside error report detail view)
+    // It's a cloud window with its own OK button — look for visible pressDefault in small ps*win
+    const psWins = document.querySelectorAll('[id^="ps"][id$="win"]');
+    for (const w of psWins) {
+      if (w.offsetWidth === 0) continue;
+      // Check if this is a small dialog (error detail, about, support info)
+      const closeBtn = w.querySelector('[id$="_cmd_CloseButton"]');
+      if (closeBtn && closeBtn.offsetWidth > 0) {
+        try { closeBtn.click(); } catch {}
+      }
+    }
+    // "Информация для технической поддержки" — extOkBtn
+    const extOk = document.getElementById('extOkBtn');
+    if (extOk && extOk.offsetWidth > 0) try { extOk.click(); } catch {}
+    // "О программе" — aboutOkButton
+    const aboutOk = document.getElementById('aboutOkButton');
+    if (aboutOk && aboutOk.offsetWidth > 0) try { aboutOk.click(); } catch {}
+  });
+  await page.waitForTimeout(300);
+}
+
+/**
+ * Parse raw error stack text into structured entries.
+ * Input: raw text from errJournalInput (first block) or "Подробный текст ошибки" textarea.
+ * Returns { raw, timestamp?, entries: [{location, code}] }
+ */
+function _parseErrorStack(raw) {
+  if (!raw) return null;
+  const result = { raw, entries: [] };
+  // Extract timestamp if present (format: DD.MM.YYYY HH:MM:SS)
+  const tsMatch = raw.match(/^(\d{2}\.\d{2}\.\d{4}\s+\d{1,2}:\d{2}:\d{2})/m);
+  if (tsMatch) result.timestamp = tsMatch[1];
+  // Extract {Module.Path(lineNum)}: code entries
+  const entryRe = /\{([^}]+)\}:\s*(.+)/g;
+  let m;
+  while ((m = entryRe.exec(raw)) !== null) {
+    result.entries.push({ location: m[1].trim(), code: m[2].trim() });
+  }
+  return result.entries.length > 0 ? result : null;
+}
+
+/**
+ * Fetch error call stack from the 1C platform UI.
+ * Uses two strategies:
+ *   Path 1 (hasReport=true): Click OpenReport link → "подробный текст ошибки" → read textarea
+ *   Path 2 (fallback): Hamburger → "О программе" → "Информация для техподдержки" → errJournalInput
+ *
+ * Always closes the error modal and any platform dialogs it opened.
+ * Returns parsed stack object or null on failure.
+ *
+ * @param {number} formNum - form number of the error modal (e.g. 6 for form6_)
+ * @param {boolean} hasReport - true if OpenReport link is available
+ */
+export async function fetchErrorStack(formNum, hasReport) {
+  try {
+    // Platform exception modals are initially unstable — they redraw within ~1s.
+    // The initial state may lack the OpenReport link. Re-check after a short delay.
+    if (!hasReport) {
+      await page.waitForTimeout(1500);
+      hasReport = await page.evaluate((fn) => {
+        const el = document.getElementById('form' + fn + '_OpenReport#text');
+        return !!(el && el.offsetWidth > 2 && el.textContent.trim());
+      }, formNum);
+    }
+    if (hasReport) return await _fetchStackViaReport(formNum);
+    return await _fetchStackViaHamburger(formNum);
+  } catch {
+    return null;
+  } finally {
+    // Ensure all platform dialogs are closed
+    try { await _closePlatformDialogs(); } catch {}
+    // Ensure the error modal itself is closed
+    try {
+      const sel = formNum != null
+        ? `#form${formNum}_container a.press.pressDefault`
+        : 'a.press.pressDefault';
+      const btn = await page.$(sel);
+      if (btn) await btn.click({ force: true });
+      await page.waitForTimeout(300);
+    } catch {}
+  }
+}
+
+/**
+ * Path 1: Fetch stack via OpenReport link (for platform exceptions).
+ * The error modal must still be open with a visible "Сформировать отчет об ошибке" link.
+ */
+async function _fetchStackViaReport(formNum) {
+  // 1. Get coordinates of the OpenReport link and click via mouse (modalSurface blocks JS clicks)
+  const coords = await page.evaluate((fn) => {
+    const el = document.getElementById('form' + fn + '_OpenReport#text');
+    if (!el || el.offsetWidth <= 2) return null;
+    const rect = el.getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  }, formNum);
+  if (!coords) return null;
+
+  await page.mouse.click(coords.x, coords.y);
+
+  // 2. Wait for "Отчет об ошибке" dialog — look for "подробный текст ошибки" link
+  let found = false;
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(500);
+    found = await page.evaluate(() => {
+      const links = document.querySelectorAll('a, [class*="hyper"], span');
+      for (const el of links) {
+        if (el.offsetWidth > 0 && el.textContent.includes('подробный текст ошибки')) return true;
+      }
+      return false;
+    });
+    if (found) break;
+  }
+  if (!found) return null;
+
+  // 3. Click "подробный текст ошибки"
+  await page.getByText('подробный текст ошибки').click();
+  await page.waitForTimeout(2000);
+
+  // 4. Read the textarea with detailed error text (find the largest visible textarea)
+  const raw = await page.evaluate(() => {
+    let best = null;
+    document.querySelectorAll('textarea').forEach(ta => {
+      if (ta.offsetWidth > 0 && ta.value.length > 0) {
+        if (!best || ta.value.length > best.value.length) best = ta;
+      }
+    });
+    return best?.value || null;
+  });
+
+  // 5. Close "Подробный текст ошибки" dialog (click its OK button)
+  try {
+    const okBtn = await page.evaluate(() => {
+      // Find the OK button in the topmost small cloud window
+      const psWins = [...document.querySelectorAll('[id^="ps"][id$="win"]')]
+        .filter(w => w.offsetWidth > 0)
+        .sort((a, b) => parseInt(b.style?.zIndex || '0') - parseInt(a.style?.zIndex || '0'));
+      for (const w of psWins) {
+        const ok = w.querySelector('button.webBtn, .pressDefault');
+        if (ok && ok.textContent.trim() === 'OK') { ok.click(); return true; }
+      }
+      return false;
+    });
+    await page.waitForTimeout(300);
+  } catch {}
+
+  // 6. Close "Отчет об ошибке" dialog (click its × close button)
+  try {
+    await page.evaluate(() => {
+      const psWins = [...document.querySelectorAll('[id^="ps"][id$="win"]')]
+        .filter(w => w.offsetWidth > 0);
+      for (const w of psWins) {
+        const closeBtn = w.querySelector('[id$="_cmd_CloseButton"]');
+        if (closeBtn && closeBtn.offsetWidth > 0) { closeBtn.click(); break; }
+      }
+    });
+    await page.waitForTimeout(300);
+  } catch {}
+
+  return _parseErrorStack(raw);
+}
+
+/**
+ * Path 2: Fetch stack via hamburger menu → "О программе" → "Информация для техподдержки".
+ * Works for all error types including simple ВызватьИсключение.
+ * The error modal is closed first to allow access to the hamburger menu.
+ */
+async function _fetchStackViaHamburger(formNum) {
+  // 1. Close the error modal first
+  try {
+    const sel = formNum != null
+      ? `#form${formNum}_container a.press.pressDefault`
+      : 'a.press.pressDefault';
+    const btn = await page.$(sel);
+    if (btn) await btn.click({ force: true });
+    await page.waitForTimeout(500);
+  } catch {}
+
+  // 2. Click hamburger menu
+  await page.click('#captionbarMore', { timeout: 5000 });
+  await page.waitForTimeout(1000);
+
+  // 3. Click "О программе..."
+  await page.getByText('О программе...', { exact: true }).click({ timeout: 5000 });
+  await page.waitForTimeout(2000);
+
+  // 4. Click "Информация для технической поддержки"
+  await page.click('#aboutHyperLink', { timeout: 5000 });
+
+  // 5. Wait for errJournalInput to appear and be filled
+  let raw = null;
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(500);
+    raw = await page.evaluate(() => {
+      const el = document.getElementById('errJournalInput');
+      return (el && el.offsetWidth > 0 && el.value.length > 50) ? el.value : null;
+    });
+    if (raw) break;
+  }
+  if (!raw) return null;
+
+  // 6. Parse first error block (most recent — before first separator)
+  const separator = / - - - - /;
+  const errSection = raw.indexOf('\n\n') !== -1 ? raw.substring(raw.indexOf('\n\n')) : raw;
+  // Find the "Ошибки:" section
+  const errIdx = raw.indexOf('Ошибки:');
+  let errorText = errIdx !== -1 ? raw.substring(errIdx + 'Ошибки:'.length).trim() : raw;
+  // Take first block (before first separator line)
+  const lines = errorText.split('\n');
+  const firstBlockLines = [];
+  let inBlock = false;
+  for (const line of lines) {
+    if (separator.test(line)) {
+      if (inBlock) break; // end of first block
+      inBlock = true;
+      continue;
+    }
+    if (inBlock) firstBlockLines.push(line);
+  }
+  const firstBlock = firstBlockLines.join('\n').trim();
+
+  // 7. Close support info and about dialogs (done in finally via _closePlatformDialogs)
+  return _parseErrorStack(firstBlock || errorText);
 }
 
 /** Get the raw Playwright page object (for advanced scripting in skill mode). */
@@ -490,7 +812,7 @@ function normalizeE1cibUrl(url) {
 export async function openFile(filePath) {
   ensureConnected();
   await dismissPendingErrors();
-  const absPath = resolveProjectPath(filePath);
+  const absPath = resolveProjectPath(filePath.replace(/\\/g, '/'));
 
   const MAX_ATTEMPTS = 2; // 1st may trigger security dialog, 2nd is the real open
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -621,6 +943,10 @@ export async function getFormState() {
       state.hint = 'Call web_click with a button name (e.g. "Да", "Нет", "Отмена") to respond';
     }
   }
+  // Detect platform-level dialogs (About, Support Info, Error Report)
+  // These are NOT 1C forms — invisible to detectForms() and not closeable via Escape.
+  const pd = await _detectPlatformDialogs();
+  if (pd.length) state.platformDialogs = pd;
   return state;
 }
 
@@ -638,6 +964,482 @@ export async function readTable({ maxRows = 20, offset = 0, table } = {}) {
   return await page.evaluate(readTableScript(formNum, { maxRows, offset, gridSelector }));
 }
 
+// --- Spreadsheet helpers (shared by readSpreadsheet and clickElement) ---
+
+/**
+ * Scan spreadsheet iframes for the current form and collect all cells.
+ * Returns { allCells: Map<'r_c', {r,c,t}>, frameMap: Map<'r_c', frameIndex> }
+ * where frameIndex is the Playwright frames[] index (1-based, 0 = main).
+ */
+async function scanSpreadsheetCells(formNum) {
+  const prefix = `form${formNum ?? 0}_`;
+  const iframeHandles = await page.$$('iframe');
+
+  const allCells = new Map();
+  const frameMap = new Map(); // key 'r_c' → Playwright Frame object
+
+  for (const handle of iframeHandles) {
+    const ok = await handle.evaluate((f, pfx) => {
+      if (f.offsetWidth < 100) return false;
+      let el = f.parentElement;
+      for (let d = 0; el && d < 30; d++, el = el.parentElement) {
+        if (el.id && el.id.startsWith(pfx)) return true;
+      }
+      return false;
+    }, prefix);
+    if (!ok) continue;
+
+    const frame = await handle.contentFrame();
+    if (!frame) continue;
+
+    try {
+      const cells = await frame.evaluate(`(() => {
+        const cells = [];
+        document.querySelectorAll('div[x]').forEach(d => {
+          const span = d.querySelector('span');
+          const text = span?.innerText?.replace(/\\n/g, ' ')?.trim() || '';
+          if (!text) return;
+          const rowDiv = d.parentElement;
+          const row = rowDiv?.getAttribute('y') || rowDiv?.className?.match(/R(\\d+)/)?.[1] || null;
+          const col = d.getAttribute('x');
+          if (row != null && col != null) cells.push({ r: parseInt(row), c: parseInt(col), t: text });
+        });
+        return cells;
+      })()`);
+      for (const cell of cells) {
+        const key = `${cell.r}_${cell.c}`;
+        if (!allCells.has(key) || cell.t.length > allCells.get(key).t.length) {
+          allCells.set(key, cell);
+          frameMap.set(key, frame);
+        }
+      }
+    } catch { /* skip inaccessible frames */ }
+  }
+  return { allCells, frameMap };
+}
+
+/**
+ * Build structured mapping from raw cells: headers, column map, data/totals row indices.
+ * Returns { rows, sortedRows, maxCol, colNames, headerRowIdx, dataStartIdx, totalsRowIdx, rowMap }
+ * or null if header detection fails.
+ */
+function buildSpreadsheetMapping(allCells) {
+  const rowMap = new Map();
+  let maxCol = 0;
+  for (const cell of allCells.values()) {
+    if (!rowMap.has(cell.r)) rowMap.set(cell.r, new Map());
+    rowMap.get(cell.r).set(cell.c, cell.t);
+    if (cell.c > maxCol) maxCol = cell.c;
+  }
+
+  const sortedRows = [...rowMap.keys()].sort((a, b) => a - b);
+  const rows = sortedRows.map(r => {
+    const cm = rowMap.get(r);
+    const arr = [];
+    for (let c = 0; c <= maxCol; c++) arr.push(cm.get(c) || '');
+    return arr;
+  });
+
+  // Generic numeric check: digits with optional spaces/commas, excludes codes like "68/78"
+  // Accepts bare integers (e.g. account codes "50", "84") — used for hasNumber / totals classification.
+  const isNumericVal = (c) => {
+    if (!c || !/\d/.test(c)) return false;
+    const s = c.replace(/^[-\s\u00a0]+/, '').replace(/[\s\u00a0]/g, '');
+    return /^\d[\d,]*$/.test(s);
+  };
+  // Data-formatted numeric value: requires a formatting signal (grouping space, decimal comma, or leading minus).
+  // Used as the anchor for first data row — avoids false positives on bare account codes like "50", "51".
+  const isDataNumericVal = (c) => {
+    if (!isNumericVal(c)) return false;
+    return /[\s\u00a0,]/.test(c) || /^-/.test(c);
+  };
+  const hasNumber = (row) => row.some(c => isNumericVal(c));
+  const nonEmpty = (row) => row.filter(c => c !== '').length;
+
+  // Build a rich mapping (group/super/DCS) anchored at a known detailIdx + firstDataIdx.
+  // Shared by Level 1 (DCS-code anchor) and Level 2 (formatted-number anchor).
+  const buildRichMapping = (detailIdx, firstDataIdx) => {
+    let groupIdx = -1;
+    if (detailIdx > 0 && nonEmpty(rows[detailIdx - 1]) >= 2) groupIdx = detailIdx - 1;
+
+    const detailRow = rows[detailIdx];
+    const groupRow = groupIdx >= 0 ? rows[groupIdx] : null;
+
+    // Detect optional third header level above group row (bounds carry-forward)
+    let superRow = null;
+    if (groupIdx > 0 && nonEmpty(rows[groupIdx - 1]) >= 2) {
+      superRow = rows[groupIdx - 1];
+    }
+
+    // Build column names (group + detail merge)
+    const groupFilled = new Array(maxCol + 1).fill('');
+    if (groupRow) {
+      let cur = '';
+      for (let c = 0; c <= maxCol; c++) {
+        if (groupRow[c]) {
+          cur = groupRow[c];
+        } else if (superRow && superRow[c]) {
+          // New top-level header starts here — stop carry-forward
+          cur = '';
+        }
+        groupFilled[c] = cur;
+      }
+    }
+
+    const detailCounts = {};
+    for (let c = 0; c <= maxCol; c++) {
+      const n = detailRow[c];
+      if (n) detailCounts[n] = (detailCounts[n] || 0) + 1;
+    }
+
+    // Detect DCS column codes (К1, К2, ...) — always prefix with group when present
+    const detailNonEmpty = detailRow.filter(c => c);
+    const isDcsCodeRow = detailNonEmpty.length >= 2 && detailNonEmpty.every(c => /^К\d+$/.test(c));
+
+    const colNames = [];
+    for (let c = 0; c <= maxCol; c++) {
+      const detail = detailRow[c];
+      const group = groupFilled[c];
+      const sup = superRow ? superRow[c] : '';
+      if (detail) {
+        // Prefer group prefix; fall back to superRow for DCS code columns without sub-group
+        const prefix = group && group !== detail ? group : (isDcsCodeRow && sup ? sup : '');
+        const needPrefix = prefix && (isDcsCodeRow || detailCounts[detail] > 1 || (groupRow && groupRow[c] === ''));
+        colNames.push(needPrefix ? `${prefix} / ${detail}` : detail);
+      } else if (group) {
+        colNames.push(group);
+      } else if (sup) {
+        colNames.push(sup);
+      } else {
+        colNames.push(null);
+      }
+    }
+
+    const colMap = new Map();
+    for (let c = 0; c < colNames.length; c++) {
+      if (colNames[c]) colMap.set(colNames[c], c);
+    }
+
+    // Classify data rows: separate data indices and totals index
+    const dataRowIndices = [];
+    let totalsRowIdx = -1;
+    for (let i = firstDataIdx; i < rows.length; i++) {
+      if (!hasNumber(rows[i]) && nonEmpty(rows[i]) === 0) continue;
+      const first = rows[i][0]?.trim().toLowerCase();
+      if (first === 'итого' || first === 'всего') {
+        totalsRowIdx = i;
+      } else {
+        dataRowIndices.push(i);
+      }
+    }
+
+    const superRowIdx = superRow ? groupIdx - 1 : -1;
+
+    return {
+      rows, sortedRows, maxCol, colNames, colMap,
+      headerRowIdx: detailIdx, groupRowIdx: groupIdx, superRowIdx,
+      dataStartIdx: firstDataIdx, dataRowIndices, totalsRowIdx,
+      rowMap, hasNumber, nonEmpty,
+    };
+  };
+
+  // --- Level 1: DCS-code row anchor ---
+  // ФСД / СКД-отчёты всегда содержат строку "К1, К2, ..." — rock-solid structural marker.
+  // Якорение через неё — детерминированное, работает даже если все данные — голые целые (отчёт в "тыс.руб").
+  for (let i = 0; i < rows.length; i++) {
+    const detailNonEmpty = rows[i].filter(c => c);
+    if (detailNonEmpty.length >= 2 && detailNonEmpty.every(c => /^К\d+$/.test(c))) {
+      // Find first non-empty row after the К-codes row as data start
+      let firstDataIdx = rows.length;
+      for (let j = i + 1; j < rows.length; j++) {
+        if (nonEmpty(rows[j]) > 0) { firstDataIdx = j; break; }
+      }
+      return buildRichMapping(i, firstDataIdx);
+    }
+  }
+
+  // --- Level 2: formatted-number anchor (heuristic for reports without DCS codes) ---
+  let firstDataIdx = rows.length;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].filter(c => isDataNumericVal(c)).length >= 2) { firstDataIdx = i; break; }
+  }
+  if (firstDataIdx === rows.length) {
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].some(c => isDataNumericVal(c))) { firstDataIdx = i; break; }
+    }
+  }
+
+  if (firstDataIdx < rows.length) {
+    let detailIdx = -1;
+    for (let i = firstDataIdx - 1; i >= 0; i--) {
+      if (nonEmpty(rows[i]) >= Math.min(3, maxCol + 1)) { detailIdx = i; break; }
+    }
+    if (detailIdx !== -1) return buildRichMapping(detailIdx, firstDataIdx);
+  }
+
+  // --- Level 3: single-row header fallback (text-only data, query console) ---
+  // First "wide" row (nonEmpty >= 2) = headers, rest = data. No multi-level composition.
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (nonEmpty(rows[i]) >= 2) { headerIdx = i; break; }
+  }
+  // Single-column tables: accept nonEmpty >= 1
+  if (headerIdx === -1 && maxCol === 0) {
+    for (let i = 0; i < rows.length; i++) {
+      if (nonEmpty(rows[i]) >= 1) { headerIdx = i; break; }
+    }
+  }
+  if (headerIdx === -1) return null; // truly empty — top-level fallback to { rows, total }
+
+  const detailRow = rows[headerIdx];
+  const colNames = [];
+  for (let c = 0; c <= maxCol; c++) colNames.push(detailRow[c] || null);
+  const colMap = new Map();
+  for (let c = 0; c < colNames.length; c++) {
+    if (colNames[c]) colMap.set(colNames[c], c);
+  }
+
+  const dataRowIndices = [];
+  let totalsRowIdx = -1;
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    if (!hasNumber(rows[i]) && nonEmpty(rows[i]) === 0) continue;
+    const first = rows[i][0]?.trim().toLowerCase();
+    if (first === 'итого' || first === 'всего') {
+      totalsRowIdx = i;
+    } else {
+      dataRowIndices.push(i);
+    }
+  }
+
+  return {
+    rows, sortedRows, maxCol, colNames, colMap,
+    headerRowIdx: headerIdx, groupRowIdx: -1, superRowIdx: -1,
+    dataStartIdx: headerIdx + 1, dataRowIndices, totalsRowIdx,
+    rowMap, hasNumber, nonEmpty,
+  };
+}
+
+/**
+ * Scroll SpreadsheetDocument to make a cell visible using arrow keys.
+ * Uses native platform scroll — keeps headers, data, and scrollbar synchronized.
+ *
+ * How it works:
+ * 1. Check target cell visibility via Playwright boundingBox (page-level coords).
+ * 2. Click a fully-visible cell via page.mouse.click through the mxlCurrBody overlay.
+ *    This is the same native click that clickSpreadsheetCell uses — it gives keyboard
+ *    focus to the spreadsheet and keeps headers/data/scrollbar in sync.
+ *    (frame.locator().click() bypasses overlay → desyncs frozen headers;
+ *     page.mouse.click() + frameEl.focus() doesn't transfer keyboard focus.)
+ * 3. Press ArrowRight/ArrowLeft until the target cell is fully within the viewport.
+ *
+ * @param {Frame} frame - Playwright Frame containing the spreadsheet cells
+ * @param {number} physRow - physical row (y attribute) in the frame
+ * @param {number} physCol - physical column (x attribute) in the frame
+ * @param {Locator} cellLoc - Playwright locator for the target cell (from caller)
+ */
+async function scrollSpreadsheetToCell(frame, physRow, physCol, cellLoc) {
+  const pageVw = await page.evaluate('window.innerWidth');
+  // Get iframe bounds — the actual visible region on page.
+  // The iframe may extend behind the section panel on the left, so cells with
+  // x >= 0 but x < iframeBox.x are behind the panel. Clicking them hits the panel.
+  const frameElm = await frame.frameElement();
+  const frameBox = await frameElm.boundingBox();
+  const visLeft = frameBox ? frameBox.x : 0;
+  const visRight = frameBox ? Math.min(frameBox.x + frameBox.width, pageVw) : pageVw;
+
+  const getBox = async () => {
+    try { return await cellLoc.boundingBox({ timeout: 500 }); }
+    catch { return null; }
+  };
+  const isFullyVisible = (box) => box && box.x >= visLeft && (box.x + box.width) <= visRight;
+
+  let box = await getBox();
+  if (!box) return; // cell not in DOM
+  if (isFullyVisible(box)) return;
+
+  const direction = (box.x + box.width) > pageVw ? 'ArrowRight' : 'ArrowLeft';
+
+  // Find a fully-visible cell to click for focus.
+  // Prefer cells in the target row (scrollable area), fall back to any row.
+  const targetRowSel = `div[y="${physRow}"] div[x]`;
+  const anyRowSel = 'div[x]';
+  let focusClicked = false;
+  for (const sel of [targetRowSel, anyRowSel]) {
+    const locs = frame.locator(sel);
+    const count = await locs.count();
+    const candidates = [];
+    for (let ci = 0; ci < count; ci++) {
+      const b = await locs.nth(ci).boundingBox();
+      if (b && b.width > 5 && b.x >= visLeft && (b.x + b.width) <= visRight) {
+        candidates.push({ ci, box: b });
+      }
+    }
+    if (candidates.length === 0) continue;
+    candidates.sort((a, b) => a.box.x - b.box.x);
+    // ArrowRight → rightmost fully-visible (each press scrolls right immediately)
+    // ArrowLeft  → leftmost fully-visible  (each press scrolls left immediately)
+    const pick = direction === 'ArrowRight'
+      ? candidates[candidates.length - 1]
+      : candidates[0];
+    // Native click through overlay — gives keyboard focus + no header desync.
+    await page.mouse.click(pick.box.x + pick.box.width / 2, pick.box.y + pick.box.height / 2);
+    await page.waitForTimeout(100);
+    focusClicked = true;
+    break;
+  }
+  if (!focusClicked) return; // no visible cells — can't scroll
+
+  // Arrow keys until cell is fully visible or we detect no progress.
+  const MAX_STALE = 5; // bail out if arrows aren't scrolling (lost focus?)
+  let prevCx = box.x + box.width / 2;
+  let staleCount = 0;
+  for (let i = 0; i < 100; i++) {
+    await page.keyboard.press(direction);
+    await page.waitForTimeout(50);
+    box = await getBox();
+    if (!box) break;
+    if (isFullyVisible(box)) break;
+    const cx = box.x + box.width / 2;
+    if (Math.abs(cx - prevCx) >= 1) {
+      staleCount = 0;
+    } else {
+      staleCount++;
+      if (staleCount >= MAX_STALE) break;
+    }
+    prevCx = cx;
+  }
+  await page.waitForTimeout(200);
+}
+
+/**
+ * Click a cell in SpreadsheetDocument by logical coordinates.
+ * target: { row: number|'totals'|{colName: value}, column: string }
+ * Internal helper — called from clickElement when first arg is an object.
+ */
+async function clickSpreadsheetCell(target, { dblclick: dbl, modifier } = {}) {
+  ensureConnected();
+  const formNum = await page.evaluate(detectFormScript());
+  const { allCells, frameMap } = await scanSpreadsheetCells(formNum);
+  if (allCells.size === 0) throw new Error('clickElement: no SpreadsheetDocument found on current form.');
+
+  const mapping = buildSpreadsheetMapping(allCells);
+  if (!mapping) throw new Error('clickElement: could not detect spreadsheet headers. Use readSpreadsheet() to check report structure.');
+
+  const { rows, sortedRows, colNames, colMap, dataRowIndices, totalsRowIdx } = mapping;
+
+  // Resolve column (exact → endsWith " / X" → includes)
+  let colName = target.column;
+  if (!colMap.has(colName)) {
+    const available = colNames.filter(n => n);
+    const suffix = ' / ' + colName;
+    const match = available.find(n => n.endsWith(suffix)) || available.find(n => n.includes(colName));
+    if (!match) throw new Error(`clickElement: column "${colName}" not found. Available: ${available.join(', ')}`);
+    colName = match;
+  }
+  const physCol = colMap.get(colName);
+
+  // Resolve row → index into rows[] array
+  let rowIdx;
+  const row = target.row;
+  if (row === 'totals') {
+    if (totalsRowIdx === -1) throw new Error('clickElement: no totals row found in spreadsheet.');
+    rowIdx = totalsRowIdx;
+  } else if (typeof row === 'number') {
+    if (row < 0 || row >= dataRowIndices.length) throw new Error(`clickElement: row index ${row} out of range (0..${dataRowIndices.length - 1}).`);
+    rowIdx = dataRowIndices[row];
+  } else if (typeof row === 'object') {
+    // Filter: { colName: value } — find first data row where column matches
+    const filterEntries = Object.entries(row);
+    const norm = s => s?.replace(/\u00a0/g, ' ').trim().toLowerCase() || '';
+    const resolveCol = (name) => {
+      if (colMap.has(name)) return colMap.get(name);
+      const suffix = ' / ' + name;
+      const available = colNames.filter(n => n);
+      const m = available.find(n => n.endsWith(suffix)) || available.find(n => n.includes(name));
+      return m ? colMap.get(m) : null;
+    };
+    rowIdx = dataRowIndices.find(i => {
+      return filterEntries.every(([fCol, fVal]) => {
+        const fColIdx = resolveCol(fCol);
+        if (fColIdx == null) return false;
+        const cellText = norm(rows[i][fColIdx]);
+        const search = norm(fVal);
+        return cellText === search || cellText.includes(search);
+      });
+    });
+    if (rowIdx == null) throw new Error(`clickElement: no row matching ${JSON.stringify(row)} found in spreadsheet data.`);
+  } else {
+    throw new Error('clickElement: row must be a number, "totals", or { colName: value } filter object.');
+  }
+
+  // Map rows[] index → physical row number
+  const physRow = sortedRows[rowIdx];
+  const cellKey = `${physRow}_${physCol}`;
+  const frame = frameMap.get(cellKey);
+  if (!frame) {
+    // Cell exists in mapping but might be empty — try clicking anyway
+    throw new Error(`clickElement: cell at row=${JSON.stringify(target.row)}, column="${colName}" is empty or not rendered.`);
+  }
+  // Use [y]+[x] attributes — CSS class RxCy uses different numbering than y/x attrs.
+  const cellDiv = frame.locator(`div[y="${physRow}"] div[x="${physCol}"]`).first();
+  // Scroll cell into view using arrow keys — the only reliable way to scroll
+  // 1C SpreadsheetDocument without desynchronizing headers, data, and scrollbar.
+  await scrollSpreadsheetToCell(frame, physRow, physCol, cellDiv);
+  const box = await cellDiv.boundingBox();
+  if (!box) throw new Error(`clickElement: cell y=${physRow} x=${physCol} not visible (no bounding box).`);
+
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  const modKey = modifier === 'ctrl' ? 'Control' : modifier === 'shift' ? 'Shift' : null;
+  if (modKey) await page.keyboard.down(modKey);
+  if (dbl) {
+    await page.mouse.dblclick(x, y);
+  } else {
+    await page.mouse.click(x, y);
+  }
+  if (modKey) await page.keyboard.up(modKey);
+
+  await waitForStable();
+  const state = await getFormState();
+  state.clicked = { kind: 'spreadsheetCell', row: target.row, column: colName, ...(dbl ? { dblclick: true } : {}) };
+  return state;
+}
+
+/**
+ * Search spreadsheet iframes for a cell matching text (for text fallback in clickElement).
+ * Returns { frameIndex, physRow, physCol, box } or null if not found.
+ */
+async function findSpreadsheetCellByText(formNum, searchText) {
+  const { allCells, frameMap } = await scanSpreadsheetCells(formNum);
+  if (allCells.size === 0) return null;
+
+  const norm = s => s?.replace(/\u00a0/g, ' ').trim().toLowerCase() || '';
+  const target = norm(searchText);
+
+  // Exact match first, then includes
+  let found = null;
+  for (const [key, cell] of allCells) {
+    if (norm(cell.t) === target) { found = { key, cell }; break; }
+  }
+  if (!found) {
+    for (const [key, cell] of allCells) {
+      if (norm(cell.t).includes(target)) { found = { key, cell }; break; }
+    }
+  }
+  if (!found) return null;
+
+  const frame = frameMap.get(found.key);
+  if (!frame) return null;
+
+  // Scroll cell into view using native arrow-key mechanism
+  const cellDiv = frame.locator(`div[y="${found.cell.r}"] div[x="${found.cell.c}"]`).first();
+  await scrollSpreadsheetToCell(frame, found.cell.r, found.cell.c, cellDiv);
+  const box = await cellDiv.boundingBox();
+  if (!box) return null;
+
+  return { frame, physRow: found.cell.r, physCol: found.cell.c, text: found.cell.t, box };
+}
+
 /**
  * Read report output (SpreadsheetDocumentField) rendered in iframes.
  * 1C renders spreadsheet documents as absolutely-positioned div cells inside iframes.
@@ -651,135 +1453,38 @@ export async function readSpreadsheet() {
   ensureConnected();
   const formNum = await page.evaluate(detectFormScript());
 
-  // Collect iframe indices that belong to the current form's spreadsheet container
-  const iframeIndices = await page.evaluate(`(() => {
-    const prefix = 'form${formNum ?? 0}_';
-    const allIframes = [...document.querySelectorAll('iframe')];
-    const indices = [];
-    for (let i = 0; i < allIframes.length; i++) {
-      const f = allIframes[i];
-      if (f.offsetWidth < 100) continue;
-      let el = f.parentElement, found = false;
-      for (let d = 0; el && d < 30; d++, el = el.parentElement) {
-        if (el.id && el.id.startsWith(prefix)) { found = true; break; }
-      }
-      if (found) indices.push(i);
+  const { allCells } = await scanSpreadsheetCells(formNum);
+
+  if (allCells.size === 0) {
+    // Check for state window messages (info bar) that explain why the report is empty
+    const err = await checkForErrors();
+    const hint = err?.stateText?.length ? err.stateText.join('; ') : '';
+    throw new Error('readSpreadsheet: no SpreadsheetDocument found.' + (hint ? ' State: ' + hint : ' Report may not be generated yet.'));
+  }
+
+  const mapping = buildSpreadsheetMapping(allCells);
+  if (!mapping) {
+    // Fallback: return raw rows
+    const rowMap = new Map();
+    let maxCol = 0;
+    for (const cell of allCells.values()) {
+      if (!rowMap.has(cell.r)) rowMap.set(cell.r, new Map());
+      rowMap.get(cell.r).set(cell.c, cell.t);
+      if (cell.c > maxCol) maxCol = cell.c;
     }
-    return indices;
-  })()`);
-
-  const frames = page.frames();
-  const allCells = new Map();
-
-  // Map page iframe indices to frame objects (frame 0 = main, iframes start at 1+)
-  for (const iframeIdx of iframeIndices) {
-    // Playwright frames: frame[0] is main, frame[1..N] map to iframes in DOM order
-    const frame = frames[iframeIdx + 1];
-    if (!frame) continue;
-    try {
-      const cells = await frame.evaluate(`(() => {
-        const cells = [];
-        document.querySelectorAll('div[x]').forEach(d => {
-          const span = d.querySelector('span');
-          const text = span?.textContent?.trim() || '';
-          if (!text) return;
-          const rowDiv = d.parentElement;
-          const row = rowDiv?.getAttribute('y') || rowDiv?.className?.match(/R(\\d+)/)?.[1] || null;
-          const col = d.getAttribute('x');
-          if (row != null && col != null) cells.push({ r: parseInt(row), c: parseInt(col), t: text });
-        });
-        return cells;
-      })()`);
-      for (const cell of cells) {
-        const key = `${cell.r}_${cell.c}`;
-        if (!allCells.has(key) || cell.t.length > allCells.get(key).t.length) {
-          allCells.set(key, cell);
-        }
-      }
-    } catch { /* skip inaccessible frames */ }
+    const sortedRows = [...rowMap.keys()].sort((a, b) => a - b);
+    const rows = sortedRows.map(r => {
+      const cm = rowMap.get(r);
+      const arr = [];
+      for (let c = 0; c <= maxCol; c++) arr.push(cm.get(c) || '');
+      return arr;
+    });
+    return { rows, total: rows.length };
   }
 
-  if (allCells.size === 0) throw new Error('readSpreadsheet: no SpreadsheetDocument found. Report may not be generated yet.');
+  const { rows, colNames, dataStartIdx, maxCol, groupRowIdx, headerRowIdx, superRowIdx, hasNumber, nonEmpty } = mapping;
 
-  // Group by row, determine max columns
-  const rowMap = new Map();
-  let maxCol = 0;
-  for (const cell of allCells.values()) {
-    if (!rowMap.has(cell.r)) rowMap.set(cell.r, new Map());
-    rowMap.get(cell.r).set(cell.c, cell.t);
-    if (cell.c > maxCol) maxCol = cell.c;
-  }
-
-  const sortedRows = [...rowMap.keys()].sort((a, b) => a - b);
-  const rows = sortedRows.map(r => {
-    const colMap = rowMap.get(r);
-    const arr = [];
-    for (let c = 0; c <= maxCol; c++) arr.push(colMap.get(c) || '');
-    return arr;
-  });
-
-  // --- Structured parsing ---
-  const hasNumber = (row) => row.some(c => /^[\d\s\u00a0]/.test(c) && /\d/.test(c));
-  const nonEmpty = (row) => row.filter(c => c !== '').length;
-
-  // 1. Find first data row (first row with numbers)
-  let firstDataIdx = rows.length;
-  for (let i = 0; i < rows.length; i++) {
-    if (hasNumber(rows[i])) { firstDataIdx = i; break; }
-  }
-
-  // 2. Find header rows: scan backwards from data, pick last row with ≥3 cells as detail header
-  let detailIdx = -1;
-  for (let i = firstDataIdx - 1; i >= 0; i--) {
-    if (nonEmpty(rows[i]) >= 3) { detailIdx = i; break; }
-  }
-  if (detailIdx === -1) return { rows, total: rows.length };
-
-  // Group header: row before detail with ≥2 non-empty cells
-  let groupIdx = -1;
-  if (detailIdx > 0 && nonEmpty(rows[detailIdx - 1]) >= 2) groupIdx = detailIdx - 1;
-
-  const detailRow = rows[detailIdx];
-  const groupRow = groupIdx >= 0 ? rows[groupIdx] : null;
-
-  // 3. Build column names by merging group + detail rows
-  //    Fill-forward group names across empty columns (merged cells)
-  const groupFilled = new Array(maxCol + 1).fill('');
-  if (groupRow) {
-    let cur = '';
-    for (let c = 0; c <= maxCol; c++) {
-      if (groupRow[c]) cur = groupRow[c];
-      groupFilled[c] = cur;
-    }
-  }
-
-  // For each column: use detail name if available, else group name
-  // Prefix with group when duplicates exist in detail row
-  const detailCounts = {};
-  for (let c = 0; c <= maxCol; c++) {
-    const n = detailRow[c];
-    if (n) detailCounts[n] = (detailCounts[n] || 0) + 1;
-  }
-
-  const colNames = [];
-  for (let c = 0; c <= maxCol; c++) {
-    const detail = detailRow[c];
-    const group = groupFilled[c];
-    if (detail) {
-      // Use group prefix if duplicate detail names or if group differs from detail
-      const needPrefix = group && group !== detail && (detailCounts[detail] > 1 || (groupRow && groupRow[c] === ''));
-      colNames.push(needPrefix ? `${group} / ${detail}` : detail);
-    } else if (group) {
-      colNames.push(group);
-    } else {
-      colNames.push(null);
-    }
-  }
-
-  // 4. Data starts at firstDataIdx
-  const dataStart = firstDataIdx;
-
-  // 5. Convert data rows to objects
+  // Convert data rows to objects
   const data = [];
   let totals = null;
   const toObj = (row) => {
@@ -790,7 +1495,7 @@ export async function readSpreadsheet() {
     return obj;
   };
 
-  for (let i = dataStart; i < rows.length; i++) {
+  for (let i = dataStartIdx; i < rows.length; i++) {
     if (!hasNumber(rows[i]) && nonEmpty(rows[i]) === 0) continue;
     const first = rows[i][0]?.trim().toLowerCase();
     if (first === 'итого' || first === 'всего') {
@@ -800,8 +1505,8 @@ export async function readSpreadsheet() {
     }
   }
 
-  // 6. Meta: title, params, filters from rows before header
-  const metaEnd = groupIdx >= 0 ? groupIdx : detailIdx;
+  // Meta: title, params, filters from rows before header (superRow is part of header, not meta)
+  const metaEnd = superRowIdx >= 0 ? superRowIdx : (groupRowIdx >= 0 ? groupRowIdx : headerRowIdx);
   let title = '';
   const meta = [];
   for (let i = 0; i < metaEnd; i++) {
@@ -847,8 +1552,10 @@ async function scanGridRows(formNum, searchLower) {
       sel = lines[0]; // empty search → first row
     }
     if (!sel) return null;
+    const imgBox = sel.querySelector('.gridBoxImg');
+    const isGroup = imgBox ? !!imgBox.querySelector('.gridListH') : false;
     const r = sel.getBoundingClientRect();
-    return { rowCount: lines.length, x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    return { rowCount: lines.length, x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), isGroup };
   })()`);
 }
 
@@ -970,8 +1677,8 @@ async function advancedSearchInline(formNum, text) {
  *
  * Strategy (escalating):
  *   1. Scan visible rows for text match (exact → startsWith → includes)
- *   2. Simple search (search input + Enter) → re-scan
- *   3. Advanced search (Alt+F, "по части строки") → re-scan
+ *   2. Advanced search (Alt+F, "по части строки") → re-scan
+ *   3. Fallback: simple search (search input + Enter) → re-scan
  *   4. Not found → Escape → error
  *
  * For object search {field: value}: steps 1, then filterList(val, {field}) per entry, then re-scan.
@@ -993,7 +1700,7 @@ async function pickFromSelectionForm(selFormNum, fieldName, search, origFormNum)
   async function trySelect(row) {
     const r = await dblclickAndVerify(row, selFormNum, fieldName);
     if (r.ok) return r;
-    hadUnselectableMatch = true; // found match but couldn't select (group row)
+    hadUnselectableMatch = true; // found match but couldn't select (possibly group row or overlay)
     return null; // form still open, try next step
   }
 
@@ -1006,7 +1713,25 @@ async function pickFromSelectionForm(selFormNum, fieldName, search, origFormNum)
     }
   }
 
-  // Step 2: Simple search via search input (directly on the known form, avoids filterList form-detection)
+  // Step 2: Advanced search (Alt+F — fast, no overlay issues)
+  if (typeof search === 'object' && search) {
+    // Per-field advanced search via filterList(val, {field})
+    for (const [fld, val] of Object.entries(search)) {
+      try { await filterList(String(val), { field: fld }); } catch { /* proceed */ }
+    }
+  } else if (searchLower) {
+    // Inline advanced search (Alt+F, "по части строки")
+    await advancedSearchInline(selFormNum, searchText);
+  }
+  if (searchLower) {
+    const row = await scanGridRows(selFormNum, searchLower);
+    if (row?.x) {
+      const r = await trySelect(row);
+      if (r) return r;
+    }
+  }
+
+  // Step 3: Fallback — simple search via search input (for forms without Alt+F support)
   if (typeof search === 'string' && searchLower) {
     const searchInputId = await page.evaluate(`(() => {
       const p = 'form${selFormNum}_';
@@ -1024,30 +1749,12 @@ async function pickFromSelectionForm(selFormNum, fieldName, search, origFormNum)
         await page.waitForTimeout(300);
         await page.keyboard.press('Enter');
         await waitForStable(selFormNum);
-      } catch { /* proceed to advanced search */ }
+      } catch { /* proceed */ }
       const row = await scanGridRows(selFormNum, searchLower);
       if (row?.x) {
         const r = await trySelect(row);
         if (r) return r;
       }
-    }
-  }
-
-  // Step 3: Advanced search
-  if (typeof search === 'object' && search) {
-    // Per-field advanced search via filterList(val, {field})
-    for (const [fld, val] of Object.entries(search)) {
-      try { await filterList(String(val), { field: fld }); } catch { /* proceed */ }
-    }
-  } else if (searchLower) {
-    // Inline advanced search (Alt+F, "по части строки")
-    await advancedSearchInline(selFormNum, searchText);
-  }
-  if (searchLower) {
-    const row = await scanGridRows(selFormNum, searchLower);
-    if (row?.x) {
-      const r = await trySelect(row);
-      if (r) return r;
     }
   }
 
@@ -1104,8 +1811,8 @@ async function isTypeDialog(formNum) {
  * @throws {Error} if type not found
  */
 async function pickFromTypeDialog(formNum, typeName) {
-  // The type dialog is a modal ValueList grid. Uses Ctrl+F "Найти" (Find) dialog
-  // to search in the virtual grid (only ~5 rows visible, scrolling unreliable).
+  // The type dialog is a modal ValueList grid.
+  // Strategy: scan visible rows first (fast path), fall back to Ctrl+F for large lists.
   //
   // Key constraints discovered during testing:
   // - Grid focus: use evaluate(() => gridBody.focus()), NOT page.click({force:true})
@@ -1116,26 +1823,73 @@ async function pickFromTypeDialog(formNum, typeName) {
   // - Enter/Escape in "Найти" close the ENTIRE dialog chain, not just "Найти"
   // - Closing "Найти" via Cancel resets the search — verify grid while "Найти" is open
 
-  // 1. Focus the grid via evaluate (does NOT punch through modal like page.click)
+  const typeNorm = normYo(typeName.toLowerCase());
+
+  // Helper: read visible rows and find matching ones
+  async function readVisibleRows() {
+    return page.evaluate(`(() => {
+      const grid = document.getElementById('form${formNum}_ValueList');
+      if (!grid) return { visible: [], matches: [] };
+      const body = grid.querySelector('.gridBody');
+      if (!body) return { visible: [], matches: [] };
+      const lines = body.querySelectorAll('.gridLine');
+      const norm = s => (s || '').replace(/\\u00a0/g, ' ').trim();
+      const typeNorm = ${JSON.stringify(typeNorm)};
+      const visible = [];
+      const matches = [];
+      for (const line of lines) {
+        const text = norm(line.innerText);
+        if (!text) continue;
+        visible.push(text);
+        if (text.toLowerCase().replace(/ё/gi, 'е').includes(typeNorm)) {
+          const r = line.getBoundingClientRect();
+          matches.push({ text, x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) });
+        }
+      }
+      return { visible, matches };
+    })()`);
+  }
+
+  // Step 1: Scan visible rows (fast path — no Ctrl+F needed for small lists)
+  const scan = await readVisibleRows();
+
+  if (scan.matches.length === 1) {
+    // Single match — click to select, then OK
+    await page.mouse.click(scan.matches[0].x, scan.matches[0].y);
+    await page.waitForTimeout(200);
+    await page.click(`#form${formNum}_OK`, { force: true });
+    await page.waitForTimeout(ACTION_WAIT);
+    return;
+  }
+
+  if (scan.matches.length > 1) {
+    for (let i = 0; i < 3; i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(300); }
+    await waitForStable();
+    throw new Error(`selectValue: multiple types match "${typeName}": ${scan.matches.map(m => '"' + m.text + '"').join(', ')}. Specify a more precise type name`);
+  }
+
+  // Step 2: Not found in visible rows — use Ctrl+F (virtual grid may have more items)
+
+  // Focus the grid via evaluate (does NOT punch through modal like page.click)
   await page.evaluate(`(() => {
     const grid = document.getElementById('form${formNum}_ValueList');
     if (!grid) return;
     const body = grid.querySelector('.gridBody');
     if (body) body.focus(); else grid.focus();
   })()`);
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(300);
 
-  // 2. Ctrl+F to open "Найти" dialog
+  // Ctrl+F to open "Найти" dialog
   await page.keyboard.press('Control+f');
   await page.waitForTimeout(1000);
 
-  // 3. Paste search text (focus is on "Что искать" field)
+  // Paste search text (focus is on "Что искать" field)
   await page.keyboard.press('Control+a');
   await page.evaluate(`navigator.clipboard.writeText(${JSON.stringify(typeName)})`);
   await page.keyboard.press('Control+v');
   await page.waitForTimeout(300);
 
-  // 4. Find the "Найти" dialog form number (it's > formNum)
+  // Find the "Найти" dialog form number (it's > formNum)
   const findFormNum = await page.evaluate(`(() => {
     for (let n = ${formNum} + 1; n < ${formNum} + 20; n++) {
       const btn = document.getElementById('form' + n + '_Find');
@@ -1150,47 +1904,27 @@ async function pickFromTypeDialog(formNum, typeName) {
     throw new Error('selectValue: Ctrl+F did not open "Найти" dialog in type selection');
   }
 
-  // 5. Click "Найти" via page.click({force:true}) — evaluate click doesn't trigger 1C events
+  // Click "Найти" — search is client-side (no server round-trip), 500ms is enough
   await page.click(`#form${findFormNum}_Find`, { force: true });
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(500);
 
-  // 6. Read ALL visible grid rows and check how many match the search text.
-  // After Ctrl+F the grid scrolls to the found row — nearby matching rows are visible too.
-  // The "Найти" dialog may auto-close after search, so don't rely on clicking "Найти" again.
-  const gridCheck = await page.evaluate(`(() => {
-    const grid = document.getElementById('form${formNum}_ValueList');
-    if (!grid) return { visible: [], selected: null };
-    const body = grid.querySelector('.gridBody');
-    if (!body) return { visible: [], selected: null };
-    const lines = body.querySelectorAll('.gridLine');
-    const visible = [];
-    let selected = null;
-    for (const line of lines) {
-      const text = (line.innerText || '').trim().replace(/\\u00a0/g, ' ');
-      if (!text) continue;
-      visible.push(text);
-      if (line.classList.contains('select') || line.classList.contains('selRow')) selected = text;
-    }
-    return { visible, selected };
-  })()`);
+  // Re-read visible rows after search scrolled to match
+  const afterSearch = await readVisibleRows();
 
-  const typeNorm = normYo(typeName.toLowerCase());
-  const matching = (gridCheck.visible || []).filter(t => normYo(t.toLowerCase()).includes(typeNorm));
-
-  if (matching.length === 0) {
+  if (afterSearch.matches.length === 0) {
     for (let i = 0; i < 3; i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(300); }
     await waitForStable();
     throw new Error(`selectValue: type "${typeName}" not found in type selection dialog` +
-      `. Visible: ${(gridCheck.visible || []).join(', ')}`);
+      `. Visible: ${(scan.visible || []).join(', ')}`);
   }
 
-  if (matching.length > 1) {
+  if (afterSearch.matches.length > 1) {
     for (let i = 0; i < 3; i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(300); }
     await waitForStable();
-    throw new Error(`selectValue: multiple types match "${typeName}": ${matching.map(m => '"' + m + '"').join(', ')}. Specify a more precise type name`);
+    throw new Error(`selectValue: multiple types match "${typeName}": ${afterSearch.matches.map(m => '"' + m.text + '"').join(', ')}. Specify a more precise type name`);
   }
 
-  // 7. Click OK on type dialog via page.click({force:true}) — bypasses "Найти" modal
+  // Click OK on type dialog via page.click({force:true}) — bypasses "Найти" modal
   await page.click(`#form${formNum}_OK`, { force: true });
   await page.waitForTimeout(ACTION_WAIT);
 }
@@ -1299,6 +2033,10 @@ async function fillReferenceField(selector, fieldName, value, formNum) {
             value: match.name.replace(/\s*\([^)]*\)\s*$/, '') };
         }
         // No match in DLB dropdown — close and fall through to paste approach
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(300);
+      } else if (eddState.visible) {
+        // DLB opened a hint popup (no .eddText items) — close it before proceeding
         await page.keyboard.press('Escape');
         await page.waitForTimeout(300);
       }
@@ -1508,6 +2246,19 @@ export async function fillFields(fields) {
         await waitForStable();
       }
       const selector = `[id="${r.inputId}"]`;
+      // Clear field via Shift+F4 if value is empty (not applicable to checkbox/radio)
+      const rawValue = fields[r.field];
+      const isEmpty = rawValue === '' || rawValue === null || rawValue === undefined;
+      if (isEmpty && !r.isCheckbox && !r.isRadio) {
+        await page.click(selector);
+        await page.waitForTimeout(200);
+        await page.keyboard.press('Shift+F4');
+        await page.waitForTimeout(300);
+        await page.keyboard.press('Tab');
+        await waitForStable();
+        results.push({ field: r.field, ok: true, value: '', method: 'clear' });
+        continue;
+      }
       if (r.isCheckbox) {
         // Checkbox: compare desired with current, toggle if mismatch
         const desired = String(fields[r.field]).toLowerCase();
@@ -1535,8 +2286,19 @@ export async function fillFields(fields) {
         // Combobox/reference with DLB: DLB-first, then paste fallback
         const refResult = await fillReferenceField(selector, r.field, fields[r.field], formNum);
         results.push(refResult);
+      } else if (r.hasPick && r.isDate) {
+        // Date/time field with calendar CB — use paste (calendar is not a selection form)
+        await page.click(selector);
+        await page.waitForTimeout(200);
+        await page.keyboard.press('Control+A');
+        await page.evaluate(`navigator.clipboard.writeText(${JSON.stringify(String(fields[r.field]))})`);
+        await page.keyboard.press('Control+V');
+        await page.waitForTimeout(300);
+        await page.keyboard.press('Tab');
+        await waitForStable();
+        results.push({ field: r.field, ok: true, value: String(fields[r.field]), method: 'paste' });
       } else if (r.hasPick) {
-        // Reference field without DLB (non-editable): delegate to selectValue (F4 → selection form)
+        // Reference field with CB (non-editable or editable ref): delegate to selectValue (F4 → selection form)
         const svResult = await selectValue(r.field, String(fields[r.field]));
         if (svResult?.error) {
           results.push({ field: r.field, error: svResult.error, message: svResult.message });
@@ -1577,11 +2339,18 @@ export async function fillField(name, value) {
   return fillFields({ [name]: value });
 }
 
-/** Click a button/hyperlink/tab on the current form. Use {dblclick: true} to double-click (open items from lists). */
-export async function clickElement(text, { dblclick, table, toggle, expand } = {}) {
+/** Click a button/hyperlink/tab on the current form. Use {dblclick: true} to double-click (open items from lists).
+ *  First argument can also be an object { row, column } to click a SpreadsheetDocument cell. */
+export async function clickElement(text, { dblclick, table, toggle, expand, modifier, timeout } = {}) {
   ensureConnected();
+  // Dispatch to spreadsheet cell handler when first arg is { row, column }
+  if (typeof text === 'object' && text !== null && text.column != null) {
+    await dismissPendingErrors();
+    return clickSpreadsheetCell(text, { dblclick, modifier });
+  }
   await dismissPendingErrors();
   if (highlightMode) try { await highlight(text, { table }); await page.waitForTimeout(500); await unhighlight(); } catch {}
+  let netMonitor = null;
   try {
 
   // First check if there's a confirmation dialog — click matching button
@@ -1682,107 +2451,156 @@ export async function clickElement(text, { dblclick, table, toggle, expand } = {
       }
     }
   }
-  if (target?.error) throw new Error(`clickElement: "${text}" not found. Available: ${target.available?.join(', ') || 'none'}`);
+  // Fallback: search spreadsheet iframes for text match before giving up
+  if (target?.error) {
+    const ssCell = await findSpreadsheetCellByText(formNum, text);
+    if (ssCell) {
+      const cx = ssCell.box.x + ssCell.box.width / 2;
+      const cy = ssCell.box.y + ssCell.box.height / 2;
+      const modKey = modifier === 'ctrl' ? 'Control' : modifier === 'shift' ? 'Shift' : null;
+      if (modKey) await page.keyboard.down(modKey);
+      if (dblclick) await page.mouse.dblclick(cx, cy);
+      else await page.mouse.click(cx, cy);
+      if (modKey) await page.keyboard.up(modKey);
+      await waitForStable();
+      const state = await getFormState();
+      state.clicked = { kind: 'spreadsheetCell', name: ssCell.text, ...(dblclick ? { dblclick: true } : {}) };
+      return state;
+    }
+    throw new Error(`clickElement: "${text}" not found. Available: ${target.available?.join(', ') || 'none'}`);
+  }
+
+  // Helper: click with optional modifier key (Ctrl/Shift for multi-select)
+  const modKey = modifier === 'ctrl' ? 'Control' : modifier === 'shift' ? 'Shift' : null;
+  async function modClick(x, y) {
+    if (modKey) await page.keyboard.down(modKey);
+    await page.mouse.click(x, y);
+    if (modKey) await page.keyboard.up(modKey);
+  }
+  async function modDblClick(x, y) {
+    if (modKey) await page.keyboard.down(modKey);
+    await page.mouse.dblclick(x, y);
+    if (modKey) await page.keyboard.up(modKey);
+  }
 
   // Grid row targets — use coordinate click (single or double)
   if (target.kind === 'gridGroup' || target.kind === 'gridParent') {
-    if (expand || toggle) {
+    if (expand != null || toggle) {
       // Expand/collapse group in hierarchy mode — click the triangle icon (.gridListH/.gridListV)
-      const levelIconCoords = await page.evaluate(`(() => {
+      // expand=true: only expand (skip if already expanded), expand=false: only collapse, toggle: always click
+      const levelIconInfo = await page.evaluate(`(() => {
         const p = ${JSON.stringify(`form${formNum}_`)};
         const gridSel = ${JSON.stringify(target.gridId ? '#' + target.gridId : null)};
         const grid = gridSel ? document.querySelector(gridSel) : document.querySelector('[id^="' + p + '"].grid');
         const body = grid?.querySelector('.gridBody');
         if (!body) return null;
+        const targetY = ${target.y};
         const lines = [...body.querySelectorAll('.gridLine')];
         for (const line of lines) {
-          const textBoxes = [...line.querySelectorAll('.gridBoxText')].filter(b => b.offsetWidth > 0);
-          const text = textBoxes[0]?.innerText?.trim() || '';
-          if (text.toLowerCase().replace(/ё/gi, 'е') === ${JSON.stringify(target.name.toLowerCase().replace(/ё/gi, 'е'))}) {
-            const icon = line.querySelector('.gridListH, .gridListV');
-            if (icon) {
-              const r = icon.getBoundingClientRect();
-              return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
-            }
+          const lr = line.getBoundingClientRect();
+          if (targetY < lr.top || targetY > lr.bottom) continue;
+          const icon = line.querySelector('.gridListH, .gridListV');
+          if (icon) {
+            const r = icon.getBoundingClientRect();
+            const isExpanded = !!icon.classList.contains('gridListV');
+            return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), isExpanded };
           }
         }
         return null;
       })()`);
-      if (levelIconCoords) {
-        await page.mouse.click(levelIconCoords.x, levelIconCoords.y);
-      } else {
-        // Fallback: dblclick (standard hierarchy navigation)
-        await page.mouse.dblclick(target.x, target.y);
+      const shouldClick = toggle || !levelIconInfo
+        || (expand === true && !levelIconInfo.isExpanded)
+        || (expand === false && levelIconInfo.isExpanded);
+      if (shouldClick) {
+        if (levelIconInfo) {
+          await modClick(levelIconInfo.x, levelIconInfo.y);
+        } else {
+          // Fallback: dblclick (standard hierarchy navigation)
+          await modDblClick(target.x, target.y);
+        }
       }
       await waitForStable(formNum);
       const state = await getFormState();
-      state.clicked = { kind: target.kind, name: target.name, toggled: true };
-      state.hint = 'Group toggled. Use readTable to see updated list.';
+      state.clicked = { kind: target.kind, name: target.name, toggled: shouldClick, ...(modifier ? { modifier } : {}) };
+      state.hint = shouldClick ? 'Group toggled. Use readTable to see updated list.' : 'Group already in desired state.';
       return state;
     }
     // Default: dblclick to enter group / go up to parent
-    await page.mouse.dblclick(target.x, target.y);
+    await modDblClick(target.x, target.y);
     await waitForStable(formNum);
     const state = await getFormState();
-    state.clicked = { kind: target.kind, name: target.name };
+    state.clicked = { kind: target.kind, name: target.name, ...(modifier ? { modifier } : {}) };
     return state;
   }
   if (target.kind === 'gridTreeNode') {
-    if (expand || toggle) {
-      // Toggle: click the tree expand/collapse icon [tree="true"]
-      const treeIconCoords = await page.evaluate(`(() => {
+    if (expand != null || toggle) {
+      // Expand/collapse tree node — click the tree icon [tree="true"]
+      // expand=true: only expand (skip if already expanded), expand=false: only collapse, toggle: always click
+      const treeIconInfo = await page.evaluate(`(() => {
         const p = ${JSON.stringify(`form${formNum}_`)};
         const gridSel = ${JSON.stringify(target.gridId ? '#' + target.gridId : null)};
         const grid = gridSel ? document.querySelector(gridSel) : document.querySelector('[id^="' + p + '"].grid');
         const body = grid?.querySelector('.gridBody');
         if (!body) return null;
+        const targetY = ${target.y};
         const lines = [...body.querySelectorAll('.gridLine')];
         for (const line of lines) {
-          const textBoxes = [...line.querySelectorAll('.gridBoxText')].filter(b => b.offsetWidth > 0);
-          const text = textBoxes[0]?.innerText?.trim() || '';
-          if (text.toLowerCase().replace(/ё/gi, 'е') === ${JSON.stringify(target.name.toLowerCase().replace(/ё/gi, 'е'))}) {
-            const treeIcon = line.querySelector('.gridBoxImg [tree="true"]');
-            if (treeIcon) {
-              const r = treeIcon.getBoundingClientRect();
-              return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
-            }
+          const lr = line.getBoundingClientRect();
+          if (targetY < lr.top || targetY > lr.bottom) continue;
+          const treeIcon = line.querySelector('.gridBoxImg [tree="true"]');
+          if (treeIcon) {
+            const r = treeIcon.getBoundingClientRect();
+            const bg = treeIcon.style.backgroundImage || '';
+            const isExpanded = bg.includes('gx=0');
+            return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), isExpanded };
           }
         }
         return null;
       })()`);
-      if (treeIconCoords) {
-        await page.mouse.click(treeIconCoords.x, treeIconCoords.y);
-      } else {
-        // Fallback: dblclick on row (works for trees without clickable +/- icons)
-        await page.mouse.dblclick(target.x, target.y);
+      const shouldClick = toggle || !treeIconInfo
+        || (expand === true && !treeIconInfo.isExpanded)
+        || (expand === false && treeIconInfo.isExpanded);
+      if (shouldClick) {
+        if (treeIconInfo) {
+          await modClick(treeIconInfo.x, treeIconInfo.y);
+        } else {
+          // Fallback: dblclick on row (works for trees without clickable +/- icons)
+          await modDblClick(target.x, target.y);
+        }
       }
       await waitForStable(formNum);
       const state = await getFormState();
-      state.clicked = { kind: 'gridTreeNode', name: target.name, toggled: true };
-      state.hint = 'Tree node toggled. Use readTable to see updated tree.';
+      state.clicked = { kind: 'gridTreeNode', name: target.name, toggled: shouldClick, ...(modifier ? { modifier } : {}) };
+      state.hint = shouldClick ? 'Tree node toggled. Use readTable to see updated tree.' : 'Tree node already in desired state.';
       return state;
     }
     // Default: select row (click text, no expand/collapse)
-    await page.mouse.click(target.x, target.y);
+    await modClick(target.x, target.y);
     await waitForStable(formNum);
     const state = await getFormState();
-    state.clicked = { kind: 'gridTreeNode', name: target.name };
+    state.clicked = { kind: 'gridTreeNode', name: target.name, ...(modifier ? { modifier } : {}) };
     state.hint = 'Row selected. Use { expand: true } to expand/collapse.';
     return state;
   }
   if (target.kind === 'gridRow') {
     if (dblclick) {
-      await page.mouse.dblclick(target.x, target.y);
+      await modDblClick(target.x, target.y);
       await waitForStable();
       const state = await getFormState();
-      state.clicked = { kind: 'gridRow', name: target.name, dblclick: true };
+      state.clicked = { kind: 'gridRow', name: target.name, dblclick: true, ...(modifier ? { modifier } : {}) };
       return state;
     }
-    await page.mouse.click(target.x, target.y);
+    await modClick(target.x, target.y);
     await waitForStable();
     const state = await getFormState();
-    state.clicked = { kind: 'gridRow', name: target.name };
+    state.clicked = { kind: 'gridRow', name: target.name, ...(modifier ? { modifier } : {}) };
     return state;
+  }
+
+  // Start CDP network monitor BEFORE the click for buttons —
+  // so we capture all server requests triggered by the click.
+  if (target.kind === 'button') {
+    try { netMonitor = await startNetworkMonitor(); } catch {}
   }
 
   // Tabs without ID — use coordinate click to avoid global [data-content] ambiguity
@@ -1852,15 +2670,11 @@ export async function clickElement(text, { dblclick, table, toggle, expand } = {
         let n = f; while (n) { if (n.classList?.contains('grid')) return true; n = n.parentElement; }
         return false;
       })()`);
-      if (!inGridEdit) {
+      if (!inGridEdit && netMonitor) {
         // Form didn't change — server might still be processing.
-        // waitForSelector uses MutationObserver internally — doesn't block event loop.
-        try {
-          await page.waitForSelector(
-            '#modalSurface:not([style*="display: none"]), .balloon, .confirm',
-            { state: 'visible', timeout: 10000 }
-          );
-        } catch {}
+        // CDP monitor was started before click — wait for all requests to complete
+        // (300ms debounce) or for a modal/balloon/confirm to appear.
+        await netMonitor.waitDone(timeout);
         await waitForStable();
       }
     }
@@ -1879,7 +2693,10 @@ export async function clickElement(text, { dblclick, table, toggle, expand } = {
   }
   return state;
 
-  } finally { if (highlightMode) try { await unhighlight(); } catch {} }
+  } finally {
+    if (netMonitor) try { await netMonitor.cleanup(); } catch {}
+    if (highlightMode) try { await unhighlight(); } catch {}
+  }
 }
 
 /**
@@ -1893,8 +2710,19 @@ export async function clickElement(text, { dblclick, table, toggle, expand } = {
 export async function closeForm({ save } = {}) {
   ensureConnected();
   await dismissPendingErrors();
+  // If platform dialogs are open, close them instead of pressing Escape
+  const pd = await _detectPlatformDialogs();
+  if (pd.length) {
+    await _closePlatformDialogs();
+    await page.waitForTimeout(300);
+    const state = await getFormState();
+    state.closed = true;
+    state.closedPlatformDialogs = pd;
+    return state;
+  }
+  const beforeForm = await page.evaluate(detectFormScript());
   await page.keyboard.press('Escape');
-  await waitForStable();
+  await waitForStable(beforeForm);
   const state = await getFormState();
   const err = await checkForErrors();
   if (err?.confirmation) {
@@ -1905,16 +2733,21 @@ export async function closeForm({ save } = {}) {
       for (const b of btns) {
         const txt = (await b.textContent()).trim();
         if (txt === label) {
+          if (recorder) await page.waitForTimeout(500); // show confirmation to viewer during recording
           await b.click({ force: true });
-          await waitForStable();
+          await waitForStable(beforeForm);
           break;
         }
       }
-      return await getFormState();
+      const afterState = await getFormState();
+      afterState.closed = afterState.form !== beforeForm;
+      return afterState;
     }
     state.confirmation = err.confirmation;
     state.hint = 'Confirmation dialog shown. Click "Да" to confirm or "Нет" to cancel';
+    return state;
   }
+  state.closed = state.form !== beforeForm;
   return state;
 }
 
@@ -1939,6 +2772,27 @@ export async function selectValue(fieldName, searchText, { type } = {}) {
   if (btn?.error) return btn;
   if (highlightMode) try { await highlight(fieldName); await page.waitForTimeout(500); await unhighlight(); } catch {}
   try {
+
+  // === CLEAR FIELD if searchText is empty/null ===
+  if (!searchText && searchText !== 0) {
+    const inputId = await page.evaluate(`(() => {
+      const p = 'form${formNum}_';
+      const name = ${JSON.stringify(btn.fieldName)};
+      const el = document.querySelector('[id="' + p + name + '"], [id="' + p + name + '_i0"]');
+      return el ? el.id : null;
+    })()`);
+    if (inputId) {
+      await page.click(`[id="${inputId}"]`);
+      await page.waitForTimeout(200);
+      await page.keyboard.press('Shift+F4');
+      await page.waitForTimeout(300);
+      await page.keyboard.press('Tab');
+      await waitForStable();
+    }
+    if (highlightMode) try { await unhighlight(); } catch {}
+    const formData = await getFormState();
+    return { ...formData, selected: { field: fieldName, search: null, method: 'clear' } };
+  }
 
   // === COMPOSITE TYPE HANDLING ===
   // When `type` is specified, clear the field first to reset cached type,
@@ -2311,6 +3165,46 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
 
   // 2b. Enter edit mode on existing row by dblclick
   if (row != null) {
+    // Sort fields by colindex (leftmost first) so Tab traversal covers all fields left-to-right
+    const sortedKeys = await page.evaluate(`(() => {
+      const grid = ${gridSelector
+        ? `document.querySelector(${JSON.stringify(gridSelector)})`
+        : `(() => { const grids = [...document.querySelectorAll('.grid')].filter(el => el.offsetWidth > 0); return grids[grids.length - 1]; })()`};
+      if (!grid) return null;
+      const head = grid.querySelector('.gridHead');
+      if (!head) return null;
+      const headLine = head.querySelector('.gridLine') || head;
+      const cols = [];
+      [...headLine.children].forEach(box => {
+        if (box.offsetWidth === 0) return;
+        const t = ((box.querySelector('.gridBoxText') || box).innerText?.trim() || '').toLowerCase();
+        const ci = parseInt(box.getAttribute('colindex') || '-1');
+        if (t) cols.push({ text: t, colindex: ci });
+      });
+      const keys = ${JSON.stringify(Object.keys(fields).map(k => k.toLowerCase()))};
+      const mapped = keys.map(k => {
+        const exact = cols.find(c => c.text === k);
+        if (exact) return { key: k, colindex: exact.colindex };
+        const inc = cols.find(c => c.text.includes(k) || k.includes(c.text));
+        return { key: k, colindex: inc ? inc.colindex : 999 };
+      });
+      mapped.sort((a, b) => a.colindex - b.colindex);
+      return mapped.map(m => m.key);
+    })()`);
+    if (sortedKeys) {
+      // Rebuild fields in sorted order
+      const sortedFields = {};
+      for (const kl of sortedKeys) {
+        const origKey = Object.keys(fields).find(k => k.toLowerCase() === kl);
+        if (origKey) sortedFields[origKey] = fields[origKey];
+      }
+      // Add any keys not matched in header (preserve original order for those)
+      for (const k of Object.keys(fields)) {
+        if (!(k in sortedFields)) sortedFields[k] = fields[k];
+      }
+      fields = sortedFields;
+    }
+
     const fieldKeys = JSON.stringify(Object.keys(fields).map(k => k.toLowerCase()));
     const cellCoords = await page.evaluate(`(() => {
       const grid = ${gridSelector
@@ -2321,35 +3215,45 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
       const body = grid.querySelector('.gridBody');
       if (!head || !body) return { error: 'no_grid_body' };
 
-      // Read column headers to find target column index
+      // Read column headers to find target colindex
       const headLine = head.querySelector('.gridLine') || head;
       const cols = [];
-      [...headLine.children].forEach((box, i) => {
+      [...headLine.children].forEach(box => {
         if (box.offsetWidth === 0) return;
         const t = box.querySelector('.gridBoxText');
-        cols.push({ idx: i, text: ((t || box).innerText?.trim() || '').toLowerCase() });
+        const ci = box.getAttribute('colindex');
+        cols.push({ colindex: ci, text: ((t || box).innerText?.trim() || '').toLowerCase() });
       });
 
       const keys = ${fieldKeys};
-      let targetIdx = -1;
+      let targetColindex = null;
       for (const key of keys) {
         const exact = cols.find(c => c.text === key);
-        if (exact) { targetIdx = exact.idx; break; }
+        if (exact) { targetColindex = exact.colindex; break; }
         const inc = cols.find(c => c.text.includes(key) || key.includes(c.text));
-        if (inc) { targetIdx = inc.idx; break; }
+        if (inc) { targetColindex = inc.colindex; break; }
       }
 
       const rows = [...body.querySelectorAll('.gridLine')];
       if (${row} >= rows.length) return { error: 'row_out_of_range', total: rows.length };
       const line = rows[${row}];
-      const boxes = [...line.children].filter(b => b.offsetWidth > 0 && !b.classList.contains('gridBoxComp'));
 
-      // Use matched column, or fall back to second visible box (skip N column)
-      const box = targetIdx >= 0 ? boxes[targetIdx] : (boxes.length > 1 ? boxes[1] : boxes[0]);
+      // Find body cell by colindex (reliable across merged headers)
+      let box = null;
+      if (targetColindex != null) {
+        box = [...line.children].find(b => b.offsetWidth > 0 && b.getAttribute('colindex') === targetColindex);
+      }
+      // Fallback: second visible box (skip checkbox/N column)
+      if (!box) {
+        const boxes = [...line.children].filter(b => b.offsetWidth > 0 && !b.classList.contains('gridBoxComp'));
+        box = boxes.length > 1 ? boxes[1] : boxes[0];
+      }
       if (!box) return { error: 'no_cell' };
+      // Scroll into view if off-screen
+      box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       const cell = box.querySelector('.gridBoxText') || box;
       const r = cell.getBoundingClientRect();
-      const currentText = (cell.innerText?.trim() || '').replace(/\u00a0/g, ' ');
+      const currentText = (cell.innerText?.trim() || '').replace(/\\u00a0/g, ' ');
       return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2), currentText };
     })()`);
 
@@ -2357,7 +3261,9 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
 
     // Skip if cell already contains the desired value (single-field optimization)
     const firstKey0 = Object.keys(fields)[0];
-    const firstVal0 = typeof fields[firstKey0] === 'object' ? fields[firstKey0].value : String(fields[firstKey0]);
+    const rawFirstVal = fields[firstKey0];
+    const firstVal0 = rawFirstVal === null || rawFirstVal === undefined || rawFirstVal === ''
+      ? '' : (typeof rawFirstVal === 'object' ? rawFirstVal.value : String(rawFirstVal));
     let firstFieldSkipped = false;
     if (cellCoords.currentText && firstVal0 &&
         cellCoords.currentText.toLowerCase().includes(firstVal0.toLowerCase())) {
@@ -2370,6 +3276,57 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
     // Click first (tree grids enter edit on single click; dblclick toggles expand/collapse).
     // Then escalate: dblclick → F4 if needed.
     await page.mouse.click(cellCoords.x, cellCoords.y);
+
+    // Clear cell via Shift+F4 if value is empty
+    if (firstVal0 === '') {
+      await page.waitForTimeout(500);
+      // Check if click opened a selection form — close it first
+      let openedForm = await page.evaluate(`(() => {
+        const forms = {};
+        document.querySelectorAll('[id]').forEach(el => {
+          if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
+          const m = el.id.match(/^form(\\d+)_/);
+          if (m) forms[m[1]] = true;
+        });
+        const nums = Object.keys(forms).map(Number).filter(n => n > ${formNum});
+        return nums.length > 0 ? Math.max(...nums) : null;
+      })()`);
+      if (openedForm !== null) {
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+      } else {
+        // No form opened — need to enter edit mode first (dblclick), then close any form that opens
+        await page.mouse.dblclick(cellCoords.x, cellCoords.y);
+        await page.waitForTimeout(500);
+        openedForm = await page.evaluate(`(() => {
+          const forms = {};
+          document.querySelectorAll('[id]').forEach(el => {
+            if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
+            const m = el.id.match(/^form(\\d+)_/);
+            if (m) forms[m[1]] = true;
+          });
+          const nums = Object.keys(forms).map(Number).filter(n => n > ${formNum});
+          return nums.length > 0 ? Math.max(...nums) : null;
+        })()`);
+        if (openedForm !== null) {
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(500);
+        }
+      }
+      await page.keyboard.press('Shift+F4');
+      await page.waitForTimeout(300);
+      const results = [{ field: firstKey0, ok: true, method: 'clear', value: '' }];
+      // If more fields remain, process them on the same row
+      const remaining = { ...fields };
+      delete remaining[firstKey0];
+      if (Object.keys(remaining).length > 0) {
+        const more = await fillTableRow(remaining, { row, table });
+        if (Array.isArray(more)) results.push(...more);
+        else if (more?.filled) results.push(...more.filled);
+      }
+      const formData = await getFormState();
+      return { filled: results, form: formData };
+    }
 
     // Check if clicked cell is a checkbox (toggle-on-click, no edit mode)
     const checkboxInfo = await page.evaluate(`(() => {
@@ -2468,24 +3425,33 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
       }
     }
 
-    // When click entered INPUT mode but no selection form yet — try F4 (tree grid ref fields)
+    // When click entered INPUT mode but no selection form yet — try F4 only for tree grids
+    // (tree grid ref fields need F4 to open selection form; flat grids work via Tab-loop)
     if (inEdit && directEditForm === null) {
-      await page.keyboard.press('F4');
-      for (let fw = 0; fw < 8; fw++) {
-        await page.waitForTimeout(200);
-        directEditForm = await page.evaluate(`(() => {
-          const forms = {};
-          document.querySelectorAll('[id]').forEach(el => {
-            if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
-            const m = el.id.match(/^form(\\d+)_/);
-            if (m) forms[m[1]] = true;
-          });
-          const nums = Object.keys(forms).map(Number).filter(n => n > ${formNum});
-          return nums.length > 0 ? Math.max(...nums) : null;
-        })()`);
-        if (directEditForm !== null) break;
+      const isTreeGrid = await page.evaluate(`(() => {
+        const grid = ${gridSelector
+          ? `document.querySelector(${JSON.stringify(gridSelector)})`
+          : `(() => { const grids = [...document.querySelectorAll('.grid')].filter(el => el.offsetWidth > 0); return grids[grids.length - 1]; })()`};
+        return grid ? !!grid.querySelector('.gridBoxTree') : false;
+      })()`);
+      if (isTreeGrid) {
+        await page.keyboard.press('F4');
+        for (let fw = 0; fw < 8; fw++) {
+          await page.waitForTimeout(200);
+          directEditForm = await page.evaluate(`(() => {
+            const forms = {};
+            document.querySelectorAll('[id]').forEach(el => {
+              if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
+              const m = el.id.match(/^form(\\d+)_/);
+              if (m) forms[m[1]] = true;
+            });
+            const nums = Object.keys(forms).map(Number).filter(n => n > ${formNum});
+            return nums.length > 0 ? Math.max(...nums) : null;
+          })()`);
+          if (directEditForm !== null) break;
+        }
+        // If F4 didn't open a selection form, fall through to Tab loop
       }
-      // If F4 didn't open a selection form, the cell is a plain text field — fall through to Tab loop
     }
 
     // Direct-edit mode: selection form opened on dblclick/F4 (e.g. tree grid with immediate editing).
@@ -2563,28 +3529,29 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
           if (!head || !body) return null;
           const headLine = head.querySelector('.gridLine') || head;
           const cols = [];
-          [...headLine.children].forEach((box, i) => {
+          [...headLine.children].forEach(box => {
             if (box.offsetWidth === 0) return;
             const t = box.querySelector('.gridBoxText');
-            cols.push({ idx: i, text: ((t || box).innerText?.trim() || '').toLowerCase() });
+            const ci = box.getAttribute('colindex');
+            cols.push({ colindex: ci, text: ((t || box).innerText?.trim() || '').toLowerCase() });
           });
           const kl = ${JSON.stringify(key.toLowerCase())};
           const klNoSpace = kl.replace(/[\\s\\-]+/g, '');
-          let colIdx = -1;
+          let targetColindex = null;
           const exact = cols.find(c => c.text === kl);
-          if (exact) colIdx = exact.idx;
+          if (exact) targetColindex = exact.colindex;
           else {
             const inc = cols.find(c => c.text.includes(kl) || kl.includes(c.text)
               || c.text.includes(klNoSpace) || klNoSpace.includes(c.text));
-            if (inc) colIdx = inc.idx;
+            if (inc) targetColindex = inc.colindex;
           }
-          if (colIdx < 0) return null;
+          if (targetColindex == null) return null;
           const rows = [...body.querySelectorAll('.gridLine')];
           if (${row} >= rows.length) return null;
           const line = rows[${row}];
-          const boxes = [...line.children].filter(b => b.offsetWidth > 0 && !b.classList.contains('gridBoxComp'));
-          const box = boxes[colIdx];
+          const box = [...line.children].find(b => b.offsetWidth > 0 && b.getAttribute('colindex') === targetColindex);
           if (!box) return null;
+          box.scrollIntoView({ block: 'nearest', inline: 'nearest' });
           const cell = box.querySelector('.gridBoxText') || box;
           const r = cell.getBoundingClientRect();
           const currentText = (cell.innerText?.trim() || '').replace(/\\u00a0/g, ' ');
@@ -2603,23 +3570,62 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
           continue;
         }
         await page.mouse.dblclick(nextCoords.x, nextCoords.y);
-        // Poll for selection form (with F4 fallback if dblclick didn't open it)
-        let selForm = null;
-        for (let attempt = 0; attempt < 2 && selForm === null; attempt++) {
-          if (attempt === 1) await page.keyboard.press('F4'); // F4 fallback
-          for (let sw = 0; sw < 6; sw++) {
+        await page.waitForTimeout(300);
+        // Check if dblclick entered INPUT mode (plain text/numeric field) — before F4 which may open calculator
+        const inInputAfterDblclick = await page.evaluate(`(() => {
+          const f = document.activeElement;
+          if (!f || (f.tagName !== 'INPUT' && f.tagName !== 'TEXTAREA')) return false;
+          let n = f; while (n) { if (n.classList?.contains('grid')) return true; n = n.parentElement; }
+          return false;
+        })()`);
+        // Also check if a selection form already appeared
+        let selForm = await page.evaluate(`(() => {
+          const forms = {};
+          document.querySelectorAll('[id]').forEach(el => {
+            if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
+            const m = el.id.match(/^form(\\d+)_/);
+            if (m) forms[m[1]] = true;
+          });
+          const nums = Object.keys(forms).map(Number).filter(n => n > ${formNum});
+          return nums.length > 0 ? Math.max(...nums) : null;
+        })()`);
+        if (selForm === null && inInputAfterDblclick) {
+          // Plain text/numeric field — fill via clipboard paste
+          await page.evaluate(`navigator.clipboard.writeText(${JSON.stringify(info.value)})`);
+          await page.keyboard.press('Control+a');
+          await page.keyboard.press('Control+v');
+          await page.waitForTimeout(400);
+          // Dismiss EDD autocomplete if it appeared
+          const hasEdd = await page.evaluate(`(() => {
+            const edd = document.getElementById('editDropDown');
+            return edd && edd.offsetWidth > 0;
+          })()`);
+          if (hasEdd) {
+            await page.keyboard.press('Escape');
             await page.waitForTimeout(200);
-            selForm = await page.evaluate(`(() => {
-              const forms = {};
-              document.querySelectorAll('[id]').forEach(el => {
-                if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
-                const m = el.id.match(/^form(\\d+)_/);
-                if (m) forms[m[1]] = true;
-              });
-              const nums = Object.keys(forms).map(Number).filter(n => n > ${formNum});
-              return nums.length > 0 ? Math.max(...nums) : null;
-            })()`);
-            if (selForm !== null) break;
+          }
+          info.filled = true;
+          results.push({ field: key, ok: true, method: 'paste' });
+          continue;
+        }
+        // Poll for selection form (with F4 fallback if dblclick didn't open it)
+        if (selForm === null) {
+          for (let attempt = 0; attempt < 2 && selForm === null; attempt++) {
+            if (attempt === 1) await page.keyboard.press('F4'); // F4 fallback
+            for (let sw = 0; sw < 6; sw++) {
+              await page.waitForTimeout(200);
+              selForm = await page.evaluate(`(() => {
+                const forms = {};
+                document.querySelectorAll('[id]').forEach(el => {
+                  if (el.offsetWidth === 0 && el.offsetHeight === 0) return;
+                  const m = el.id.match(/^form(\\d+)_/);
+                  if (m) forms[m[1]] = true;
+                });
+                const nums = Object.keys(forms).map(Number).filter(n => n > ${formNum});
+                return nums.length > 0 ? Math.max(...nums) : null;
+              })()`);
+              if (selForm !== null) break;
+            }
           }
         }
         if (selForm === null) {
@@ -2681,8 +3687,14 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
   // 4. Prepare pending fields for fuzzy matching
   const pending = new Map();
   for (const [key, val] of Object.entries(fields)) {
-    if (val && typeof val === 'object' && 'value' in val) {
-      pending.set(key, { value: String(val.value), type: val.type || null, filled: false });
+    if (val === null || val === undefined || val === '') {
+      pending.set(key, { value: '', type: null, filled: false });
+    } else if (val && typeof val === 'object' && 'value' in val) {
+      const innerVal = val.value;
+      pending.set(key, {
+        value: innerVal === null || innerVal === undefined || innerVal === '' ? '' : String(innerVal),
+        type: val.type || null, filled: false
+      });
     } else {
       pending.set(key, { value: String(val), type: null, filled: false });
     }
@@ -2794,6 +3806,18 @@ export async function fillTableRow(fields, { tab, add, row, table } = {}) {
 
     const info = pending.get(matchedKey);
     const text = info.value;
+
+    // Clear cell if value is empty (Shift+F4 = native 1C clear)
+    if (text === '') {
+      await page.keyboard.press('Shift+F4');
+      await page.waitForTimeout(300);
+      info.filled = true;
+      results.push({ field: matchedKey, cell: cell.fullName, ok: true, method: 'clear', value: '' });
+      if ([...pending.values()].every(p => p.filled)) break;
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(500);
+      continue;
+    }
 
     // If user specified a type, always clear and use type selection flow
     if (info.type) {
@@ -3916,7 +4940,8 @@ export async function startRecording(outputPath, opts = {}) {
     if (dupes > 0) lastFrameTime = now;
   };
 
-  recorder = { cdp, ffmpeg, startTime: Date.now(), outputPath: resolvedPath, ffmpegError: '', captions: [], videoTimeMs: 0, _flushFrames };
+  const speechRate = opts.speechRate || 70; // ms per character for smart TTS wait
+  recorder = { cdp, ffmpeg, startTime: Date.now(), outputPath: resolvedPath, ffmpegError: '', captions: [], videoTimeMs: 0, _flushFrames, speechRate };
   // Redirect stderr accumulation to the recorder object
   ffmpeg.stderr.removeAllListeners('data');
   ffmpeg.stderr.on('data', d => { recorder.ffmpegError += d.toString(); });
@@ -3997,12 +5022,12 @@ export async function showCaption(text, opts = {}) {
 
   // Collect caption for TTS narration if recording
   let smartWaitMs = 0;
-  if (recorder && text.trim() && opts.speech !== false) {
+  if (recorder && (text.trim() || typeof opts.speech === 'string') && opts.speech !== false) {
     const speech = typeof opts.speech === 'string' ? opts.speech : text;
     // Use video timeline position (accounts for frame duplication) instead of wall-clock
-    recorder.captions.push({ text, speech, time: Math.round(recorder.videoTimeMs) });
+    recorder.captions.push({ text: text || speech, speech, time: Math.round(recorder.videoTimeMs), ...(opts.voice ? { voice: opts.voice } : {}) });
     // Estimate TTS duration and wait so the video has enough screen time for voiceover
-    smartWaitMs = Math.max(2000, speech.length * 70);
+    smartWaitMs = Math.max(2000, speech.length * (recorder.speechRate || 70));
   }
   const position = opts.position || 'bottom';
   const fontSize = opts.fontSize || 24;
@@ -4067,7 +5092,7 @@ export function getCaptions() {
  * Generates speech from captions and merges audio with the video.
  * @param {string} videoPath — path to the recorded MP4 file
  * @param {object} [opts]
- * @param {Array<{text: string, speech: string, time: number}>} [opts.captions] — explicit captions (default: from last recording or .captions.json)
+ * @param {Array<{text: string, speech: string, time: number, voice?: string}>} [opts.captions] — explicit captions (default: from last recording or .captions.json). Each caption may include a `voice` field to override the global voice for that segment
  * @param {string} [opts.provider='edge'] — TTS provider: 'edge' or 'openai'
  * @param {string} [opts.voice] — voice name (provider-specific)
  * @param {string} [opts.apiKey] — API key (for openai provider)
@@ -4145,12 +5170,13 @@ export async function addNarration(videoPath, opts = {}) {
       const promises = batch.map(async (cap, batchIdx) => {
         const idx = batchStart + batchIdx;
         const ttsFile = pathJoin(tempDir, `tts_${idx}.mp3`);
+        const capTtsOpts = cap.voice ? { ...ttsOpts, voice: cap.voice } : ttsOpts;
         try {
-          await ttsProvider(cap.speech, ttsFile, ttsOpts);
+          await ttsProvider(cap.speech, ttsFile, capTtsOpts);
         } catch (err) {
           // Retry once
           try {
-            await ttsProvider(cap.speech, ttsFile, ttsOpts);
+            await ttsProvider(cap.speech, ttsFile, capTtsOpts);
           } catch (retryErr) {
             warnings.push(`TTS failed for caption ${idx}: ${retryErr.message || retryErr.cause?.message || String(retryErr)}`);
             // Generate 1s silence as placeholder
@@ -4269,8 +5295,8 @@ export async function showTitleSlide(text, opts = {}) {
   if (recorder && speech && speech !== false) {
     const captionText = typeof speech === 'string' ? speech : text.replace(/\n/g, ' ');
     if (captionText) {
-      recorder.captions.push({ text: captionText, speech: captionText, time: Math.round(recorder.videoTimeMs) });
-      smartWaitMs = Math.max(2000, captionText.length * 70);
+      recorder.captions.push({ text: captionText, speech: captionText, time: Math.round(recorder.videoTimeMs), ...(opts.voice ? { voice: opts.voice } : {}) });
+      smartWaitMs = Math.max(2000, captionText.length * (recorder.speechRate || 70));
     }
   }
 
@@ -4380,8 +5406,8 @@ export async function showImage(imagePath, opts = {}) {
   if (recorder && speech && speech !== false) {
     const captionText = typeof speech === 'string' ? speech : '';
     if (captionText) {
-      recorder.captions.push({ text: captionText, speech: captionText, time: Math.round(recorder.videoTimeMs) });
-      smartWaitMs = Math.max(2000, captionText.length * 70);
+      recorder.captions.push({ text: captionText, speech: captionText, time: Math.round(recorder.videoTimeMs), ...(opts.voice ? { voice: opts.voice } : {}) });
+      smartWaitMs = Math.max(2000, captionText.length * (recorder.speechRate || 70));
     }
   }
 
@@ -4515,6 +5541,58 @@ export async function highlight(text, opts = {}) {
     })()`);
   }
 
+  // 1b. Command group headers on the function panel (eAccentColor labels).
+  //     Match header text, then highlight the header + commands below it
+  //     until the next spacer/header/end.
+  if (!elId) {
+    const groupDone = await page.evaluate(({ target, color, padding }) => {
+      const container = document.querySelector('#funcPanel_container');
+      if (!container) return false;
+      const norm = s => (s?.trim().replace(/\u00a0/g, ' ') || '').replace(/ё/gi, 'е').toLowerCase();
+      const headers = [...container.querySelectorAll('.eAccentColor')].filter(e => e.offsetWidth > 0);
+      if (!headers.length) return false;
+
+      let headerEl = headers.find(h => norm(h.textContent) === target);
+      if (!headerEl) headerEl = headers.find(h => norm(h.textContent).startsWith(target));
+      if (!headerEl) headerEl = headers.find(h => norm(h.textContent).includes(target));
+      if (!headerEl) return false;
+
+      // Collect header + following cmd siblings until next spacer/header
+      const parent = headerEl.parentElement;
+      const children = [...parent.children];
+      const startIdx = children.indexOf(headerEl);
+      const groupEls = [headerEl];
+      for (let i = startIdx + 1; i < children.length; i++) {
+        const el = children[i];
+        if (el.classList.contains('eAccentColor')) break;
+        if (!el.id && !el.classList.contains('functionItem') && el.getBoundingClientRect().width < 10) break;
+        groupEls.push(el);
+      }
+
+      // Bounding box
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const el of groupEls) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        minX = Math.min(minX, r.left);  minY = Math.min(minY, r.top);
+        maxX = Math.max(maxX, r.right); maxY = Math.max(maxY, r.bottom);
+      }
+      if (minX === Infinity) return false;
+
+      let div = document.getElementById('__web_test_highlight');
+      if (!div) { div = document.createElement('div'); div.id = '__web_test_highlight'; document.body.appendChild(div); }
+      div.style.cssText = [
+        'position:fixed', 'pointer-events:none', 'z-index:999998',
+        `top:${minY - padding}px`, `left:${minX - padding}px`,
+        `width:${maxX - minX + padding * 2}px`, `height:${maxY - minY + padding * 2}px`,
+        `outline:3px solid ${color}`, 'border-radius:4px',
+        `box-shadow:0 0 16px ${color}80`,
+      ].join(';');
+      return true;
+    }, { target: normYo(text.toLowerCase()), color, padding });
+    if (groupDone) return;
+  }
+
   // 2. Form groups/panels — checked BEFORE buttons/fields because group names
   //    often collide with command bar buttons (e.g. "БизнесПроцессы" is both a
   //    panel and a command bar element). Includes _container and _div elements
@@ -4617,6 +5695,12 @@ export async function highlight(text, opts = {}) {
       // Commands
       const cmds = [...document.querySelectorAll('[id^="cmd_"][id$="_txt"]')].filter(e => e.offsetWidth > 0).map(e => norm(e.innerText));
       if (cmds.length) result.commands = cmds;
+      // Command group headers
+      const fp = document.querySelector('#funcPanel_container');
+      if (fp) {
+        const gh = [...fp.querySelectorAll('.eAccentColor')].filter(e => e.offsetWidth > 0).map(e => norm(e.textContent));
+        if (gh.length) result.commandGroups = gh;
+      }
       // Sections
       const secs = [...document.querySelectorAll('[id^="themesCell_theme_"]')].map(e => norm(e.innerText)).filter(Boolean);
       if (secs.length) result.sections = secs;

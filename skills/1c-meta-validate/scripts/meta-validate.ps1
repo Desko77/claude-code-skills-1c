@@ -1,4 +1,4 @@
-﻿# meta-validate v1.2 — Validate 1C metadata object structure
+﻿# meta-validate v1.3 — Validate 1C metadata object structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -262,7 +262,7 @@ $validPropertyValues = @{
 	"FillChecking"                   = @("DontCheck","ShowError","ShowWarning")
 	"Indexing"                       = @("DontIndex","Index","IndexWithAdditionalOrder")
 	"DataHistory"                    = @("Use","DontUse")
-	"DependenceOnCalculationTypes"   = @("DontUse","RequireCalculationTypes")
+	"DependenceOnCalculationTypes"   = @("DontUse","OnActionPeriod")
 }
 
 # Properties forbidden per type (would cause LoadConfigFromFiles error)
@@ -998,6 +998,18 @@ if ($propsNode) {
 		}
 	}
 
+	# CalculationRegister: ActionPeriod=true requires non-empty Schedule
+	if ($mdType -eq "CalculationRegister") {
+		$actionPeriod = $propsNode.SelectSingleNode("md:ActionPeriod", $ns)
+		if ($actionPeriod -and $actionPeriod.InnerText -eq "true") {
+			$schedule = $propsNode.SelectSingleNode("md:Schedule", $ns)
+			if (-not $schedule -or -not $schedule.InnerText.Trim()) {
+				Report-Warn "10. CalculationRegister: ActionPeriod=true but Schedule is empty — platform requires a schedule register"
+				$check10Issues++
+			}
+		}
+	}
+
 	# DocumentJournal: RegisteredDocuments should not be empty
 	if ($mdType -eq "DocumentJournal") {
 		$regDocs = $propsNode.SelectSingleNode("md:RegisteredDocuments", $ns)
@@ -1021,6 +1033,48 @@ if ($propsNode) {
 				Report-Warn "10. ChartOfAccounts: MaxExtDimensionCount>0 but ExtDimensionTypes is empty"
 				$check10Issues++
 				Write-Host "[HINT] /meta-edit -Operation modify-property -Value `"ExtDimensionTypes=ChartOfCharacteristicTypes.XXX`""
+			}
+		}
+	}
+
+	# Register: must have at least one Dimension or Resource (platform rejects empty registers)
+	$regTypesAll = @("AccumulationRegister","AccountingRegister","CalculationRegister","InformationRegister")
+	if ($regTypesAll -contains $mdType -and $childObjNode) {
+		$dims = $childObjNode.SelectNodes("md:Dimension", $ns).Count
+		$ress = $childObjNode.SelectNodes("md:Resource", $ns).Count
+		$attrs = $childObjNode.SelectNodes("md:Attribute", $ns).Count
+		if (($dims + $ress + $attrs) -eq 0) {
+			Report-Warn "10. $mdType`: no Dimensions, Resources, or Attributes — platform will reject"
+			$check10Issues++
+		}
+	}
+
+	# Document: RegisterRecords references should point to existing objects in config
+	if ($mdType -eq "Document" -and $script:configDir) {
+		$regRecords = $propsNode.SelectSingleNode("md:RegisterRecords", $ns)
+		if ($regRecords) {
+			$items = $regRecords.SelectNodes("xr:Item", $ns)
+			foreach ($item in $items) {
+				$refVal = $item.InnerText.Trim()
+				if (-not $refVal) { continue }
+				# Parse "AccumulationRegister.Name" → dir AccumulationRegisters/Name
+				$parts = $refVal -split '\.',2
+				if ($parts.Count -eq 2) {
+					$refType = $parts[0]; $refName = $parts[1]
+					$dirMap = @{
+						"AccumulationRegister"="AccumulationRegisters"; "InformationRegister"="InformationRegisters"
+						"AccountingRegister"="AccountingRegisters"; "CalculationRegister"="CalculationRegisters"
+					}
+					$refDir = $dirMap[$refType]
+					if ($refDir) {
+						$refPath = Join-Path $script:configDir "$refDir/$refName"
+						$refXml = Join-Path $script:configDir "$refDir/$refName.xml"
+						if (-not (Test-Path $refPath) -and -not (Test-Path $refXml)) {
+							Report-Warn "10. Document.RegisterRecords references '$refVal' but object not found in config"
+							$check10Issues++
+						}
+					}
+				}
 			}
 		}
 	}

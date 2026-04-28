@@ -1,7 +1,7 @@
 ---
 name: 1c-form-compile
-description: Компиляция управляемой формы 1С из компактного JSON-определения. Используй когда нужно создать форму с нуля по описанию элементов
-argument-hint: <JsonPath> <OutputPath>
+description: Компиляция управляемой формы 1С из JSON-определения или из метаданных объекта. Используй когда нужно создать форму с нуля по описанию элементов или сгенерировать типовую форму
+argument-hint: <JsonPath> <OutputPath> | -FromObject <OutputPath>
 allowed-tools:
   - Bash
   - Read
@@ -9,31 +9,30 @@ allowed-tools:
   - Glob
 ---
 
-# /form-compile — Генерация Form.xml из JSON DSL
+# /form-compile — Генерация Form.xml
 
-Генерирует Form.xml из JSON-описания. Предполагает что каталог формы уже создан через `/form-add`.
+Два режима:
+1. **JSON DSL** — из JSON-определения формы
+2. **From object** (`-FromObject`) — автоматически из метаданных объекта 1С по пресету ERP
 
-Принимает компактное JSON-определение формы (20–50 строк) и генерирует полный корректный Form.xml (100–500+ строк) с namespace-декларациями, автогенерированными companion-элементами, последовательными ID.
-
-> **При проектировании формы с нуля (5+ элементов или нечёткие требования)** — вызовите `/form-patterns` для загрузки справочника: архетипы, конвенции именования, продвинутые паттерны. Для простых форм (1–3 поля, пользователь описал что нужно) — не нужно.
-
-## Использование
-
-```
-/form-compile <JsonPath> <OutputPath>
-```
+> **При проектировании формы с нуля (5+ элементов или нечёткие требования)** — вызовите `/form-patterns` для загрузки справочника. Для простых форм (1–3 поля) — не нужно.
 
 ## Параметры
 
-| Параметр   | Обязательный | Описание                          |
-|------------|:------------:|-----------------------------------|
-| JsonPath   | да           | Путь к JSON-определению формы     |
-| OutputPath | да           | Путь к выходному файлу Form.xml   |
+| Параметр   | Обязательный | Описание                        |
+|------------|:------------:|---------------------------------|
+| JsonPath   | режим 1      | Путь к JSON-определению формы   |
+| OutputPath | да           | Путь к выходному Form.xml       |
+| FromObject | режим 2      | Флаг (без значения) — генерация по метаданным объекта |
 
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -JsonPath "<json>" -OutputPath "<xml>"
+# Режим JSON DSL
+powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -JsonPath "<json>" -OutputPath "<Form.xml>"
+
+# Режим from-object (объект и purpose выводятся из OutputPath; Document и Catalog)
+powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -FromObject -OutputPath "<.../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml>"
 ```
 
 ## JSON DSL — справка
@@ -169,6 +168,12 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 | `footer: true` | Показать подвал |
 | `commandBarLocation` | `"None"`, `"Top"`, `"Auto"` |
 | `searchStringLocation` | `"None"`, `"Top"`, `"Auto"` |
+| `choiceMode: true` | Режим выбора (для форм выбора) |
+| `initialTreeView` | `"ExpandTopLevel"` и др. (иерархические списки) |
+| `enableDrag: true` | Разрешить перетаскивание |
+| `enableStartDrag: true` | Разрешить начало перетаскивания |
+| `rowPictureDataPath` | Путь к картинке строки (напр. `"Список.DefaultPicture"`) |
+| `tableAutofill: false` | Управление Autofill внутреннего AutoCommandBar |
 
 ### Страницы (pages + page)
 
@@ -223,6 +228,9 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 
 ```json
 { "name": "Объект", "type": "DataProcessorObject.Загрузка", "main": true }
+{ "name": "Список", "type": "DynamicList", "main": true, "settings": {
+    "mainTable": "Catalog.Номенклатура", "dynamicDataRead": true
+}}
 { "name": "Итого", "type": "decimal(15,2)" }
 { "name": "Таблица", "type": "ValueTable", "columns": [
     { "name": "Номенклатура", "type": "CatalogRef.Номенклатура" },
@@ -243,6 +251,8 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 
 ### Система типов
 
+**Примитивные:**
+
 | DSL                    | XML                                    |
 |------------------------|----------------------------------------|
 | `"string"` / `"string(100)"` | `xs:string` + StringQualifiers  |
@@ -250,11 +260,38 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 | `"decimal(10,0,nonneg)"` | с AllowedSign=Nonnegative           |
 | `"boolean"`            | `xs:boolean`                          |
 | `"date"` / `"dateTime"` / `"time"` | `xs:dateTime` + DateFractions |
-| `"CatalogRef.XXX"`    | `cfg:CatalogRef.XXX`                   |
-| `"DocumentRef.XXX"`   | `cfg:DocumentRef.XXX`                  |
-| `"ValueTable"`         | `v8:ValueTable`                       |
-| `"ValueList"`          | `v8:ValueListType`                    |
-| `"Type1 \| Type2"`    | составной тип                          |
+
+**Ссылочные и объектные (`cfg:Prefix.Name`):**
+
+| DSL | Описание |
+|-----|----------|
+| `"CatalogRef.XXX"` / `"CatalogObject.XXX"` | Справочник |
+| `"DocumentRef.XXX"` / `"DocumentObject.XXX"` | Документ |
+| `"EnumRef.XXX"` | Перечисление |
+| `"DataProcessorObject.XXX"` / `"ReportObject.XXX"` | Обработка / Отчёт |
+| `"InformationRegisterRecordSet.XXX"` | Набор записей регистра сведений |
+| `"AccumulationRegisterRecordSet.XXX"` | Набор записей регистра накопления |
+| `"DynamicList"` | Динамический список |
+
+Также допустимы: `ChartOfAccountsRef/Object`, `ChartOfCharacteristicTypesRef/Object`, `ChartOfCalculationTypesRef/Object`, `ExchangePlanRef/Object`, `BusinessProcessRef/Object`, `TaskRef/Object`, `AccountingRegisterRecordSet`, `InformationRegisterRecordManager`, `ConstantsSet`.
+
+**Платформенные:**
+
+| DSL | XML |
+|-----|-----|
+| `"ValueTable"` | `v8:ValueTable` |
+| `"ValueTree"` | `v8:ValueTree` |
+| `"ValueList"` | `v8:ValueListType` |
+| `"TypeDescription"` | `v8:TypeDescription` |
+| `"UUID"` | `v8:UUID` |
+| `"FormattedString"` | `v8ui:FormattedString` |
+| `"Picture"` / `"Color"` / `"Font"` | `v8ui:*` |
+| `"DataCompositionSettings"` | `dcsset:DataCompositionSettings` |
+| `"Type1 \| Type2"` | составной тип (несколько `<v8:Type>`) |
+
+**Недопустимые типы (XDTO-ошибка при загрузке):**
+
+> `FormDataStructure`, `FormDataCollection`, `FormDataTree` — runtime-типы 1С, не существуют в XML-схеме. Вместо них используйте `CatalogObject.XXX`, `DocumentObject.XXX`, `DataProcessorObject.XXX`, `ValueTable`, `ValueTree`.
 
 ## Связки: элемент + реквизит
 
@@ -470,5 +507,5 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 ## Особенности для внешних обработок (EPF)
 
 - **Тип главного реквизита**: `ExternalDataProcessorObject.ИмяОбработки` (не `DataProcessorObject`)
-- **DataPath**: используйте реквизиты формы (`ИмяРеквизита`), а не `Объект.ИмяРеквизита` - у внешних обработок нет реквизитов объекта в метаданных
+- **DataPath**: используйте реквизиты формы (`ИмяРеквизита`), а не `Объект.ИмяРеквизита` — у внешних обработок нет реквизитов объекта в метаданных
 - **Ссылочные типы**: `CatalogRef.XXX`, `DocumentRef.XXX` допустимы в XML, но для сборки EPF потребуется база с целевой конфигурацией (см. `/epf-build`)

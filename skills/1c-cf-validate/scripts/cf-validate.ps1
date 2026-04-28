@@ -1,4 +1,4 @@
-﻿# cf-validate v1.1 — Validate 1C configuration root structure
+﻿# cf-validate v1.2 — Validate 1C configuration root structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -145,17 +145,17 @@ $childTypeDirMap = @{
 
 # Valid enum values for Configuration properties
 $validEnumValues = @{
-	"ConfigurationExtensionCompatibilityMode" = @("DontUse","Version8_1","Version8_2_13","Version8_2_16","Version8_3_1","Version8_3_2","Version8_3_3","Version8_3_4","Version8_3_5","Version8_3_6","Version8_3_7","Version8_3_8","Version8_3_9","Version8_3_10","Version8_3_11","Version8_3_12","Version8_3_13","Version8_3_14","Version8_3_15","Version8_3_16","Version8_3_17","Version8_3_18","Version8_3_19","Version8_3_20","Version8_3_21","Version8_3_22","Version8_3_23","Version8_3_24","Version8_3_25","Version8_3_26","Version8_3_27","Version8_3_28")
+	"ConfigurationExtensionCompatibilityMode" = @("DontUse","Version8_1","Version8_2_13","Version8_2_16","Version8_3_1","Version8_3_2","Version8_3_3","Version8_3_4","Version8_3_5","Version8_3_6","Version8_3_7","Version8_3_8","Version8_3_9","Version8_3_10","Version8_3_11","Version8_3_12","Version8_3_13","Version8_3_14","Version8_3_15","Version8_3_16","Version8_3_17","Version8_3_18","Version8_3_19","Version8_3_20","Version8_3_21","Version8_3_22","Version8_3_23","Version8_3_24","Version8_3_25","Version8_3_26","Version8_3_27","Version8_3_28","Version8_5_1")
 	"DefaultRunMode" = @("ManagedApplication","OrdinaryApplication","Auto")
 	"ScriptVariant" = @("Russian","English")
 	"DataLockControlMode" = @("Automatic","Managed","AutomaticAndManaged")
 	"ObjectAutonumerationMode" = @("NotAutoFree","AutoFree")
 	"ModalityUseMode" = @("DontUse","Use","UseWithWarnings")
 	"SynchronousPlatformExtensionAndAddInCallUseMode" = @("DontUse","Use","UseWithWarnings")
-	"InterfaceCompatibilityMode" = @("Taxi","TaxiEnableVersion8_2","Version8_2")
+	"InterfaceCompatibilityMode" = @("Version8_2","Version8_2EnableTaxi","Taxi","TaxiEnableVersion8_2","TaxiEnableVersion8_5","Version8_5EnableTaxi","Version8_5")
 	"DatabaseTablespacesUseMode" = @("DontUse","Use")
 	"MainClientApplicationWindowMode" = @("Normal","Fullscreen","Kiosk")
-	"CompatibilityMode" = @("DontUse","Version8_1","Version8_2_13","Version8_2_16","Version8_3_1","Version8_3_2","Version8_3_3","Version8_3_4","Version8_3_5","Version8_3_6","Version8_3_7","Version8_3_8","Version8_3_9","Version8_3_10","Version8_3_11","Version8_3_12","Version8_3_13","Version8_3_14","Version8_3_15","Version8_3_16","Version8_3_17","Version8_3_18","Version8_3_19","Version8_3_20","Version8_3_21","Version8_3_22","Version8_3_23","Version8_3_24","Version8_3_25","Version8_3_26","Version8_3_27","Version8_3_28")
+	"CompatibilityMode" = @("DontUse","Version8_1","Version8_2_13","Version8_2_16","Version8_3_1","Version8_3_2","Version8_3_3","Version8_3_4","Version8_3_5","Version8_3_6","Version8_3_7","Version8_3_8","Version8_3_9","Version8_3_10","Version8_3_11","Version8_3_12","Version8_3_13","Version8_3_14","Version8_3_15","Version8_3_16","Version8_3_17","Version8_3_18","Version8_3_19","Version8_3_20","Version8_3_21","Version8_3_22","Version8_3_23","Version8_3_24","Version8_3_25","Version8_3_26","Version8_3_27","Version8_3_28","Version8_5_1")
 }
 
 # --- 1. Parse XML ---
@@ -203,8 +203,8 @@ if ($root.NamespaceURI -ne $expectedNs) {
 $version = $root.GetAttribute("version")
 if (-not $version) {
 	Report-Warn "1. Missing version attribute on MetaDataObject"
-} elseif ($version -ne "2.17" -and $version -ne "2.20") {
-	Report-Warn "1. Unusual version '$version' (expected 2.17 or 2.20)"
+} elseif ($version -ne "2.17" -and $version -ne "2.20" -and $version -ne "2.21") {
+	Report-Warn "1. Unusual version '$version' (expected 2.17, 2.20 or 2.21)"
 }
 
 # Must have Configuration child

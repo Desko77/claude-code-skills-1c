@@ -14,8 +14,6 @@ allowed-tools:
 
 Automates user interactions with 1C:Enterprise web client via Playwright — navigating sections, filling forms, reading tables and reports, filtering lists.
 
-> **Workflow:** `/web-info` → `/web-publish` → `/web-test` → `/web-unpublish` (или `/web-stop`)
-
 ## Quick start
 
 ```bash
@@ -123,8 +121,18 @@ Switch to an already-open tab/window (fuzzy match).
 
 ### Reading form state
 
-#### `getFormState()` → `{ fields, buttons, tabs, navigation?, table, tables, filters, reportSettings? }`
+#### `getFormState()` → `{ form, formCount, openForms, fields, buttons, tabs, navigation?, table, tables, filters, reportSettings? }`
 Returns current form structure. This is the primary way to understand what's on screen.
+
+**form** — active form number, or `null` when no form is open (desktop).
+
+**formCount** — number of open forms. Use this to know how many windows are stacked. `0` means desktop.
+
+**openForms** — array of all open form numbers (e.g. `[0, 1]`). Works even when the open-windows tab bar is hidden in 1C settings.
+
+**modal** — `true` when the active form is a modal dialog blocking the UI. Only present when modal is active.
+
+**openTabs** — array of `{ name, active? }` from the open-windows tab bar. Only present when the tab bar is enabled in 1C settings. Do NOT rely on this — use `formCount`/`openForms` instead.
 
 **fields** — each field has: `name`, `value`, `label?`, `actions?` (select, clear, open), `required?` (true for unfilled mandatory fields)
 
@@ -147,6 +155,8 @@ const form = await getFormState();
 
 **confirmation** — if present, a Yes/No dialog is shown. Call `clickElement('Да')` or `clickElement('Нет')`.
 
+**errors.stateText** — array of SpreadsheetDocument state messages (e.g. `"Не установлено значение параметра \"X\""`, `"Отчет не сформирован..."`, `"Изменились настройки..."`). Present when the report area shows an info bar instead of data.
+
 ### Reading data
 
 #### `readTable({ maxRows?, offset?, table? })` → `{ columns, rows, total, shown, offset }`
@@ -163,6 +173,7 @@ Special row fields:
 - `_kind: 'parent'` — parent row in hierarchy
 - `_tree: 'expanded'|'collapsed'` — tree node state
 - `_level: N` — nesting depth in tree view
+- `_selected: true` — row is selected (highlighted). Use with `clickElement({ modifier: 'ctrl'|'shift' })` to verify multi-selection
 - `hierarchical: true` — list has groups (on result object)
 - `viewMode: 'tree'` — tree view active (on result object)
 
@@ -200,7 +211,7 @@ Sections + all open tabs.
 
 ### Actions
 
-#### `clickElement(text, { dblclick?, table?, expand? })` → form state
+#### `clickElement(text, { dblclick?, table?, expand?, modifier? })` → form state
 Click button, hyperlink, tab, navigation panel link, or grid row (fuzzy match).
 
 - `table` — scope button search to a specific grid's command panel (by name from `tables[]`):
@@ -222,6 +233,33 @@ Click button, hyperlink, tab, navigation panel link, or grid row (fuzzy match).
   await clickElement('ИСУ ФХД');                      // select row
   await clickElement('ИСУ ФХД', { expand: true });    // expand/collapse
   ```
+- **Multi-select rows** with `modifier: 'ctrl'` (add to selection) or `modifier: 'shift'` (select range):
+  ```js
+  await clickElement('Номенклатура 1');                          // select first row
+  await clickElement('Номенклатура 2', { modifier: 'ctrl' });   // add to selection
+  await clickElement('Номенклатура 5', { modifier: 'shift' });  // select range 2..5
+  // Verify selection:
+  const t = await readTable();
+  t.rows.filter(r => r._selected);  // rows with _selected: true
+  ```
+- **SpreadsheetDocument cells** (report drill-down): first argument can be `{ row, column }` object to click a cell in a rendered report. Coordinates match `readSpreadsheet()` output:
+  ```js
+  const report = await readSpreadsheet();
+  // report.data[0] = { 'К1': 'Материалы строительные', 'К6': '150 000', ... }
+
+  // By data row index + column header name
+  await clickElement({ row: 0, column: 'К6' }, { dblclick: true });
+
+  // By cell value filter (fuzzy match)
+  await clickElement({ row: { 'К1': 'Материалы' }, column: 'К6' }, { dblclick: true });
+
+  // Totals row
+  await clickElement({ row: 'totals', column: 'К6' }, { dblclick: true });
+  ```
+  Text search also works as fallback — searches inside spreadsheet iframes:
+  ```js
+  await clickElement('150 000', { dblclick: true }); // finds cell by text in report
+  ```
 
 #### `fillFields({ name: value })` → `{ filled, form }`
 Fill form fields by label (fuzzy match). Auto-detects field type.
@@ -232,6 +270,7 @@ Fill form fields by label (fuzzy match). Auto-detects field type.
 | `'5000'` | Plain text | Clipboard paste |
 | `'true'` / `'да'` | Checkbox | Toggle |
 | `'Оплата поставщику'` | Radio | Fuzzy label match |
+| `''` / `null` | Any (except checkbox/radio) | Clear via Shift+F4 |
 
 **DCS report filters**: use human-readable label names. Checkbox is auto-enabled:
 ```js
@@ -242,10 +281,10 @@ await fillFields({
 ```
 
 Returns `{ filled: [{ field, ok, value, method }], form: {...} }`.
-Method is one of: `'toggle'` | `'radio'` | `'paste'` | `'dropdown'` | `'form'` | `'typeahead'`
+Method is one of: `'clear'` | `'toggle'` | `'radio'` | `'paste'` | `'dropdown'` | `'form'` | `'typeahead'`
 
 #### `selectValue(field, search, opts?)` → form state with `selected`
-Select a value from reference field via dropdown or selection form. More reliable than `fillFields` for reference fields that need exact selection from a catalog.
+Select a value from reference field via dropdown or selection form. More reliable than `fillFields` for reference fields that need exact selection from a catalog. Pass empty `search` (`''` or `null`) to clear the field (Shift+F4).
 
 `search` — string for simple search, or `{ field: value }` object for per-field advanced search:
 ```js
@@ -266,7 +305,7 @@ await selectValue('Документ', '0000-000601', { type: 'Реализаци
 Also supports DCS labels — auto-enables the paired checkbox.
 
 #### `fillTableRow(fields, opts)` → form state
-Fill table row cells via Tab navigation. Value is a plain string or `{ value, type }` for composite-type cells.
+Fill table row cells via Tab navigation. Value is a plain string, `{ value, type }` for composite-type cells, or `''`/`null` to clear (Shift+F4).
 
 | Option | Description |
 |--------|-------------|
@@ -305,14 +344,16 @@ await fillTableRow(
 #### `deleteTableRow(row, { tab?, table? })` → form state
 Delete row by 0-based index. `table` targets a specific grid on multi-grid forms.
 
-#### `closeForm({ save? })` → form state
-Close the current form via Escape.
+#### `closeForm({ save? })` → form state with `closed`
+Close the current form via Escape. Returns form state with `closed: true/false` indicating whether the form actually closed.
 
 | Argument | Behavior |
 |----------|----------|
 | `{ save: false }` | Auto-clicks "Нет" on confirmation |
 | `{ save: true }` | Auto-clicks "Да" on confirmation |
 | `{}` (omitted) | Returns `confirmation` field if dialog appears |
+
+**`closed`** — `true` if the form was closed (form number changed), `false` if it stayed open (e.g. Escape was ignored). Always check this to confirm the form actually closed. After closing, check `formCount` to see how many forms remain.
 
 Preferred over `clickElement('×')` — close buttons on tabs are ambiguous.
 
@@ -389,6 +430,23 @@ console.log('Title:', report.title);
 console.log('Data rows:', report.data?.length);
 ```
 
+### Drill-down report cells
+
+```js
+// Generate report
+await clickElement('Сформировать');
+await wait(5);
+const report = await readSpreadsheet();
+
+// Double-click cell to open drill-down (uses coordinates from readSpreadsheet)
+await clickElement({ row: 0, column: 'К6' }, { dblclick: true });
+// Modal dialog "Выбор поля" opens
+await clickElement('Регистратор');
+await clickElement('Выбрать');
+await wait(10);
+const drilldown = await readSpreadsheet();
+```
+
 ### Work with multi-grid forms
 
 Some forms have multiple grids (e.g. "Входящие" and "Исходящие" tables on a single form). Without `table`, buttons like "Добавить" hit the first match and `readTable` reads the first grid — which may not be the one you need.
@@ -420,12 +478,17 @@ await deleteTableRow(0, { table: 'Исходящие' });
 
 Table matching accepts both technical name (`tables[].name`) and visual label (`tables[].label`). Label is the group title shown on screen — useful when working from screenshots. Name match takes priority over label match.
 
-### Keyboard shortcuts (via `page.keyboard.press`)
+### Keyboard shortcuts
+
+```js
+const page = await getPage();
+await page.keyboard.press('F8');  // example: create new item in focused reference field
+```
 
 | Key | Context | Action |
 |-----|---------|--------|
 | `F8` | Reference field focused | Create new catalog item |
-| `Shift+F4` | Reference field focused | Clear field value |
+| `Shift+F4` | Any input field focused | Clear field value (auto via `''`/`null` in fillFields/selectValue/fillTableRow) |
 | `F4` | Reference field focused | Open selection form |
 | `Alt+F` | List/table form | Open advanced search dialog |
 

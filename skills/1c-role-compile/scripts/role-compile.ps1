@@ -1,4 +1,4 @@
-﻿# role-compile v1.0 — Compile 1C role from JSON
+﻿# role-compile v1.5 — Compile 1C role from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -492,6 +492,9 @@ function Parse-ObjectEntry {
 
 # --- 7. Parse all object entries ---
 
+# Synonym: accept "rights" as alias for "objects"
+if (-not $def.objects -and $def.rights) { $def | Add-Member -NotePropertyName objects -NotePropertyValue $def.rights }
+
 $parsedObjects = @()
 if ($def.objects) {
 	foreach ($entry in $def.objects) {
@@ -501,6 +504,26 @@ if ($def.objects) {
 		}
 	}
 }
+
+# --- Detect format version ---
+
+function Detect-FormatVersion([string]$dir) {
+	$d = $dir
+	while ($d) {
+		$cfgPath = Join-Path $d "Configuration.xml"
+		if (Test-Path $cfgPath) {
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
+		}
+		$parent = Split-Path $d -Parent
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return "2.17"
+}
+
+$resolvedOutputDir = if ([System.IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path (Get-Location) $OutputDir }
+$formatVersion = Detect-FormatVersion $resolvedOutputDir
 
 # --- 8. Generate UUID ---
 
@@ -528,7 +551,7 @@ X '        xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef"'
 X '        xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"'
 X '        xmlns:xs="http://www.w3.org/2001/XMLSchema"'
 X '        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-X '        version="2.17">'
+X "        version=`"$formatVersion`">"
 X "    <Role uuid=`"$uuid`">"
 X '        <Properties>'
 X "            <Name>$roleName</Name>"
@@ -557,7 +580,7 @@ X '<?xml version="1.0" encoding="UTF-8"?>'
 X '<Rights xmlns="http://v8.1c.ru/8.2/roles"'
 X '        xmlns:xs="http://www.w3.org/2001/XMLSchema"'
 X '        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-X '        xsi:type="Rights" version="2.17">'
+X "        xsi:type=`"Rights`" version=`"$formatVersion`">"
 
 # Global flags (defaults match typical 1C roles)
 $sfno = if ($null -ne $def.setForNewObjects) { "$($def.setForNewObjects)".ToLower() } else { "false" }
@@ -612,14 +635,25 @@ $outDir = if ([System.IO.Path]::IsPathRooted($OutputDir)) {
 	Join-Path (Get-Location) $OutputDir
 }
 
-# Metadata: OutputDir/RoleName.xml
-$metadataPath = Join-Path $outDir "$roleName.xml"
-if (-not (Test-Path $outDir)) {
-	New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+# Determine Roles dir and config root
+# Back-compat: if OutputDir leaf is "Roles", use as-is; otherwise treat as config root
+$leaf = Split-Path $outDir -Leaf
+if ($leaf -eq "Roles") {
+	$rolesDir = $outDir
+	$configDir = Split-Path $outDir -Parent
+} else {
+	$rolesDir = Join-Path $outDir "Roles"
+	$configDir = $outDir
 }
 
-# Rights: OutputDir/RoleName/Ext/Rights.xml
-$roleSubDir = Join-Path $outDir $roleName
+# Metadata: Roles/RoleName.xml
+$metadataPath = Join-Path $rolesDir "$roleName.xml"
+if (-not (Test-Path $rolesDir)) {
+	New-Item -ItemType Directory -Path $rolesDir -Force | Out-Null
+}
+
+# Rights: Roles/RoleName/Ext/Rights.xml
+$roleSubDir = Join-Path $rolesDir $roleName
 $extDir = Join-Path $roleSubDir "Ext"
 $rightsPath = Join-Path $extDir "Rights.xml"
 if (-not (Test-Path $extDir)) {
@@ -632,7 +666,6 @@ $enc = New-Object System.Text.UTF8Encoding($true)
 
 # --- 12. Register in Configuration.xml ---
 
-$configDir = Split-Path $outDir -Parent
 $configXmlPath = Join-Path $configDir "Configuration.xml"
 $regResult = $null
 

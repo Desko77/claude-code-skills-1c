@@ -156,15 +156,15 @@
 | `descriptionLength` | `25` | DescriptionLength |
 | `autonumbering` | `true` | Autonumbering |
 | `checkUnique` | `false` | CheckUnique |
-| `dependenceOnCalculationTypes` | `NotUsed` | DependenceOnCalculationTypes |
+| `dependenceOnCalculationTypes` | `DontUse` | DependenceOnCalculationTypes |
 | `actionPeriodUse` | `false` | ActionPeriodUse |
 | `attributes` | `[]` | → Attribute |
 | `tabularSections` | `{}` | → TabularSection |
 
-`dependenceOnCalculationTypes`: `NotUsed`, `ExclusionAndDependence`, `ExclusionOnly`.
+`dependenceOnCalculationTypes`: `DontUse`, `OnActionPeriod`.
 
 ```json
-{ "type": "ChartOfCalculationTypes", "name": "Начисления", "dependenceOnCalculationTypes": "ExclusionAndDependence" }
+{ "type": "ChartOfCalculationTypes", "name": "Начисления", "dependenceOnCalculationTypes": "OnActionPeriod" }
 ```
 
 ## Зависимости

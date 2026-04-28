@@ -12,8 +12,6 @@ allowed-tools:
 
 Показывает состояние Apache HTTP Server, список опубликованных баз и последние ошибки.
 
-> **Workflow:** `/web-info` → `/web-publish` → `/web-test` → `/web-unpublish` (или `/web-stop`)
-
 ## Usage
 
 ```

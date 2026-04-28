@@ -1,4 +1,4 @@
-﻿# meta-edit v1.4 — Edit existing 1C metadata object XML (inline mode + complex properties + TS attribute ops + modify-ts)
+﻿# meta-edit v1.6 — Edit existing 1C metadata object XML (inline mode + complex properties + TS attribute ops + modify-ts)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[string]$DefinitionFile,
@@ -41,6 +41,73 @@ if ($DefinitionFile -and $Operation) {
 if (-not $DefinitionFile -and -not $Operation) {
 	Write-Error "Either -DefinitionFile or -Operation is required"
 	exit 1
+}
+
+# --- Enum value normalization (same as meta-compile) ---
+$script:enumValueAliases = @{
+	"Balances" = "Balance"; "Остатки" = "Balance"; "Обороты" = "Turnovers"
+	"RecordSubordinate" = "RecorderSubordinate"; "Subordinate" = "RecorderSubordinate"
+	"ПодчинениеРегистратору" = "RecorderSubordinate"; "Независимый" = "Independent"
+	"NotDependOnCalculationTypes" = "DontUse"; "NoDependence" = "DontUse"; "NotUsed" = "DontUse"
+	"Depend" = "OnActionPeriod"; "ПоПериодуДействия" = "OnActionPeriod"
+	"None" = "Nonperiodical"; "Daily" = "Day"; "Monthly" = "Month"
+	"Quarterly" = "Quarter"; "Yearly" = "Year"
+	"Непериодический" = "Nonperiodical"; "Секунда" = "Second"; "День" = "Day"; "Месяц" = "Month"
+	"Квартал" = "Quarter"; "Год" = "Year"
+	"ПозицияРегистратора" = "RecorderPosition"
+	"Автоматический" = "Automatic"; "Управляемый" = "Managed"
+	"Использовать" = "Use"; "НеИспользовать" = "DontUse"
+	"Разрешить" = "Allow"; "Запретить" = "Deny"
+	"ВДиалоге" = "InDialog"; "ВСписке" = "InList"; "ОбаСпособа" = "BothWays"
+	"ВВидеНаименования" = "AsDescription"; "ВВидеКода" = "AsCode"
+	"НеПроверять" = "DontCheck"; "Ошибка" = "ShowError"; "Предупреждение" = "ShowWarning"
+	"НеИндексировать" = "DontIndex"; "Индексировать" = "Index"
+	"ИндексироватьСДопУпорядочиванием" = "IndexWithAdditionalOrder"
+}
+
+$script:validEnumValues = @{
+	"RegisterType"                   = @("Balance","Turnovers")
+	"WriteMode"                      = @("Independent","RecorderSubordinate")
+	"InformationRegisterPeriodicity" = @("Nonperiodical","Second","Day","Month","Quarter","Year","RecorderPosition")
+	"DependenceOnCalculationTypes"   = @("DontUse","OnActionPeriod")
+	"DataLockControlMode"            = @("Automatic","Managed")
+	"FullTextSearch"                 = @("Use","DontUse")
+	"DataHistory"                    = @("Use","DontUse")
+	"DefaultPresentation"            = @("AsDescription","AsCode")
+	"Posting"                        = @("Allow","Deny")
+	"RealTimePosting"                = @("Allow","Deny")
+	"EditType"                       = @("InDialog","InList","BothWays")
+	"HierarchyType"                  = @("HierarchyFoldersAndItems","HierarchyItemsOnly")
+	"CodeType"                       = @("String","Number")
+	"CodeAllowedLength"              = @("Variable","Fixed")
+	"NumberType"                     = @("String","Number")
+	"NumberAllowedLength"            = @("Variable","Fixed")
+	"RegisterRecordsDeletion"        = @("AutoDelete","AutoDeleteOnUnpost","AutoDeleteOff")
+	"RegisterRecordsWritingOnPost"   = @("WriteModified","WriteSelected","WriteAll")
+	"ReturnValuesReuse"              = @("DontUse","DuringRequest","DuringSession")
+	"ReuseSessions"                  = @("DontUse","AutoUse")
+	"FillChecking"                   = @("DontCheck","ShowError","ShowWarning")
+	"Indexing"                       = @("DontIndex","Index","IndexWithAdditionalOrder")
+}
+
+function Normalize-EnumValue {
+	param([string]$propName, [string]$value)
+	# 1. Check alias dictionary — silent auto-correct
+	if ($script:enumValueAliases.ContainsKey($value)) {
+		return $script:enumValueAliases[$value]
+	}
+	# 2. Case-insensitive match against valid values — silent
+	$valid = $script:validEnumValues[$propName]
+	if ($valid) {
+		foreach ($v in $valid) {
+			if ($v -ieq $value) { return $v }
+		}
+		# 3. Known property, unknown value — error with hint
+		Write-Error "Invalid value '$value' for property '$propName'. Valid values: $($valid -join ', ')"
+		exit 1
+	}
+	# 4. Unknown property — pass-through (no validation data)
+	return $value
 }
 
 # --- Load JSON definition (DefinitionFile mode) ---
@@ -756,7 +823,7 @@ function Build-AttributeFragment {
 	# FillChecking
 	$fillChecking = "DontCheck"
 	if ($parsed.flags -contains "req") { $fillChecking = "ShowError" }
-	if ($parsed.fillChecking) { $fillChecking = $parsed.fillChecking }
+	if ($parsed.fillChecking) { $fillChecking = Normalize-EnumValue "FillChecking" $parsed.fillChecking }
 	$sb.AppendLine("$indent`t`t<FillChecking>$fillChecking</FillChecking>") | Out-Null
 
 	$sb.AppendLine("$indent`t`t<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>") | Out-Null
@@ -778,7 +845,7 @@ function Build-AttributeFragment {
 		$indexing = "DontIndex"
 		if ($parsed.flags -contains "index") { $indexing = "Index" }
 		if ($parsed.flags -contains "indexadditional") { $indexing = "IndexWithAdditionalOrder" }
-		if ($parsed.indexing) { $indexing = $parsed.indexing }
+		if ($parsed.indexing) { $indexing = Normalize-EnumValue "Indexing" $parsed.indexing }
 		$sb.AppendLine("$indent`t`t<Indexing>$indexing</Indexing>") | Out-Null
 
 		$sb.AppendLine("$indent`t`t<FullTextSearch>Use</FullTextSearch>") | Out-Null
@@ -2040,6 +2107,8 @@ function Modify-ChildElements($modifyDef, [string]$childType) {
 						$valueStr = "$changeValue"
 						if ($changeValue -is [bool]) {
 							$valueStr = if ($changeValue) { "true" } else { "false" }
+						} else {
+							$valueStr = Normalize-EnumValue $changeProp $valueStr
 						}
 						$scalarEl.InnerText = $valueStr
 						Info "Modified $xmlTag '$elemName'.$changeProp = $valueStr"

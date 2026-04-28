@@ -1,4 +1,4 @@
-﻿# mxl-compile v1.0 — Compile 1C spreadsheet from JSON
+﻿# mxl-compile v1.1 — Compile 1C spreadsheet from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -294,7 +294,7 @@ $defaultFormatIndex = Register-Format -key $defaultFormatKey -props @{ Width = $
 
 # 6b. Column width formats
 $colFormatMap = @{}  # 1-based col -> format index
-foreach ($col in $colWidthMap.Keys) {
+foreach ($col in ($colWidthMap.Keys | Sort-Object)) {
 	$w = $colWidthMap[$col]
 	$key = Get-FormatKey -width $w
 	$idx = Register-Format -key $key -props @{ Width = $w }
@@ -719,7 +719,8 @@ X '</document>'
 # --- 8. Write output ---
 
 $enc = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText((Join-Path (Get-Location) $OutputPath), $xml.ToString(), $enc)
+$resolvedPath = if ([System.IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { Join-Path (Get-Location) $OutputPath }
+[System.IO.File]::WriteAllText($resolvedPath, $xml.ToString(), $enc)
 
 # --- 9. Summary ---
 

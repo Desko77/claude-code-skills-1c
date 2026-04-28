@@ -27,13 +27,21 @@ allowed-tools:
 | TemplateName  | да           | —               | Имя макета                                       |
 | TemplateType  | да           | —               | Тип: HTML, Text, SpreadsheetDocument, BinaryData, DataCompositionSchema |
 | Synonym       | нет          | = TemplateName  | Синоним макета                                   |
-| SrcDir        | нет          | `src`           | Каталог исходников                               |
-| --SetMainSKD  | нет          | —               | Принудительно установить MainDataCompositionSchema |
+| SrcDir        | нет          | `src`           | Путь к папке типа объектов (`Reports`, `DataProcessors`, `Catalogs`, `Documents`...), внутри которой лежит `<ObjectName>.xml`. Дефолт `src` подходит для каталогов с внешними обработками/отчётами, лежащими рядом |
+| -SetMainSKD   | нет          | —               | Принудительно установить MainDataCompositionSchema |
 
 ## Команда
 
 ```powershell
 powershell.exe -NoProfile -File skills/1c-template-add/scripts/add-template.ps1 -ObjectName "<ObjectName>" -TemplateName "<TemplateName>" -TemplateType "<TemplateType>" [-Synonym "<Synonym>"] [-SrcDir "<SrcDir>"] [-SetMainSKD]
+```
+
+## Пример
+
+Добавить основную СКД к отчёту в расширении:
+
+```powershell
+powershell.exe -NoProfile -File skills/1c-template-add/scripts/add-template.ps1 -ObjectName "ОтчётПродажи" -TemplateName "ОсновнаяСхемаКомпоновкиДанных" -TemplateType "DataCompositionSchema" -SrcDir "src/cfe/МоёРасширение/Reports"
 ```
 
 ## Маппинг типов

@@ -1,4 +1,4 @@
-﻿# template-add v1.1 — Add template to 1C object
+﻿# template-add v1.4 — Add template to 1C object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -35,10 +35,31 @@ $tmpl = $typeMap[$TemplateType]
 
 # --- Проверки ---
 
+$objectTypeFolders = @(
+	"Reports", "DataProcessors", "Documents", "Catalogs",
+	"InformationRegisters", "AccumulationRegisters",
+	"ChartsOfCharacteristicTypes", "ChartsOfAccounts", "ChartsOfCalculationTypes",
+	"BusinessProcesses", "Tasks", "ExchangePlans"
+)
+
 $rootXmlPath = Join-Path $SrcDir "$ObjectName.xml"
 if (-not (Test-Path $rootXmlPath)) {
-	Write-Error "Корневой файл обработки не найден: $rootXmlPath"
-	exit 1
+	$candidates = @()
+	foreach ($folder in $objectTypeFolders) {
+		$probe = Join-Path (Join-Path $SrcDir $folder) "$ObjectName.xml"
+		if (Test-Path $probe) { $candidates += (Join-Path $SrcDir $folder) }
+	}
+	if ($candidates.Count -eq 1) {
+		$SrcDir = $candidates[0]
+		$rootXmlPath = Join-Path $SrcDir "$ObjectName.xml"
+		Write-Host "[INFO] SrcDir расширен до: $SrcDir"
+	} elseif ($candidates.Count -gt 1) {
+		Write-Error "Объект '$ObjectName' найден в нескольких подпапках: $($candidates -join ', ')`nУкажи SrcDir явно"
+		exit 1
+	} else {
+		Write-Error "Корневой файл объекта не найден: $rootXmlPath`nОжидается: <SrcDir>/<ObjectName>.xml`nПодсказка: SrcDir должен указывать на папку типа объектов (например Reports), а не на корень конфигурации"
+		exit 1
+	}
 }
 
 $processorDir = Join-Path $SrcDir $ObjectName
@@ -59,13 +80,32 @@ New-Item -ItemType Directory -Path $templateExtDir -Force | Out-Null
 
 $encBom = New-Object System.Text.UTF8Encoding($true)
 
+# --- Detect format version ---
+
+function Detect-FormatVersion([string]$dir) {
+	$d = $dir
+	while ($d) {
+		$cfgPath = Join-Path $d "Configuration.xml"
+		if (Test-Path $cfgPath) {
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
+		}
+		$parent = Split-Path $d -Parent
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return "2.17"
+}
+
+$formatVersion = Detect-FormatVersion (Resolve-Path $SrcDir).Path
+
 # --- 1. Метаданные макета (Templates/<TemplateName>.xml) ---
 
 $templateUuid = [guid]::NewGuid().ToString()
 
 $templateMetaXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
-<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version=`"$formatVersion`">
 	<Template uuid="$templateUuid">
 		<Properties>
 			<Name>$TemplateName</Name>

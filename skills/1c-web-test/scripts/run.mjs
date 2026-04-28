@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// web-test run v1.2 — CLI runner for 1C web client automation
+// web-test run v1.3 — CLI runner for 1C web client automation
 // Source: https://github.com/Desko77/claude-code-skills-1c
 /**
  * CLI runner for 1C web client automation.
@@ -145,14 +145,32 @@ async function executeScript(code, { noRecord } = {}) {
         const result = await orig(...args);
         const errors = result?.errors;
         if (errors?.modal || errors?.balloon) {
+          // Screenshot while the error modal is still visible (before fetchErrorStack closes it)
+          let errorShot;
+          try {
+            const png = await exports.screenshot();
+            errorShot = resolve(__dirname, '..', 'error-shot.png');
+            writeFileSync(errorShot, png);
+          } catch {}
+          // Try to fetch call stack for modal errors before throwing
+          let stack = null;
+          if (errors?.modal && typeof exports.fetchErrorStack === 'function') {
+            try {
+              stack = await exports.fetchErrorStack(errors.modal.formNum, errors.modal.hasReport);
+            } catch { /* don't fail if stack fetch fails */ }
+          }
           const msg = errors.modal?.message || errors.balloon?.message || 'Unknown 1C error';
           const err = new Error(msg);
-          err.onecError = { step: name, args, errors, formState: result };
+          err.onecError = { step: name, args, errors, formState: result, stack, screenshot: errorShot };
           throw err;
         }
         return result;
       };
     }
+
+    // Normalize Windows backslash paths to prevent JS parse errors
+    // (e.g. C:\Users\... → \u triggers "Invalid Unicode escape sequence")
+    code = code.replace(/[A-Za-z]:\\[^\s'"`;\n)}\]]+/g, m => m.replace(/\\/g, '/'));
 
     const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
     const fn = new AsyncFunction(...Object.keys(exports), code);
@@ -170,13 +188,15 @@ async function executeScript(code, { noRecord } = {}) {
       try { await browser.stopRecording(); } catch {}
     }
 
-    // Error screenshot
-    let shotFile;
-    try {
-      const png = await browser.screenshot();
-      shotFile = resolve(__dirname, '..', 'error-shot.png');
-      writeFileSync(shotFile, png);
-    } catch {}
+    // Error screenshot (skip if already taken before fetchErrorStack closed the modal)
+    let shotFile = e.onecError?.screenshot;
+    if (!shotFile) {
+      try {
+        const png = await browser.screenshot();
+        shotFile = resolve(__dirname, '..', 'error-shot.png');
+        writeFileSync(shotFile, png);
+      } catch {}
+    }
 
     const result = { ok: false, error: e.message, output: output.join('\n'), screenshot: shotFile, elapsed: elapsed(t0) };
 
@@ -186,6 +206,7 @@ async function executeScript(code, { noRecord } = {}) {
       result.stepArgs = e.onecError.args;
       result.onecErrors = e.onecError.errors;
       result.formState = e.onecError.formState;
+      if (e.onecError.stack) result.stack = e.onecError.stack;
     }
 
     return result;
@@ -230,7 +251,7 @@ async function cmdExec(fileOrDash, flags = {}) {
   const result = await new Promise((resolve, reject) => {
     const req = http.request({
       hostname: '127.0.0.1', port: sess.port, path: '/exec',
-      method: 'POST', timeout: 10 * 60 * 1000, headers,
+      method: 'POST', timeout: 30 * 60 * 1000, headers,
     }, res => {
       let data = '';
       res.on('data', chunk => data += chunk);

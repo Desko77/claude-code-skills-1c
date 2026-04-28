@@ -6,13 +6,20 @@
 |-----------|----------|-------------|
 | `hierarchical` | `false` | Hierarchical |
 | `hierarchyType` | `HierarchyFoldersAndItems` | HierarchyType |
+| `limitLevelCount` | `false` | LimitLevelCount |
+| `levelCount` | `2` | LevelCount |
+| `foldersOnTop` | `true` | FoldersOnTop |
 | `codeLength` | `9` | CodeLength |
 | `codeType` | `String` | CodeType |
 | `codeAllowedLength` | `Variable` | CodeAllowedLength |
+| `codeSeries` | `WholeCatalog` | CodeSeries |
 | `descriptionLength` | `25` | DescriptionLength |
 | `autonumbering` | `true` | Autonumbering |
 | `checkUnique` | `false` | CheckUnique |
 | `defaultPresentation` | `AsDescription` | DefaultPresentation |
+| `subordinationUse` | `ToItems` | SubordinationUse |
+| `quickChoice` | `true` | QuickChoice |
+| `choiceMode` | `BothWays` | ChoiceMode |
 | `owners` | `[]` | Owners |
 | `attributes` | `[]` | → Attribute в ChildObjects |
 | `tabularSections` | `{}` | → TabularSection в ChildObjects |
