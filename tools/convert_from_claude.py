@@ -84,6 +84,22 @@ RULES_CONFIG = {
         "description": "Зарезервированные имена свойств в модулях форм 1С",
         "globs": ["**/*.bsl"],
     },
+    "forms_generation": {
+        "description": "Генерация и модификация форм 1С через 1c-forms-mcp",
+        "globs": ["**/Forms/**/*.xml", "**/Forms/**"],
+    },
+    "edt-form-xml-requirements": {
+        "description": "Требования EDT к XML-формам (Form.form): extInfo, дефолты полей",
+        "globs": ["**/Form.form", "**/Forms/**"],
+    },
+    "external-data-source-mdo": {
+        "description": "Внешние источники данных (ВИД) в формате EDT",
+        "globs": ["**/*.mdo", "**/ExternalDataSources/**"],
+    },
+    "bsp-profile-rights-api": {
+        "description": "Программная работа с профилями групп доступа БСП: ссылки на ИдентификаторыОбъектовМетаданных",
+        "globs": ["**/*.bsl", "**/*.os"],
+    },
 }
 
 EXCLUDE_SKILLS = {"skill-creator"}

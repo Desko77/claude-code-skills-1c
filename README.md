@@ -6,7 +6,7 @@
 
 Отдельный класс - справочники API прикладных конфигураций (см. раздел «Справочные и утилитарные»). Первый такой скил - `zup-hr-api-reference` для 1С:ЗУП 3.1.
 
-**17 правил** — стандарты кода BSL, антипаттерны, оптимизация запросов, паттерны расширений, тестирование, ревью, выбор моделей, SDD-workflow.
+**21 правило** — стандарты кода BSL, антипаттерны, оптимизация запросов, паттерны расширений, генерация форм, требования EDT, БСП API, тестирование, ревью, выбор моделей, SDD-workflow.
 
 ## Установка
 
@@ -52,6 +52,15 @@ cp commands/* ~/.claude/commands/
 | MCP-серверы (EDT, BSP, 1С:Напарник) | Нет | Анализ кода, валидация запросов, документация ИТС/платформы/конфигураций |
 
 Скилы спроектированы по слоям — базовые (генерация XML) работают без платформы, продвинутые требуют 1С или MCP.
+
+## Совместимые сторонние плагины
+
+Полезные плагины Claude Code, дополняющие этот набор:
+
+| Плагин | Установка | Что даёт |
+|--------|-----------|----------|
+| [`bsl-language-server`](https://github.com/1c-syntax/claude-code-bsl-lsp) | `/plugin marketplace add 1c-syntax/claude-code-bsl-lsp` + `/plugin install bsl-language-server@bsl-language-server` | Полноценная интеграция BSL Language Server в Claude Code как LSP — диагностики, go to definition, find references, hover, форматирование, code actions для `.bsl` и `.os` |
+| Anthropic plugins (`/plugin marketplace add anthropics/claude-plugins-official`) | `/plugin install <name>@claude-plugins-official` | `code-review`, `pr-review-toolkit` — ревью PR агентами; `mcp-server-dev` — разработка MCP-серверов; `claude-md-management` — поддержание CLAUDE.md; `hookify` — создание hooks; `security-guidance` — security-ревью |
 
 ## Скилы (86)
 
@@ -215,11 +224,11 @@ cp commands/* ~/.claude/commands/
 | `skill-creator` | Создание, тестирование и оптимизация скилов (evals, grading, description loop) |
 | `prompt-enhancer` | Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ |
 
-## Правила (17)
+## Правила (21)
 
 | Файл | Описание |
 |------|----------|
-| `1c-coding-standards.md` | Стандарты кода BSL: именование, форматирование, запросы, коллекции |
+| `1c-coding-standards.md` | Стандарты кода BSL: именование, форматирование, запросы, коллекции, директива РАЗРЕШЕННЫЕ |
 | `anti_patterns.md` | Критические антипаттерны: запрос в цикле, точка, O(n^2) |
 | `query-optimization-tips.md` | Оптимизация запросов: ВЫРАЗИТЬ, ВТ, индексы, СКД |
 | `async-methods-1c.md` | Асинхронные методы (Асинх/Ждать/Обещание) |
@@ -227,13 +236,17 @@ cp commands/* ~/.claude/commands/
 | `form_module_rules.md` | Клиент-серверное разделение в модулях форм |
 | `1c-form-reserved-names.md` | Зарезервированные имена свойств элементов в модулях форм |
 | `forms_events.md` | Привязка обработчиков событий в Form.xml |
+| `forms_generation.md` | Генерация и модификация форм 1С через 1c-forms-mcp |
+| `edt-form-xml-requirements.md` | Требования EDT к XML-формам (Form.form): extInfo, дефолты полей |
 | `code-review-checklist.md` | Чеклист ревью BSL-кода (Critical/High/Medium/Low) |
 | `code-exploration-guide.md` | Методология исследования кодовой базы 1С |
 | `testing-patterns.md` | Паттерны тестирования: YaXUnit, Vanessa Automation |
-| `1c-mdo-integrity.md` | Целостность MDO-файлов: UUID, ссылки |
+| `1c-mdo-integrity.md` | Целостность MDO-файлов: UUID, ссылки, ловушки типов String/Number |
+| `external-data-source-mdo.md` | Внешние источники данных (ВИД) в формате EDT |
 | `v8unpack-source-structure.md` | Структура исходников v8unpack |
 | `refactoring.md` | Правила рефакторинга 1С: техники, критерии, примеры BSL |
 | `routine_assignment_ext_processor.md` | Фоновые задания из внешней обработки через БСП |
+| `bsp-profile-rights-api.md` | Программная работа с профилями групп доступа БСП: ссылки на ИдентификаторыОбъектовМетаданных, шаблон создания/обновления |
 | `model-selection.md` | Стратегия выбора моделей: Opus/Sonnet/Haiku по типу задачи |
 | `sdd-workflow.md` | Specification-Driven Development: 9-фазный workflow разработки |
 
