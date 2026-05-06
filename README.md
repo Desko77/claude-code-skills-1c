@@ -2,7 +2,7 @@
 
 Набор скилов, правил и команд для [Claude Code](https://docs.anthropic.com/en/docs/claude-code), ориентированных на разработку 1С:Предприятие.
 
-**86 скилов** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С.
+**87 скилов** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С.
 
 Отдельный класс - справочники API прикладных конфигураций (см. раздел «Справочные и утилитарные»). Первый такой скил - `zup-hr-api-reference` для 1С:ЗУП 3.1.
 
@@ -62,7 +62,7 @@ cp commands/* ~/.claude/commands/
 | [`bsl-language-server`](https://github.com/1c-syntax/claude-code-bsl-lsp) | `/plugin marketplace add 1c-syntax/claude-code-bsl-lsp` + `/plugin install bsl-language-server@bsl-language-server` | Полноценная интеграция BSL Language Server в Claude Code как LSP — диагностики, go to definition, find references, hover, форматирование, code actions для `.bsl` и `.os` |
 | Anthropic plugins (`/plugin marketplace add anthropics/claude-plugins-official`) | `/plugin install <name>@claude-plugins-official` | `code-review`, `pr-review-toolkit` — ревью PR агентами; `mcp-server-dev` — разработка MCP-серверов; `claude-md-management` — поддержание CLAUDE.md; `hookify` — создание hooks; `security-guidance` — security-ревью |
 
-## Скилы (86)
+## Скилы (87)
 
 ### Маршрутизатор
 
@@ -223,6 +223,7 @@ cp commands/* ~/.claude/commands/
 | `powershell-windows` | PowerShell на Windows |
 | `skill-creator` | Создание, тестирование и оптимизация скилов (evals, grading, description loop) |
 | `prompt-enhancer` | Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ |
+| `dehumanize-ai-text` | Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления |
 
 ## Правила (21)
 
