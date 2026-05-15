@@ -73,16 +73,21 @@ allowed-tools:
 
 ## Зависимости
 
-**Локальный движок:**
-- venv с faster-whisper + ctranslate2-CUDA + ffmpeg. Путь к python.exe этого venv задаётся переменной окружения `WHISPER_PYTHON` или подставляется явно при вызове (см. инструкцию ниже).
-- Для `--diarize` (default `sherpa-onnx` GPU CUDA): `~/.claude/skills/transcribe/venv-sherpa` с GPU-сборкой `sherpa_onnx 1.13.0+cuda12.cudnn9` от k2-fsa maintainer (HuggingFace `csukuangfj2/sherpa-onnx-wheels`). Использует pyannote-segmentation-3.0 + 3D-Speaker eres2net эмбеддинги в ONNX. RTF ~0.24, никаких HF gated моделей.
-- Альтернатива `--diarize-engine pyannote`: `torch` + `pyannote.audio>=4` в основном venv, `HF_TOKEN` в `.env` (read-токен с принятыми условиями `pyannote/speaker-diarization-3.1`, `pyannote/segmentation-3.0`, `pyannote/speaker-diarization-community-1`). RTF ~0.36, чуть медленнее sherpa.
-- CUDA GPU обязателен для обоих движков
+Все зависимости ставятся одним скриптом:
 
-**Gemini движок:**
-- Python-пакеты: `google-genai`, `python-dotenv`
-- Системные: `ffmpeg`, `ffprobe` в PATH
-- API-ключ в `~/.claude/skills/transcribe/.env`: `GEMINI_API_KEY=...`
+```bash
+python ~/.claude/skills/transcribe/scripts/setup.py
+```
+
+Подробности в `README.md`. Скрипт создаёт:
+- `~/.claude/skills/transcribe/venv-whisper/` - faster-whisper + ctranslate2-CUDA + google-genai + python-dotenv
+- `~/.claude/skills/transcribe/venv-sherpa/` - sherpa-onnx GPU + onnxruntime-gpu (для диаризации)
+- `~/.claude/skills/transcribe/models/` - pyannote-segmentation-3.0 + 3D-Speaker eres2net
+- `~/.claude/skills/transcribe/.env` - шаблон, заполнить `GEMINI_API_KEY` для Gemini-режима
+
+Системные: `ffmpeg`, `ffprobe` в PATH; NVIDIA GPU + CUDA 12 + cuDNN 9 для GPU.
+
+Альтернативная диаризация `--diarize-engine pyannote` (4.x) ставится отдельно: `python scripts/setup.py --with-pyannote`. Требует `HF_TOKEN` в `.env`. По умолчанию используется sherpa-onnx (без gated моделей).
 
 ## Инструкция
 
@@ -92,12 +97,12 @@ allowed-tools:
 
 ```bash
 PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 \
-  "$WHISPER_PYTHON" \
+  ~/.claude/skills/transcribe/venv-whisper/Scripts/python.exe \
   ~/.claude/skills/transcribe/scripts/transcribe_local.py \
   "<FilePath>" [--output-dir "<OutputDir>"] [--diarize] [--num-speakers N] [--min-speakers N] [--max-speakers N]
 ```
 
-Где `$WHISPER_PYTHON` - путь к `python.exe` venv с faster-whisper (например `C:\envs\whisper\Scripts\python.exe`). Задаётся пользователем при настройке скила, либо подставляется напрямую вместо `"$WHISPER_PYTHON"`.
+На Linux/Mac: `venv-whisper/bin/python` вместо `venv-whisper/Scripts/python.exe`.
 
 Локальный пайплайн:
 - Транскрипция и диаризация запускаются в **отдельных subprocess параллельно** (изоляция CUDA-DLL ctranslate2 vs torch).
@@ -108,7 +113,10 @@ PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 \
 3. Иначе (видео, или явный `--engine gemini`, или `--analyze-ui`) — запускай Gemini:
 
 ```bash
-PYTHONUNBUFFERED=1 python ~/.claude/skills/transcribe/scripts/transcribe.py "<FilePath>" [--output-dir "<OutputDir>"] [--analyze-ui] [--with-summary] [--format md|txt]
+PYTHONUNBUFFERED=1 \
+  ~/.claude/skills/transcribe/venv-whisper/Scripts/python.exe \
+  ~/.claude/skills/transcribe/scripts/transcribe.py \
+  "<FilePath>" [--output-dir "<OutputDir>"] [--analyze-ui] [--with-summary] [--format md|txt]
 ```
 
 Скрипт долгий (5-15 мин), файлы >1 ч разбиваются автоматически.

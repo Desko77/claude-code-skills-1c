@@ -1,0 +1,7 @@
+venv-whisper/
+venv-sherpa/
+models/
+.env
+*.crash.log
+__pycache__/
+*.pyc
