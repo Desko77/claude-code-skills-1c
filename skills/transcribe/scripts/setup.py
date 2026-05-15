@@ -122,29 +122,51 @@ def run(cmd: list[str], **kwargs) -> int:
 
 
 REQUIRED_GB = 6.0
+MIN_DRIVER_VERSION = (525, 0)  # минимум для CUDA 12.0+
 
 
-def check_gpu() -> bool:
-    """Probe NVIDIA GPU через nvidia-smi. Возвращает True если GPU найден."""
+def check_gpu() -> tuple[bool, bool]:
+    """Probe NVIDIA GPU + версия драйвера. Возвращает (gpu_found, driver_ok)."""
     if not shutil.which("nvidia-smi"):
-        return False
+        return False, False
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            ["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"],
             capture_output=True, text=True, timeout=10,
         )
-        if result.returncode == 0 and result.stdout.strip():
-            for line in result.stdout.strip().splitlines():
-                info(f"OK:   GPU: {line.strip()}")
-            return True
+        if result.returncode != 0 or not result.stdout.strip():
+            return False, False
     except (subprocess.SubprocessError, OSError):
-        pass
-    return False
+        return False, False
+
+    driver_ok = True
+    for line in result.stdout.strip().splitlines():
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 3:
+            continue
+        name, mem, driver_ver = parts[0], parts[1], parts[2]
+        info(f"OK:   GPU: {name} ({mem})")
+        info(f"OK:   Драйвер NVIDIA: {driver_ver}")
+        try:
+            major_minor = tuple(int(x) for x in driver_ver.split(".")[:2])
+            if major_minor < MIN_DRIVER_VERSION:
+                driver_ok = False
+                info(f"WARN: Драйвер {driver_ver} ниже минимального {MIN_DRIVER_VERSION[0]}.x для CUDA 12")
+                info("      Обновите драйверы NVIDIA:")
+                info("      - Windows: https://www.nvidia.com/Download/index.aspx или GeForce Experience")
+                info("      - Linux: см. инструкцию вашего дистрибутива (apt install nvidia-driver-550 и т.п.)")
+                info("      Без обновления faster-whisper / sherpa-onnx могут падать с CUDA errors.")
+        except ValueError:
+            info(f"WARN: Не удалось распарсить версию драйвера '{driver_ver}'")
+
+    return True, driver_ok
 
 
-def check_requirements(allow_cpu: bool = False) -> bool:
+def check_requirements(allow_cpu: bool = False) -> tuple[bool, bool]:
+    """Возвращает (ok, need_static_ffmpeg)."""
     step("Проверка требований")
     ok = True
+    need_static_ffmpeg = False
     py_version = sys.version_info
     if py_version < (3, 10):
         info(f"FAIL: Python {py_version.major}.{py_version.minor} < 3.10")
@@ -152,17 +174,22 @@ def check_requirements(allow_cpu: bool = False) -> bool:
     else:
         info(f"OK:   Python {py_version.major}.{py_version.minor}.{py_version.micro}")
 
-    if not shutil.which("ffmpeg"):
-        info("FAIL: ffmpeg не найден в PATH")
-        info("      Скачайте с https://www.gyan.dev/ffmpeg/builds/ (Windows) или apt install ffmpeg (Linux)")
-        ok = False
+    has_ffmpeg = bool(shutil.which("ffmpeg"))
+    has_ffprobe = bool(shutil.which("ffprobe"))
+    if not has_ffmpeg or not has_ffprobe:
+        missing = []
+        if not has_ffmpeg:
+            missing.append("ffmpeg")
+        if not has_ffprobe:
+            missing.append("ffprobe")
+        info(f"INFO: не найдено в PATH: {', '.join(missing)}. Будет установлен static-ffmpeg в venv-whisper.")
+        need_static_ffmpeg = True
     else:
         info(f"OK:   ffmpeg в {shutil.which('ffmpeg')}")
+        info(f"OK:   ffprobe в {shutil.which('ffprobe')}")
 
-    if not shutil.which("ffprobe"):
-        info("WARN: ffprobe не найден (нужен для разбивки видео >1ч в Gemini-режиме)")
-
-    if not check_gpu():
+    gpu_found, _driver_ok = check_gpu()
+    if not gpu_found:
         if allow_cpu:
             info("WARN: NVIDIA GPU не найден (nvidia-smi). Установка продолжится для CPU-режима.")
             info("      Транскрипция будет работать, но в 10+ раз медленнее. Запуск с --device cpu.")
@@ -183,7 +210,7 @@ def check_requirements(allow_cpu: bool = False) -> bool:
         info(f"WARN: Не удалось проверить свободное место: {e}")
 
     info(f"Платформа: {'Windows' if IS_WIN else sys.platform}")
-    return ok
+    return ok, need_static_ffmpeg
 
 
 def create_venv(venv_path: Path) -> Path:
@@ -211,7 +238,7 @@ def pip_install(py: Path, packages: list[str], extra_args: list[str] | None = No
         raise RuntimeError(f"pip install упал на: {packages}")
 
 
-def install_whisper(skip: bool, skip_gemini: bool, with_pyannote: bool) -> None:
+def install_whisper(skip: bool, skip_gemini: bool, with_pyannote: bool, install_static_ffmpeg: bool) -> None:
     step("venv-whisper: faster-whisper + Gemini + опц. pyannote")
     if skip:
         info("Пропускаем по флагу --skip-whisper")
@@ -224,6 +251,9 @@ def install_whisper(skip: bool, skip_gemini: bool, with_pyannote: bool) -> None:
     if with_pyannote:
         info("Установка pyannote.audio 4.x (требует HF_TOKEN в .env при использовании)")
         pip_install(py, PYANNOTE_PACKAGES)
+    if install_static_ffmpeg:
+        info("Установка static-ffmpeg (ffmpeg+ffprobe бинарники как pip-пакет)")
+        pip_install(py, ["static-ffmpeg"])
     info("OK")
 
 
@@ -333,12 +363,14 @@ def main() -> int:
     ap.add_argument("--allow-cpu", action="store_true", help="Разрешить установку без GPU (CPU-режим, в 10+ раз медленнее)")
     args = ap.parse_args()
 
-    if not check_requirements(allow_cpu=args.allow_cpu):
+    ok, need_static_ffmpeg = check_requirements(allow_cpu=args.allow_cpu)
+    if not ok:
         print("\nПроверка требований не пройдена. Исправьте и повторите.", file=sys.stderr)
         return 1
 
     try:
-        install_whisper(args.skip_whisper, args.skip_gemini, args.with_pyannote)
+        install_whisper(args.skip_whisper, args.skip_gemini, args.with_pyannote,
+                        install_static_ffmpeg=need_static_ffmpeg)
         install_sherpa(args.skip_sherpa)
         download_models(args.skip_models)
         create_env_template(args.skip_gemini)

@@ -28,6 +28,14 @@ import os
 import subprocess
 import sys
 import time
+
+# Подключаем ffmpeg из static-ffmpeg если он установлен (когда системного ffmpeg нет в PATH).
+# subprocess'ы наследуют PATH, поэтому worker'ам ffmpeg тоже будет доступен.
+try:
+    from static_ffmpeg import add_paths as _sff_add_paths
+    _sff_add_paths()
+except ImportError:
+    pass
 import traceback
 from pathlib import Path
 

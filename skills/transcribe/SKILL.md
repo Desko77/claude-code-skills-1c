@@ -42,7 +42,18 @@ allowed-tools:
    python ~/.claude/skills/transcribe/scripts/setup.py
    ```
 
-   Если у машины нет NVIDIA GPU - setup сразу упадёт с FAIL. Уточни у пользователя, согласен ли он на CPU-режим, и перезапусти с `--allow-cpu`.
+   Что setup сделает сам:
+   - Создаст venv-whisper (faster-whisper + Gemini SDK + CUDA) и venv-sherpa
+   - Если `ffmpeg`/`ffprobe` нет в PATH — поставит `static-ffmpeg` в venv-whisper. Без прав админа.
+   - Скачает модели диаризации
+   - Проверит версию NVIDIA-драйверов и предупредит, если ниже 525.x
+   - Создаст шаблон `.env` (пустой `GEMINI_API_KEY`)
+
+   Что setup НЕ может сделать сам:
+   - Установить системные NVIDIA-драйверы / CUDA Toolkit (нужны админ-права)
+   - Получить `GEMINI_API_KEY` за пользователя
+
+   Если у машины нет GPU - setup упадёт с FAIL. Уточни у пользователя про CPU-режим и перезапусти с `--allow-cpu`.
 
 3. **Запроси у пользователя ключ Gemini** (если планируется работа с видео или `--analyze-ui`). Открой `~/.claude/skills/transcribe/.env` и впиши `GEMINI_API_KEY=...`. Ключ берётся на https://aistudio.google.com/apikey. Без ключа локальный режим (только аудио) работает.
 

@@ -12,7 +12,7 @@
 
 - **Python 3.10+** (рекомендуется 3.12)
 - **NVIDIA GPU** с CUDA 12 и cuDNN 9 (для локального GPU режима)
-- **ffmpeg** и **ffprobe** в PATH ([Windows](https://www.gyan.dev/ffmpeg/builds/) или `apt install ffmpeg`)
+- **ffmpeg** и **ffprobe** — либо в PATH, либо setup поставит `static-ffmpeg` (pip-пакет с обоими бинарниками) в venv-whisper автоматически. Системные права не нужны.
 - **Windows x64** или **Linux x64**
 - **~6 ГБ свободного места** (venv-whisper ~2 ГБ, venv-sherpa ~3 ГБ, модели ~91 МБ)
 - Для Gemini-режима: API-ключ с https://aistudio.google.com/apikey

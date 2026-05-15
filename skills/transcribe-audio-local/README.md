@@ -10,7 +10,7 @@
 
 - **Python 3.10+** (рекомендуется 3.12)
 - **NVIDIA GPU** с CUDA 12 и cuDNN 9 (для GPU режима)
-- **ffmpeg** в PATH ([Windows builds](https://www.gyan.dev/ffmpeg/builds/) или `apt install ffmpeg`)
+- **ffmpeg** — либо в PATH, либо setup поставит `static-ffmpeg` (pip-пакет) в venv-whisper автоматически. Системные права не нужны.
 - **Windows x64** или **Linux x64**
 - **~5 ГБ свободного места** (venv-whisper ~2 ГБ, venv-sherpa ~3 ГБ, модели ~91 МБ)
 

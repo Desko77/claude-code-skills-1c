@@ -136,11 +136,34 @@ def main() -> int:
     print(f"Скил: {SKILL_ROOT}\n", flush=True)
     print("Проверка установки:", flush=True)
 
-    check("ffmpeg в PATH", "OK" if shutil.which("ffmpeg") else "FAIL",
-          shutil.which("ffmpeg") or "не найден")
-
-    check("ffprobe в PATH", "OK" if shutil.which("ffprobe") else "WARN",
-          shutil.which("ffprobe") or "не найден (нужен для разбивки видео >1ч)")
+    ffmpeg_path = shutil.which("ffmpeg")
+    ffprobe_path = shutil.which("ffprobe")
+    if ffmpeg_path and ffprobe_path:
+        check("ffmpeg", "OK", f"в PATH: {ffmpeg_path}")
+        check("ffprobe", "OK", f"в PATH: {ffprobe_path}")
+    elif VENV_WHISPER_PY.exists():
+        try:
+            r = subprocess.run(
+                [str(VENV_WHISPER_PY), "-c",
+                 "from static_ffmpeg import add_paths; add_paths(); "
+                 "import shutil; "
+                 "print((shutil.which('ffmpeg') or 'NOT_FOUND') + '|' + (shutil.which('ffprobe') or 'NOT_FOUND'))"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if r.returncode == 0:
+                ff, fp = r.stdout.strip().split("|", 1)
+                check("ffmpeg", "OK" if ff != "NOT_FOUND" else "FAIL",
+                      f"через static-ffmpeg: {ff}" if ff != "NOT_FOUND" else "не найден")
+                check("ffprobe", "OK" if fp != "NOT_FOUND" else "WARN",
+                      f"через static-ffmpeg: {fp}" if fp != "NOT_FOUND" else "не найден (нужен для разбивки видео >1ч)")
+            else:
+                check("ffmpeg", "FAIL", "не найден в PATH, static-ffmpeg недоступен в venv-whisper")
+        except (subprocess.SubprocessError, OSError) as e:
+            check("ffmpeg", "FAIL", f"не найден в PATH, static-ffmpeg check failed: {e}")
+    else:
+        check("ffmpeg", "FAIL", "не найден в PATH")
+        if not ffprobe_path:
+            check("ffprobe", "WARN", "не найден (нужен для разбивки видео >1ч)")
 
     check_venv("whisper", VENV_WHISPER_PY,
                "import faster_whisper; "

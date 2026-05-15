@@ -28,6 +28,13 @@ import tempfile
 import time
 from pathlib import Path
 
+# Подключаем ffmpeg/ffprobe из static-ffmpeg если есть (когда системного ffmpeg нет в PATH)
+try:
+    from static_ffmpeg import add_paths as _sff_add_paths
+    _sff_add_paths()
+except ImportError:
+    pass
+
 from dotenv import load_dotenv
 
 # Загрузка .env: приоритет transcribe > video-transcribe > cwd

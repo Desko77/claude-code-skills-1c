@@ -114,7 +114,24 @@ def main() -> int:
     print(f"Скил: {SKILL_ROOT}\n", flush=True)
     print("Проверка установки:", flush=True)
 
-    check("ffmpeg в PATH", bool(shutil.which("ffmpeg")), shutil.which("ffmpeg") or "не найден")
+    ffmpeg_path = shutil.which("ffmpeg")
+    if ffmpeg_path:
+        check("ffmpeg", True, f"в PATH: {ffmpeg_path}")
+    else:
+        # Может быть установлен через static-ffmpeg в venv-whisper
+        try:
+            r = subprocess.run(
+                [str(VENV_WHISPER_PY), "-c",
+                 "from static_ffmpeg import add_paths; add_paths(); "
+                 "import shutil; print(shutil.which('ffmpeg') or 'NOT_FOUND')"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if r.returncode == 0 and "NOT_FOUND" not in r.stdout:
+                check("ffmpeg", True, f"через static-ffmpeg в venv-whisper: {r.stdout.strip()}")
+            else:
+                check("ffmpeg", False, "не найден ни в PATH, ни через static-ffmpeg")
+        except (subprocess.SubprocessError, OSError) as e:
+            check("ffmpeg", False, f"не найден в PATH, static-ffmpeg тоже недоступен: {e}")
 
     check_venv("whisper", VENV_WHISPER_PY,
                "import faster_whisper; print('faster-whisper', faster_whisper.__version__)")

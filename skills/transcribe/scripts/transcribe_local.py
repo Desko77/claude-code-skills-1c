@@ -30,6 +30,13 @@ import time
 import traceback
 from pathlib import Path
 
+# Подключаем ffmpeg из static-ffmpeg если есть (subprocess наследует PATH).
+try:
+    from static_ffmpeg import add_paths as _sff_add_paths
+    _sff_add_paths()
+except ImportError:
+    pass
+
 
 def _setup_cuda_dll_path() -> None:
     """Добавить bin-директории nvidia.* пакетов в PATH и DLL search (Windows, CUDA 12)."""
