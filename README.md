@@ -2,7 +2,7 @@
 
 Набор скилов, правил и команд для [Claude Code](https://docs.anthropic.com/en/docs/claude-code), ориентированных на разработку 1С:Предприятие.
 
-**87 скилов** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С.
+**88 скилов** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С.
 
 Отдельный класс - справочники API прикладных конфигураций (см. раздел «Справочные и утилитарные»). Первый такой скил - `zup-hr-api-reference` для 1С:ЗУП 3.1.
 
@@ -47,8 +47,8 @@ cp commands/* ~/.claude/commands/
 | [v8unpack](https://pypi.org/project/v8unpack/) | Нет | Распаковка/сборка CF/CFE/EPF без платформы |
 | 1C:Enterprise 8.3 | Нет | Скилы группы `db-*`, сборка EPF/ERF |
 | Node.js + npm-пакет `docx` | Нет | `md-to-docx` (конвертация Markdown → DOCX) |
-| Python: `google-genai`, `python-dotenv` | Нет | `transcribe` (транскрибация через Gemini API) |
-| `ffmpeg`, `ffprobe` | Нет | `transcribe` (извлечение скриншотов, разбивка длинных файлов) |
+| `ffmpeg`, `ffprobe` | Нет | `transcribe`, `transcribe-audio-local` (извлечение аудио, разбивка длинных файлов) |
+| NVIDIA GPU + CUDA 12 + cuDNN 9 | Нет | `transcribe`, `transcribe-audio-local` (локальный движок faster-whisper + sherpa-onnx). CPU тоже работает, но в 10+ раз медленнее |
 | MCP-серверы (EDT, BSP, 1С:Напарник) | Нет | Анализ кода, валидация запросов, документация ИТС/платформы/конфигураций |
 
 Скилы спроектированы по слоям — базовые (генерация XML) работают без платформы, продвинутые требуют 1С или MCP.
@@ -218,7 +218,8 @@ cp commands/* ~/.claude/commands/
 | `v8unpack-cf` | Распаковка/сборка CF/CFE/EPF |
 | `img-grid-analysis` | Анализ изображений для макетов |
 | `md-to-docx` | Конвертация Markdown в DOCX |
-| `transcribe` | Транскрибация аудио/видео через Gemini API (generic + анализ интерфейсов) |
+| `transcribe` | Транскрибация аудио (локально, faster-whisper + sherpa-onnx GPU) и видео (Gemini API). Установка через `scripts/setup.py` |
+| `transcribe-audio-local` | Только аудио, только локально, self-contained — для передачи на другую машину без облака |
 | `mermaid-diagrams` | Генерация диаграмм Mermaid |
 | `powershell-windows` | PowerShell на Windows |
 | `skill-creator` | Создание, тестирование и оптимизация скилов (evals, grading, description loop) |

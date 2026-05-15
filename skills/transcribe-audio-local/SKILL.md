@@ -22,6 +22,33 @@ python scripts/setup.py
 
 Подробнее в `README.md`. После установки venv-whisper и venv-sherpa создаются рядом со скилом, модели качаются в `models/`.
 
+## Для агента (Claude Code и подобные)
+
+**Workflow первого использования:**
+
+1. **Проверь, установлен ли скил** — есть ли файл `~/.claude/skills/transcribe-audio-local/venv-whisper/Scripts/python.exe` (на Linux: `venv-whisper/bin/python`). Если есть - переходи к шагу 4.
+
+2. **Если не установлен — запусти setup**. Установка занимает 10-20 минут (faster-whisper + ctranslate2-CUDA + sherpa-onnx + скачивание моделей). Дефолтный Bash-таймаут 2 минуты не подходит:
+
+   - В Claude Code Bash tool используй `run_in_background: true` или `timeout: 1500000` (25 мин).
+   - В других runtime - аналогичный длинный таймаут.
+
+   ```bash
+   python ~/.claude/skills/transcribe-audio-local/scripts/setup.py
+   ```
+
+   Если у машины нет NVIDIA GPU - setup сразу упадёт с FAIL. Уточни у пользователя, согласен ли он на CPU-режим (в 10+ раз медленнее), и перезапусти с флагом `--allow-cpu`.
+
+3. **Проверь установку** smoke-тестом (1-2 минуты, с реальной транскрипцией):
+
+   ```bash
+   python ~/.claude/skills/transcribe-audio-local/scripts/verify.py --full
+   ```
+
+   Без `--full` (5 сек) - только проверка наличия venv'ов и моделей, без реального прогона.
+
+4. **Транскрибируй файл** (см. секцию «Инструкция» ниже). На CPU добавляй `--device cpu --compute-type int8`.
+
 ## Режимы
 
 ### Без диаризации (default)

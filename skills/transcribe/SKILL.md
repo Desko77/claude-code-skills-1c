@@ -27,6 +27,35 @@ allowed-tools:
 
 Если Gemini API возвращает 503 / квоту — fallback на local для аудио.
 
+## Для агента (Claude Code и подобные)
+
+**Workflow первого использования:**
+
+1. **Проверь, установлен ли скил** — есть ли файл `~/.claude/skills/transcribe/venv-whisper/Scripts/python.exe` (на Linux: `venv-whisper/bin/python`). Если есть - переходи к шагу 4.
+
+2. **Если не установлен — запусти setup**. Установка занимает 15-25 минут (faster-whisper + Gemini + sherpa-onnx + скачивание моделей). Дефолтный Bash-таймаут 2 минуты не подходит:
+
+   - В Claude Code Bash tool используй `run_in_background: true` или `timeout: 1800000` (30 мин).
+   - В других runtime - аналогичный длинный таймаут.
+
+   ```bash
+   python ~/.claude/skills/transcribe/scripts/setup.py
+   ```
+
+   Если у машины нет NVIDIA GPU - setup сразу упадёт с FAIL. Уточни у пользователя, согласен ли он на CPU-режим, и перезапусти с `--allow-cpu`.
+
+3. **Запроси у пользователя ключ Gemini** (если планируется работа с видео или `--analyze-ui`). Открой `~/.claude/skills/transcribe/.env` и впиши `GEMINI_API_KEY=...`. Ключ берётся на https://aistudio.google.com/apikey. Без ключа локальный режим (только аудио) работает.
+
+4. **Проверь установку**:
+
+   ```bash
+   python ~/.claude/skills/transcribe/scripts/verify.py --full
+   ```
+
+   Без `--full` (5 сек) - только проверка venv/моделей. С `--full` (1-2 мин) - реальный прогон транскрипции.
+
+5. **Транскрибируй файл** (см. секцию «Инструкция» ниже).
+
 ## Режимы
 
 ### Локальный (аудио + faster-whisper + опц. pyannote)

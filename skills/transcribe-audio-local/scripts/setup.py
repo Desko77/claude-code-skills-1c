@@ -93,7 +93,28 @@ def run(cmd: list[str], **kwargs) -> int:
     return subprocess.run(cmd, **kwargs).returncode
 
 
-def check_requirements() -> bool:
+REQUIRED_GB = 5.0
+
+
+def check_gpu() -> bool:
+    """Probe NVIDIA GPU через nvidia-smi. Возвращает True если GPU найден."""
+    if not shutil.which("nvidia-smi"):
+        return False
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            for line in result.stdout.strip().splitlines():
+                info(f"OK:   GPU: {line.strip()}")
+            return True
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return False
+
+
+def check_requirements(allow_cpu: bool = False) -> bool:
     step("Проверка требований")
     ok = True
 
@@ -111,11 +132,27 @@ def check_requirements() -> bool:
     else:
         info(f"OK:   ffmpeg в {shutil.which('ffmpeg')}")
 
-    if IS_WIN:
-        info("Платформа: Windows")
-    else:
-        info(f"Платформа: {sys.platform}")
+    if not check_gpu():
+        if allow_cpu:
+            info("WARN: NVIDIA GPU не найден (nvidia-smi). Установка продолжится для CPU-режима.")
+            info("      Транскрипция будет работать, но в 10+ раз медленнее. Запуск с --device cpu.")
+        else:
+            info("FAIL: NVIDIA GPU не найден (nvidia-smi). Скил настроен для CUDA GPU.")
+            info("      Если у вас нет GPU - перезапустите setup с флагом --allow-cpu")
+            info("      Если GPU есть, но nvidia-smi не работает - установите драйверы NVIDIA + CUDA 12.")
+            ok = False
 
+    try:
+        free_gb = shutil.disk_usage(SKILL_ROOT).free / (1024 ** 3)
+        if free_gb < REQUIRED_GB:
+            info(f"FAIL: Свободного места {free_gb:.1f} GB < требуется {REQUIRED_GB} GB")
+            ok = False
+        else:
+            info(f"OK:   Свободно на диске: {free_gb:.1f} GB")
+    except OSError as e:
+        info(f"WARN: Не удалось проверить свободное место: {e}")
+
+    info(f"Платформа: {'Windows' if IS_WIN else sys.platform}")
     return ok
 
 
@@ -254,9 +291,10 @@ def main() -> int:
     ap.add_argument("--skip-whisper", action="store_true", help="Не пересоздавать venv-whisper")
     ap.add_argument("--skip-sherpa", action="store_true", help="Не ставить sherpa (без диаризации)")
     ap.add_argument("--skip-models", action="store_true", help="Не скачивать модели")
+    ap.add_argument("--allow-cpu", action="store_true", help="Разрешить установку без GPU (CPU-режим, в 10+ раз медленнее)")
     args = ap.parse_args()
 
-    if not check_requirements():
+    if not check_requirements(allow_cpu=args.allow_cpu):
         print("\nПроверка требований не пройдена. Исправьте и повторите.", file=sys.stderr)
         return 1
 

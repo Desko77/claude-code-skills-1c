@@ -43,6 +43,20 @@ python ~/.claude/skills/transcribe/scripts/setup.py
 | `--skip-models` | Модели уже скачаны |
 | `--skip-gemini` | Только локальный движок, без Gemini |
 | `--with-pyannote` | Доп. поставить pyannote.audio 4.x для fallback диаризации (требует HF_TOKEN) |
+| `--allow-cpu` | Разрешить установку на машине без NVIDIA GPU (CPU-режим, в 10+ раз медленнее) |
+
+### Проверка установки
+
+```bash
+python scripts/verify.py             # быстрая проверка (5 сек)
+python scripts/verify.py --full      # с реальным прогоном локальной транскрипции (~1-2 мин)
+```
+
+Что проверяется: venv-whisper (faster-whisper + google-genai) и venv-sherpa с импортами, модели, ffmpeg/ffprobe в PATH, заполнен ли `GEMINI_API_KEY` в `.env`. С `--full` дополнительно запускает локальную транскрипцию tiny-модели.
+
+### Для AI-агентов
+
+Установка длинная (~20-30 минут с загрузкой моделей и Gemini-зависимостей). Перед запуском `setup.py` через subprocess/Bash увеличьте таймаут до 30 минут или используйте фоновый режим. См. раздел «Для агента» в `SKILL.md`.
 
 ### Заполнить .env
 
