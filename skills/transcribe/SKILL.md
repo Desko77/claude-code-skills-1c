@@ -13,7 +13,7 @@ allowed-tools:
 Два движка:
 
 - **Локальный (default для аудио)**: `faster-whisper` (CUDA) + опц. диаризация `sherpa-onnx GPU` (CUDA) с моделями pyannote-segmentation-3.0 + 3D-Speaker eres2net. Нет затрат, не уходит наружу. На RTX 5070 Ti Laptop: ~6-7 мин на 30 мин аудио (RTF ~0.24). **Только для аудио.** Альтернативный движок диаризации `--diarize-engine pyannote` (4.x, GPU, RTF 0.36).
-- **Gemini (default для видео и `--analyze-ui`)**: облачный API, ~$0.10/час. Нужен интернет и квота.
+- **Gemini (default для видео и `--analyze-ui`)**: облачный API, ~$0.10/час. Нужен интернет и квота. Стартовая модель `gemini-flash-latest`; при перегрузке (503/429) автоматически перебирает пул моделей Gemini (flash -> flash-lite -> pro), пока одна не ответит.
 
 ## Выбор движка по умолчанию
 
@@ -25,7 +25,7 @@ allowed-tools:
 | Любой + `--engine gemini` | gemini | Явный override |
 | Любой + `--engine local` (только аудио) | local | Явный override |
 
-Если Gemini API возвращает 503 / квоту — fallback на local для аудио.
+Если все модели пула Gemini возвращают 503 / квоту - fallback на local для аудио.
 
 ## Для агента (Claude Code и подобные)
 

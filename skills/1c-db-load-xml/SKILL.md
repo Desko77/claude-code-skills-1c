@@ -109,3 +109,51 @@ powershell.exe -NoProfile -File skills/1c-db-load-xml/scripts/db-load-xml.ps1 -I
 # Загрузка + обновление БД в одном запуске
 powershell.exe -NoProfile -File skills/1c-db-load-xml/scripts/db-load-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\cfsrc" -Mode Full -UpdateDB
 ```
+
+## Troubleshooting загрузки расширений
+
+### Загрузка виснет на 60+ секунд, /Out пустой, без ошибки
+
+**Причина: блок прав на новый Enum в `Roles/<Role>/Ext/Rights.xml`.**
+
+EDT при выгрузке роли в XML может включить в Rights.xml блок:
+```xml
+<object>
+    <name>Enum.<НовоеПеречисление></name>
+    <right><name>Read</name><value>true</value></right>
+    <right><name>View</name><value>true</value></right>
+</object>
+```
+
+Платформа 8.3.27 (DESIGNER) виснет на резолве этих прав при `LoadConfigFromFiles -Extension`. Обходной путь — удалить блок из `Rights.xml` перед загрузкой:
+
+```powershell
+# Pre-flight check: найти права на Enum в ролях расширения
+Get-ChildItem -Path "$ConfigDir\Roles" -Recurse -Filter "Rights.xml" | ForEach-Object {
+    $content = Get-Content $_.FullName -Raw
+    if ($content -match '<name>Enum\.[^<]+</name>') {
+        Write-Warning "Найдены права на Enum в $($_.FullName) — могут вызвать зависание загрузки"
+    }
+}
+```
+
+После удаления — перевыгрузить роль в EDT (снять права на Enum) или отредактировать Rights.xml перед каждой загрузкой.
+
+### Сборка диагностики при зависании
+
+1. Прибить процесс: `Get-Process -Name '1cv8' | Stop-Process -Force`
+2. Удалить лок: `Remove-Item "<DbPath>\1Cv8.cfl" -Force`
+3. Включить технологический журнал и повторить — см. `logcfg.xml` в `C:\Program Files\1cv8\conf\`
+4. Если /Out пустой 60+ сек — почти наверняка проблема в Rights.xml ролей или в кросс-ссылках между новыми объектами
+
+### Двухпроходная загрузка (для проблемных расширений)
+
+Если расширение добавляет новые объекты + роль с правами на них:
+
+```powershell
+# Проход 1: всё кроме роли (или с минимальной ролью)
+db-load-xml.ps1 -ConfigDir <path-without-role> -Extension <name> -UpdateDB
+
+# Проход 2: полная выгрузка с ролью (объекты уже в БД-схеме)
+db-load-xml.ps1 -ConfigDir <full-path> -Extension <name> -UpdateDB
+```

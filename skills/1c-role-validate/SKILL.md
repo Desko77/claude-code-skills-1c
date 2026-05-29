@@ -25,3 +25,16 @@ allowed-tools:
 ```powershell
 powershell.exe -NoProfile -File skills/1c-role-validate/scripts/role-validate.ps1 -RightsPath "Roles/МояРоль"
 ```
+
+## Дополнительно — проверка прав на перечисления
+
+После запуска валидатора отдельно проверь наличие прав на `Enum.*` в Rights.xml — это анти-паттерн в любой роли:
+
+```powershell
+$content = Get-Content -Raw "Roles/МояРоль/Ext/Rights.xml"
+if ($content -match '<name>Enum\.[^<]+</name>') {
+    Write-Warning "Найдены права на перечисления — удалить (Enum общедоступны, явные права избыточны и ломают LoadConfigFromFiles)"
+}
+```
+
+Если найдены — предложить пользователю удалить блоки `<object><name>Enum.*</name>...</object>`. См. `1c-role-rights.md`.

@@ -2,11 +2,11 @@
 
 Набор скилов, правил и команд для [Claude Code](https://docs.anthropic.com/en/docs/claude-code), ориентированных на разработку 1С:Предприятие.
 
-**88 скилов** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С.
+**94 скила** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С, а также разработкой под 1С 7.7, правилами обмена «Конвертация данных» и интеграцией с Mobile SMARTS (Клеверенс).
 
 Отдельный класс - справочники API прикладных конфигураций (см. раздел «Справочные и утилитарные»). Первый такой скил - `zup-hr-api-reference` для 1С:ЗУП 3.1.
 
-**21 правило** — стандарты кода BSL, антипаттерны, оптимизация запросов, паттерны расширений, генерация форм, требования EDT, БСП API, тестирование, ревью, выбор моделей, SDD-workflow.
+**25 правил** — стандарты кода BSL, антипаттерны, оптимизация запросов, паттерны расширений, генерация форм, требования EDT, БСП API, права ролей, прямой запрос в отчётах, грабли экспорта EDT, верификация работы агента, тестирование, ревью, выбор моделей, SDD-workflow.
 
 ## Установка
 
@@ -49,6 +49,9 @@ cp commands/* ~/.claude/commands/
 | Node.js + npm-пакет `docx` | Нет | `md-to-docx` (конвертация Markdown → DOCX) |
 | `ffmpeg`, `ffprobe` | Нет | `transcribe`, `transcribe-audio-local` (извлечение аудио, разбивка длинных файлов) |
 | NVIDIA GPU + CUDA 12 + cuDNN 9 | Нет | `transcribe`, `transcribe-audio-local` (локальный движок faster-whisper + sherpa-onnx). CPU тоже работает, но в 10+ раз медленнее |
+| `gcomp` | Нет | `1c77-dev` (разбор/сборка .ert и 1Cv7.MD для 1С 7.7) |
+| Node.js + `@mermaid-js/mermaid-cli` (mmdc) | Нет | `mermaid-render` (рендер диаграмм в PNG/SVG/PDF) |
+| Обработка `MCP_Toolkit.epf` ([ROCTUP](https://github.com/ROCTUP/1c-mcp-toolkit)) | Нет | `1c-mcp-toolkit` (HTTP API к живой запущенной базе 1С) |
 | MCP-серверы (EDT, BSP, 1С:Напарник) | Нет | Анализ кода, валидация запросов, документация ИТС/платформы/конфигураций |
 
 Скилы спроектированы по слоям — базовые (генерация XML) работают без платформы, продвинутые требуют 1С или MCP.
@@ -62,7 +65,7 @@ cp commands/* ~/.claude/commands/
 | [`bsl-language-server`](https://github.com/1c-syntax/claude-code-bsl-lsp) | `/plugin marketplace add 1c-syntax/claude-code-bsl-lsp` + `/plugin install bsl-language-server@bsl-language-server` | Полноценная интеграция BSL Language Server в Claude Code как LSP — диагностики, go to definition, find references, hover, форматирование, code actions для `.bsl` и `.os` |
 | Anthropic plugins (`/plugin marketplace add anthropics/claude-plugins-official`) | `/plugin install <name>@claude-plugins-official` | `code-review`, `pr-review-toolkit` — ревью PR агентами; `mcp-server-dev` — разработка MCP-серверов; `claude-md-management` — поддержание CLAUDE.md; `hookify` — создание hooks; `security-guidance` — security-ревью |
 
-## Скилы (87)
+## Скилы (94)
 
 ### Маршрутизатор
 
@@ -200,6 +203,20 @@ cp commands/* ~/.claude/commands/
 | `1c-bsp-command` | Добавить команду БСП |
 | `1c-ssl-patterns` | Паттерны подсистем БСП |
 
+### Разработка 1С 7.7
+
+| Скил | Описание |
+|------|----------|
+| `1c77-dev` | Разработка под 1С 7.7: .1s/.ert/.frm, 1Cv7.MD, gcomp, кодировка CP1251 |
+
+### Конвертация данных и интеграции
+
+| Скил | Описание |
+|------|----------|
+| `kd2-rules` | Правила обмена «Конвертация данных 2.0» через MCP-toolkit |
+| `kd31-rules` | Правила обмена «Конвертация данных 3.1» через MCP-toolkit |
+| `cleverence-mslx` | Mobile SMARTS (Клеверенс): .mslx-алгоритмы ТСД, online-вызов 1С |
+
 ### Справочные и утилитарные
 
 **Справочники API прикладных конфигураций 1С** - отдельный класс скилов, рассчитанный на объёмные тематические справочники (методы, поля, паттерны конфигурации), которые дорого держать в глобальном контексте. Устройство: полный текст справочника лежит в `references/` внутри папки скила, а SKILL.md содержит только короткое описание-триггер (~150 токенов). Модель подтягивает справочник через Read **только когда видит, что задача касается этой конфигурации** - остальное время он не потребляет контекст. Паттерн легко расширяется: `erp-api-reference`, `ut-api-reference`, `buh-api-reference` и т.п. делаются по той же схеме - собрать API-справочник в `references/имя-справочника.md` и написать SKILL.md с точным описанием-триггером.
@@ -210,6 +227,7 @@ cp commands/* ~/.claude/commands/
 |------|----------|
 | `1c-edt-tools` | Справочник инструментов EDT MCP |
 | `1c-naparnik` | Справочник инструментов 1С:Напарник (анализ кода, ИТС, документация) |
+| `1c-mcp-toolkit` | Прямой HTTP API к живой запущенной базе 1С (запросы, BSL-код, метаданные, журнал) |
 | `1c-platform-docs` | Поиск по документации API платформы |
 | `1c-query-optimization` | Продвинутая оптимизация запросов |
 | `zup-hr-api-reference` | Справочник API 1С:ЗУП 3.1 (кадровый учет, физлица, стажи, договоры ГПХ, представления СКД) |
@@ -221,12 +239,13 @@ cp commands/* ~/.claude/commands/
 | `transcribe` | Транскрибация аудио (локально, faster-whisper + sherpa-onnx GPU) и видео (Gemini API). Установка через `scripts/setup.py` |
 | `transcribe-audio-local` | Только аудио, только локально, self-contained — для передачи на другую машину без облака |
 | `mermaid-diagrams` | Генерация диаграмм Mermaid |
+| `mermaid-render` | Рендер Mermaid в PNG/SVG/PDF через локальный mmdc |
 | `powershell-windows` | PowerShell на Windows |
 | `skill-creator` | Создание, тестирование и оптимизация скилов (evals, grading, description loop) |
 | `prompt-enhancer` | Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ |
 | `dehumanize-ai-text` | Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления |
 
-## Правила (21)
+## Правила (25)
 
 | Файл | Описание |
 |------|----------|
@@ -251,13 +270,20 @@ cp commands/* ~/.claude/commands/
 | `bsp-profile-rights-api.md` | Программная работа с профилями групп доступа БСП: ссылки на ИдентификаторыОбъектовМетаданных, шаблон создания/обновления |
 | `model-selection.md` | Стратегия выбора моделей: Opus/Sonnet/Haiku по типу задачи |
 | `sdd-workflow.md` | Specification-Driven Development: 9-фазный workflow разработки |
+| `1c-role-rights.md` | Права ролей 1С: настройка прав на объекты, RLS, наследование |
+| `1c-report-direct-query.md` | Прямой запрос в отчётах (СКД) без схемы компоновки |
+| `edt-zip-export-pitfalls.md` | Грабли инкрементального экспорта конфигурации из EDT в ИБ |
+| `agent-verification-patterns.md` | Паттерны проверки результата работы агента (reconciliation loop) |
 
-## Команды (2)
+## Команды (4)
 
 | Файл | Описание |
 |------|----------|
 | `check-uuid.md` | Проверка уникальности UUID в MDO-файлах |
 | `check_uuid_duplicates.py` | Python-скрипт проверки дубликатов UUID |
+| `docx-to-md.md` | Конвертация DOCX в Markdown |
+| `move-project.md` | Перенос проекта Claude Code с сохранением памяти, сессий и планов |
+| `browser-debug.md` | Запуск браузера с CDP-отладкой для веб-приложений |
 
 ## Документация (docs/)
 

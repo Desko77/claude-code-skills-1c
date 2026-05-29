@@ -76,15 +76,17 @@ Data (База данных, регистры)
 
 При наличии MCP-серверов использовать их для ускорения каждого этапа:
 
+В EDT-MCP 1.42 для поиска и навигации добавлен унифицированный фасад `code_search` (operations: `text_search`, `object_references`, `method_references`, `resolve_symbol`, `call_hierarchy`, `help`) - предпочтительнее для нового кода. Standalone-инструменты ниже остаются доступны для backward compat.
+
 | Этап | Инструмент (сервер) | Что даёт |
 |------|---------------------|----------|
 | Feature Discovery | `get_metadata_objects` (1c-edt) | Список объектов метаданных с фильтрацией по типу |
 | Feature Discovery | `list_modules` (1c-edt) | Все модули объекта или проекта |
-| Feature Discovery | `find_references` (1c-edt) | Все ссылки на объект: код, формы, роли, подсистемы |
+| Feature Discovery | `find_references` (1c-edt) или `code_search operation=object_references` | Все ссылки на объект: код, формы, роли, подсистемы |
 | Execution Flow | `get_module_structure` (1c-edt) | Структура модуля (методы, сигнатуры, регионы) без чтения всего кода |
 | Execution Flow | `read_method_source` (1c-edt) | Код конкретного метода по имени |
-| Execution Flow | `get_method_call_hierarchy` (1c-edt) | Кто вызывает / что вызывает (callers/callees) |
-| Architecture | `search_in_code` (1c-edt) | Полнотекстовый/regex поиск по всем модулям |
+| Execution Flow | `get_method_call_hierarchy` (1c-edt) или `code_search operation=call_hierarchy` | Кто вызывает / что вызывает (callers/callees) |
+| Architecture | `search_in_code` (1c-edt) или `code_search operation=text_search` | Полнотекстовый/regex поиск по всем модулям. 1.42: pre-filter, `wholeWord`, `compact` |
 | Architecture | `search_ssl` (1c-mcp_ssl_server) | Поиск функций БСП по описанию |
 | Implementation | `get_project_errors` (1c-edt) | Ошибки и предупреждения проекта |
 | Implementation | `validate_query` (1c-edt) | Валидация запросов (синтаксис + семантика) |

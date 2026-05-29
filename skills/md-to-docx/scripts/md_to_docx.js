@@ -2,8 +2,18 @@
 /**
  * md_to_docx.js — Convert Markdown to DOCX with hyperlinks, tables, code blocks, images.
  *
- * Usage: NODE_PATH=<global_node_modules> node md_to_docx.js input.md [output.docx]
- *        If output is omitted, replaces .md with .docx
+ * Usage:
+ *   NODE_PATH=<global_node_modules> node md_to_docx.js input.md [output.docx] \
+ *       [--author "Имя Фамилия"] [--title "Заголовок документа"] \
+ *       [--no-shading | --shading=on|off]
+ *
+ *   - Output is optional; if omitted, replaces .md with .docx next to input.
+ *   - --author writes core property dc:creator and cp:lastModifiedBy.
+ *   - --title overrides the default document title (basename of input).
+ *   - --no-shading (alias: --shading=off) disables grey background fill
+ *     for inline `code` and fenced ``` code blocks. Table header shading
+ *     is structural and is NOT affected by this flag.
+ *   - Both --flag value and --flag=value forms are supported.
  *
  * Requires: npm install -g docx
  */
@@ -18,13 +28,38 @@ const {
 } = require("docx");
 
 // --- Args ---
-const inputPath = process.argv[2];
+const rawArgs = process.argv.slice(2);
+const positional = [];
+let author = null;
+let titleOverride = null;
+let codeShading = true;
+for (let k = 0; k < rawArgs.length; k++) {
+  const a = rawArgs[k];
+  if (a === "--author") {
+    author = rawArgs[++k];
+  } else if (a.startsWith("--author=")) {
+    author = a.slice("--author=".length);
+  } else if (a === "--title") {
+    titleOverride = rawArgs[++k];
+  } else if (a.startsWith("--title=")) {
+    titleOverride = a.slice("--title=".length);
+  } else if (a === "--no-shading") {
+    codeShading = false;
+  } else if (a === "--shading") {
+    codeShading = (rawArgs[++k] || "").toLowerCase() !== "off";
+  } else if (a.startsWith("--shading=")) {
+    codeShading = a.slice("--shading=".length).toLowerCase() !== "off";
+  } else {
+    positional.push(a);
+  }
+}
+const inputPath = positional[0];
 if (!inputPath) {
-  console.error("Usage: node md_to_docx.js input.md [output.docx]");
+  console.error('Usage: node md_to_docx.js input.md [output.docx] [--author "Author Name"] [--title "Document Title"] [--no-shading]');
   process.exit(1);
 }
-const outputPath = process.argv[3] || inputPath.replace(/\.md$/i, ".docx");
-const docTitle = path.basename(inputPath, path.extname(inputPath));
+const outputPath = positional[1] || inputPath.replace(/\.md$/i, ".docx");
+const docTitle = titleOverride || path.basename(inputPath, path.extname(inputPath));
 const inputDir = path.dirname(path.resolve(inputPath));
 
 if (!fs.existsSync(inputPath)) {
@@ -196,7 +231,7 @@ function makeRuns(text, fontSize) {
     const opts = { text: r.text, font: r.code ? "Consolas" : "Arial", size: r.code ? sz - 2 : sz };
     if (r.bold) opts.bold = true;
     if (r.italic) opts.italics = true;
-    if (r.code) opts.shading = { type: ShadingType.CLEAR, fill: "F0F0F0" };
+    if (r.code && codeShading) opts.shading = { type: ShadingType.CLEAR, fill: "F0F0F0" };
     return new TextRun(opts);
   });
 }
@@ -310,7 +345,7 @@ for (const block of blocks) {
       });
       children.push(new Paragraph({
         children: codeRuns,
-        shading: { type: ShadingType.CLEAR, fill: "F5F5F5" },
+        shading: codeShading ? { type: ShadingType.CLEAR, fill: "F5F5F5" } : undefined,
         spacing: { before: 120, after: 120 },
         indent: { left: 360 },
       }));
@@ -393,6 +428,9 @@ for (const block of blocks) {
 }
 
 const doc = new Document({
+  creator: author || undefined,
+  lastModifiedBy: author || undefined,
+  title: docTitle,
   styles: {
     default: { document: { run: { font: "Arial", size: 22 } } },
     paragraphStyles: [

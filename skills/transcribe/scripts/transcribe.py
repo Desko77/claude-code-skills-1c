@@ -48,11 +48,36 @@ for _env_path in [
         break
 load_dotenv()  # cwd/.env как fallback
 
+import httpx
 from google import genai
+from google.genai import errors, types
 
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".webm", ".avi", ".mov"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac", ".wma"}
 ALL_EXTENSIONS = VIDEO_EXTENSIONS | AUDIO_EXTENSIONS
+
+# === Модели Gemini и авто-fallback при перегрузке ===
+
+# Стартовая модель по умолчанию (gemini-flash-latest - плавающий алиас на последнюю стабильную flash).
+DEFAULT_MODEL = "gemini-flash-latest"
+
+# Цепочка перебора при 503/429: разные поколения и пулы мощностей, стоимость по возрастанию.
+# Все модели с output 65536 / input 1M. Модели 2.0 (output 8192) исключены - обрезали бы детальный лог.
+DEFAULT_FALLBACK_CHAIN = [
+    "gemini-flash-latest",
+    "gemini-2.5-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-lite-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-pro-latest",
+    "gemini-2.5-pro",
+    "gemini-3-flash-preview",
+]
+
+# HTTP-коды, при которых переходим к следующей модели (SDK уже отретраил - модель устойчиво лежит).
+RETRYABLE_CODES = {408, 429, 500, 502, 503, 504}
+# Модель недоступна для ключа (напр. preview не у всех) - тоже к следующей, но без ожидания.
+MODEL_UNAVAILABLE_CODES = {404}
 
 # === Промпты: Generic ===
 
@@ -349,49 +374,100 @@ def is_audio(path):
     return path.suffix.lower() in AUDIO_EXTENSIONS
 
 
-# === Генерация через Gemini ===
+# === Генерация через Gemini с авто-fallback по моделям ===
 
-def generate(client, media_file, prompt):
-    """Вызов Gemini с медиафайлом и промптом."""
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[media_file, prompt],
-    )
-    if not response.text:
-        raise RuntimeError(
-            f"Gemini вернул пустой ответ (возможно, сработал фильтр безопасности). "
-            f"finish_reason: {getattr(response.candidates[0], 'finish_reason', 'unknown') if response.candidates else 'no candidates'}"
+class GeminiClient:
+    """Обертка над genai.Client с авто-перебором моделей при перегрузке (503/429).
+
+    Ретрай одной модели делает SDK (http_options.retry_options). Этот класс при устойчивом
+    отказе модели переключается на следующую из цепочки и запоминает рабочую для следующих вызовов.
+    """
+
+    def __init__(self, api_key, models):
+        # SDK сам ретраит каждую модель (по умолчанию retry_options=None - ретраев нет).
+        # attempts=2 на КАЖДУЮ модель; коды ретрая - дефолтные SDK (408/429/500/502/503/504).
+        retry = types.HttpRetryOptions(attempts=2)
+        self.client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(retry_options=retry),
         )
-    return response.text
+        self.models = models
+        self._idx = 0  # индекс текущей рабочей модели
+
+    def generate(self, media_file, prompt):
+        """Генерация с перебором моделей при перегрузке. Возвращает текст ответа."""
+        n = len(self.models)
+        tried = []
+        last_err = None
+        for offset in range(n):
+            i = (self._idx + offset) % n
+            model = self.models[i]
+            tried.append(model)
+            next_model = self.models[(self._idx + offset + 1) % n] if offset < n - 1 else None
+            tail = f"пробую {next_model}" if next_model else "модели исчерпаны"
+            try:
+                response = self.client.models.generate_content(
+                    model=model,
+                    contents=[media_file, prompt],
+                )
+                if not response.text:
+                    # Пустой ответ - фильтр безопасности/контент, а не нагрузка.
+                    # Модели не перебираем: пробрасываем наружу.
+                    finish = (
+                        getattr(response.candidates[0], "finish_reason", "unknown")
+                        if response.candidates else "no candidates"
+                    )
+                    raise RuntimeError(
+                        f"Gemini ({model}) вернул пустой ответ (возможно, сработал фильтр "
+                        f"безопасности). finish_reason: {finish}"
+                    )
+                self._idx = i  # запомнить рабочую модель для следующих вызовов
+                if offset > 0:
+                    print(f"  [OK] Сгенерировано моделью {model}")
+                return response.text
+            except errors.APIError as e:
+                if e.code in RETRYABLE_CODES or e.code in MODEL_UNAVAILABLE_CODES:
+                    last_err = e
+                    print(f"  [!] Модель {model} недоступна (код {e.code}), {tail}")
+                    continue
+                raise  # fatal (400/401/403/...) - смена модели не поможет
+            except (httpx.TimeoutException, httpx.TransportError) as e:
+                last_err = e
+                print(f"  [!] Сетевая ошибка на {model} ({type(e).__name__}), {tail}")
+                continue
+        raise RuntimeError(
+            f"Все модели Gemini недоступны (перегрузка/недоступность). "
+            f"Испробованы: {', '.join(tried)}. Последняя ошибка: {last_err}"
+        )
 
 
-def transcribe_generic(client, media_file, time_offset=0):
+def transcribe_generic(invoker, media_file, time_offset=0):
     """Generic-транскрипция: verbatim речь с таймкодами."""
-    text = generate(client, media_file, PROMPT_TRANSCRIBE)
+    text = invoker.generate(media_file, PROMPT_TRANSCRIBE)
     return offset_timestamps_in_text(text, time_offset)
 
 
-def generate_summary_generic(client, media_file):
+def generate_summary_generic(invoker, media_file):
     """Generic-саммари."""
-    return generate(client, media_file, PROMPT_SUMMARY_GENERIC)
+    return invoker.generate(media_file, PROMPT_SUMMARY_GENERIC)
 
 
-def analyze_ui_single(client, media_file, video_path, output_dir, part_label="", time_offset=0):
+def analyze_ui_single(invoker, media_file, video_path, output_dir, part_label="", time_offset=0):
     """Analyze-UI: саммари + детальный + скриншоты для одного видео."""
     suffix = f" (часть {part_label})" if part_label else ""
 
     # 1. Саммари
     print(f"\n  [UI 1/4] Генерация саммари{suffix}...")
-    summary_text = generate(client, media_file, PROMPT_UI_SUMMARY)
+    summary_text = invoker.generate(media_file, PROMPT_UI_SUMMARY)
 
     # 2. Детальный анализ
     print(f"  [UI 2/4] Генерация детального анализа{suffix}...")
-    detailed_text = generate(client, media_file, PROMPT_UI_DETAILED)
+    detailed_text = invoker.generate(media_file, PROMPT_UI_DETAILED)
     detailed_text = offset_timestamps_in_text(detailed_text, time_offset)
 
     # 3. Скриншоты
     print(f"  [UI 3/4] Определение скриншотов{suffix}...")
-    screenshots_response = generate(client, media_file, PROMPT_SCREENSHOTS)
+    screenshots_response = invoker.generate(media_file, PROMPT_SCREENSHOTS)
 
     timestamps = []
     try:
@@ -411,14 +487,14 @@ def analyze_ui_single(client, media_file, video_path, output_dir, part_label="",
 
     # 4. Generic-транскрипция
     print(f"  [UI 4/4] Генерация транскрипции{suffix}...")
-    transcript_text = transcribe_generic(client, media_file, time_offset)
+    transcript_text = transcribe_generic(invoker, media_file, time_offset)
 
     return summary_text, detailed_text, transcript_text
 
 
 # === Основная логика ===
 
-def process_file(path, output_dir, mode, with_summary, output_format):
+def process_file(path, output_dir, mode, with_summary, output_format, models):
     """Обработка одного файла."""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
@@ -432,17 +508,21 @@ def process_file(path, output_dir, mode, with_summary, output_format):
     size_mb = path.stat().st_size / (1024 * 1024)
     media_type = "видео" if is_video(path) else "аудио"
     print(f"Файл: {path.name} ({size_mb:.1f} MB, {media_type})")
+    if len(models) > 1:
+        print(f"Модель: {models[0]} (fallback при перегрузке: {', '.join(models[1:])})")
+    else:
+        print(f"Модель: {models[0]} (без fallback)")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    client = genai.Client(api_key=api_key)
+    invoker = GeminiClient(api_key, models)
 
     # Разбивка длинных файлов
     parts, offsets = split_media(path)
 
     if mode == "analyze-ui":
-        _process_analyze_ui(client, path, parts, offsets, output_dir)
+        _process_analyze_ui(invoker, path, parts, offsets, output_dir)
     else:
-        _process_generic(client, path, parts, offsets, output_dir, with_summary, output_format)
+        _process_generic(invoker, path, parts, offsets, output_dir, with_summary, output_format)
 
     # Очистка временных файлов
     for part_path in parts:
@@ -458,44 +538,50 @@ def process_file(path, output_dir, mode, with_summary, output_format):
     print(f"{'=' * 60}")
 
 
-def _process_generic(client, path, parts, offsets, output_dir, with_summary, output_format):
+def _process_generic(invoker, path, parts, offsets, output_dir, with_summary, output_format):
     """Generic-режим: транскрипция (+ опционально саммари)."""
     if len(parts) == 1:
-        print("Загрузка файла в Gemini...")
-        media_file = upload_file(client, path)
-        print(f"Загружено: {media_file.name}")
-        media_file = wait_for_processing(client, media_file)
+        media_file = None
+        try:
+            print("Загрузка файла в Gemini...")
+            media_file = upload_file(invoker.client, path)
+            print(f"Загружено: {media_file.name}")
+            media_file = wait_for_processing(invoker.client, media_file)
 
-        print("\n  Генерация транскрипции...")
-        transcript_text = transcribe_generic(client, media_file)
+            print("\n  Генерация транскрипции...")
+            transcript_text = transcribe_generic(invoker, media_file)
 
-        summary_text = None
-        if with_summary:
-            print("  Генерация саммари...")
-            summary_text = generate_summary_generic(client, media_file)
-
-        _cleanup_file(client, media_file)
+            summary_text = None
+            if with_summary:
+                print("  Генерация саммари...")
+                summary_text = generate_summary_generic(invoker, media_file)
+        finally:
+            if media_file is not None:
+                _cleanup_file(invoker.client, media_file)
     else:
         all_transcripts = []
         all_summaries = []
 
         for i, (part_path, offset) in enumerate(zip(parts, offsets), 1):
             print(f"\n{'='*40} Часть {i}/{len(parts)} {'='*40}")
-            print("Загрузка части в Gemini...")
-            media_file = upload_file(client, part_path)
-            print(f"Загружено: {media_file.name}")
-            media_file = wait_for_processing(client, media_file)
+            media_file = None
+            try:
+                print("Загрузка части в Gemini...")
+                media_file = upload_file(invoker.client, part_path)
+                print(f"Загружено: {media_file.name}")
+                media_file = wait_for_processing(invoker.client, media_file)
 
-            print("  Генерация транскрипции...")
-            t_text = transcribe_generic(client, media_file, offset)
-            all_transcripts.append(f"## Часть {i} (с {offset//60}:{offset%60:02d})\n\n{t_text}")
+                print("  Генерация транскрипции...")
+                t_text = transcribe_generic(invoker, media_file, offset)
+                all_transcripts.append(f"## Часть {i} (с {offset//60}:{offset%60:02d})\n\n{t_text}")
 
-            if with_summary:
-                print("  Генерация саммари...")
-                s_text = generate_summary_generic(client, media_file)
-                all_summaries.append(f"## Часть {i}\n\n{s_text}")
-
-            _cleanup_file(client, media_file)
+                if with_summary:
+                    print("  Генерация саммари...")
+                    s_text = generate_summary_generic(invoker, media_file)
+                    all_summaries.append(f"## Часть {i}\n\n{s_text}")
+            finally:
+                if media_file is not None:
+                    _cleanup_file(invoker.client, media_file)
 
         transcript_text = "\n\n---\n\n".join(all_transcripts)
         summary_text = "\n\n---\n\n".join(all_summaries) if with_summary else None
@@ -512,19 +598,22 @@ def _process_generic(client, path, parts, offsets, output_dir, with_summary, out
         print(f"Сохранено: {summary_path.name}")
 
 
-def _process_analyze_ui(client, path, parts, offsets, output_dir):
+def _process_analyze_ui(invoker, path, parts, offsets, output_dir):
     """Analyze-UI режим: саммари + детальный + скриншоты + транскрипция."""
     if len(parts) == 1:
-        print("Загрузка видео в Gemini...")
-        media_file = upload_file(client, path)
-        print(f"Загружено: {media_file.name}")
-        media_file = wait_for_processing(client, media_file)
+        media_file = None
+        try:
+            print("Загрузка видео в Gemini...")
+            media_file = upload_file(invoker.client, path)
+            print(f"Загружено: {media_file.name}")
+            media_file = wait_for_processing(invoker.client, media_file)
 
-        summary_text, detailed_text, transcript_text = analyze_ui_single(
-            client, media_file, path, output_dir
-        )
-
-        _cleanup_file(client, media_file)
+            summary_text, detailed_text, transcript_text = analyze_ui_single(
+                invoker, media_file, path, output_dir
+            )
+        finally:
+            if media_file is not None:
+                _cleanup_file(invoker.client, media_file)
     else:
         all_summaries = []
         all_detailed = []
@@ -532,20 +621,23 @@ def _process_analyze_ui(client, path, parts, offsets, output_dir):
 
         for i, (part_path, offset) in enumerate(zip(parts, offsets), 1):
             print(f"\n{'='*40} Часть {i}/{len(parts)} {'='*40}")
-            print("Загрузка части в Gemini...")
-            media_file = upload_file(client, part_path)
-            print(f"Загружено: {media_file.name}")
-            media_file = wait_for_processing(client, media_file)
+            media_file = None
+            try:
+                print("Загрузка части в Gemini...")
+                media_file = upload_file(invoker.client, part_path)
+                print(f"Загружено: {media_file.name}")
+                media_file = wait_for_processing(invoker.client, media_file)
 
-            s_text, d_text, t_text = analyze_ui_single(
-                client, media_file, path, output_dir,
-                part_label=f"{i}/{len(parts)}", time_offset=offset
-            )
-            all_summaries.append(f"## Часть {i}\n\n{s_text}")
-            all_detailed.append(f"## Часть {i} (с {offset//60}:{offset%60:02d})\n\n{d_text}")
-            all_transcripts.append(f"## Часть {i} (с {offset//60}:{offset%60:02d})\n\n{t_text}")
-
-            _cleanup_file(client, media_file)
+                s_text, d_text, t_text = analyze_ui_single(
+                    invoker, media_file, path, output_dir,
+                    part_label=f"{i}/{len(parts)}", time_offset=offset
+                )
+                all_summaries.append(f"## Часть {i}\n\n{s_text}")
+                all_detailed.append(f"## Часть {i} (с {offset//60}:{offset%60:02d})\n\n{d_text}")
+                all_transcripts.append(f"## Часть {i} (с {offset//60}:{offset%60:02d})\n\n{t_text}")
+            finally:
+                if media_file is not None:
+                    _cleanup_file(invoker.client, media_file)
 
         summary_text = "\n\n---\n\n".join(all_summaries)
         detailed_text = "\n\n---\n\n".join(all_detailed)
@@ -575,6 +667,28 @@ def _cleanup_file(client, media_file):
 
 # === CLI ===
 
+def build_model_chain(cli_model=None, cli_fallback=None, no_fallback=False):
+    """Сборка цепочки моделей. Приоритет: CLI > env > дефолт. Стартовая первой, дедупликация."""
+    start = cli_model or os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL
+    if no_fallback:
+        return [start]
+
+    chain_src = cli_fallback or os.environ.get("GEMINI_FALLBACK_MODELS")
+    if chain_src:
+        models = [m.strip() for m in chain_src.split(",") if m.strip()]
+    else:
+        models = list(DEFAULT_FALLBACK_CHAIN)
+
+    # стартовая первой + остальные, дедупликация с сохранением порядка
+    seen = set()
+    result = []
+    for m in [start] + models:
+        if m and m not in seen:
+            seen.add(m)
+            result.append(m)
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Транскрибация аудио и видео через Gemini API"
@@ -599,6 +713,19 @@ def main():
         choices=["md", "txt"],
         default="md",
         help="Формат вывода (по умолчанию: md)",
+    )
+    parser.add_argument(
+        "--model",
+        help=f"Стартовая модель Gemini (по умолчанию: {DEFAULT_MODEL} или env GEMINI_MODEL)",
+    )
+    parser.add_argument(
+        "--fallback-models",
+        help="Цепочка fallback через запятую (переопределяет дефолтную; иначе env GEMINI_FALLBACK_MODELS)",
+    )
+    parser.add_argument(
+        "--no-fallback",
+        action="store_true",
+        help="Отключить перебор моделей: использовать только стартовую (контроль стоимости/отладка)",
     )
     args = parser.parse_args()
 
@@ -629,7 +756,8 @@ def main():
     else:
         output_dir = path.parent / "Транскрипция" / path.stem
 
-    process_file(path, output_dir, mode, args.with_summary, args.format)
+    models = build_model_chain(args.model, args.fallback_models, args.no_fallback)
+    process_file(path, output_dir, mode, args.with_summary, args.format, models)
 
 
 if __name__ == "__main__":
