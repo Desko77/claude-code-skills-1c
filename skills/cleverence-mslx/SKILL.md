@@ -10,7 +10,7 @@ description: >-
   найдено / кнопка не работает" on a handheld - even if the user does not say ".mslx"
   explicitly. Covers the action graph, transition chaining, OperationAction parameter
   mapping, the online 1C call mechanism, marking-code (КМ) line operations, and the
-  WT_-copy rule for not breaking vendor operations on update.
+  CL_-copy rule for not breaking vendor operations on update.
 ---
 
 # Cleverence Mobile SMARTS (.mslx) configuration
@@ -35,7 +35,7 @@ without breaking it.
   **If the Panel shows old behaviour after your edit, suspect a stale/never-transferred
   file before suspecting your change.**
 
-## The single most important rule: WT_ copies of vendor operations
+## The single most important rule: CL_ copies of vendor operations
 
 Vendor operations (typical Cleverence обработчики, usually under `Operations/EN/...`,
 `Operations/Основные/...` etc.) get **overwritten on Cleverence updates**. Editing them
@@ -47,11 +47,21 @@ So:
 |------|------|
 | Our own document type (e.g. «Сборка контейнера») | Edit **in place**. Do not clone. |
 | Our own operation (in the project root `Operations/`) | Edit **in place**. |
-| A **vendor/typical** operation we need to change | Make a copy `WT_<Name>` **next to the original**, edit the copy, and in the caller switch `operationName` to `WT_<Name>`. |
-| A new operation | Prefix `WT_` (latin). |
+| A **vendor/typical** operation we need to change | Make a copy `CL_<Name>` (placement below), edit the copy, and in the caller switch `operationName` to `CL_<Name>`. |
+| A new operation | Prefix `CL_` (latin). |
 
 Copy only the operations you actually change. If the change is inside a nested vendor
-operation, copy that one and repoint its `WT_` parent at it - do not clone the whole chain.
+operation, copy that one and repoint its `CL_` parent at it - do not clone the whole chain.
+
+**Where to put a CL_ copy.** Put it in your own branch of the operations tree -
+`Documents/Operations/` (the root) - **not** inside the vendor subfolder it was copied from
+(`Documents/Operations/EN/...`). The Panel resolves a call by the operation's `name`, not by
+its file path, so a `CL_<Name>` in `Operations/` fully serves callers that use
+`operationName="CL_<Name>"`. Keeping the copy in the vendor subfolder (a) puts it among files
+that get overwritten on update, and (b) risks **two files with the same `name`** if the Panel
+later re-exports the operation into the root - a duplicate that conflicts on import. So: after
+creating/moving the copy to `Operations/`, delete any stale same-`name` file left in the
+vendor subfolder.
 
 ## How the action graph flows
 
@@ -73,6 +83,15 @@ full rules; the essentials:
   `ButtonDirection` names a non-existent action throws "действие для перехода не найдено".
 - Built-in targets that are not action names: `back`, `return`, `abort`, `exit`, `home`,
   `process zero`, and `""`.
+- **`indent` = visual nesting in the Panel tree, not control flow.** Each action carries an
+  integer `indent`. Logically subordinate actions (a `process zero` branch under the scan
+  window, the body executed inside a condition) must have `indent` **greater** than their
+  parent - they appear *shifted right* in the Panel algorithm tree. Flow is driven by
+  `nextDirection`/named transitions, **not** by `indent`; but leaving a flat `indent=0` on
+  nested actions renders the structure wrong/flat in the Panel and is a real defect to fix.
+  When you copy or hand-edit a `.mslx`, **preserve/set `indent`** on the nested actions (it is
+  easy to lose it on a copy). `mslx_inspect.py` indents its dump by this attribute, so a flat
+  structure shows up at a glance.
 
 ## Calling another operation: parameter mapping
 
@@ -124,7 +143,53 @@ string. Reuse the ready operations (`FindMCInDocument`, `DeleteCurrentItemFromDo
    balanced button arrays is the bar before you hand it back.
 5. **Remember the transfer step.** A validated file on disk is not yet live - it must reach
    the MS Server. Tell the user to transfer it and to confirm by checking that a changed
-   `operationName` (e.g. `WT_...`) shows up in the Panel.
+   `operationName` (e.g. `CL_...`) shows up in the Panel.
+
+## When a scan "does nothing" on the TSD
+
+Before suspecting the graph, rule out the input itself - the graph is usually innocent:
+
+- **`Ctrl+V` into the debugger window is NOT a scan event.** A scan window catches input via a
+  `KeyToAction barcode="{any}"` KeyJump, which fires on a *scan event*. Pasting text into the
+  field with `Ctrl+V` is keyboard input - it does not trigger the `barcode` KeyJump, so
+  "nothing happens". Use the debugger's *emulate-barcode* function (a dedicated barcode input),
+  or a real scanner.
+- **DataMatrix loses its GS separators on copy-paste.** A ЧЗ marking code (DataMatrix) contains
+  the GS control char (ASCII 29). Clipboard/Notepad strips it, so even if the input lands,
+  `GO.GetBarcodeData()` won't recognise the КМ structure. Only a real scanner (or the emulator)
+  preserves GS.
+- **The config may not be on the server.** The debugger runs the server copy; an edited file in
+  the repo is not live until transferred (Сервис -> Сравнение конфигураций).
+- Only after these: check the graph. Confirm the scan window has `KeyToAction barcode="{any}"`
+  pointing at the scan-handling action, and (with a breakpoint in the debugger) whether that
+  action is even reached. If it is reached but bails out, inspect `BarcodeData` - the code was
+  read but not recognised.
+
+## Linking a TSD document back to its 1C document (dedup on completion)
+
+When a TSD document must, on completion, update an **existing** 1C document instead of creating
+a new one, the back-link is a Panel **setting**, not graph logic: in the БП open *"Настройка
+загрузки полей шапки документа"* and the rule whose target (приёмник) is the `Ссылка` field,
+match mode **Поиск по GUID**. The **source attribute** of that rule is a classic trap:
+
+- **`Идентификатор`** - the MS document's own Id. This is the **correct** source for dedup. It
+  is stable for one TSD document and is exactly what the vendor completion code resolves the 1C
+  reference from (`ШапкаДокумента.Ид`). Use this.
+- **`Идентификатор исходных документов`** (`ИдИсходныхДокументов`) - **wrong** for the back-link
+  of a TSD-created document. If an online step creates/re-creates the 1C document and writes its
+  GUID here, a **fresh GUID can arrive on every completion** -> the GUID search never matches ->
+  a new 1C document is created each time = **duplicates** (often without a warehouse). This
+  attribute is for the "document assembled from several 1C documents" case, not the back-link.
+
+Symptom this fixes: every *завершение* on the TSD spawns a second 1C document. Root cause is
+almost always the `Ссылка` rule pointing at *Идентификатор исходных документов* instead of
+*Идентификатор*. The vendor completion path only ever resolves the 1C ref from
+`ШапкаДокумента.Ид` - writing a GUID into `ИдИсходныхДокументов` does nothing for dedup.
+
+Caveat for TSD-created docs: their MS Id is `new_<guid>`. A hand-rolled
+`Документы[Тип].ПолучитьСсылку(Новый УникальныйИдентификатор(Ид))` throws on the `new_` prefix
+(invalid GUID) and, inside a bare `Попытка`, silently falls through to creating a duplicate; the
+*Поиск по GUID* rule handles the prefix correctly.
 
 ## Reference files
 

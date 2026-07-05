@@ -3,11 +3,14 @@
 mslx_inspect.py - dump and validate a Cleverence Mobile SMARTS .mslx file.
 
 .mslx are single-line XML graphs of Actions (DocumentType) or a single Operation.
-Reading them by eye is hard; this tool gives a structured view and catches the
+Reading them by eye is hard; this tool gives a structured view (actions are indented by
+their `indent` attribute, so the Panel nesting is visible at a glance) and catches the
 mistakes that actually break the algorithm on the TSD:
   - dangling transitions (a direction points at an action that does not exist)
   - unbalanced QuestionAction button arrays (Buttons / ButtonTexts / ButtonDirections)
   - malformed XML
+  - flat structure: logically subordinate actions left at indent=0 (renders wrong in
+    the Panel; the indented dump makes this obvious)
 
 Usage:
     python mslx_inspect.py <file.mslx>            # dump + validate (default)
@@ -107,7 +110,15 @@ def dump(root):
             vals = [c.text for e in el for c in e if local(e.tag) == grp]
             if vals:
                 io[grp] = vals
-        line = "  [%s]" % t
+        # indent = visual nesting depth in the Panel algorithm tree. Subordinate actions
+        # must sit deeper than their parent (indent > parent); a flat indent=0 on logically
+        # nested actions renders the structure wrong in the Panel. We indent the dump by it
+        # so a flat/broken structure is visible at a glance.
+        try:
+            depth = int(attrs.get("indent", "0") or "0")
+        except ValueError:
+            depth = 0
+        line = "  %s[%s]" % ("  " * depth, t)
         for k in ("name", "operationName", "fieldName"):
             if shown.get(k):
                 line += " %s=%r" % (k, shown[k])
@@ -117,6 +128,8 @@ def dump(root):
         for k in ("expression", "message", "text", "sessionVariable"):
             if shown.get(k):
                 line += " %s=%r" % (k, shown[k])
+        if depth:
+            line += " indent=%d" % depth
         if io:
             line += " " + " ".join("%s=%s" % (k, v) for k, v in io.items())
         print(line)

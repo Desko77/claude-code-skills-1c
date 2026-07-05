@@ -22,7 +22,8 @@ const fs = require("fs");
 const path = require("path");
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  Header, Footer, AlignmentType, ExternalHyperlink, ImageRun,
+  Header, Footer, AlignmentType, ExternalHyperlink, InternalHyperlink,
+  Bookmark, ImageRun,
   HeadingLevel, BorderStyle, WidthType, ShadingType, PageNumber,
   LevelFormat, PageBreak
 } = require("docx");
@@ -85,6 +86,7 @@ let codeLines = [];
 let codeLang = "";
 let inTable = false;
 let tableRows = [];
+let pendingAnchor = null;
 
 function flushTable() {
   if (inTable && tableRows.length > 0) {
@@ -131,10 +133,19 @@ while (i < lines.length) {
     flushTable();
   }
 
+  // HTML anchor <a id="..."></a> -> remember for next heading/block
+  const anchorMatch = line.match(/^\s*<a\s+id="([^"]+)"><\/a>\s*$/i);
+  if (anchorMatch) {
+    pendingAnchor = anchorMatch[1];
+    i++;
+    continue;
+  }
+
   // Heading
   const hMatch = line.match(/^(#{1,6})\s+(.*)/);
   if (hMatch) {
-    blocks.push({ type: "heading", level: hMatch[1].length, text: hMatch[2] });
+    blocks.push({ type: "heading", level: hMatch[1].length, text: hMatch[2], anchor: pendingAnchor });
+    pendingAnchor = null;
     i++;
     continue;
   }
@@ -216,8 +227,11 @@ function makeRuns(text, fontSize) {
   return parsed.map(r => {
     if (r.link) {
       if (r.link.startsWith("#")) {
-        // Anchor links -> plain text (no bookmark targets in generated docs)
-        return new TextRun({ text: r.text, font: "Arial", size: sz });
+        // Internal anchor link -> InternalHyperlink to Bookmark
+        return new InternalHyperlink({
+          anchor: r.link.slice(1),
+          children: [new TextRun({ text: r.text, style: "Hyperlink", font: "Arial", size: sz })],
+        });
       }
       let link = r.link;
       if (!/^https?:\/\//.test(link) && !/^mailto:/.test(link)) {
@@ -306,13 +320,18 @@ const CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN; // 9360
 
 for (const block of blocks) {
   switch (block.type) {
-    case "heading":
+    case "heading": {
+      const headingRuns = makeRuns(block.text);
+      const headingChildren = block.anchor
+        ? [new Bookmark({ id: block.anchor, children: headingRuns })]
+        : headingRuns;
       children.push(new Paragraph({
         heading: headingMap[block.level],
-        children: makeRuns(block.text),
+        children: headingChildren,
         spacing: { before: block.level <= 2 ? 360 : 240, after: 120 },
       }));
       break;
+    }
 
     case "paragraph":
       children.push(new Paragraph({

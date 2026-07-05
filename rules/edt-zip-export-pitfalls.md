@@ -75,8 +75,8 @@
 ### Adopted-объект (заимствованный)
 
 - [ ] `<objectBelonging>Adopted</objectBelonging>` указано
-- [ ] НЕ добавлять `<predefined>` блок с собственными элементами (см. `feedback_adopted_predefined_items`)
-- [ ] Реквизиты типа `DocumentRef.X` / `CatalogRef.X` - править `.mdo` вручную через Edit, MCP не персистит (см. `feedback_mdo_ref_types_via_mcp`)
+- [ ] НЕ добавлять `<predefined>` блок с собственными элементами
+- [ ] Реквизиты типа `DocumentRef.X` / `CatalogRef.X` и составные: `add_object_attribute` их **персистит** (main config И adopted-объект расширения; `.mdo` расширения получает `<types>CatalogRef.X</types>`). Ручная правка `.mdo` для создания реквизита не нужна. Сменить тип уже существующего реквизита на составной - `set_object_type ownerFqn=<owner>.Attribute.<имя> type="CatalogRef.A,DocumentRef.B"` (child-FQN, EDT MCP 1.43+; на старой сборке - временно правкой `.mdo`).
 
 ---
 
@@ -110,5 +110,3 @@
 
 - `1c-mdo-integrity.md` - целостность MDO (UUID, String length, scale, fillValue, stringQualifiers)
 - `mcp-tool-priority.md` - последовательность инструментов EDT MCP
-- Memory: `feedback_edt_subsystem_command_interface.md`, `feedback_adopted_predefined_items.md`,
-  `feedback_mdo_ref_types_via_mcp.md`
