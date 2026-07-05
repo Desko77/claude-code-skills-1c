@@ -100,6 +100,38 @@ RULES_CONFIG = {
         "description": "Программная работа с профилями групп доступа БСП: ссылки на ИдентификаторыОбъектовМетаданных",
         "globs": ["**/*.bsl", "**/*.os"],
     },
+    "1c-report-direct-query": {
+        "description": "Прямой запрос в отчётах 1С (СКД) без схемы компоновки",
+        "globs": ["**/*.bsl", "**/*.os"],
+    },
+    "1c-role-rights": {
+        "description": "Права ролей 1С: права на объекты, RLS, наследование",
+        "globs": ["**/Rights.xml", "**/Roles/**", "**/*.mdo"],
+    },
+    "edt-zip-export-pitfalls": {
+        "description": "Грабли инкрементального экспорта конфигурации из EDT в ИБ",
+        "globs": ["**/*.mdo"],
+    },
+    "agent-verification-patterns": {
+        "description": "Паттерны проверки результата работы агента (reconciliation loop)",
+        "globs": [],
+    },
+    "bsl-ssl": {
+        "description": "Переиспользование БСП, разметка правок типовых модулей, устаревшие объекты",
+        "globs": ["**/*.bsl", "**/*.os"],
+    },
+    "edt-bsl-write-safety": {
+        "description": "Безопасная запись BSL-модулей через EDT MCP (режимы write_module_source)",
+        "globs": ["**/*.bsl"],
+    },
+    "integrations": {
+        "description": "Python-first подход к HTTP-интеграциям 1С (прототип Python, перенос на BSL)",
+        "globs": [],
+    },
+    "1c-skd-two-pass-preprocessing": {
+        "description": "Двухпроходный СКД: предобработка детальных записей до свертки",
+        "globs": ["**/Reports/**/*.bsl", "**/*.dcs"],
+    },
 }
 
 EXCLUDE_SKILLS = {"skill-creator"}
@@ -265,7 +297,7 @@ def convert_skill(source_dir: Path, target_dir: Path, dry_run: bool) -> str:
 
     # Copy scripts/, references/, reference/, docs/, examples/, presets/ directories
     copied_dirs = []
-    for subdir_name in ("scripts", "references", "reference", "docs", "examples", "presets"):
+    for subdir_name in ("scripts", "references", "reference", "docs", "examples", "presets", "bin"):
         subdir = source_dir / subdir_name
         if subdir.is_dir():
             target_subdir = target_skill_dir / subdir_name
