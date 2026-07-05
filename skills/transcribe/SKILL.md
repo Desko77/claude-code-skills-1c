@@ -1,7 +1,7 @@
 ---
 name: transcribe
-description: "Транскрибирование видео и аудио файлов. Используй когда пользователь просит транскрибировать, расшифровать запись, сделать конспект встречи, извлечь речь из видео или аудио, преобразовать речь в текст. Для аудио (m4a/mp3/wav/ogg/flac/aac/wma) по умолчанию локальный faster-whisper + диаризация sherpa-onnx GPU (CUDA, RTF ~0.24, default). Для видео (mp4/mkv/webm/avi/mov) — Gemini API. Поддерживает разделение по спикерам."
-argument-hint: "<FilePath> [--output-dir DIR] [--analyze-ui] [--with-summary] [--diarize] [--num-speakers N] [--diarize-engine sherpa-onnx|pyannote] [--engine local|gemini]"
+description: "Транскрибирование видео и аудио файлов. Используй когда пользователь просит транскрибировать, расшифровать запись, сделать конспект встречи, извлечь речь из видео или аудио, преобразовать речь в текст. Для аудио (m4a/mp3/wav/ogg/flac/aac/wma) по умолчанию локальный faster-whisper + диаризация sherpa-onnx GPU (CUDA, RTF ~0.24). Для видео (mp4/mkv/webm/avi/mov) - Gemini API (разбор экрана + скриншоты) либо полностью локально (--engine local: whisper + локальная VLM). Разделение по спикерам с распознаванием имен по голосу между встречами (голосовая база) и по репликам."
+argument-hint: "<FilePath> [--output-dir DIR] [--engine local|gemini] [--analyze-ui] [--with-summary] [--diarize] [--num-speakers N] [--diarize-engine sherpa-onnx|pyannote] [--project NAME] [--no-voiceprints] [--no-coherent]"
 allowed-tools:
   - Bash
   - Read
@@ -12,7 +12,7 @@ allowed-tools:
 
 Два движка:
 
-- **Локальный (default для аудио)**: `faster-whisper` (CUDA) + опц. диаризация `sherpa-onnx GPU` (CUDA) с моделями pyannote-segmentation-3.0 + 3D-Speaker eres2net. Нет затрат, не уходит наружу. На RTX 5070 Ti Laptop: ~6-7 мин на 30 мин аудио (RTF ~0.24). **Только для аудио.** Альтернативный движок диаризации `--diarize-engine pyannote` (4.x, GPU, RTF 0.36).
+- **Локальный (default для аудио)**: `faster-whisper` (CUDA) + опц. диаризация `sherpa-onnx GPU` (CUDA) с моделями pyannote-segmentation-3.0 + 3D-Speaker eres2net. Нет затрат, не уходит наружу. На RTX 5070 Ti Laptop: ~6-7 мин на 30 мин аудио (RTF ~0.24). Альтернативный движок диаризации `--diarize-engine pyannote` (4.x, GPU, RTF 0.36). ВИДЕО тоже можно разобрать полностью локально - `--engine local` (разбор экрана локальной VLM + спикеры по голосу, см. ниже).
 - **Gemini (default для видео и `--analyze-ui`)**: облачный API, ~$0.10/час. Нужен интернет и квота. Стартовая модель `gemini-2.5-flash` (пин конкретной версии, дешевая); при перегрузке (503/429) переходит на `gemini-2.5-flash-lite`. Дорогие 3.5/pro сознательно исключены.
 
 ## Выбор движка по умолчанию
@@ -21,7 +21,7 @@ allowed-tools:
 |---|---|---|
 | Аудио (m4a, mp3, wav, ogg, flac, aac, wma) | local | Быстро, бесплатно, диаризация |
 | Видео (mp4, mkv, webm, avi, mov) | gemini | Быстро, облако. Приватный вариант - `--engine local` (см. ниже) |
-| Видео + `--engine local` | **local (150)** | Разбор экрана БЕЗ облака: whisper + Qwen3-VL на сервере 150 |
+| Видео + `--engine local` | **local** | Разбор экрана БЕЗ облака: whisper + локальная VLM (LM Studio) + спикеры по голосу |
 | Любой + `--analyze-ui` | gemini | Детальный разбор интерфейсов в облаке |
 | Любой + `--engine gemini` | gemini | Явный override на облако |
 | Аудио + `--engine local` | local | Явный override (аудио) |
@@ -52,7 +52,20 @@ allowed-tools:
 - `<имя> - саммари.md`
 - `<имя> - детальный.md`
 - `<имя> - транскрипция.md`
-- `screenshots/` — PNG-кадры
+- `screenshots/` - PNG-кадры
+
+### Локальный разбор видео (`--engine local`, только видео)
+
+Полностью локальный разбор экрана + речи БЕЗ облака (подробности в "Инструкция" ниже). Спикеры распознаются по голосу (голосовая база) и по репликам - см. "Спикеры и голосовая база".
+
+Выходные файлы:
+- `<имя> - транскрипция.md` / `.txt`
+- `<имя> - со спикерами.md` (при `--diarize`)
+- `<имя> - детальный.md` - дословный лог: описание экрана по кадрам + реплики за интервал
+- `<имя> - связный.md` - связный нарратив экран+речь (если не `--no-coherent`)
+- `<имя> - саммари.md` - протокол задач/решений (если не `--no-summary`)
+- `<имя>.voiceprints.json` - отпечатки голоса кластеров
+- `screenshots/` - ВСЕ scene-кадры
 
 ## Аргументы
 
@@ -70,6 +83,13 @@ allowed-tools:
 | --model | нет | gemini-2.5-flash | Gemini: стартовая модель (или env GEMINI_MODEL) |
 | --fallback-models | нет | встроенный пул | Gemini: цепочка fallback через запятую (или env GEMINI_FALLBACK_MODELS) |
 | --no-fallback | нет | выкл | Gemini: только стартовая модель, без перебора |
+| --project NAME | нет | - | local видео: пометить встречу в голосовой базе (провенанс) |
+| --voiceprint-db PATH | нет | `voiceprints/db.json` скилла | local видео: путь к голосовой базе |
+| --no-voiceprints | нет | выкл | local видео: не использовать и не пополнять голосовую базу |
+| --no-coherent | нет | выкл | local видео: не строить связный лог (быстрее) |
+| --no-summary | нет | выкл | local видео: не строить саммари |
+| --speaker-model M | нет | qwen2.5-32b | local видео: LLM для маппинга спикеров -> имена |
+| --reuse-transcript | нет | выкл | local видео: не гонять whisper заново, если транскрипция уже есть |
 
 ## Поддерживаемые форматы
 
@@ -111,10 +131,10 @@ PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 \
 3. Если это ВИДЕО и указан `--engine local` → запускай ПОЛНОСТЬЮ ЛОКАЛЬНЫЙ разбор экрана (без облака):
 
 ```bash
-PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 python ~/.claude/skills/transcribe/scripts/analyze_video_local.py "<FilePath>" [--output-dir "<OutputDir>"] [--diarize] [--no-summary]
+PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 python ~/.claude/skills/transcribe/scripts/analyze_video_local.py "<FilePath>" [--output-dir "<OutputDir>"] [--diarize] [--num-speakers N] [--project NAME] [--voiceprint-db PATH] [--no-voiceprints] [--no-coherent] [--no-summary]
 ```
 
-Речь - локальный whisper; разбор экрана - `qwen3-vl-8b-instruct` на локальном сервере LM Studio; саммари - `google/gemma-4-26b-a4b` там же. Клиентские кадры НЕ уходят в облако. Предусловия: сервер LM Studio доступен (по умолчанию `http://localhost:1234`, переопределяется env `LOCAL_150_BASE`), нужные модели загружены (скрипт проверяет `/v1/models` и внятно сообщает, если модели нет). Время ~20-35 мин на час записи (кадры идут последовательно ~14с/кадр, зависит от активности экрана). Выходные файлы те же, что у облачного analyze-ui (транскрипция / детальный / саммари / screenshots), но в `screenshots/` попадают ВСЕ scene-кадры. ВНИМАНИЕ: локальное зрение НЕ гарантирует посимвольную точность (в отличие от облака) - финансовые цифры сверять с экраном. Переопределяется через env: `LOCAL_150_BASE`, `LOCAL_VLM_MODEL`, `LOCAL_SUMMARY_MODEL`, `SCENE_THRESHOLD`, `FRAME_FLOOR_SEC`, `FRAME_CAP`, `WHISPER_PYTHON`.
+Речь - локальный whisper; разбор экрана - `qwen3-vl-8b-instruct` на локальном сервере LM Studio; связный лог и саммари - `google/gemma-4-26b-a4b`; маппинг спикеров по репликам - `qwen2.5-32b`. Кадры обрабатываются параллельно (число слотов выводится из контекста VLM под unified KV cache). Клиентские кадры НЕ уходят в облако. Спикеры распознаются слоями: по ГОЛОСУ (голосовая база, узнает людей между встречами) и по репликам - см. "Спикеры и голосовая база". Предусловия: сервер LM Studio доступен (по умолчанию `http://localhost:1234`, env `LOCAL_150_BASE`), модели `qwen3-vl-8b-instruct` + `google/gemma-4-26b-a4b` + `qwen2.5-32b-instruct` загружены (скрипт проверяет и внятно сообщает, если модели нет). Выход: транскрипция / со спикерами / детальный / связный / саммари / `voiceprints.json` / `screenshots/` (ВСЕ scene-кадры). ВНИМАНИЕ: локальное зрение НЕ гарантирует посимвольную точность (в отличие от облака) - финансовые цифры сверять с экраном. Env-переопределения: `LOCAL_150_BASE`, `LOCAL_VLM_MODEL`, `LOCAL_SUMMARY_MODEL`, `LOCAL_SPEAKER_MODEL`, `SCENE_THRESHOLD`, `FRAME_FLOOR_SEC`, `FRAME_CAP`, `WHISPER_PYTHON`.
 
 4. Иначе (видео без `--engine local`, или явный `--engine gemini`, или `--analyze-ui`) — запускай Gemini:
 
@@ -129,6 +149,25 @@ PYTHONUNBUFFERED=1 python ~/.claude/skills/transcribe/scripts/transcribe.py "<Fi
 5. После завершения покажи пользователю пути к файлам и прочитай начало транскрипции / саммари.
 
 **ВАЖНО:** `PYTHONUNBUFFERED=1` обязательно для прогресса.
+
+## Спикеры и голосовая база
+
+В локальном разборе видео (`--engine local`) имена спикеров определяются ДВУМЯ слоями (голос приоритетнее):
+
+1. **По голосу (голосовая база).** Диаризация считает отпечаток голоса каждого спикера (eres2net-эмбеддинг). Отпечаток сверяется с накопительной базой `voiceprints/db.json` по косинусной близости - так узнаются даже неназванные люди и ОДИН человек между разными встречами. Это больше, чем делает облако (оно вяжет имена только внутри одной записи).
+2. **По репликам (текст).** LLM (`qwen2.5-32b`) читает транскрипт и вяжет имена по обращениям ("Иван, что скажешь?"), самопредставлениям, ссылкам. Голос приоритетнее текста.
+
+Авто-пополнение (бутстрап): если человек назван текстом, но в базе его еще нет - его отпечаток заносится в базу, и на будущих встречах он узнается уже по голосу. Неоднозначные имена (одно имя на нескольких спикеров в одной записи) НЕ заносятся.
+
+Провенанс: `--project NAME` помечает, в каком проекте/встрече встречался человек (полезно при пересечении людей между проектами).
+
+Управление: `--no-voiceprints` (не трогать базу), `--voiceprint-db PATH` (своя база), `--speaker-model` (модель текстового слоя). Голоса - чувствительные данные: база хранится ЛОКАЛЬНО и не коммитится.
+
+Просмотр / ручной enroll базы:
+```bash
+python ~/.claude/skills/transcribe/scripts/voiceprints.py list
+python ~/.claude/skills/transcribe/scripts/voiceprints.py match --prints "<имя>.voiceprints.json"
+```
 
 ## Авто-fallback по моделям Gemini
 
@@ -153,7 +192,7 @@ PYTHONUNBUFFERED=1 python ~/.claude/skills/transcribe/scripts/transcribe.py "<Fi
 
 ## Ограничения
 
-- Локальный АУДИО-движок (whisper) сам по себе не делает анализ интерфейсов. Для локального разбора ЭКРАНА видео есть отдельный путь `--engine local` для видео (`analyze_video_local.py`: whisper + Qwen3-VL на сервере 150) - требует доступный сервер 150 и загруженные модели; посимвольная точность зрения не гарантирована.
+- Локальный АУДИО-движок (whisper) сам по себе не делает анализ интерфейсов. Для локального разбора ЭКРАНА видео есть отдельный путь `--engine local` (`analyze_video_local.py`: whisper + локальная VLM на LM Studio + спикеры по голосу) - требует доступный сервер LM Studio и загруженные модели; посимвольная точность зрения не гарантирована.
 - Локальный движок требует CUDA GPU.
 - Pyannote 4.x (диаризация) — модели gated, нужны принятые условия + HF-токен.
 - Кириллические имена файлов: скриптом обрабатываются.

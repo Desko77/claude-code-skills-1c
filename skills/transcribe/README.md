@@ -1,8 +1,10 @@
 # transcribe
 
 Транскрибация аудио и видео с двумя движками:
-- **Локальный** (default для аудио): `faster-whisper` (CUDA) + опц. диаризация `sherpa-onnx` GPU. Бесплатно, не уходит наружу.
-- **Gemini API** (default для видео и `--analyze-ui`): `gemini-2.5-flash`. ~$0.10/час.
+- **Локальный** (default для аудио): `faster-whisper` (CUDA) + опц. диаризация `sherpa-onnx` GPU. Бесплатно, не уходит наружу. Видео тоже можно разобрать полностью локально - `--engine local` (разбор экрана локальной VLM через LM Studio + распознавание спикеров по голосу).
+- **Gemini API** (default для видео и `--analyze-ui`): `gemini-2.5-flash`, разбор экрана + скриншоты. ~$0.10/час.
+
+Спикеры в локальном видео определяются по ГОЛОСУ (накопительная голосовая база - узнает людей между встречами) и по репликам. Подробнее - в `SKILL.md`, раздел "Спикеры и голосовая база".
 
 Производительность на RTX 5070 Ti Laptop: ~7 мин на 30 мин аудио с диаризацией (RTF ~0.24).
 
@@ -91,15 +93,14 @@ Read-токен с https://huggingface.co/settings/tokens, нужно приня
   ~/.claude/skills/transcribe/scripts/transcribe_local.py \
   "audio.mp3" --diarize
 
-# Видео (только через Gemini)
-~/.claude/skills/transcribe/venv-whisper/Scripts/python.exe \
-  ~/.claude/skills/transcribe/scripts/transcribe.py \
-  "video.mp4"
-
-# Видео + анализ интерфейса (с скриншотами)
+# Видео через Gemini + анализ интерфейса (с скриншотами)
 ~/.claude/skills/transcribe/venv-whisper/Scripts/python.exe \
   ~/.claude/skills/transcribe/scripts/transcribe.py \
   "video.mp4" --analyze-ui --with-summary
+
+# Видео ПОЛНОСТЬЮ ЛОКАЛЬНО (без облака): экран локальной VLM + спикеры по голосу
+python ~/.claude/skills/transcribe/scripts/analyze_video_local.py \
+  "video.mp4" --diarize --num-speakers 4 --project "МойПроект"
 ```
 
 На Linux/Mac: `venv-whisper/bin/python` вместо `venv-whisper/Scripts/python.exe`.
@@ -112,10 +113,12 @@ Read-токен с https://huggingface.co/settings/tokens, нужно приня
 |---|---|
 | `<имя> - транскрипция.md` | всегда (md с таймкодами) |
 | `<имя> - транскрипция.txt` | локальный движок (plain text) |
-| `<имя> - со спикерами.md` | локальный + `--diarize` (реплики с `[SPEAKER_XX, MM:SS]`) |
-| `<имя> - саммари.md` | Gemini + `--with-summary` или `--analyze-ui` |
-| `<имя> - детальный.md` | Gemini + `--analyze-ui` (с описанием экрана) |
-| `screenshots/` | Gemini + `--analyze-ui` (PNG-кадры) |
+| `<имя> - со спикерами.md` | `--diarize` (реплики с `[Имя/SPEAKER_XX, MM:SS]`) |
+| `<имя> - детальный.md` | `--analyze-ui` (Gemini) или `--engine local` - дословный лог экрана |
+| `<имя> - связный.md` | `--engine local` (видео) - связный нарратив экран+речь |
+| `<имя> - саммари.md` | Gemini `--with-summary`/`--analyze-ui` или `--engine local` |
+| `<имя>.voiceprints.json` | `--engine local` (видео) - отпечатки голоса спикеров |
+| `screenshots/` | `--analyze-ui` (Gemini) или `--engine local` (PNG-кадры) |
 
 ## Архитектура
 
@@ -125,10 +128,15 @@ Read-токен с https://huggingface.co/settings/tokens, нужно приня
 ├── README.md                   # эта инструкция
 ├── .env                        # ключи API (создаётся setup)
 ├── scripts/
-│   ├── transcribe_local.py     # orchestrator локального движка (faster-whisper + diarize)
-│   ├── transcribe.py           # Gemini API клиент (видео + analyze-ui)
-│   ├── diarize_sherpa.py       # worker диаризации sherpa-onnx
-│   └── setup.py                # установщик
+│   ├── transcribe_local.py     # orchestrator локального аудио (faster-whisper + diarize)
+│   ├── transcribe.py           # Gemini API клиент (видео + analyze-ui, chunked+parallel)
+│   ├── analyze_video_local.py  # локальный разбор видео (экран + речь + спикеры по голосу)
+│   ├── local_backends.py       # VLM/LLM на LM Studio + нарезка кадров ffmpeg
+│   ├── text_stage.py           # общий текст-модуль: спикеры->имена, связный лог, саммари
+│   ├── voiceprints.py          # голосовая база (enrollment + матчинг по голосу)
+│   ├── diarize_sherpa.py       # worker диаризации sherpa-onnx (+ отпечатки голоса)
+│   ├── setup.py                # установщик
+│   └── verify.py               # проверка установки
 ├── venv-whisper/               # создаётся setup: faster-whisper + Gemini + CUDA
 ├── venv-sherpa/                # создаётся setup: sherpa-onnx + onnxruntime-gpu
 └── models/                     # скачивается setup
