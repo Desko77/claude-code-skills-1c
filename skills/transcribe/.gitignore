@@ -1,7 +1,25 @@
-venv-whisper/
-venv-sherpa/
-models/
+# === Секреты и приватные данные - НИКОГДА в репозиторий ===
 .env
-*.crash.log
+voiceprints/
+*.voiceprints.json
+
+# === Модели (большие бинарники, ставятся через setup.py) ===
+models/
+
+# === Локальные venv ===
+venv/
+venv-sherpa/
+venv-whisper/
+
+# === Python cache ===
 __pycache__/
 *.pyc
+
+# === Логи и краши ===
+*.crash.log
+*.log
+
+# === Выходные артефакты транскрипции (данные встреч) ===
+outputs/
+*.transcribe.json
+*.turns.json

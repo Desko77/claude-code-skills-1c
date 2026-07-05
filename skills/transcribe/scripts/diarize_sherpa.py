@@ -2,7 +2,7 @@
 Worker для sherpa-onnx диаризации (CUDA через onnxruntime-gpu).
 
 Запускается как subprocess из transcribe_local.py orchestrator. Работает в отдельном venv:
-    ~/.claude/skills/transcribe/venv-sherpa
+    <home>/.claude/skills/transcribe/venv-sherpa
 
 Использует:
     - pyannote-segmentation-3.0 в ONNX
@@ -68,6 +68,47 @@ def ffmpeg_to_wav16k(input_path: Path, out_wav: Path) -> None:
         str(out_wav),
     ]
     subprocess.run(cmd, check=True, capture_output=True)
+
+
+def compute_voiceprints(samples, sr, turns, provider, max_sec=60.0, min_seg=0.6):
+    """Отпечаток голоса на КЛАСТЕР: eres2net-эмбеддинги сегментов SPEAKER_XX, усреднение по длительности.
+
+    Тот же экстрактор, что и в диаризации (переиспользуем модель). На кластер берём самые длинные
+    сегменты (чище) суммарно до max_sec, эмбеддинги усредняем с весом по длительности и нормируем
+    (для косинусной близости). Возвращает {SPEAKER_XX: [float, ...], ...}.
+    """
+    ext = sherpa_onnx.SpeakerEmbeddingExtractor(
+        sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(EMB_MODEL), provider=provider, num_threads=1))
+    by_spk: dict[str, list[dict]] = {}
+    for t in turns:
+        by_spk.setdefault(t["speaker"], []).append(t)
+
+    prints: dict[str, list] = {}
+    for spk, segs in by_spk.items():
+        segs = sorted(segs, key=lambda s: s["end"] - s["start"], reverse=True)
+        embs, weights, total = [], [], 0.0
+        for s in segs:
+            if total >= max_sec:
+                break
+            a, b = int(s["start"] * sr), int(s["end"] * sr)
+            seg = samples[a:b]
+            dur = (b - a) / sr
+            if dur < min_seg:
+                continue
+            stream = ext.create_stream()
+            stream.accept_waveform(sr, seg)
+            stream.input_finished()
+            emb = np.array(ext.compute(stream), dtype=np.float32)
+            if emb.size:
+                embs.append(emb)
+                weights.append(dur)
+                total += dur
+        if embs:
+            v = np.average(np.stack(embs), axis=0, weights=weights)
+            v = v / (np.linalg.norm(v) + 1e-8)
+            prints[spk] = [round(float(x), 6) for x in v]
+            print(f"[D] отпечаток {spk}: {total:.1f}с речи, dim={v.size}", flush=True)
+    return prints
 
 
 def diarize(args) -> int:
@@ -158,6 +199,15 @@ def diarize(args) -> int:
         Path(args.out_json).write_text(json.dumps(turns, ensure_ascii=False), encoding="utf-8")
         print(f"[D]   → {args.out_json}", flush=True)
 
+        if args.emit_voiceprints:
+            print("[D] Считаю отпечатки голоса на кластер...", flush=True)
+            try:
+                prints = compute_voiceprints(samples, sr, turns, args.provider)
+                Path(args.emit_voiceprints).write_text(json.dumps(prints, ensure_ascii=False), encoding="utf-8")
+                print(f"[D]   отпечатки → {args.emit_voiceprints} ({len(prints)} кластеров)", flush=True)
+            except Exception as e:
+                print(f"[D] отпечатки не посчитаны: {e}", file=sys.stderr, flush=True)
+
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
@@ -170,6 +220,7 @@ def main() -> int:
     ap.add_argument("--num-speakers", type=int, default=None)
     ap.add_argument("--threshold", type=float, default=0.5)
     ap.add_argument("--provider", default="cuda", choices=["cuda", "cpu"])
+    ap.add_argument("--emit-voiceprints", default=None, help="Путь: сохранить отпечатки голоса на кластер (JSON)")
     args = ap.parse_args()
     return diarize(args)
 

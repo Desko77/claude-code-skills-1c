@@ -10,7 +10,7 @@
                                [--num-speakers N] [--min-speakers N] [--max-speakers N]
 
 Зависимости:
-    Whisper venv: faster-whisper, ctranslate2-CUDA, ffmpeg.
+    отдельный venv (env WHISPER_PYTHON): faster-whisper, ctranslate2-CUDA, ffmpeg.
     Для --diarize: torch (CUDA), pyannote.audio>=3.1, HF_TOKEN в env.
 
 Файлы вывода:
@@ -29,13 +29,6 @@ import sys
 import time
 import traceback
 from pathlib import Path
-
-# Подключаем ffmpeg из static-ffmpeg если есть (subprocess наследует PATH).
-try:
-    from static_ffmpeg import add_paths as _sff_add_paths
-    _sff_add_paths()
-except ImportError:
-    pass
 
 
 def _setup_cuda_dll_path() -> None:
@@ -414,6 +407,7 @@ def orchestrate(args) -> int:
                 "--out-json", str(turns_json),
                 "--provider", "cuda",
                 "--threshold", str(args.threshold),
+                "--emit-voiceprints", str(output_dir / f"{base}.voiceprints.json"),
             ]
             if args.num_speakers is not None:
                 sherpa_cli += ["--num-speakers", str(args.num_speakers)]
