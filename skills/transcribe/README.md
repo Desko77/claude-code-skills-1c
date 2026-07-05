@@ -78,6 +78,31 @@ HF_TOKEN=hf_...
 
 Read-токен с https://huggingface.co/settings/tokens, нужно принять условия моделей: `pyannote/speaker-diarization-3.1`, `pyannote/segmentation-3.0`. Для default sherpa-onnx HF_TOKEN не нужен.
 
+### Локальный разбор видео (`--engine local`): настройка LM Studio
+
+Полностью локальный разбор ВИДЕО (экран + речь + спикеры по голосу, без облака) использует локальный LLM-сервер [LM Studio](https://lmstudio.ai/). Базовый `setup.py` его НЕ ставит - настраивается отдельно.
+
+1. Установите **LM Studio** (https://lmstudio.ai/) - Windows/Linux/Mac.
+2. Скачайте в LM Studio 3 модели (вкладка Search):
+   - `qwen3-vl-8b-instruct` - зрение по кадрам экрана (VLM);
+   - `google/gemma-4-26b-a4b` - связный лог + саммари;
+   - `qwen2.5-32b-instruct` - маппинг спикеров по репликам.
+
+   Квантизацию берите под свою VRAM (на 12-16 ГБ - Q4). Модели грузятся по очереди (скрипт свопит одну за раз).
+3. Запустите локальный сервер: LM Studio -> вкладка Developer (Local Server) -> Start Server. По умолчанию `http://localhost:1234`.
+4. Контекст: для параллельной обработки кадров поставьте context length побольше (16384+) - скрипт сам выведет число параллельных слотов под unified KV cache.
+5. Доп. Python-зависимости для локального видео (в тот python, которым запускаете `analyze_video_local.py`):
+   ```bash
+   pip install Pillow numpy
+   ```
+   (`Pillow` - дедуп кадров, `numpy` - голосовые отпечатки.)
+6. Если сервер не на `localhost:1234` - пропишите в `.env`:
+   ```
+   LOCAL_150_BASE=http://ХОСТ:ПОРТ/v1
+   ```
+
+При старте скрипт проверит `/v1/models` и внятно сообщит, какой модели не хватает.
+
 ## Использование
 
 Запуск из venv-whisper:

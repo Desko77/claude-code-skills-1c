@@ -109,6 +109,30 @@ allowed-tools:
 - Системные: `ffmpeg`, `ffprobe` в PATH
 - API-ключ в `~/.claude/skills/transcribe/.env`: `GEMINI_API_KEY=...`
 
+## Установка и настройка (для агента)
+
+Перед первым запуском проверь, установлен ли скилл: есть ли каталог `~/.claude/skills/transcribe/venv-whisper/`.
+
+Если НЕ установлен - запусти установщик. Он ДОЛГИЙ (~20-30 мин: venv'ы, CUDA-пакеты, модели) - ставь длинный таймаут или фоновый режим:
+
+```bash
+python ~/.claude/skills/transcribe/scripts/setup.py
+```
+
+Полезные флаги: `--skip-gemini` (без облака), `--skip-sherpa` (без диаризации), `--with-pyannote` (альт. движок диаризации), `--allow-cpu` (без GPU). После установки - проверка:
+
+```bash
+python ~/.claude/skills/transcribe/scripts/verify.py --full
+```
+
+Настрой `.env` (`~/.claude/skills/transcribe/.env`, он в gitignore, НЕ коммить):
+- `GEMINI_API_KEY=...` - для Gemini (видео + fallback аудио), ключ https://aistudio.google.com/apikey.
+- `HF_TOKEN=...` - только если ставил `--with-pyannote`.
+- `WHISPER_PYTHON=...` - путь к python из venv-whisper, если venv НЕ в дефолтном месте (локальное видео зовет whisper этим python).
+- `LOCAL_150_BASE=http://ХОСТ:ПОРТ/v1` - если LM Studio не на `localhost:1234`.
+
+Для `--engine local` (локальный разбор ВИДЕО) дополнительно нужен запущенный **LM Studio** с 3 моделями: `qwen3-vl-8b-instruct` (зрение), `google/gemma-4-26b-a4b` (связный лог + саммари), `qwen2.5-32b-instruct` (спикеры). Плюс в python, которым запускается `analyze_video_local.py`, нужны `Pillow` и `numpy` (`pip install Pillow numpy`). Пошаговая настройка LM Studio - в README. Скрипт проверяет `/v1/models` и внятно сообщает, если модели нет - тогда предложи пользователю догрузить модель или запустить сервер.
+
 ## Инструкция
 
 1. Определи `FilePath` и флаги. По расширению файла и флагам выбери движок (см. таблицу выше).
