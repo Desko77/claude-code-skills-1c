@@ -65,7 +65,7 @@ cp commands/* ~/.claude/commands/
 | [`bsl-language-server`](https://github.com/1c-syntax/claude-code-bsl-lsp) | `/plugin marketplace add 1c-syntax/claude-code-bsl-lsp` + `/plugin install bsl-language-server@bsl-language-server` | Полноценная интеграция BSL Language Server в Claude Code как LSP — диагностики, go to definition, find references, hover, форматирование, code actions для `.bsl` и `.os` |
 | Anthropic plugins (`/plugin marketplace add anthropics/claude-plugins-official`) | `/plugin install <name>@claude-plugins-official` | `code-review`, `pr-review-toolkit` — ревью PR агентами; `mcp-server-dev` — разработка MCP-серверов; `claude-md-management` — поддержание CLAUDE.md; `hookify` — создание hooks; `security-guidance` — security-ревью |
 
-## Скилы (94)
+## Скилы (95)
 
 ### Маршрутизатор
 
@@ -230,7 +230,7 @@ cp commands/* ~/.claude/commands/
 | `1c-mcp-toolkit` | Прямой HTTP API к живой запущенной базе 1С (запросы, BSL-код, метаданные, журнал) |
 | `1c-platform-docs` | Поиск по документации API платформы |
 | `1c-query-optimization` | Продвинутая оптимизация запросов |
-| `zup-hr-api-reference` | Справочник API 1С:ЗУП 3.1 (кадровый учет, физлица, стажи, договоры ГПХ, представления СКД) |
+| `zup-hr-api-reference` | Справочник API 1С:ЗУП 3.1: кадровый учет (физлица, стажи, договоры ГПХ, представления СКД) и расчет (средний заработок, начисления, пособия/СФР, взносы, отчетность) |
 | `1c-help-manage` | Встроенная справка объектов 1С |
 | `composing-1c-queries` | Руководство по языку запросов 1С |
 | `v8unpack-cf` | Распаковка/сборка CF/CFE/EPF |
@@ -244,8 +244,9 @@ cp commands/* ~/.claude/commands/
 | `skill-creator` | Создание, тестирование и оптимизация скилов (evals, grading, description loop) |
 | `prompt-enhancer` | Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ |
 | `dehumanize-ai-text` | Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления |
+| `claude-md-bootstrap` | Генерация проектного CLAUDE.md - контекста проекта для AI-агента (IF-THEN правила, work-protocol, progressive disclosure) |
 
-## Правила (25)
+## Правила (29)
 
 | Файл | Описание |
 |------|----------|
@@ -274,6 +275,10 @@ cp commands/* ~/.claude/commands/
 | `1c-report-direct-query.md` | Прямой запрос в отчётах (СКД) без схемы компоновки |
 | `edt-zip-export-pitfalls.md` | Грабли инкрементального экспорта конфигурации из EDT в ИБ |
 | `agent-verification-patterns.md` | Паттерны проверки результата работы агента (reconciliation loop) |
+| `bsl-ssl.md` | Переиспользование БСП, разметка правок типовых модулей, устаревшие объекты |
+| `edt-bsl-write-safety.md` | Безопасная запись BSL-модулей через EDT MCP |
+| `integrations.md` | Python-first подход к HTTP-интеграциям 1С |
+| `1c-skd-two-pass-preprocessing.md` | Двухпроходный СКД: предобработка деталей до свертки |
 
 ## Команды (4)
 
