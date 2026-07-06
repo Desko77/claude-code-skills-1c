@@ -167,11 +167,46 @@ def build_coherent_log(mechanical_log, llm, chunk_chars=18000):
     return "\n\n".join(out)
 
 
-def build_summary(transcript_text, llm):
-    """2-проходное саммари: экстракт всех фактов -> протокол с контролем полноты."""
+def _chunk_by_lines(text, chunk_chars):
+    """Разбить текст на чанки ~chunk_chars по границам строк (строки не рвем)."""
+    chunks, cur, cur_len = [], [], 0
+    for ln in text.splitlines(keepends=True):
+        if cur and cur_len + len(ln) > chunk_chars:
+            chunks.append("".join(cur))
+            cur, cur_len = [], 0
+        cur.append(ln)
+        cur_len += len(ln)
+    if cur:
+        chunks.append("".join(cur))
+    return chunks
+
+
+def build_summary(transcript_text, llm, chunk_chars=40000, max_ctx_chars=80000):
+    """2-проходное саммари с защитой от переполнения контекста на длинных встречах (H1).
+
+    Проход 1 (факты): транскрипт длиннее chunk_chars извлекаем ПО ЧАНКАМ и склеиваем, чтобы длинная
+    встреча не обрезалась в одном вызове. Короткая - как раньше, одним вызовом.
+    Проход 2 (протокол): если транскрипт+факты влезают (<= max_ctx_chars) - подаем оба (контекст +
+    контроль полноты); иначе (очень длинная встреча) - ТОЛЬКО факты (они и есть полный экстракт),
+    иначе модель тихо обрежет середину. Пороги под контекст gemma (~32K); типичная встреча
+    (<= chunk_chars, напр. 48-мин ~33K символов) идет одним проходом как раньше - без регресса."""
     if not transcript_text.strip():
         return None
-    facts = llm(transcript_text, PROMPT_TASKS_EXTRACT)
-    combined = (f"ТРАНСКРИПЦИЯ:\n\n{transcript_text}\n\n"
+    if len(transcript_text) <= chunk_chars:
+        facts = llm(transcript_text, PROMPT_TASKS_EXTRACT)
+    else:
+        parts = []
+        for ch in _chunk_by_lines(transcript_text, chunk_chars):
+            f = llm(ch, PROMPT_TASKS_EXTRACT)
+            if f and f.strip():
+                parts.append(f.strip())
+        facts = "\n\n".join(parts)
+    if not facts or not facts.strip():
+        return None
+    if len(transcript_text) + len(facts) <= max_ctx_chars:
+        data = (f"ТРАНСКРИПЦИЯ:\n\n{transcript_text}\n\n"
                 f"---\n\nПРЕДВАРИТЕЛЬНО ИЗВЛЕЧЕННЫЕ ФАКТЫ:\n\n{facts}")
-    return llm(combined, PROMPT_SUMMARY_FROM_TEXT)
+    else:
+        data = ("ПОЛНЫЙ СПИСОК ИЗВЛЕЧЕННЫХ ФАКТОВ (задачи/решения/вопросы). Транскрипт слишком "
+                "длинный для контекста - синтезируй протокол строго по этим фактам:\n\n" + facts)
+    return llm(data, PROMPT_SUMMARY_FROM_TEXT)
