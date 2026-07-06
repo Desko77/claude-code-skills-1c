@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Анализ модуля 1С 7.7 (.1s, CP1251): инвентаризация + линтер граблей синтаксиса.
+"""Анализ модуля 1С 7.7 (.1s, CP1251): инвентаризация + линтер особенностей синтаксиса.
 
 Две подкоманды:
 
@@ -131,7 +131,7 @@ def main():
     pi.add_argument("file")
     pi.set_defaults(func=cmd_inventory)
 
-    pl = sub.add_parser("lint", help="линтер граблей 7.7")
+    pl = sub.add_parser("lint", help="линтер особенностей синтаксиса 7.7")
     pl.add_argument("file")
     pl.set_defaults(func=cmd_lint)
 

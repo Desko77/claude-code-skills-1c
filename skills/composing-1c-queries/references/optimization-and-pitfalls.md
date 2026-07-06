@@ -1,4 +1,4 @@
-# Optimization and Pitfalls
+# Optimization and Caveats
 
 1C-specific query optimization rules. These differ from generic SQL and are critical for production performance.
 

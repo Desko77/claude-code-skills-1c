@@ -1,6 +1,6 @@
-# EDT Zip Export Pitfalls
+# EDT Zip Export Caveats
 
-Грабли EDT при экспорте конфигурации в инфобазу (incremental sync через zip-архив).
+Ограничения EDT при экспорте конфигурации в инфобазу (incremental sync через zip-архив).
 
 Применяется: при создании/правке объектов метаданных в EDT-проектах (Configuration или Extension),
 особенно через MCP `edit_metadata` / прямую правку `.mdo`. Касается агента разработчика mcp-edt.

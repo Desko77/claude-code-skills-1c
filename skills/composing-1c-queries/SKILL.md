@@ -371,7 +371,7 @@ When unioning queries with different nested table structures:
 | Not equals | `<>` | |
 | Comparison | `<`, `>`, `<=`, `>=` | |
 | AND | `И` | |
-| OR | `ИЛИ` | Avoid in WHERE — see pitfalls |
+| OR | `ИЛИ` | Avoid in WHERE — see caveats |
 | NOT | `НЕ` | |
 | Range | `МЕЖДУ X И Y` | Inclusive both ends |
 | In list | `В (val1, val2, ...)` | |
@@ -562,5 +562,5 @@ When comparing reference fields (link-type attributes), **pass the reference as 
 ## References
 
 - [Query syntax reference](references/query-syntax-reference.md) — ВЫБОР (CASE), ОБЪЕДИНИТЬ, УПОРЯДОЧИТЬ ПО, ИТОГИ, ПОДОБНО patterns, ССЫЛКА, subqueries
-- [Optimization and pitfalls](references/optimization-and-pitfalls.md) — index strategy, ИЛИ alternatives, compound types, virtual table rules, RLS impact
+- [Optimization and caveats](references/optimization-and-pitfalls.md) — index strategy, ИЛИ alternatives, compound types, virtual table rules, RLS impact
 - [Functions and expressions](references/functions-and-expressions.md) — aggregate, date, string, type, math functions and type casting with ВЫРАЗИТЬ

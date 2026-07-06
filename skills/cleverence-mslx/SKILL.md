@@ -194,7 +194,7 @@ Caveat for TSD-created docs: their MS Id is `new_<guid>`. A hand-rolled
 ## Reference files
 
 - `references/graph-mechanics.md` - action types, every transition attribute, fall-through,
-  button arrays, KeyJumps, common pitfalls. Read when editing graph flow.
+  button arrays, KeyJumps, common caveats. Read when editing graph flow.
 - `references/online-1c-call.md` - the InvokeMethodAction -> integration-processor ->
   ТаблицаЗначений mechanism, the wrapper pattern, what is not an online call.
 - `references/km-and-document-operations.md` - КМ line fields, IdentificationCode, the ready

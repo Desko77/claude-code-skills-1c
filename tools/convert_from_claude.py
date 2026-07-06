@@ -109,7 +109,7 @@ RULES_CONFIG = {
         "globs": ["**/Rights.xml", "**/Roles/**", "**/*.mdo"],
     },
     "edt-zip-export-pitfalls": {
-        "description": "Грабли инкрементального экспорта конфигурации из EDT в ИБ",
+        "description": "Ограничения инкрементального экспорта конфигурации из EDT в ИБ",
         "globs": ["**/*.mdo"],
     },
     "agent-verification-patterns": {
