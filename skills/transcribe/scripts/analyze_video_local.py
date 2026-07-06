@@ -373,6 +373,9 @@ def main():
                 if name_counts[name] > 1:   # имя висит на нескольких метках - неоднозначно, пропускаем
                     skipped += 1
                     continue
+                if not vp.is_plausible_name(name):   # мусорное имя (КС/инициалы/огрызок) - не засоряем базу
+                    skipped += 1
+                    continue
                 vp.enroll(db, name, prints[label], project=args.project, meeting=video.stem)
                 added += 1
             if added:

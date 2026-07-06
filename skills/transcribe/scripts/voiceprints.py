@@ -44,15 +44,29 @@ def _cos(a, b):
     return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8))
 
 
+def is_plausible_name(name):
+    """Похоже на реальное имя, а не на мусор/инициалы - гард для энролла и матчинга.
+    Мусор: короче 3 символов ИЛИ одни заглавные буквы длиной <=3 (инициалы). 'Иванов' - да, 'КС' - нет."""
+    n = (name or "").strip()
+    if len(n) < 3:
+        return False
+    letters = [c for c in n if c.isalpha()]
+    if letters and len(letters) <= 3 and all(c.isupper() for c in letters):
+        return False
+    return True
+
+
 def identify(cluster_prints, db, threshold=MATCH_THRESHOLD):
     """Сопоставить отпечатки кластеров {SPEAKER_XX: vec} с базой -> {SPEAKER_XX: (имя, близость)}.
 
-    Только уверенные (близость >= threshold). Жадно по убыванию близости, одно имя не вешаем
-    на две метки и одну метку не на два имени.
-    """
+    Только уверенные (близость >= threshold). Жадно по убыванию близости, одно имя не вешаем на две
+    метки и одну метку не на два имени. Мусорные имена (КС, инициалы) в матче НЕ участвуют - чтобы
+    кривая запись не выиграла матч и не подменила корректное имя."""
     cand = []  # (score, spk, name)
     for spk, vec in cluster_prints.items():
         for name, entry in db.items():
+            if not is_plausible_name(name):   # мусорную запись (КС) не матчим
+                continue
             best = max((_cos(vec, p) for p in entry.get("prints", [])), default=0.0)
             if best >= threshold:
                 cand.append((best, spk, name))
