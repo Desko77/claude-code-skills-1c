@@ -205,6 +205,27 @@ def get_loaded_context(model=None, base=None):
     return None
 
 
+def warmup_model(model=None, base=None, timeout=180):
+    """JIT-прогрев: крошечный запрос, чтобы LM Studio загрузил модель (с сохранённым в её конфиге
+    контекстом) ДО расчёта бюджета. Иначе на холодном старте (модель выгружена по TTL)
+    get_loaded_context вернёт None -> бюджет уйдёт в fallback -> parallel=1, хотя модель грузится
+    на 32768. Возвращает True при ответе."""
+    model = model or LOCAL_VLM_MODEL
+    root = (base or LOCAL_150_BASE).rstrip("/")
+    body = {"model": model, "messages": [{"role": "user", "content": "ok"}],
+            "max_tokens": 1, "temperature": 0}
+    req = urllib.request.Request(
+        root + "/chat/completions", data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": "Bearer lm-studio"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            json.loads(r.read().decode("utf-8"))
+        return True
+    except Exception as e:
+        print(f"[warmup] прогрев {model} не удался: {e}", file=sys.stderr)
+        return False
+
+
 def plan_vlm_budget(model=None, base=None, max_tokens=None, parallel_cap=None):
     """Согласовать вывод и параллельность под контекст VLM на 150.
 
@@ -214,6 +235,9 @@ def plan_vlm_budget(model=None, base=None, max_tokens=None, parallel_cap=None):
     max_tokens = max_tokens or VLM_MAX_TOKENS
     parallel_cap = parallel_cap or VLM_PARALLEL
     ctx = get_loaded_context(model, base=base)
+    if not ctx:   # модель выгружена -> JIT-прогрев и перемерить (иначе fallback -> parallel=1)
+        warmup_model(model, base=base)
+        ctx = get_loaded_context(model, base=base)
     source = "api"
     if not ctx:
         ctx, source = VLM_FALLBACK_CONTEXT, "fallback"
