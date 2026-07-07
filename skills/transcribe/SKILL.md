@@ -111,29 +111,21 @@ allowed-tools:
 
 ## Установка и настройка (для агента)
 
-Перед первым запуском проверь, установлен ли скилл: есть ли каталог `~/.claude/skills/transcribe/venv-whisper/`.
+**НЕ проверяй сервер/venv/модели вручную ПЕРЕД запуском.** Скрипты сами читают `.env` и делают свой префлайт (печатают `[0/5] проверка сервера ...` + какие модели резолвятся). Просто ЗАПУСТИ нужный скрипт (см. «Инструкция») и читай ЕГО вывод.
 
-Если НЕ установлен - запусти установщик. Он ДОЛГИЙ (~20-30 мин: venv'ы, CUDA-пакеты, модели) - ставь длинный таймаут или фоновый режим:
+Что где (скрипт берет из `.env` сам, тебе знать не обязательно, руками НЕ проверяй):
+- **Локальный сервер VLM** - из `LOCAL_150_BASE` в `.env` (может быть удаленный хост, НЕ обязательно `localhost`). НЕ проверяй `localhost:1234`.
+- **Python для whisper** - из `WHISPER_PYTHON` в `.env` (может быть внешний venv, НЕ обязательно skill-овый `venv-whisper`). НЕ проверяй skill-venv.
 
-```bash
-python ~/.claude/skills/transcribe/scripts/setup.py
-```
+Ставить/чинить - ТОЛЬКО если скрипт при запуске сам сообщил, что сервер/модель/whisper недоступны:
+- установка: `python ~/.claude/skills/transcribe/scripts/setup.py` (ДОЛГО ~20-30 мин, фоном; флаги `--skip-gemini/--skip-sherpa/--with-pyannote/--allow-cpu`), проверка `verify.py --full`;
+- для `--engine local` (видео) нужен запущенный LM Studio (адрес из `LOCAL_150_BASE`) с моделями (VLM `qwen3-vl-30b-a3b-instruct` или `qwen3-vl-8b`, `gemma-4-26b`, `qwen2.5-32b`) + `Pillow`/`numpy` в python запуска. Пошагово - в README.
 
-Полезные флаги: `--skip-gemini` (без облака), `--skip-sherpa` (без диаризации), `--with-pyannote` (альт. движок диаризации), `--allow-cpu` (без GPU). После установки - проверка:
-
-```bash
-python ~/.claude/skills/transcribe/scripts/verify.py --full
-```
-
-Настрой `.env` (`~/.claude/skills/transcribe/.env`, он в gitignore, НЕ коммить):
-- `GEMINI_API_KEY=...` - для Gemini (видео + fallback аудио), ключ https://aistudio.google.com/apikey.
-- `HF_TOKEN=...` - только если ставил `--with-pyannote`.
-- `WHISPER_PYTHON=...` - путь к python из venv-whisper, если venv НЕ в дефолтном месте (локальное видео зовет whisper этим python).
-- `LOCAL_150_BASE=http://ХОСТ:ПОРТ/v1` - если LM Studio не на `localhost:1234`.
-
-Для `--engine local` (локальный разбор ВИДЕО) дополнительно нужен запущенный **LM Studio** с 3 моделями: `qwen3-vl-8b-instruct` (зрение), `google/gemma-4-26b-a4b` (связный лог + саммари), `qwen2.5-32b-instruct` (спикеры). Плюс в python, которым запускается `analyze_video_local.py`, нужны `Pillow` и `numpy` (`pip install Pillow numpy`). Пошаговая настройка LM Studio - в README. Скрипт проверяет `/v1/models` и внятно сообщает, если модели нет - тогда предложи пользователю догрузить модель или запустить сервер.
+`.env` (`~/.claude/skills/transcribe/.env`, gitignore, НЕ коммить): `GEMINI_API_KEY`, `HF_TOKEN` (если pyannote), `WHISPER_PYTHON`, `LOCAL_150_BASE`, `LOCAL_VLM_MODEL`.
 
 ## Инструкция
+
+**«Локально» / «без облака» = ТОЛЬКО локальный движок (`--engine local` / `analyze_video_local.py`).** Если пользователь просит локально - НЕ запускай Gemini и НЕ старый `analyze_video.py`. Локаль-скрипт сам конфигурится из `.env` (сервер + whisper) - просто запусти его. Если локальный сервер/модели недоступны - ОСТАНОВИСЬ и скажи пользователю; НЕ сваливайся в облако (данные встреч могут быть конфиденциальные).
 
 1. Определи `FilePath` и флаги. По расширению файла и флагам выбери движок (см. таблицу выше).
 
