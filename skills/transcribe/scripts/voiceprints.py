@@ -56,17 +56,21 @@ def is_plausible_name(name):
     return True
 
 
-def identify(cluster_prints, db, threshold=MATCH_THRESHOLD):
+def identify(cluster_prints, db, threshold=MATCH_THRESHOLD, project=None):
     """Сопоставить отпечатки кластеров {SPEAKER_XX: vec} с базой -> {SPEAKER_XX: (имя, близость)}.
 
     Только уверенные (близость >= threshold). Жадно по убыванию близости, одно имя не вешаем на две
     метки и одну метку не на два имени. Мусорные имена (КС, инициалы) в матче НЕ участвуют - чтобы
-    кривая запись не выиграла матч и не подменила корректное имя."""
+    кривая запись не выиграла матч и не подменила корректное имя.
+    project: если задан, матчим только против записей ТОГО ЖЕ проекта (записи без проекта считаем
+    глобальными и матчим всегда); записи ЧУЖОГО проекта исключаем - защита от кросс-проектных совпадений."""
     cand = []  # (score, spk, name)
     for spk, vec in cluster_prints.items():
         for name, entry in db.items():
             if not is_plausible_name(name):   # мусорную запись (КС) не матчим
                 continue
+            if project and entry.get("projects") and project not in entry["projects"]:
+                continue   # запись другого проекта - не матчим (провенанс из --project)
             best = max((_cos(vec, p) for p in entry.get("prints", [])), default=0.0)
             if best >= threshold:
                 cand.append((best, spk, name))

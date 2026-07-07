@@ -343,7 +343,7 @@ def main():
             try:
                 db = vp.load_db(voiceprint_db)
                 prints = json.loads(vp_path.read_text(encoding="utf-8"))
-                voice_ids = vp.identify(prints, db)
+                voice_ids = vp.identify(prints, db, project=args.project)
                 if voice_ids:
                     print("[5/7 спикеры] по голосу: "
                           + ", ".join(f"{k}->{n}({s})" for k, (n, s) in voice_ids.items()), flush=True)
