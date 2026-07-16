@@ -15,6 +15,9 @@ Worker для sherpa-onnx диаризации (CUDA через onnxruntime-gpu)
     --num-speakers N    точное число спикеров (отключает кластеризацию по threshold)
     --threshold T       порог кластеризации (default 0.5, чем меньше — тем больше кластеров)
     --provider cuda|cpu (default cuda)
+    --from-turns <json> режим "только отпечатки": диаризация НЕ выполняется, turns берутся из
+                        файла (получены другим движком), считаются voiceprints на кластер
+                        (eres2net — то же пространство, что и голосовая база)
 
 Вывод JSON: list[{"start": float, "end": float, "speaker": "SPEAKER_XX"}].
 """
@@ -109,6 +112,33 @@ def compute_voiceprints(samples, sr, turns, provider, max_sec=60.0, min_seg=0.6)
             prints[spk] = [round(float(x), 6) for x in v]
             print(f"[D] отпечаток {spk}: {total:.1f}с речи, dim={v.size}", flush=True)
     return prints
+
+
+def voiceprints_only(args) -> int:
+    """Посчитать отпечатки голоса по готовым turns (диаризацию делал другой движок)."""
+    if not EMB_MODEL.exists():
+        print(f"[D] Не найдена модель эмбеддингов: {EMB_MODEL}", file=sys.stderr)
+        return 1
+    turns = json.loads(Path(args.from_turns).read_text(encoding="utf-8"))
+    print(f"[D] Отпечатки по готовым turns: {len(turns)} turns из {args.from_turns}", flush=True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        wav_path = Path(tmp) / "audio_16k.wav"
+        ffmpeg_to_wav16k(Path(args.input), wav_path)
+        samples, sr = sf.read(str(wav_path), dtype="float32")
+        if samples.ndim > 1:
+            samples = samples.mean(axis=1)
+        try:
+            prints = compute_voiceprints(samples, sr, turns, args.provider)
+            Path(args.emit_voiceprints).write_text(json.dumps(prints, ensure_ascii=False), encoding="utf-8")
+            print(f"[D]   отпечатки → {args.emit_voiceprints} ({len(prints)} кластеров)", flush=True)
+        except Exception as e:
+            print(f"[D] отпечатки не посчитаны: {e}", file=sys.stderr, flush=True)
+            return 1
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
 
 
 def diarize(args) -> int:
@@ -216,12 +246,21 @@ def diarize(args) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True)
-    ap.add_argument("--out-json", required=True)
+    ap.add_argument("--out-json", default=None)
     ap.add_argument("--num-speakers", type=int, default=None)
     ap.add_argument("--threshold", type=float, default=0.5)
     ap.add_argument("--provider", default="cuda", choices=["cuda", "cpu"])
     ap.add_argument("--emit-voiceprints", default=None, help="Путь: сохранить отпечатки голоса на кластер (JSON)")
+    ap.add_argument("--from-turns", default=None, help="Только отпечатки: turns JSON от другого движка")
     args = ap.parse_args()
+    if args.from_turns:
+        if not args.emit_voiceprints:
+            print("[D] --from-turns требует --emit-voiceprints", file=sys.stderr)
+            return 1
+        return voiceprints_only(args)
+    if not args.out_json:
+        print("[D] нужен --out-json (либо режим --from-turns)", file=sys.stderr)
+        return 1
     return diarize(args)
 
 

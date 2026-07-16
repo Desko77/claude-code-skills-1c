@@ -218,7 +218,8 @@ def main():
     ap.add_argument("video", help="Путь к видеофайлу")
     ap.add_argument("--output-dir", "-o", default=None)
     ap.add_argument("--diarize", action="store_true", help="Диаризация речи (whisper); спикеры попадут в лог/саммари")
-    ap.add_argument("--num-speakers", type=int, default=None, help="Точное число спикеров для диаризации (автодетект ненадёжен)")
+    ap.add_argument("--num-speakers", type=int, default=None,
+                    help="Точное число спикеров (опционально; без него автодетект pyannote community-1)")
     ap.add_argument("--no-summary", action="store_true", help="Не строить саммари")
     ap.add_argument("--no-coherent", action="store_true", help="Не строить связный лог (быстрее)")
     ap.add_argument("--reuse-transcript", action="store_true",

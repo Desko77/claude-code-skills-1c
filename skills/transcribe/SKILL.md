@@ -1,6 +1,6 @@
 ---
 name: transcribe
-description: "Транскрибирование видео и аудио файлов. Используй когда пользователь просит транскрибировать, расшифровать запись, сделать конспект встречи, извлечь речь из видео или аудио, преобразовать речь в текст. Для аудио (m4a/mp3/wav/ogg/flac/aac/wma) по умолчанию локальный faster-whisper + диаризация sherpa-onnx GPU (CUDA, RTF ~0.24). Для видео (mp4/mkv/webm/avi/mov) - Gemini API (разбор экрана + скриншоты) либо полностью локально (--engine local: whisper + локальная VLM). Разделение по спикерам с распознаванием имен по голосу между встречами (голосовая база) и по репликам."
+description: "Транскрибирование видео и аудио файлов. Используй когда пользователь просит транскрибировать, расшифровать запись, сделать конспект встречи, извлечь речь из видео или аудио, преобразовать речь в текст. Для аудио (m4a/mp3/wav/ogg/flac/aac/wma) по умолчанию локальный faster-whisper + диаризация с автодетектом числа спикеров (pyannote community-1 GPU; с явным --num-speakers N - sherpa-onnx, быстрее). Для видео (mp4/mkv/webm/avi/mov) - Gemini API (разбор экрана + скриншоты) либо полностью локально (--engine local: whisper + локальная VLM). Разделение по спикерам с распознаванием имен по голосу между встречами (голосовая база) и по репликам."
 argument-hint: "<FilePath> [--output-dir DIR] [--engine local|gemini] [--analyze-ui] [--with-summary] [--diarize] [--num-speakers N] [--diarize-engine sherpa-onnx|pyannote] [--project NAME] [--no-voiceprints] [--no-coherent]"
 allowed-tools:
   - Bash
@@ -12,7 +12,7 @@ allowed-tools:
 
 Два движка:
 
-- **Локальный (default для аудио)**: `faster-whisper` (CUDA) + опц. диаризация `sherpa-onnx GPU` (CUDA) с моделями pyannote-segmentation-3.0 + 3D-Speaker eres2net. Нет затрат, не уходит наружу. На RTX 5070 Ti Laptop: ~6-7 мин на 30 мин аудио (RTF ~0.24). Альтернативный движок диаризации `--diarize-engine pyannote` (4.x, GPU, RTF 0.36). ВИДЕО тоже можно разобрать полностью локально - `--engine local` (разбор экрана локальной VLM + спикеры по голосу, см. ниже).
+- **Локальный (default для аудио)**: `faster-whisper` (CUDA) + опц. диаризация. Движок диаризации выбирается сам: без `--num-speakers` — `pyannote community-1` (GPU, корректный автодетект числа спикеров, RTF ~0.064); с явным `--num-speakers N` — `sherpa-onnx GPU` (pyannote-segmentation-3.0 + eres2net, RTF ~0.24, точное N). Нет затрат, не уходит наружу. ВИДЕО тоже можно разобрать полностью локально - `--engine local` (разбор экрана локальной VLM + спикеры по голосу, см. ниже).
 - **Gemini (default для видео и `--analyze-ui`)**: облачный API, ~$0.10/час. Нужен интернет и квота. Стартовая модель `gemini-2.5-flash` (пин конкретной версии, дешевая); при перегрузке (503/429) переходит на `gemini-2.5-flash-lite`. Дорогие 3.5/pro сознательно исключены.
 
 ## Выбор движка по умолчанию
@@ -75,8 +75,9 @@ allowed-tools:
 | --output-dir | нет | `<каталог>/Транскрипция/<имя>/` | Каталог результатов |
 | --engine | нет | auto (local для аудио, gemini для видео) | `local` или `gemini` |
 | --diarize | нет | выкл | Локальный движок: разделение по спикерам |
-| --num-speakers N | нет | автодетект | Точное число спикеров |
-| --min-speakers N / --max-speakers N | нет | — | Границы для автодетекта |
+| --num-speakers N | нет | автодетект (pyannote community-1) | Точное число спикеров; с ним движок переключается на sherpa-onnx (быстрее) |
+| --min-speakers N / --max-speakers N | нет | — | Границы автодетекта (движок pyannote) |
+| --diarize-engine | нет | авто: без N — pyannote, с N — sherpa-onnx | НЕ запускать sherpa-onnx без --num-speakers: его пороговый автодетект пересегментирует (16.07.26: 242 кластера на ~7 человек) |
 | --analyze-ui | нет | выкл | Gemini: анализ интерфейсов (только видео) |
 | --with-summary | нет | выкл | Gemini: добавить саммари |
 | --format | нет | md | Формат: md или txt |
@@ -100,8 +101,8 @@ allowed-tools:
 
 **Локальный движок:**
 - venv whisper (отдельный, изоляция CUDA-DLL): путь в env `WHISPER_PYTHON`; дефолт `~/.claude/skills/transcribe/venv-whisper` (faster-whisper, ctranslate2-CUDA, ffmpeg)
-- Для `--diarize` (default `sherpa-onnx` GPU CUDA): `~/.claude/skills/transcribe/venv-sherpa` с GPU-сборкой `sherpa_onnx 1.13.0+cuda12.cudnn9` от k2-fsa maintainer (HuggingFace `csukuangfj2/sherpa-onnx-wheels`). Использует pyannote-segmentation-3.0 + 3D-Speaker eres2net эмбеддинги в ONNX. RTF ~0.24, никаких HF gated моделей.
-- Альтернатива `--diarize-engine pyannote`: `torch` + `pyannote.audio>=4` в основном venv, `HF_TOKEN` в `.env` (read-токен с принятыми условиями `pyannote/speaker-diarization-3.1`, `pyannote/segmentation-3.0`, `pyannote/speaker-diarization-community-1`). RTF ~0.36, чуть медленнее sherpa.
+- Для `--diarize` БЕЗ `--num-speakers` (default): движок `pyannote` с чекпойнтом `pyannote/speaker-diarization-community-1` — корректный автодетект числа спикеров (16.07.26: 8 при истине ~7, RTF 0.064). Нужны `torch` + `pyannote.audio>=4` в whisper-venv, `HF_TOKEN` в `.env` (read-токен с принятыми условиями `pyannote/speaker-diarization-community-1`; для старых чекпойнтов также `speaker-diarization-3.1`, `segmentation-3.0`). Отпечатки голоса при этом считает venv-sherpa по готовым turns (`diarize_sherpa.py --from-turns`) — то же eres2net-пространство, что и голосовая база.
+- Для `--diarize` С `--num-speakers N` (default): движок `sherpa-onnx` GPU CUDA, `~/.claude/skills/transcribe/venv-sherpa` с GPU-сборкой `sherpa_onnx 1.13.0+cuda12.cudnn9` от k2-fsa maintainer (HuggingFace `csukuangfj2/sherpa-onnx-wheels`). pyannote-segmentation-3.0 + 3D-Speaker eres2net эмбеддинги в ONNX. RTF ~0.24, никаких HF gated моделей. ВНИМАНИЕ: пороговый автодетект sherpa (без N) СЛОМАН — пересегментирует (эксперимент 04.07: пороги 0.5-0.8 давали 21-45 спикеров при истине 4; прогон 16.07: 242 кластера на ~7 человек). Слабое звено — эмбеддер eres2net-zh-cn (EER 5.3 в бенчмарке Шмырева против 1.1-1.6 у топов).
 - CUDA GPU обязателен для обоих движков
 
 **Gemini движок:**

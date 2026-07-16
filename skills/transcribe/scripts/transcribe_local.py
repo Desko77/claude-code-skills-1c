@@ -11,7 +11,11 @@
 
 Зависимости:
     отдельный venv (env WHISPER_PYTHON): faster-whisper, ctranslate2-CUDA, ffmpeg.
-    Для --diarize: torch (CUDA), pyannote.audio>=3.1, HF_TOKEN в env.
+    Для --diarize два движка:
+      pyannote (default без --num-speakers): torch (CUDA), pyannote.audio>=4, HF_TOKEN в env;
+        чекпойнт pyannote/speaker-diarization-community-1, автодетект числа спикеров.
+      sherpa-onnx (default с --num-speakers): venv-sherpa, точное N; его пороговый
+        автодетект пересегментирует (16.07.26: 242 кластера на ~7 человек) — не использовать.
 
 Файлы вывода:
     <base> - транскрипция.md       Markdown c таймкодами по сегментам (без спикеров)
@@ -26,6 +30,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 from pathlib import Path
@@ -132,6 +137,9 @@ def worker_transcribe(args) -> int:
 def worker_diarize(args) -> int:
     _setup_cuda_dll_path()
     _load_dotenv()
+    # Телеметрия pyannote 4.x падает на входах без определимой длительности
+    # (webm: NoneType < int в track_pipeline_apply) — выключаем до импорта
+    os.environ.setdefault("PYANNOTE_METRICS_ENABLED", "false")
 
     import torch
     from pyannote.audio import Pipeline
@@ -155,9 +163,9 @@ def worker_diarize(args) -> int:
         print("[D] HF_TOKEN не задан в env", file=sys.stderr)
         return 2
 
-    print("[D] Загрузка pipeline pyannote/speaker-diarization-3.1...", flush=True)
+    print(f"[D] Загрузка pipeline {args.model}...", flush=True)
     t0 = time.time()
-    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", token=hf_token)
+    pipeline = Pipeline.from_pretrained(args.model, token=hf_token)
     if torch.cuda.is_available():
         pipeline.to(torch.device("cuda"))
         print("[D] pipeline на CUDA", flush=True)
@@ -175,7 +183,14 @@ def worker_diarize(args) -> int:
     if args.max_speakers is not None:
         kwargs["max_speakers"] = args.max_speakers
 
-    result = pipeline(args.input, **kwargs)
+    with tempfile.TemporaryDirectory() as tmp:
+        # ffmpeg -> 16kHz mono WAV: надежный декод любого контейнера (webm/opus и т.п.)
+        wav_path = Path(tmp) / "audio_16k.wav"
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(args.input), "-vn", "-ac", "1", "-ar", "16000",
+             "-acodec", "pcm_s16le", str(wav_path)],
+            check=True, capture_output=True)
+        result = pipeline(str(wav_path), **kwargs)
 
     annotation = getattr(result, "exclusive_speaker_diarization", None) \
         or getattr(result, "speaker_diarization", None) \
@@ -316,13 +331,14 @@ def write_plain(path: Path, segments: list[dict]) -> None:
     path.write_text(" ".join(s["text"] for s in segments), encoding="utf-8")
 
 
-def write_speakers_md(path: Path, input_name: str, info: dict, utterances: list[dict], model_name: str) -> None:
+def write_speakers_md(path: Path, input_name: str, info: dict, utterances: list[dict], model_name: str,
+                      diarization_label: str) -> None:
     speakers_set = sorted({u["speaker"] for u in utterances})
     lines = [
         f"# Транскрипция со спикерами: {input_name}",
         "",
         f"- Модель: `{model_name}`",
-        f"- Диаризация: `pyannote/speaker-diarization-3.1`",
+        f"- Диаризация: `{diarization_label}`",
         f"- Длительность: {format_ts(info['duration'])} ({info['duration']:.1f}с)",
         f"- Найдено спикеров: {len(speakers_set)} ({', '.join(speakers_set)})",
         "",
@@ -399,9 +415,15 @@ def orchestrate(args) -> int:
 
     transcribe_proc = spawn_worker("transcribe", {}, transcribe_cli)
 
+    # Выбор движка: явный --diarize-engine уважается; иначе с известным N — sherpa-onnx
+    # (быстрее), без N — pyannote community-1 (автодетект числа спикеров; пороговая
+    # кластеризация sherpa пересегментирует: 2026-07-16 дала 242 кластера на ~7 человек).
+    engine = args.diarize_engine or ("sherpa-onnx" if args.num_speakers is not None else "pyannote")
+
     diarize_proc = None
+    diarization_label = ""
     if args.diarize:
-        if args.diarize_engine == "sherpa-onnx":
+        if engine == "sherpa-onnx":
             sherpa_cli = [
                 "--input", str(input_path),
                 "--out-json", str(turns_json),
@@ -411,12 +433,16 @@ def orchestrate(args) -> int:
             ]
             if args.num_speakers is not None:
                 sherpa_cli += ["--num-speakers", str(args.num_speakers)]
+                diarization_label = f"sherpa-onnx eres2net, num_speakers={args.num_speakers}"
+            else:
+                diarization_label = f"sherpa-onnx eres2net, threshold={args.threshold}"
             print(f"Диаризация: sherpa-onnx (pyannote-segmentation-3.0 + 3D-Speaker)", flush=True)
             diarize_proc = spawn_sherpa_diarize({}, sherpa_cli)
         else:
             diarize_cli = [
                 "--input", str(input_path),
                 "--out-json", str(turns_json),
+                "--model", args.pyannote_model,
             ]
             if args.num_speakers is not None:
                 diarize_cli += ["--num-speakers", str(args.num_speakers)]
@@ -426,7 +452,9 @@ def orchestrate(args) -> int:
                 diarize_cli += ["--max-speakers", str(args.max_speakers)]
             if args.tf32:
                 diarize_cli.append("--tf32")
-            print(f"Диаризация: pyannote 4.x", flush=True)
+            n_label = f"num_speakers={args.num_speakers}" if args.num_speakers is not None else "автодетект N"
+            diarization_label = f"{args.pyannote_model}, {n_label}"
+            print(f"Диаризация: {args.pyannote_model}", flush=True)
             diarize_proc = spawn_worker("diarize", {}, diarize_cli)
 
     rc_t = transcribe_proc.wait()
@@ -455,8 +483,32 @@ def orchestrate(args) -> int:
         turns = json.loads(turns_json.read_text(encoding="utf-8"))
         utterances = merge_with_speakers(segments, turns)
         speakers_md = output_dir / f"{base} - со спикерами.md"
-        write_speakers_md(speakers_md, input_path.name, info, utterances, args.model)
+        write_speakers_md(speakers_md, input_path.name, info, utterances, args.model, diarization_label)
         print(f"  Spk:   {speakers_md}", flush=True)
+
+        if engine != "sherpa-onnx":
+            # Отпечатки голоса для голосовой базы живут в eres2net-пространстве —
+            # считаем их sherpa-воркером по готовым turns (сама диаризация не повторяется).
+            # Старый файл удаляем ДО пересчета: при провале этапа протухшие отпечатки
+            # (метки прошлого прогона) не должны достаться analyze_video_local по exists().
+            voiceprints_json = output_dir / f"{base}.voiceprints.json"
+            try:
+                if voiceprints_json.exists():
+                    voiceprints_json.unlink()
+            except OSError as e:
+                print(f"Не удалился старый {voiceprints_json.name}: {e}", file=sys.stderr)
+            prints_cli = [
+                "--input", str(input_path),
+                "--from-turns", str(turns_json),
+                "--emit-voiceprints", str(voiceprints_json),
+                "--provider", "cuda",
+            ]
+            try:
+                rc_p = spawn_sherpa_diarize({}, prints_cli).wait()
+                if rc_p != 0:
+                    print(f"Отпечатки голоса не посчитаны (код {rc_p}), пайплайн продолжен", file=sys.stderr)
+            except Exception as e:
+                print(f"Отпечатки голоса не посчитаны: {e}", file=sys.stderr)
 
     if not args.keep_intermediate:
         for f in (transcribe_json, turns_json):
@@ -490,6 +542,7 @@ def main() -> int:
         elif mode == "diarize":
             ap.add_argument("--input", required=True)
             ap.add_argument("--out-json", required=True)
+            ap.add_argument("--model", default="pyannote/speaker-diarization-community-1")
             ap.add_argument("--num-speakers", type=int, default=None)
             ap.add_argument("--min-speakers", type=int, default=None)
             ap.add_argument("--max-speakers", type=int, default=None)
@@ -507,8 +560,11 @@ def main() -> int:
     ap.add_argument("--device", default="cuda", choices=["cuda", "cpu"])
     ap.add_argument("--compute-type", default="float16")
     ap.add_argument("--diarize", action="store_true", help="Включить диаризацию (параллельно с транскрипцией)")
-    ap.add_argument("--diarize-engine", default="sherpa-onnx", choices=["sherpa-onnx", "pyannote"],
-                    help="Движок: sherpa-onnx (default, GPU CUDA, RTF 0.24) или pyannote 4.x (GPU, RTF 0.36, fallback)")
+    ap.add_argument("--diarize-engine", default=None, choices=["sherpa-onnx", "pyannote"],
+                    help="Движок. Default: с --num-speakers — sherpa-onnx (быстрее), без — pyannote "
+                         "community-1 (автодетект N; пороговый автодетект sherpa пересегментирует)")
+    ap.add_argument("--pyannote-model", default="pyannote/speaker-diarization-community-1",
+                    help="Чекпойнт pyannote для движка pyannote")
     ap.add_argument("--num-speakers", type=int, default=None)
     ap.add_argument("--min-speakers", type=int, default=None, help="Только для pyannote")
     ap.add_argument("--max-speakers", type=int, default=None, help="Только для pyannote")
