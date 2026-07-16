@@ -1,0 +1,38 @@
+{
+  "skill_name": "1c-form-decompile",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Декомпилируй форму C:\\dump\\DataProcessors\\Загрузка\\Forms\\Форма\\Ext\\Form.xml в JSON.",
+      "expected_output": "Скрипт form-decompile.ps1 запущен с параметром -InputFile C:\\dump\\DataProcessors\\Загрузка\\Forms\\Форма\\Ext\\Form.xml. Создан файл Form.form.json рядом с исходником, пользователю показаны итог и предупреждения [TODO].",
+      "expectations": [
+        "Скрипт form-decompile.ps1 вызван с параметром -InputFile C:\\dump\\DataProcessors\\Загрузка\\Forms\\Форма\\Ext\\Form.xml",
+        "Параметр -OutputFile не передан, использован путь по умолчанию рядом с входным файлом",
+        "Пользователю показан результат и предупреждения [TODO], если они были",
+        "Пользователь предупрежден, что результат - черновик и ключи _todo надо разрешить перед /form-compile"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Получи DSL из формы src/Catalogs/Номенклатура/Forms/ФормаЭлемента/Ext/Form.xml, сохрани в work/форма.json и покажи что не удалось перенести.",
+      "expected_output": "Скрипт form-decompile.ps1 запущен с параметрами -InputFile src/Catalogs/Номенклатура/Forms/ФормаЭлемента/Ext/Form.xml и -OutputFile work/форма.json. Выведен список маркеров _todo из JSON и консольных предупреждений.",
+      "expectations": [
+        "Скрипт form-decompile.ps1 вызван с параметром -InputFile src/Catalogs/Номенклатура/Forms/ФормаЭлемента/Ext/Form.xml",
+        "Скрипт form-decompile.ps1 вызван с параметром -OutputFile work/форма.json",
+        "Ключи _todo из результата собраны и показаны пользователю списком",
+        "Не изменен исходный Form.xml"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Преобразуй Form.xml обработки в JSON, поправь в нем заголовок формы на 'Загрузка данных v2' и собери форму обратно. Файл: C:\\src\\epf\\Forms\\Форма\\Ext\\Form.xml",
+      "expected_output": "Форма декомпилирована через form-decompile.ps1, в JSON заменен title, маркеры _todo разрешены, затем вызван /form-compile (form-compile.ps1) для генерации Form.xml, результат проверен.",
+      "expectations": [
+        "Скрипт form-decompile.ps1 вызван с параметром -InputFile C:\\src\\epf\\Forms\\Форма\\Ext\\Form.xml",
+        "В полученном JSON изменено значение title на 'Загрузка данных v2'",
+        "Перед перекомпиляцией ключи _todo просмотрены и разрешены (не оставлены в JSON молча)",
+        "Для обратной сборки вызван скрипт form-compile.ps1 (скил 1c-form-compile) с полученным JSON"
+      ]
+    }
+  ]
+}

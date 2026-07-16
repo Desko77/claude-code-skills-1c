@@ -2,7 +2,7 @@
 
 Набор скилов, правил и команд для [Claude Code](https://docs.anthropic.com/en/docs/claude-code), ориентированных на разработку 1С:Предприятие.
 
-**95 скилов** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С, а также разработкой под 1С 7.7, правилами обмена «Конвертация данных» и интеграцией с Mobile SMARTS (Клеверенс).
+**100 скилов** для работы с конфигурациями, расширениями, обработками, формами, макетами, запросами, ролями, подсистемами, базами данных, веб-публикацией и веб-тестированием 1С, а также разработкой под 1С 7.7, правилами обмена «Конвертация данных» и интеграцией с Mobile SMARTS (Клеверенс).
 
 Отдельный класс - справочники API прикладных конфигураций (см. раздел «Справочные и утилитарные»). Первый такой скил - `zup-hr-api-reference` для 1С:ЗУП 3.1.
 
@@ -65,7 +65,7 @@ cp commands/* ~/.claude/commands/
 | [`bsl-language-server`](https://github.com/1c-syntax/claude-code-bsl-lsp) | `/plugin marketplace add 1c-syntax/claude-code-bsl-lsp` + `/plugin install bsl-language-server@bsl-language-server` | Полноценная интеграция BSL Language Server в Claude Code как LSP — диагностики, go to definition, find references, hover, форматирование, code actions для `.bsl` и `.os` |
 | Anthropic plugins (`/plugin marketplace add anthropics/claude-plugins-official`) | `/plugin install <name>@claude-plugins-official` | `code-review`, `pr-review-toolkit` — ревью PR агентами; `mcp-server-dev` — разработка MCP-серверов; `claude-md-management` — поддержание CLAUDE.md; `hookify` — создание hooks; `security-guidance` — security-ревью |
 
-## Скилы (95)
+## Скилы (100)
 
 ### Маршрутизатор
 
@@ -73,7 +73,7 @@ cp commands/* ~/.claude/commands/
 |------|----------|
 | `1c-config-router` | Определяет нужный workflow или скил для задачи |
 
-### Конфигурация (cf-*)
+### Конфигурация (cf-*, support-*)
 
 | Скил | Описание |
 |------|----------|
@@ -83,6 +83,7 @@ cp commands/* ~/.claude/commands/
 | `1c-cf-validate` | Валидация конфигурации |
 | `1c-cf-add-object` | Workflow: добавить объект в конфигурацию |
 | `1c-cf-new-project` | Workflow: создать конфигурацию с нуля |
+| `1c-support-state` | Состояние поддержки в XML-выгрузке: чтение, editable/off-support/locked, возможность изменения |
 
 ### Объекты метаданных (meta-*)
 
@@ -99,6 +100,7 @@ cp commands/* ~/.claude/commands/
 | Скил | Описание |
 |------|----------|
 | `1c-form-compile` | Создать форму из JSON DSL |
+| `1c-form-decompile` | Разобрать Form.xml в JSON-черновик DSL |
 | `1c-form-edit` | Добавить элементы, реквизиты, команды в форму |
 | `1c-form-add` | Добавить форму к объекту конфигурации |
 | `1c-form-info` | Анализ структуры формы |
@@ -167,6 +169,7 @@ cp commands/* ~/.claude/commands/
 | Скил | Описание |
 |------|----------|
 | `1c-skd-compile` | Создать схему компоновки данных |
+| `1c-skd-decompile` | Разобрать XML СКД в JSON-черновик DSL |
 | `1c-skd-edit` | Изменить существующую СКД |
 | `1c-skd-info` | Анализ СКД |
 | `1c-skd-validate` | Валидация СКД |
@@ -178,8 +181,10 @@ cp commands/* ~/.claude/commands/
 | `1c-db-list` | Управление реестром баз |
 | `1c-db-create` | Создать информационную базу |
 | `1c-db-dump-cf` | Выгрузить конфигурацию в CF |
+| `1c-db-dump-dt` | Выгрузить всю ИБ в DT (полный бэкап) |
 | `1c-db-dump-xml` | Выгрузить конфигурацию в XML |
 | `1c-db-load-cf` | Загрузить конфигурацию из CF |
+| `1c-db-load-dt` | Восстановить ИБ из DT (деструктивная) |
 | `1c-db-load-xml` | Загрузить конфигурацию из XML |
 | `1c-db-load-git` | Загрузить изменения из Git |
 | `1c-db-update` | Обновить конфигурацию БД |

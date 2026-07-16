@@ -10,6 +10,7 @@
 | `/cf-init` | `<Name> [-Synonym] [-OutputDir] [-Version] [-Vendor]` | Создание пустой конфигурации (scaffold XML-исходников) |
 | `/cf-validate` | `<ConfigPath> [-MaxErrors 30]` | Валидация структурной корректности (8 проверок) |
 | `/cf-edit` | `<ConfigPath> -Operation <op> -Value "<val>"` | Редактирование свойств, состава ChildObjects, ролей по умолчанию (6 операций) |
+| `/support-state` | `<путь> [-Get \| -Set <режим> \| -Capability on/off]` | Состояние поддержки конфигурации в выгрузке: чтение и переключение |
 
 ## Рабочий цикл
 

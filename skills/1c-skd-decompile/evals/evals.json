@@ -1,0 +1,35 @@
+{
+  "skill_name": "1c-skd-decompile",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Декомпилируй СКД из файла C:\\Work\\Reports\\Продажи\\Templates\\ОсновнаяСхемаКомпоновкиДанных\\Ext\\Template.xml в JSON-черновик.",
+      "expected_output": "Скрипт skd-decompile.ps1 запущен с параметром -InputFile <путь к Template.xml>. JSON создан рядом (Template.skd.json), сводка и предупреждения _todo показаны пользователю.",
+      "expectations": [
+        "Скрипт skd-decompile.ps1 вызван с параметром -InputFile C:\\Work\\Reports\\Продажи\\Templates\\ОсновнаяСхемаКомпоновкиДанных\\Ext\\Template.xml",
+        "Выходной JSON создан по умолчанию рядом с входным файлом (Template.skd.json)",
+        "Пользователю показана сводка декомпиляции и предупреждения о маркерах _todo, если они есть"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Получи DSL из макета СКД C:\\tmp\\SchemaExport.xml и сохрани его в C:\\tmp\\draft.json. Потом я буду править и компилировать обратно.",
+      "expected_output": "Скрипт skd-decompile.ps1 запущен с параметрами -InputFile C:\\tmp\\SchemaExport.xml и -OutputFile C:\\tmp\\draft.json. Пользователь предупрежден, что результат - черновик и перед /skd-compile надо разрешить _todo.",
+      "expectations": [
+        "Скрипт skd-decompile.ps1 вызван с параметром -InputFile C:\\tmp\\SchemaExport.xml",
+        "Скрипт skd-decompile.ps1 вызван с параметром -OutputFile C:\\tmp\\draft.json",
+        "Пользователь предупрежден, что JSON - черновик и маркеры _todo нужно разрешить перед компиляцией через 1c-skd-compile"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Преобразуй схему компоновки в JSON: файл называется МояСхема.xml (это выгрузка СКД, не Template.xml). Лежит в C:\\Data.",
+      "expected_output": "Скрипт skd-decompile.ps1 запущен с -InputFile C:\\Data\\МояСхема.xml - имя файла не важно, скрипт проверяет корневой элемент DataCompositionSchema. Результат МояСхема.skd.json показан пользователю.",
+      "expectations": [
+        "Скрипт skd-decompile.ps1 вызван с параметром -InputFile C:\\Data\\МояСхема.xml без переименования файла в Template.xml",
+        "Агент не требует, чтобы файл назывался Template.xml - проверка идет по корневому элементу DataCompositionSchema",
+        "Результат декомпиляции (МояСхема.skd.json) и сводка показаны пользователю"
+      ]
+    }
+  ]
+}

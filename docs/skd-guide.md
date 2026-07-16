@@ -8,6 +8,7 @@
 |-------|-----------|----------|
 | `/skd-info` | `<TemplatePath> [-Mode] [-Name]` | Анализ структуры СКД: наборы, поля, параметры, ресурсы, варианты (11 режимов, включая full) |
 | `/skd-compile` | `[-DefinitionFile <json> \| -Value <json-string>] -OutputPath <Template.xml>` | Генерация Template.xml из JSON DSL: наборы, поля, итоги, параметры, варианты |
+| `/skd-decompile` | `<Template.xml> [output.json]` | Обратная операция: XML СКД в JSON-черновик DSL (маркеры `_todo`) |
 | `/skd-edit` | `<TemplatePath> -Operation <op> -Value "<value>"` | Точечное редактирование: 25 атомарных операций (add/set/modify/clear/remove) |
 | `/skd-validate` | `<TemplatePath> [-MaxErrors 20]` | Валидация структурной корректности: ~30 проверок |
 

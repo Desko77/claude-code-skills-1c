@@ -1,0 +1,37 @@
+{
+  "skill_name": "1c-db-dump-dt",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Сделай полный бэкап базы C:\\Bases\\MyDB в файл C:\\backup\\MyDB.dt. Пользователь Admin, пароль не нужен.",
+      "expected_output": "Скрипт db-dump-dt.ps1 запущен с параметрами -InfoBasePath C:\\Bases\\MyDB, -UserName Admin, -OutputFile C:\\backup\\MyDB.dt. Лог показан пользователю.",
+      "expectations": [
+        "Скрипт db-dump-dt.ps1 вызван с параметром -InfoBasePath C:\\Bases\\MyDB",
+        "Скрипт db-dump-dt.ps1 вызван с параметром -UserName Admin",
+        "Скрипт db-dump-dt.ps1 вызван с параметром -OutputFile C:\\backup\\MyDB.dt",
+        "Лог-файл прочитан и результат показан пользователю после выполнения"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Выгрузи серверную базу MyApp_Dev с сервера srv01 в dt-файл. Логин Admin, пароль secret.",
+      "expected_output": "Скрипт db-dump-dt.ps1 запущен с параметрами -InfoBaseServer srv01, -InfoBaseRef MyApp_Dev, -UserName Admin, -Password secret, -OutputFile MyApp_Dev.dt.",
+      "expectations": [
+        "Скрипт db-dump-dt.ps1 вызван с параметром -InfoBaseServer srv01",
+        "Скрипт db-dump-dt.ps1 вызван с параметром -InfoBaseRef MyApp_Dev",
+        "Скрипт db-dump-dt.ps1 вызван с параметром -OutputFile (имя .dt файла)",
+        "Лог-файл прочитан, при наличии ошибок - содержимое лога показано пользователю"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Выгрузка базы в dt упала с ошибкой. В логе написано про активные сеансы. Что делать?",
+      "expected_output": "Объяснение: выгрузка ИБ требует монопольного доступа, активные сеансы нужно завершить (закрыть клиентов, отключить фоновые задания), затем повторить выгрузку.",
+      "expectations": [
+        "Названа причина: выгрузка требует монопольного доступа к базе",
+        "Предложено завершить активные сеансы и повторить",
+        "Не предложено выгружать конфигурацию (.cf) вместо полной базы как решение проблемы"
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@
 | `/form-add` | `<ObjectPath> <FormName> [Purpose]` | Добавление формы к объекту конфигурации (Document, Catalog и др.) |
 | `/form-info` | `<FormPath>` | Компактная сводка: дерево элементов, реквизиты, команды, события |
 | `/form-compile` | `<JsonPath> <OutputPath>` | Генерация Form.xml из компактного JSON-определения |
+| `/form-decompile` | `<Form.xml> [output.json]` | Обратная операция: Form.xml в JSON-черновик DSL (маркеры `_todo`) |
 | `/form-validate` | `<FormPath>` | Валидация: уникальность ID, companions, DataPath, команды |
 | `/form-edit` | `<FormPath> <JsonPath>` | Добавление элементов, реквизитов, команд в существующую форму |
 | `/form-patterns` | (без параметров) | Справочник паттернов: архетипы, конвенции именования, продвинутые приёмы |

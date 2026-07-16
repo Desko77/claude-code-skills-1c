@@ -1,0 +1,24 @@
+# Политика EOL: в индексе LF, рабочая копия по локальному git-конфигу (autocrlf).
+# Репо без исходников 1С (.bsl/.mdo) - CRLF-форс не требуется.
+* text=auto
+
+# Скрипты с Unix-конвенцией концов строк
+*.sh text eol=lf
+*.py text eol=lf
+
+# Бинарные артефакты
+*.epf binary
+*.erf binary
+*.cf binary
+*.cfe binary
+*.dt binary
+*.mxl binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.7z binary
+*.xlsx binary
+*.docx binary

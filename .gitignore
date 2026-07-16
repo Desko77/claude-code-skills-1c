@@ -42,6 +42,10 @@ debug/
 .roo/
 .windsurf/
 
+# Local session artifacts (not published)
+/reports/
+/session-report-*.html
+
 # IDE / editor
 .vscode/
 .idea/
