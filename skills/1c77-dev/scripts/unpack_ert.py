@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Разбор (декомпиляция) .ert / 1Cv7.MD в текстовые исходники через GComp (7.7).
 
-Вызывает gcomp.exe напрямую через subprocess: Python на Windows передаёт Unicode-аргументы
-корректно (CreateProcessW), поэтому кириллица в путях не бьётся - в отличие от запуска из Bash.
+Вызывает gcomp.exe напрямую через subprocess: Python на Windows передает Unicode-аргументы
+корректно (CreateProcessW), поэтому кириллица в путях не бьется - в отличие от запуска из Bash.
 
 По умолчанию ищет рабочий GComp в стандартных местах (с GComp.dll рядом). "Голый" gcomp.exe
 из каталогов проекта не годится - падает с STATUS_DLL_NOT_FOUND.
@@ -55,7 +55,7 @@ def run_gcomp(gcomp, args):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("file", help="исходный .ert или 1Cv7.MD")
-    p.add_argument("--dest", help="каталог назначения (-DD). Без него GComp создаёт SRC\\<имя>")
+    p.add_argument("--dest", help="каталог назначения (-DD). Без него GComp создает SRC\\<имя>")
     p.add_argument("--meta-data", action="store_true", help="работаем с файлом конфигурации 1cv7.md")
     p.add_argument("--external-report", action="store_true", help="явно указать .ert")
     p.add_argument("--gcomp", help="путь к gcomp.exe (иначе автопоиск рабочего)")
@@ -85,7 +85,7 @@ def main():
     print(f"EXIT={rc}", file=sys.stderr)
     if rc != 0:
         sys.exit(rc)
-    print("Разбор завершён.", file=sys.stderr)
+    print("Разбор завершен.", file=sys.stderr)
 
 
 if __name__ == "__main__":

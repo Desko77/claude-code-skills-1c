@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `object_description` is a JSON structure that represents a reference to a 1C object. It flows between tools as a universal object identifier — it appears in query results and serves as input for several other tools.
+The `object_description` is a JSON structure that represents a reference to a 1C object. It flows between tools as a universal object identifier - it appears in query results and serves as input for several other tools.
 
 ## Structure
 

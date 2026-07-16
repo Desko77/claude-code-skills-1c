@@ -75,7 +75,7 @@ def cmd_replace(a):
         new = text.replace(a.old, a.new, a.count if a.count is not None else -1)
     print(f"[замен: {n}]", file=sys.stderr)
     if a.dry_run:
-        print("[dry-run, файл не изменён]", file=sys.stderr)
+        print("[dry-run, файл не изменен]", file=sys.stderr)
         return
     if n:
         write_raw(a.file, new)

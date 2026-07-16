@@ -148,7 +148,7 @@ curl -sS --noproxy $BASE_HOST "$BASE_URL/api/execute_query?channel=$CHANNEL" $J 
   -d '{"query":"ВЫБРАТЬ Ссылка ИЗ Справочник.Контрагенты ГДЕ Наименование ПОДОБНО &Маска","params":{"Маска":"%Рога%"},"limit":1}'
 ```
 
-Response — extract `object_description` from the `Ссылка` field:
+Response - extract `object_description` from the `Ссылка` field:
 ```json
 {
   "success": true,
@@ -359,10 +359,10 @@ Response:
 Combine query data with navigation links to present a formatted list:
 
 ```
-1. Реализация №015 от 15.01.2024 — ООО Рога и Копыта
+1. Реализация №015 от 15.01.2024 - ООО Рога и Копыта
    Link: e1cib/data/Документ.РеализацияТоваровУслуг?ref=a1b2c3d456789012345678901234
 
-2. Реализация №016 от 16.01.2024 — ООО Звезда
+2. Реализация №016 от 16.01.2024 - ООО Звезда
    Link: e1cib/data/Документ.РеализацияТоваровУслуг?ref=b2c3d4e567890123456789012345
 ```
 

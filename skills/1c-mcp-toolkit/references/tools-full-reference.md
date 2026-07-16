@@ -12,7 +12,7 @@ Complete parameter tables, curl examples, and response structures for all 12 RES
 
 ---
 
-## 1. get_metadata — `GET/POST /api/get_metadata`
+## 1. get_metadata - `GET/POST /api/get_metadata`
 
 Explore database structure. Summary/list/details modes depend on parameters; the configuration scope is controlled via `extension_name`.
 
@@ -24,12 +24,12 @@ Request rules:
 
 | Parameter | Type | Default | Constraints | Description |
 |-----------|------|---------|-------------|-------------|
-| `filter` | string | null | — | Exact object name for detailed structure (e.g., `Справочник.Номенклатура`) or full path to a collection element (e.g., `Справочник.Контрагенты.Реквизит.ИНН`) |
+| `filter` | string | null | - | Exact object name for detailed structure (e.g., `Справочник.Номенклатура`) or full path to a collection element (e.g., `Справочник.Контрагенты.Реквизит.ИНН`) |
 | `meta_type` | string or string[] | null | Use `"*"` for all types | Root metadata type(s): Справочник, Документ, РегистрСведений, РегистрНакопления, РегистрБухгалтерии, РегистрРасчета, ПланВидовХарактеристик, ПланСчетов, ПланВидовРасчета, ПланОбмена, БизнесПроцесс, Задача, Константа, Перечисление, Отчет, Обработка, РегламентноеЗадание, ПараметрыСеанса |
-| `name_mask` | string | null | — | Case-insensitive search in name/synonym |
-| `limit` | integer | 100 | 1–1000 | Max objects in list mode |
-| `offset` | integer | 0 | 0–1000000 | Pagination offset in list mode |
-| `sections` | string[] | null | Requires `filter`; incompatible with `attribute_mask` | Detail sections: `properties`, `forms`, `commands`, `layouts`, `predefined`, `movements`, `characteristics`. Note: `movements` only applies to `Документ` objects — silently ignored for other types |
+| `name_mask` | string | null | - | Case-insensitive search in name/synonym |
+| `limit` | integer | 100 | 1-1000 | Max objects in list mode |
+| `offset` | integer | 0 | 0-1000000 | Pagination offset in list mode |
+| `sections` | string[] | null | Requires `filter`; incompatible with `attribute_mask` | Detail sections: `properties`, `forms`, `commands`, `layouts`, `predefined`, `movements`, `characteristics`. Note: `movements` only applies to `Документ` objects - silently ignored for other types |
 | `extension_name` | string | null | No whitespace-only | `null`=main config, `""`=list extensions, `"Name"`=extension objects |
 | `attribute_mask` | string | null | Incompatible with `sections` | Case-insensitive substring search across all attribute names/synonyms (реквизиты, измерения, ресурсы, реквизиты ТЧ). Returns same list contract as Mode 2. Compatible with `meta_type`, `name_mask`, `filter` (root object only), `extension_name`. `extension_name=""` takes priority (returns extension list, ignores `attribute_mask`). |
 
@@ -59,7 +59,7 @@ Response:
 
 Notes:
 - If you call summary **inside a specific extension** (`extension_name="MyExtension"` and no `filter/meta_type/name_mask`), the response includes the same `data` (root type counts) plus top-level fields `extension` and `configuration`.
-- `extension_name=""` is **not** summary — it returns the list of connected extensions (see “Extensions” below).
+- `extension_name=""` is **not** summary - it returns the list of connected extensions (see “Extensions” below).
 
 ### Mode 2: List (meta_type and/or name_mask, without filter)
 
@@ -258,13 +258,13 @@ Response:
 ```
 
 Notes:
-- **Incompatible with `sections`** — returns error. Use round-trip instead: get `ПолноеИмя` from attribute search, then pass it to `filter` with `sections`.
+- **Incompatible with `sections`** - returns error. Use round-trip instead: get `ПолноеИмя` from attribute search, then pass it to `filter` with `sections`.
 - Compatible with `meta_type` (restrict object types), `name_mask` (filter object names), `filter` (restrict to one root object), `extension_name` (specific extension).
-- `extension_name=""` (list extensions) takes priority — `attribute_mask` is ignored in that case.
+- `extension_name=""` (list extensions) takes priority - `attribute_mask` is ignored in that case.
 
 ---
 
-## 2. execute_query — `POST /api/execute_query`
+## 2. execute_query - `POST /api/execute_query`
 
 Execute 1C query language queries and return results.
 
@@ -273,8 +273,8 @@ Execute 1C query language queries and return results.
 | Parameter | Type | Default | Constraints | Description |
 |-----------|------|---------|-------------|-------------|
 | `query` | string | **required** | min 1 char | 1C query language text |
-| `params` | object | null | — | Query parameters as key-value pairs |
-| `limit` | integer | 100 | 1–1000 | Max rows to return |
+| `params` | object | null | - | Query parameters as key-value pairs |
+| `limit` | integer | 100 | 1-1000 | Max rows to return |
 | `include_schema` | boolean | false | Strict boolean only | Include column type schema in response |
 
 ### Examples
@@ -348,7 +348,7 @@ curl -sS --noproxy $BASE_HOST "$BASE_URL/api/execute_query?channel=$CHANNEL" $J 
 
 ---
 
-## 3. execute_code — `POST /api/execute_code`
+## 3. execute_code - `POST /api/execute_code`
 
 Execute arbitrary 1C code (statement block via `Выполнить`).
 
@@ -357,7 +357,7 @@ Execute arbitrary 1C code (statement block via `Выполнить`).
 | Parameter | Type | Default | Constraints | Description |
 |-----------|------|---------|-------------|-------------|
 | `code` | string | **required** | min 1 char | 1C code to execute |
-| `execution_context` | string | `"server"` | `"server"` or `"client"` | Execution context: `"server"` — `&НаСервереБезКонтекста` (DB access, 1C objects); `"client"` — `&НаКлиенте` (form attributes, UI functions, no DB queries) |
+| `execution_context` | string | `"server"` | `"server"` or `"client"` | Execution context: `"server"` - `&НаСервереБезКонтекста` (DB access, 1C objects); `"client"` - `&НаКлиенте` (form attributes, UI functions, no DB queries) |
 
 ### Rules
 
@@ -386,7 +386,7 @@ curl -sS --noproxy $BASE_HOST "$BASE_URL/api/execute_code?channel=$CHANNEL" $J \
 curl -sS --noproxy $BASE_HOST "$BASE_URL/api/execute_code?channel=$CHANNEL" $J \
   -d '{"code":"Запрос = Новый Запрос; Запрос.Текст = \"ВЫБРАТЬ 1 КАК Поле\"; Результат = Запрос.Выполнить().Выгрузить().Количество();"}'
 
-# Client context — open a form, read form attributes
+# Client context - open a form, read form attributes
 curl -sS --noproxy $BASE_HOST "$BASE_URL/api/execute_code?channel=$CHANNEL" $J \
   -d '{"code":"ОткрытьФорму(\"Справочник.Номенклатура.ФормаСписка\"); Результат = \"OK\";","execution_context":"client"}'
 
@@ -413,7 +413,7 @@ Error response (dangerous keyword):
 
 ---
 
-## 4. get_object_by_link — `POST /api/get_object_by_link`
+## 4. get_object_by_link - `POST /api/get_object_by_link`
 
 Retrieve complete 1C object data by navigation link.
 
@@ -458,7 +458,7 @@ Response:
 
 ---
 
-## 5. get_link_of_object — `POST /api/get_link_of_object`
+## 5. get_link_of_object - `POST /api/get_link_of_object`
 
 Generate a navigation link from an object description.
 
@@ -485,7 +485,7 @@ Response (**`data` is a string**, not an object):
 
 ---
 
-## 6. find_references_to_object — `POST /api/find_references_to_object`
+## 6. find_references_to_object - `POST /api/find_references_to_object`
 
 Find all references to a given object across metadata collections.
 
@@ -495,12 +495,12 @@ Find all references to a given object across metadata collections.
 |-----------|------|---------|-------------|-------------|
 | `target_object_description` | object | **required** | See [object-description-format.md](object-description-format.md) | Object to search for |
 | `search_scope` | string[] | **required** | Min 1 element | Areas to search |
-| `meta_filter` | object | null | — | Filter by metadata objects |
+| `meta_filter` | object | null | - | Filter by metadata objects |
 | `meta_filter.names` | string[] | null | Format: `ТипМетаданных.ИмяОбъекта` | Exact metadata names (priority over name_mask) |
-| `meta_filter.name_mask` | string | null | — | Substring search in name/synonym |
-| `limit_hits` | integer | 200 | 1–10000 | Max total hits |
-| `limit_per_meta` | integer | 20 | 1–1000 | Max hits per metadata object |
-| `timeout_budget_sec` | integer | 30 | 5–300 | Time budget in seconds |
+| `meta_filter.name_mask` | string | null | - | Substring search in name/synonym |
+| `limit_hits` | integer | 200 | 1-10000 | Max total hits |
+| `limit_per_meta` | integer | 20 | 1-1000 | Max hits per metadata object |
+| `timeout_budget_sec` | integer | 30 | 5-300 | Time budget in seconds |
 
 ### Valid search_scope values
 
@@ -602,7 +602,7 @@ Hit fields for registers: `found_in_object` is null, `record_key` contains dimen
 
 ---
 
-## 7. get_access_rights — `POST /api/get_access_rights`
+## 7. get_access_rights - `POST /api/get_access_rights`
 
 Get role permissions for a metadata object, optionally with effective rights for a user.
 
@@ -612,7 +612,7 @@ Get role permissions for a metadata object, optionally with effective rights for
 |-----------|------|---------|-------------|-------------|
 | `metadata_object` | string | **required** | Format `Type.Name`, must contain dot | Full metadata object name |
 | `user_name` | string | null | Case-insensitive search | User name (from IB users or Пользователи catalog) |
-| `rights_filter` | string[] | null | — | Show only these rights (null = default list for object type) |
+| `rights_filter` | string[] | null | - | Show only these rights (null = default list for object type) |
 | `roles_filter` | string[] | null | Case-insensitive match | Show only these roles (null = all roles with rights) |
 
 ### Limitations
@@ -676,7 +676,7 @@ Response:
 
 ---
 
-## 8. get_event_log — `POST /api/get_event_log`
+## 8. get_event_log - `POST /api/get_event_log`
 
 Get event log entries with filtering and cursor-based pagination.
 
@@ -688,17 +688,17 @@ Get event log entries with filtering and cursor-based pagination.
 | `end_date` | string | null | ISO 8601: `YYYY-MM-DDTHH:MM:SS` | End date |
 | `levels` | string[] | null | `Information`, `Warning`, `Error`, `Note` | Importance levels |
 | `events` | string[] | null | e.g., `_$Data$_.New`, `_$Data$_.Update` | Event types |
-| `limit` | integer | 100 | 1–1000 | Max records per page |
-| `same_second_offset` | integer | 0 | 0–10000, requires `start_date` | Skip N records at same second (for pagination) |
+| `limit` | integer | 100 | 1-1000 | Max records per page |
+| `same_second_offset` | integer | 0 | 0-10000, requires `start_date` | Skip N records at same second (for pagination) |
 | `object_description` | object | null | See [object-description-format.md](object-description-format.md) | Filter by object (priority 1) |
 | `link` | string | null | `e1cib/data/...?ref=HexGUID32` | Filter by nav link (priority 2) |
-| `data` | string | null | — | Filter by nav link (priority 3, backward compat) |
+| `data` | string | null | - | Filter by nav link (priority 3, backward compat) |
 | `metadata_type` | string or string[] | null | e.g., `Документ.РеализацияТоваровУслуг` | Filter by metadata object type |
-| `user` | string[] | null | — | Filter by user name(s) |
-| `session` | integer[] | null | — | Filter by session number(s) |
+| `user` | string[] | null | - | Filter by user name(s) |
+| `session` | integer[] | null | - | Filter by session number(s) |
 | `application` | string[] | null | See valid values below | Filter by application type |
-| `computer` | string | null | — | Filter by computer name |
-| `comment_contains` | string | null | — | Substring search in comments |
+| `computer` | string | null | - | Filter by computer name |
+| `comment_contains` | string | null | - | Substring search in comments |
 | `transaction_status` | string | null | `Committed`, `RolledBack`, `NotApplicable`, `Unfinished` | Transaction status filter |
 
 ### Valid application values
@@ -771,7 +771,7 @@ curl -sS --noproxy $BASE_HOST "$BASE_URL/api/get_event_log?channel=$CHANNEL" $J 
 
 ---
 
-## 9. get_bsl_syntax_help — `POST /api/get_bsl_syntax_help`
+## 9. get_bsl_syntax_help - `POST /api/get_bsl_syntax_help`
 
 Search the built-in BSL language reference. Returns candidates (breadcrumb paths); when exactly one candidate matches, returns Markdown content. Requires SyntaxHelpReader component loaded on the 1C side.
 
@@ -779,17 +779,17 @@ Search the built-in BSL language reference. Returns candidates (breadcrumb paths
 
 | Parameter | Type | Required | Default | Constraints | Description |
 |-----------|------|----------|---------|-------------|-------------|
-| `keywords` | string[] | Yes | — | Non-empty array | Search terms, or a single exact candidate path / link target |
+| `keywords` | string[] | Yes | - | Non-empty array | Search terms, or a single exact candidate path / link target |
 | `match` | string | No | `"all"` | `"all"` / `"any"` | `"all"`: all keywords must appear; `"any"`: any keyword matches |
-| `limit` | integer | No | 100 | 1–300 | Max candidates per page |
-| `offset` | integer | No | 0 | 0–1000000 | Candidates to skip (pagination) |
+| `limit` | integer | No | 100 | 1-300 | Max candidates per page |
+| `offset` | integer | No | 0 | 0-1000000 | Candidates to skip (pagination) |
 | `content_page` | integer | No | 1 | ≥ 1 | Page of content to return (1-based) |
 
 ### Search logic
 
 - Multiple candidates → `content` is `null`. Narrow keywords or use a candidate path directly.
 - Exactly one candidate → `content` contains Markdown reference page.
-- Candidate paths (e.g. `Массив/Методы/Найти`) and link targets from content (`topic:Path`) can be passed as `keywords` for exact lookup — pass the full string including `topic:` prefix as-is.
+- Candidate paths (e.g. `Массив/Методы/Найти`) and link targets from content (`topic:Path`) can be passed as `keywords` for exact lookup - pass the full string including `topic:` prefix as-is.
 
 ### Examples
 
@@ -819,7 +819,7 @@ curl -sS --noproxy $BASE_HOST "$BASE_URL/api/get_bsl_syntax_help?channel=$CHANNE
   -d '{"keywords":["Запрос"],"content_page":2}'
 ```
 
-### Response — multiple candidates
+### Response - multiple candidates
 
 ```json
 {
@@ -835,7 +835,7 @@ curl -sS --noproxy $BASE_HOST "$BASE_URL/api/get_bsl_syntax_help?channel=$CHANNE
 }
 ```
 
-### Response — one match, single content page
+### Response - one match, single content page
 
 ```json
 {
@@ -854,7 +854,7 @@ curl -sS --noproxy $BASE_HOST "$BASE_URL/api/get_bsl_syntax_help?channel=$CHANNE
 }
 ```
 
-### Response — one match, content paginated
+### Response - one match, content paginated
 
 ```json
 {
@@ -875,7 +875,7 @@ Fields `content_page`, `content_total_pages`, `content_has_more` are present **o
 
 ---
 
-## 10. submit_for_deanonymization — `POST /api/submit_for_deanonymization`
+## 10. submit_for_deanonymization - `POST /api/submit_for_deanonymization`
 
 Submit the final user-facing response for de-anonymization display. **Available only when anonymization is enabled.**
 
@@ -927,7 +927,7 @@ Error (wrong method, built-in mode):
 
 ---
 
-## 11. restart_1c_session — `POST /api/restart_1c_session`
+## 11. restart_1c_session - `POST /api/restart_1c_session`
 
 Restart the current 1C session. A new session starts automatically with the same database and connection settings; anonymization state is preserved. The old session shuts down once the new one is ready.
 
@@ -974,7 +974,7 @@ HTTP 500 (concurrent call):
 
 ---
 
-## 12. close_1c_session — `POST /api/close_1c_session`
+## 12. close_1c_session - `POST /api/close_1c_session`
 
 Close the current 1C session and receive a launcher script command to start a new one. Use when exclusive database access is needed (e.g., configuration update).
 
@@ -1004,7 +1004,7 @@ curl --max-time 200 -sS --noproxy $BASE_HOST "$BASE_URL/api/close_1c_session?cha
 ```json
 {
   "success": true,
-  "data": "Session closed. To start a new session, run:\npowershell -ExecutionPolicy Bypass -File 'C:\\path\\to\\launcher.ps1'\nRun synchronously. Exit 0 = session ready. Non-zero = startup failed. On Windows, run this command in PowerShell (not cmd.exe). On timeout: startup state is unknown — check whether 1C was already started before launching another. On non-timeout exit 1: the launcher either did not start 1C, or the failed new instance was closed — safe to retry."
+  "data": "Session closed. To start a new session, run:\npowershell -ExecutionPolicy Bypass -File 'C:\\path\\to\\launcher.ps1'\nRun synchronously. Exit 0 = session ready. Non-zero = startup failed. On Windows, run this command in PowerShell (not cmd.exe). On timeout: startup state is unknown - check whether 1C was already started before launching another. On non-timeout exit 1: the launcher either did not start 1C, or the failed new instance was closed - safe to retry."
 }
 ```
 
@@ -1013,8 +1013,8 @@ curl --max-time 200 -sS --noproxy $BASE_HOST "$BASE_URL/api/close_1c_session?cha
 | Exit code | Meaning |
 |-----------|---------|
 | 0 | New session started successfully |
-| 1 (non-timeout) | Pre-launch error or failed startup — safe to retry after fixing the cause |
-| 1 (timeout after 120 s) | State unknown — check whether a 1C process was already started before launching another |
+| 1 (non-timeout) | Pre-launch error or failed startup - safe to retry after fixing the cause |
+| 1 (timeout after 120 s) | State unknown - check whether a 1C process was already started before launching another |
 
 - **Windows**: run the command in PowerShell (not cmd.exe)
 - **Linux with password auth**: `python3` must be available on PATH

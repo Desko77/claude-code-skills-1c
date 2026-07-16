@@ -76,7 +76,7 @@ def main():
     inserted = (len(new) - len(text))
     print(f"[вставлено {1 if not a.all else cnt} раз, +{inserted} символов]", file=sys.stderr)
     if a.dry_run:
-        print("[dry-run, файл не изменён]", file=sys.stderr)
+        print("[dry-run, файл не изменен]", file=sys.stderr)
         return
     write_raw(a.file, new)
     print("[записано]", file=sys.stderr)

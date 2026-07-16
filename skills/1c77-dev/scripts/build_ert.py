@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Сборка (компиляция) .ert / 1Cv7.MD из исходников через GComp (7.7).
 
-Вызывает gcomp.exe напрямую через subprocess - Python на Windows передаёт Unicode-аргументы
+Вызывает gcomp.exe напрямую через subprocess - Python на Windows передает Unicode-аргументы
 корректно, кириллица в путях не теряется (в отличие от Bash, где gcomp молча выходит с EXIT 0
 и ничего не собирает).
 
@@ -110,7 +110,7 @@ def main():
         sys.exit("ОШИБКА: целевой файл не создан.")
     if before is not None and after == before:
         sys.exit("ОШИБКА: файл не изменился (size/mtime те же). Аргументы не дошли до GComp - проверь пути.")
-    print(f"OK: {out.name} -> {after[0]} байт, mtime обновлён.", file=sys.stderr)
+    print(f"OK: {out.name} -> {after[0]} байт, mtime обновлен.", file=sys.stderr)
 
 
 if __name__ == "__main__":
