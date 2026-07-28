@@ -238,4 +238,4 @@ paths:
 
 - `validate_query` (1c-edt) — проверка синтаксиса и семантики запроса в контексте проекта
 - `validate_query` с `dcsMode=true` — для запросов СКД
-- `check_syntax` (1c-syntax-checker-mcp) — быстрая проверка синтаксиса без EDT
+- `syntaxcheck` (1c-syntax-checker-mcp) — быстрая проверка синтаксиса без EDT

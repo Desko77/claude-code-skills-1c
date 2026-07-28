@@ -76,7 +76,7 @@ Data (База данных, регистры)
 
 При наличии MCP-серверов использовать их для ускорения каждого этапа:
 
-В EDT-MCP 1.42 для поиска и навигации добавлен унифицированный фасад `code_search` (operations: `text_search`, `object_references`, `method_references`, `resolve_symbol`, `call_hierarchy`, `help`) - предпочтительнее для нового кода. Standalone-инструменты ниже остаются доступны для backward compat.
+В AI-EDT (ранее EDT-MCP) для поиска и навигации есть унифицированный фасад `code_search` (operations: `text_search`, `object_references`, `method_references`, `resolve_symbol`, `call_hierarchy`, `help`) - предпочтителен для нового кода. Standalone-имена ниже (`search_in_code`, `find_references`, ...) в tools/list скрыты (Canonical preset), но вызываемы как backward-compat алиасы, маршрутизируемые в operations фасада.
 
 | Этап | Инструмент (сервер) | Что даёт |
 |------|---------------------|----------|
@@ -86,8 +86,8 @@ Data (База данных, регистры)
 | Execution Flow | `get_module_structure` (1c-edt) | Структура модуля (методы, сигнатуры, регионы) без чтения всего кода |
 | Execution Flow | `read_method_source` (1c-edt) | Код конкретного метода по имени |
 | Execution Flow | `get_method_call_hierarchy` (1c-edt) или `code_search operation=call_hierarchy` | Кто вызывает / что вызывает (callers/callees) |
-| Architecture | `search_in_code` (1c-edt) или `code_search operation=text_search` | Полнотекстовый/regex поиск по всем модулям. 1.42: pre-filter, `wholeWord`, `compact` |
-| Architecture | `search_ssl` (1c-mcp_ssl_server) | Поиск функций БСП по описанию |
+| Architecture | `search_in_code` (1c-edt) или `code_search operation=text_search` | Полнотекстовый/regex поиск по всем модулям (`wholeWord`, `compact`, pre-filter по `metadataType`/`fileMask`) |
+| Architecture | `ssl_search` (1c-mcp_ssl_server) | Поиск функций БСП по описанию |
 | Implementation | `get_project_errors` (1c-edt) | Ошибки и предупреждения проекта |
 | Implementation | `validate_query` (1c-edt) | Валидация запросов (синтаксис + семантика) |
 | API платформы | `search` (bsl-platform-help) | Поиск встроенных функций и типов |
