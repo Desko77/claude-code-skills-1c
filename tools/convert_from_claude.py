@@ -76,6 +76,30 @@ RULES_CONFIG = {
         "description": "Стратегия выбора моделей: Opus/Sonnet/Haiku по типу задачи",
         "globs": [],
     },
+    "mcp-tool-priority": {
+        "description": "Маршрутизатор MCP-серверов: какой сервер брать под задачу, обязательные проверки",
+        "globs": [],
+    },
+    "git-safety-rules": {
+        "description": "Безопасная работа с git: деструктивные команды, секреты, политика EOL для 1С",
+        "globs": [],
+    },
+    "text-formatting": {
+        "description": "Запрещенные символы в генерируемом тексте: длинное тире, буква ё, кавычки-елочки",
+        "globs": [],
+    },
+    "file-edit-efficiency": {
+        "description": "Выбор инструмента чтения и правки файлов по стоимости токенов",
+        "globs": [],
+    },
+    "skill-design": {
+        "description": "Проектирование навыков: способы вызова, лестница информации, критерии завершения",
+        "globs": [],
+    },
+    "agent-working-memory": {
+        "description": "Рабочая память агента: файлы плана, передача сессии, журнал инцидентов",
+        "globs": [],
+    },
     "sdd-workflow": {
         "description": "Specification-Driven Development: 9-фазный workflow разработки",
         "globs": [],
