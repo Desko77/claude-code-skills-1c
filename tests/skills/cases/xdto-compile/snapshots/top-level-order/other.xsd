@@ -1,0 +1,5 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test:other">
+	<xs:complexType name="ВнешнийТип">
+		<xs:sequence><xs:element name="Код" type="xs:string"/></xs:sequence>
+	</xs:complexType>
+</xs:schema>

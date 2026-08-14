@@ -1,0 +1,7 @@
+{
+  "name": "Ошибка: путь Объект.* в заимствованной форме без объявленного основного реквизита",
+  "setup": "fixture:borrowed-object-path-no-main",
+  "params": { "formPath": "Documents/Заказ/Forms/ФормаДокумента" },
+  "expectError": true,
+  "expect": { "stdoutContains": "Объект.Партнер" }
+}

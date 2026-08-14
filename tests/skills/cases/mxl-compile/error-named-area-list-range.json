@@ -1,0 +1,12 @@
+{
+  "name": "Ошибка: список через запятую в координатах области",
+  "input": {
+    "columns": 5,
+    "areas": [{ "rows": [["А", "Б", "В", "Г", "Д"]] }],
+    "namedAreas": [{ "name": "Разрывная", "cols": "1,3,5" }]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "namedAreas: 'cols' must be a single number or range, got list \"1,3,5\": namedAreas[1] \"Разрывная\""
+}

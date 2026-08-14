@@ -1,0 +1,9 @@
+{
+  "name": "Штамп 2.19 (8.3.26) — законная версия формата, не «Unusual version»",
+  "setup": "fixture:catalog-219-trm",
+  "params": { "objectPath": "Catalogs/Договоры.xml" },
+  "noSnapshot": "meta-validate только читает и печатает — эталон зафиксировал бы фикстуру, а не выход проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutNotContains": ["Unusual version", "появился в формате"]
+  }
+}

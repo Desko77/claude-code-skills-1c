@@ -1,0 +1,9 @@
+{
+  "name": "Файл формата 2.18 с TypeReductionMode валиден (тег появился именно в 2.18)",
+  "setup": "fixture:catalog-218-trm",
+  "params": { "objectPath": "Catalogs/Договоры.xml" },
+  "noSnapshot": "meta-validate только читает и печатает — эталон зафиксировал бы фикстуру, а не выход проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutNotContains": ["появился в формате", "Unusual version"]
+  }
+}

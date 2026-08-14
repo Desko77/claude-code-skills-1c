@@ -124,4 +124,4 @@
 ## Связанные правила
 
 - `1c-mdo-integrity.md` - целостность MDO (UUID, String length, scale, fillValue, stringQualifiers)
-- скил `1c-edt-tools` - каталог инструментов EDT MCP и порядок вызовов
+- скил `ai-edt-tools` - каталог инструментов EDT MCP и порядок вызовов

@@ -1,0 +1,27 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL",
+  "input": {
+    "Columns": 3,
+    "Areas": [
+      {
+        "Name": "Заголовок",
+        "Rows": [
+          [
+            "Наименование",
+            "Количество",
+            "Сумма"
+          ]
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": [
+      "Template.xml"
+    ]
+  }
+}

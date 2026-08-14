@@ -1,0 +1,23 @@
+{
+  "name": "Формат ниже проверенного диапазона: предупреждение, но скаффолд выпускается",
+  "params": {
+    "name": "Обработка213"
+  },
+  "args_extra": [
+    "-FormatVersion",
+    "2.13"
+  ],
+  "expect": {
+    "files": [
+      "Обработка213.xml"
+    ],
+    "fileContains": {
+      "file": "Обработка213.xml",
+      "text": [
+        "version=\"2.13\""
+      ]
+    },
+    "stderrContains": "is outside the tested range 2.17-2.21"
+  },
+  "skipValidation": true
+}

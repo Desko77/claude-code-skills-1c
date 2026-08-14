@@ -1,0 +1,28 @@
+{
+  "name": "регистрация в LF-ном Configuration.xml: правка наследует LF, создаваемый объект — канон CRLF",
+  "setup": "fixture:lf-config",
+  "input": { "type": "Catalog", "name": "А" },
+  "validatePath": "Catalogs/А",
+  "expect": {
+    "preserves": [
+      {
+        "file": "Configuration.xml",
+        "bom": true,
+        "eol": "lf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true
+      },
+      {
+        "file": "Catalogs/А.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      }
+    ]
+  }
+}

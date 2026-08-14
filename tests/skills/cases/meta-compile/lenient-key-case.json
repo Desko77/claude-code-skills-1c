@@ -1,0 +1,31 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL, вида объекта и значений enum",
+  "input": [
+    {
+      "type": "Catalog",
+      "name": "Контрагенты",
+      "CodeLength": 15,
+      "DescriptionLength": 75,
+      "Hierarchical": true
+    },
+    {
+      "type": "catalog",
+      "name": "Валюты",
+      "codeLength": 12
+    },
+    {
+      "type": "AccumulationRegister",
+      "name": "ПродажиОбороты",
+      "registerType": "обороты",
+      "dimensions": ["Номенклатура: CatalogRef.Номенклатура"],
+      "resources": ["Сумма: Number(15,2)"]
+    }
+  ],
+  "expect": {
+    "files": [
+      "Catalogs/Контрагенты.xml",
+      "Catalogs/Валюты.xml",
+      "AccumulationRegisters/ПродажиОбороты.xml"
+    ]
+  }
+}

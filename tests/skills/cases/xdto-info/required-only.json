@@ -1,0 +1,31 @@
+{
+  "name": "-RequiredOnly: скелет обязательных, необязательный объект уходит с поддеревом",
+  "caseFiles": [
+    "nested.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/nested.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/nested",
+    "outFile": "required-only.txt"
+  },
+  "args_extra": [
+    "-Name",
+    "Документ",
+    "-Depth",
+    "3",
+    "-RequiredOnly"
+  ],
+  "expect": {
+    "files": [
+      "required-only.txt"
+    ]
+  }
+}

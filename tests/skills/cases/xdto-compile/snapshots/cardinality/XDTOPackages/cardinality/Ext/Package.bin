@@ -1,0 +1,14 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:cardinality" elementFormQualified="true" attributeFormQualified="false">
+	<objectType name="Позиция">
+		<property name="Номер" type="xs:string" form="Attribute"/>
+		<property name="Признак" type="xs:boolean" default="false" form="Attribute"/>
+		<property name="Обязательный" type="xs:string"/>
+		<property name="Необязательный" type="xs:string" lowerBound="0"/>
+		<property name="Массив" type="xs:string" lowerBound="0" upperBound="-1"/>
+		<property name="ДоТрёх" type="xs:string" upperBound="3"/>
+		<property name="Обнуляемый" type="xs:string" lowerBound="0" nillable="true"/>
+		<property name="СУмолчанием" type="xs:string" default="нет"/>
+		<property name="Фиксированный" type="xs:string" fixed="true" default="1"/>
+		<property name="БезТипа"/>
+	</objectType>
+</package>

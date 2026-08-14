@@ -1,0 +1,15 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:nested">
+	<objectType name="Документ">
+		<property xmlns:d3p1="urn:test:nested" name="Реквизиты" type="d3p1:Реквизиты"/>
+		<property xmlns:d3p1="urn:test:nested" name="Дочерний" type="d3p1:Документ" lowerBound="0" upperBound="-1"/>
+		<property name="Встроенный">
+			<typeDef xsi:type="ObjectType">
+				<property name="Ид" type="xs:string" form="Attribute"/>
+				<property name="__content" type="xs:date" form="Text"/>
+			</typeDef>
+		</property>
+	</objectType>
+	<objectType name="Реквизиты">
+		<property name="Наименование" type="xs:string"/>
+	</objectType>
+</package>

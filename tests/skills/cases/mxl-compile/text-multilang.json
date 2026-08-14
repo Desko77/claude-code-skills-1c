@@ -1,0 +1,35 @@
+{
+  "name": "Многоязычный текст ячейки: строка = ru, объект = по элементу на язык",
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          {
+            "cells": [
+              { "col": 1, "text": "Только по-русски" },
+              { "col": 2, "text": { "ru": "Поставщик", "en": "Supplier" } },
+              { "col": 3, "template": { "ru": "Итого: [Сумма]", "en": "Total: [Сумма]" } }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"],
+    "fileContains": {
+      "file": "Template.xml",
+      "text": [
+        "<v8:lang>en</v8:lang>",
+        "<v8:content>Supplier</v8:content>",
+        "<v8:content>Поставщик</v8:content>"
+      ]
+    }
+  }
+}

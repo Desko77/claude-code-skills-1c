@@ -1,0 +1,20 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test:order"
+           targetNamespace="urn:test:order">
+	<!-- Объявления намеренно в «неправильном» порядке: тип, глобальный элемент,
+	     простой тип, импорт. Модель XDTO требует import→property→valueType→objectType,
+	     иначе платформа отвергает пакет при обновлении конфигурации. -->
+	<xs:complexType name="Пакет">
+		<xs:sequence>
+			<xs:element name="Сумма" type="tns:СуммаТип"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:element name="Корень" type="tns:Пакет"/>
+	<xs:simpleType name="СуммаТип">
+		<xs:restriction base="xs:decimal">
+			<xs:totalDigits value="18"/>
+			<xs:fractionDigits value="2"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:import namespace="urn:test:other"/>
+</xs:schema>

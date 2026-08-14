@@ -1,0 +1,13 @@
+{
+  "name": "Ошибка: блоки прав на типы без прав в ролях",
+  "setup": "fixture:no-rights-types",
+  "params": { "rightsPath": "Roles/РольВсеТипы/Ext/Rights.xml" },
+  "expectError": true,
+  "noSnapshot": "негативный кейс: навык ничего не пишет, проверяется текст и код возврата",
+  "expect": {
+    "stdoutContains": [
+      "Enum.ЮрФизЛицо: тип 'Enum' не имеет прав в роли",
+      "CommonModule.ОбщегоНазначения: тип 'CommonModule' не имеет прав в роли"
+    ]
+  }
+}

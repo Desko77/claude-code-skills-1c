@@ -1,0 +1,20 @@
+{
+  "name": "Формат 2.17: TextToSpeech не эмитится — на 8.3.24 тег ломает загрузку XDTO-ошибкой",
+  "params": {
+    "name": "Конфа217"
+  },
+  "args_extra": [
+    "-FormatVersion",
+    "2.17"
+  ],
+  "expect": {
+    "fileContains": {
+      "file": "Configuration.xml",
+      "text": "version=\"2.17\""
+    },
+    "fileNotContains": {
+      "file": "Configuration.xml",
+      "text": "TextToSpeech"
+    }
+  }
+}

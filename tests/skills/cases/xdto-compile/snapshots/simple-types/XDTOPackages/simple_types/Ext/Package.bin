@@ -1,0 +1,13 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:simple">
+	<valueType name="СчётТип" base="xs:string" length="20">
+		<pattern>[0-9]{20}</pattern>
+	</valueType>
+	<valueType name="Версия" base="xs:string">
+		<enumeration>1.05</enumeration>
+		<enumeration>1.06</enumeration>
+	</valueType>
+	<valueType name="Диапазон" base="xs:integer" minInclusive="0" maxInclusive="100" whiteSpace="collapse"/>
+	<valueType name="Список" variety="List" itemType="xs:anyURI"/>
+	<valueType name="Объединение" variety="Union" memberTypes="{urn:test:simple}Версия {http://www.w3.org/2001/XMLSchema}string"/>
+	<valueType name="ОграниченнаяДлина" base="xs:string" minLength="1" maxLength="160"/>
+</package>

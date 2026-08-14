@@ -1,0 +1,19 @@
+{
+  "name": "round-trip: modify-property на LF-исходнике сохраняет LF (порты расходились здесь: PS форсировал CRLF)",
+  "setup": "fixture:lf-config",
+  "input": [
+    { "operation": "modify-property", "value": "Version=1.0.0.2" }
+  ],
+  "expect": {
+    "preserves": {
+      "file": "Configuration.xml",
+      "bom": true,
+      "eol": "lf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

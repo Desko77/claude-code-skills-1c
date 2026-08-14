@@ -1,0 +1,35 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test:simple"
+           targetNamespace="urn:test:simple">
+	<xs:simpleType name="СчётТип">
+		<xs:restriction base="xs:string">
+			<xs:length value="20"/>
+			<xs:pattern value="[0-9]{20}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Версия">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="1.05"/>
+			<xs:enumeration value="1.06"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Диапазон">
+		<xs:restriction base="xs:integer">
+			<xs:minInclusive value="0"/>
+			<xs:maxInclusive value="100"/>
+			<xs:whiteSpace value="collapse"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Список">
+		<xs:list itemType="xs:anyURI"/>
+	</xs:simpleType>
+	<xs:simpleType name="Объединение">
+		<xs:union memberTypes="tns:Версия xs:string"/>
+	</xs:simpleType>
+	<xs:simpleType name="ОграниченнаяДлина">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1"/>
+			<xs:maxLength value="160"/>
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

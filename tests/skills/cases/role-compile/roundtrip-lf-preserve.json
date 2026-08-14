@@ -1,0 +1,32 @@
+{
+  "name": "регистрация в LF-ном Configuration.xml: правка наследует LF, создаваемая роль — канон CRLF",
+  "setup": "fixture:lf-config",
+  "input": { "name": "Пустая" },
+  "validatePath": "Roles/Пустая",
+  "expect": {
+    "files": [
+      "Roles/Пустая.xml",
+      "Roles/Пустая/Ext/Rights.xml"
+    ],
+    "preserves": [
+      {
+        "file": "Configuration.xml",
+        "bom": true,
+        "eol": "lf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true
+      },
+      {
+        "file": "Roles/Пустая.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      }
+    ]
+  }
+}

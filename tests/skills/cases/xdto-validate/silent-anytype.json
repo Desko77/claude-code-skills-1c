@@ -1,0 +1,15 @@
+{
+  "name": "тихая деградация: xs:anyType при объявленном import",
+  "caseFiles": [
+    "pkg-anytype/XDTOPackages/anytype.xml",
+    "pkg-anytype/XDTOPackages/anytype/Ext/Package.bin"
+  ],
+  "params": { "packagePath": "pkg-anytype/XDTOPackages/anytype" },
+  "expect": {
+    "stdoutContains": [
+      "Тип не разрешён",
+      "признак неразрешённой зависимости"
+    ]
+  },
+  "noSnapshot": "навык только читает — сравнивать нечего, проверка через stdoutContains"
+}

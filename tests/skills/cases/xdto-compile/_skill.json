@@ -1,0 +1,17 @@
+{
+  "script": "xdto-compile/scripts/xdto-compile",
+  "setup": "empty-config",
+  "args": [
+    { "flag": "-XsdPath", "from": "workPath", "field": "xsdFile" },
+    { "flag": "-OutputDir", "from": "workDir" }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": true
+  },
+  "postValidate": {
+    "script": "xdto-validate/scripts/xdto-validate",
+    "flag": "-PackagePath",
+    "pathFrom": "validatePath"
+  }
+}

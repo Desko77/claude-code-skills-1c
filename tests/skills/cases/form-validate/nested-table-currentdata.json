@@ -1,0 +1,7 @@
+{
+  "name": "Вложенная таблица: путь Items.* разрешается цепочкой, а не одним шагом",
+  "setup": "fixture:nested-table-currentdata",
+  "params": { "formPath": "DataProcessors/Spec/Forms/Форма" },
+  "expect": { "stdoutContains": "Validation OK" },
+  "skipPlatformVerify": "вложенная таблица собрана вручную под разбор пути; проверяется поведение валидатора, а не загружаемость"
+}

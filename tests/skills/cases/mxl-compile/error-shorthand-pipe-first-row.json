@@ -1,0 +1,16 @@
+{
+  "name": "Ошибка: | в первой строке области — сверху нет ячейки",
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [["А", "|"]]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "Row shorthand: '|' has no cell above: area \"Шапка\", row 1, cell 2"
+}

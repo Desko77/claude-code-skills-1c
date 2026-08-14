@@ -1,0 +1,25 @@
+<xs:schema xmlns:tns="urn:test:annotations" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xdto="http://v8.1c.ru/8.1/xdto" targetNamespace="urn:test:annotations">
+	<xs:annotation>
+		<xs:appinfo>
+			<xdto:package xmlns:xdto="http://v8.1c.ru/8.1/xdto">
+				<xdto:name>ПакетСАннотациями</xdto:name>
+				<xdto:comment>Проверка xs:appinfo</xdto:comment>
+				<xdto:synonym lang="ru">Пакет с аннотациями</xdto:synonym>
+				<xdto:synonym lang="en">Annotated package</xdto:synonym>
+			</xdto:package>
+		</xs:appinfo>
+	</xs:annotation>
+	<xs:complexType name="Контакт" xdto:sequenced="true">
+		<xs:sequence>
+			<xs:element name="Комментарий" type="xs:string" minOccurs="0" xdto:form="Element"/>
+			<xs:element name="alpha-3" type="xs:string" minOccurs="0" xdto:name="alpha_3"/>
+		</xs:sequence>
+		<xs:attribute name="Представление" type="xs:string" xdto:nillable="true" xdto:lowerBound="0"/>
+	</xs:complexType>
+	<xs:complexType name="ЯвныйПорядок" xdto:order="Элемент|Атрибут">
+		<xs:sequence>
+			<xs:element name="Элемент" type="xs:string"/>
+		</xs:sequence>
+		<xs:attribute name="Атрибут" type="xs:string"/>
+	</xs:complexType>
+</xs:schema>

@@ -1,0 +1,16 @@
+{
+  "name": "неразрешимые ссылки: нет локального типа и нет import под чужой ns",
+  "caseFiles": [
+    "pkg-unresolved/XDTOPackages/unresolved.xml",
+    "pkg-unresolved/XDTOPackages/unresolved/Ext/Package.bin"
+  ],
+  "params": { "packagePath": "pkg-unresolved/XDTOPackages/unresolved" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "не разрешается: в пакете нет типа \"НетТакогоТипа\"",
+      "не объявлен"
+    ]
+  },
+  "noSnapshot": "навык только читает — сравнивать нечего, проверка через stdoutContains"
+}

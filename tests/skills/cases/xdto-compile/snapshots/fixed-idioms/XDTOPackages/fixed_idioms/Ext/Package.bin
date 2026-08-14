@@ -1,0 +1,8 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:fixed">
+	<objectType name="Позиция">
+		<property name="Атрибутом" type="xs:string" fixed="true" default="Р" form="Attribute"/>
+		<property name="ИзСхемы" type="xs:string" fixed="true" default="Р"/>
+		<property name="Зеркало" type="xs:string" fixed="false" default="Р"/>
+		<property name="ТолькоDefault" type="xs:string" default="Р"/>
+	</objectType>
+</package>

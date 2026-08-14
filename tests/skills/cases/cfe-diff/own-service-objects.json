@@ -1,0 +1,41 @@
+{
+  "name": "Собственные XDTO-пакет и HTTP-сервис расширения попадают в обзор",
+  "preRun": [
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Сервисы",
+        "-OutputDir": "{workDir}/ext",
+        "-ConfigPath": "{workDir}"
+      }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "HTTPService",
+        "name": "Сервисы_API",
+        "rootURL": "api",
+        "urlTemplates": { "Health": "/health" }
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}/ext"
+      }
+    },
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-Xsd": "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" targetNamespace=\"http://example.org/probe\"><xs:element name=\"Ping\" type=\"xs:string\"/></xs:schema>",
+        "-Name": "Сервисы_Пакет",
+        "-OutputDir": "{workDir}/ext"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext"
+  },
+  "expect": {
+    "stdoutContains": ["HTTPService.Сервисы_API", "XDTOPackage.Сервисы_Пакет"],
+    "stdoutNotContains": ["unknown type"]
+  }
+}

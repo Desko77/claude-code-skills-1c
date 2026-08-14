@@ -1,0 +1,8 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:fixedbad">
+	<objectType name="Позиция">
+		<property name="БезЗначения" type="xs:string" fixed="true"/>
+		<property name="ЗначениеВПризнаке" type="xs:string" fixed="Р"/>
+		<property name="Правильное" type="xs:string" fixed="true" default="Р"/>
+		<property name="НеФиксированное" type="xs:string" fixed="false" default="Р"/>
+	</objectType>
+</package>

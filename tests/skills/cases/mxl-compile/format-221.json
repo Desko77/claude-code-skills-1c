@@ -1,0 +1,33 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в теле макета",
+  "setup": "empty-config-221",
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          {
+            "cells": [
+              {
+                "col": 1,
+                "text": "Тест"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "fileContains": {
+      "file": "Template.xml",
+      "text": "xmlns=\"http://v8.1c.ru/8.2/data/spreadsheet\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+    }
+  },
+  "noSnapshot": "фикстура-конфигурация нужна только чтобы навык увидел версию 2.21; её UUID попадают в снэпшот, а у этого навыка normalizeUuids=false — эталон дрожал бы на каждой пересборке фикстуры. Предмет кейса проверяет fileContains."
+}

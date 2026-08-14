@@ -1,0 +1,51 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal и версия расширения в заимствованной форме",
+  "setup": "empty-config-221",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/Catalogs/Товары.xml",
+        "-FormName": "ФормаЭлемента"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Расш",
+        "-OutputDir": "{workDir}/ext",
+        "-ConfigPath": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext"
+  },
+  "object": "Catalog.Товары.Form.ФормаЭлемента",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "ext/Catalogs/Товары.xml",
+        "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+      },
+      {
+        "file": "ext/Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml",
+        "text": [
+          "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style=",
+          "version=\"2.21\""
+        ]
+      }
+    ]
+  }
+}

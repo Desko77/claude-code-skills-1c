@@ -1,0 +1,32 @@
+{
+  "name": "добавление свойства-атрибута",
+  "caseFiles": [
+    "types.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/types.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/types"
+  },
+  "args_extra": [
+    "-Operation",
+    "add-property",
+    "-Target",
+    "Платёж",
+    "-Value",
+    "<xs:attribute name=\"Версия\" type=\"xs:string\"/>",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/types/Ext/Package.bin"
+    ]
+  }
+}

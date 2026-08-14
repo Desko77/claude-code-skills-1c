@@ -1,0 +1,8 @@
+{
+  "name": "кто ссылается на тип, включая соседний пакет",
+  "caseFiles": ["common.xsd", "uses-common.xsd"],
+  "preRun": [{ "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/common.xsd", "-OutputDir": "{workDir}" } }, { "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/uses-common.xsd", "-OutputDir": "{workDir}" } }],
+  "params": { "packagePath": ".", "outFile": "used-by.txt" },
+  "args_extra": ["-Mode", "used-by", "-Name", "Справочник"],
+  "expect": { "files": ["used-by.txt"] }
+}

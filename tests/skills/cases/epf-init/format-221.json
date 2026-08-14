@@ -1,0 +1,22 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке обработки",
+  "params": {
+    "name": "Обработка221"
+  },
+  "args_extra": [
+    "-FormatVersion",
+    "2.21"
+  ],
+  "expect": {
+    "files": [
+      "Обработка221.xml"
+    ],
+    "fileContains": {
+      "file": "Обработка221.xml",
+      "text": [
+        "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style=",
+        "version=\"2.21\""
+      ]
+    }
+  }
+}

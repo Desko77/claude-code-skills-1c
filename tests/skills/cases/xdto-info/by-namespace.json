@@ -1,0 +1,8 @@
+{
+  "name": "адресация пакета по namespace от корня исходников",
+  "caseFiles": ["common.xsd", "uses-common.xsd"],
+  "preRun": [{ "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/common.xsd", "-OutputDir": "{workDir}" } }, { "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/uses-common.xsd", "-OutputDir": "{workDir}" } }],
+  "params": { "packagePath": ".", "outFile": "by-namespace.txt" },
+  "args_extra": ["-Namespace", "urn:test:common", "-Name", "Справочник"],
+  "expect": { "files": ["by-namespace.txt"] }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "nillable у свойства-атрибута — не переживёт экспорт XML-схемы",
+  "caseFiles": [
+    "pkg-nillattr/XDTOPackages/nillattr.xml",
+    "pkg-nillattr/XDTOPackages/nillattr/Ext/Package.bin"
+  ],
+  "params": { "packagePath": "pkg-nillattr/XDTOPackages/nillattr" },
+  "expect": {
+    "stdoutContains": ["nillable", "form=\"Attribute\""]
+  },
+  "noSnapshot": "навык только читает — сравнивать нечего, проверка через stdoutContains"
+}

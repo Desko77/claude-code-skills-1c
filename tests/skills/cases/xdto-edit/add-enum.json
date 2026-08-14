@@ -1,0 +1,32 @@
+{
+  "name": "добавление значений в перечислимый тип",
+  "caseFiles": [
+    "types.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/types.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/types"
+  },
+  "args_extra": [
+    "-Operation",
+    "add-enum",
+    "-Target",
+    "ВидДокумента",
+    "-Value",
+    "Инкассо ;; Аккредитив",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/types/Ext/Package.bin"
+    ]
+  }
+}

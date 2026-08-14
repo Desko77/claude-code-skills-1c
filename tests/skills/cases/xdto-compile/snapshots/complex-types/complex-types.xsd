@@ -1,0 +1,40 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test:complex"
+           targetNamespace="urn:test:complex">
+	<xs:complexType name="Основание" abstract="true">
+		<xs:sequence>
+			<xs:element name="Идентификатор" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="Наследник">
+		<xs:complexContent>
+			<xs:extension base="tns:Основание">
+				<xs:sequence>
+					<xs:element name="Дополнение" type="xs:string"/>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="Выбор">
+		<xs:choice>
+			<xs:element name="Вариант1" type="xs:string"/>
+			<xs:element name="Вариант2" type="xs:decimal"/>
+		</xs:choice>
+	</xs:complexType>
+	<xs:complexType name="Открытый">
+		<xs:sequence>
+			<xs:element name="Известное" type="xs:string" minOccurs="0"/>
+			<xs:any namespace="##any" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:anyAttribute namespace="##any" processContents="lax"/>
+	</xs:complexType>
+	<xs:complexType name="Смешанный" mixed="true">
+		<xs:sequence>
+			<xs:element name="Вставка" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="ТолькоАтрибуты">
+		<xs:attribute name="Код" type="xs:string"/>
+		<xs:attribute name="Значение" type="xs:string"/>
+	</xs:complexType>
+</xs:schema>

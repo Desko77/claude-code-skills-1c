@@ -1,0 +1,16 @@
+{
+  "name": "Перерасчёт регистра расчёта проходит без замечаний",
+  "setup": "fixture:external-data-source",
+  "params": {
+    "rightsPath": "Roles/ПраваНаПерерасчет/Ext/Rights.xml"
+  },
+  "noSnapshot": "валидатор не пишет файлов, проверяется чистый вывод",
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": [
+      "[WARN]",
+      "[ERROR]"
+    ]
+  },
+  "skipPlatformVerify": "фикстура — только каталог Roles/ с эталонной выгрузкой роли, без Configuration.xml: загрузить её как конфигурацию нельзя, а объекты (внешний источник данных, перерасчёт) не создаёт ни один навык"
+}

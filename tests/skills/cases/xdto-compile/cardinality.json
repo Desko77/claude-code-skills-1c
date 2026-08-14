@@ -1,0 +1,9 @@
+{
+  "name": "кратности, nillable, default/fixed, атрибуты, свойство без типа",
+  "caseFiles": ["cardinality.xsd"],
+  "params": { "xsdFile": "cardinality.xsd" },
+  "validatePath": "XDTOPackages/cardinality",
+  "expect": {
+    "files": ["XDTOPackages/cardinality.xml", "XDTOPackages/cardinality/Ext/Package.bin"]
+  }
+}

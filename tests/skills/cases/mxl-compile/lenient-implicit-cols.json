@@ -1,0 +1,26 @@
+{
+  "name": "Прощающий ввод: строка без col раскладывается слева направо",
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Таблица",
+        "rows": [
+          { "cells": [{ "text": "А" }, { "text": "Б" }, { "text": "В" }] },
+          { "cells": [{ "col": 1, "rowspan": 2, "text": "Сквозная" }, { "col": 2, "text": "X" }, { "col": 3, "text": "Y" }] },
+          { "cells": [{ "text": "П" }, { "text": "Р" }] },
+          { "cells": [{ "span": 2, "text": "Широкая" }, { "text": "Хвост" }] }
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": [
+      "Template.xml"
+    ]
+  }
+}

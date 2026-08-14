@@ -1,0 +1,9 @@
+{
+  "name": "оба идиома fixed: XSD-форма fixed=\"значение\" и модельное зеркало xdto:fixed",
+  "caseFiles": ["fixed-idioms.xsd"],
+  "params": { "xsdFile": "fixed-idioms.xsd" },
+  "validatePath": "XDTOPackages/fixed_idioms",
+  "expect": {
+    "files": ["XDTOPackages/fixed_idioms.xml", "XDTOPackages/fixed_idioms/Ext/Package.bin"]
+  }
+}

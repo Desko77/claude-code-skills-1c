@@ -1,0 +1,6 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:anytype">
+	<import namespace="urn:test:зависимость"/>
+	<objectType name="Документ">
+		<property name="Контакт" type="xs:anyType"/>
+	</objectType>
+</package>

@@ -1,0 +1,21 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test:refs"
+           xmlns:other="urn:test:other"
+           targetNamespace="urn:test:refs">
+	<xs:import namespace="urn:test:other"/>
+	<xs:element name="Корень" type="tns:Документ"/>
+	<xs:simpleType name="СуммаТип">
+		<xs:restriction base="xs:decimal">
+			<xs:totalDigits value="18"/>
+			<xs:fractionDigits value="2"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="Документ">
+		<xs:sequence>
+			<xs:element name="Сумма" type="tns:СуммаТип"/>
+			<xs:element name="БезПрефикса" type="СуммаТип"/>
+			<xs:element name="Чужой" type="other:ВнешнийТип" minOccurs="0"/>
+			<xs:element ref="tns:Корень" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

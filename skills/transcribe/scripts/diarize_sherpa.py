@@ -177,7 +177,7 @@ def diarize(args) -> int:
                 debug=False,
             ),
             embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-                model=str(EMB_MODEL),
+                model=str(getattr(args, "emb_model", None) or EMB_MODEL),
                 provider=args.provider,
                 num_threads=1,
                 debug=False,
@@ -249,6 +249,10 @@ def main() -> int:
     ap.add_argument("--out-json", default=None)
     ap.add_argument("--num-speakers", type=int, default=None)
     ap.add_argument("--threshold", type=float, default=0.5)
+    ap.add_argument("--emb-model", default=None,
+                    help="Путь к ONNX-эмбеддеру голоса (по умолчанию eres2net 200k). "
+                         "ВНИМАНИЕ: голосовая база привязана к пространству эмбеддингов - "
+                         "смена модели делает накопленные отпечатки несравнимыми.")
     ap.add_argument("--provider", default="cuda", choices=["cuda", "cpu"])
     ap.add_argument("--emit-voiceprints", default=None, help="Путь: сохранить отпечатки голоса на кластер (JSON)")
     ap.add_argument("--from-turns", default=None, help="Только отпечатки: turns JSON от другого движка")

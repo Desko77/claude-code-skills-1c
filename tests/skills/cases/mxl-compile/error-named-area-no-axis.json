@@ -1,0 +1,12 @@
+{
+  "name": "Ошибка: у именованной области не задано ни одной оси",
+  "input": {
+    "columns": 3,
+    "areas": [{ "rows": [["А", "Б", "В"]] }],
+    "namedAreas": [{ "name": "Пустая" }]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "namedAreas: at least one of 'rows'/'cols' is required: namedAreas[1] \"Пустая\""
+}

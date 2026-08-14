@@ -1,0 +1,32 @@
+{
+  "name": "Пары субконто берутся из плана счетов, а не из DSL",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "ChartOfCharacteristicTypes", "name": "ВидыСубконто", "valueType": "String(50)" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "ChartOfAccounts",
+        "name": "Хозрасчетный",
+        "extDimensionTypes": "ChartOfCharacteristicTypes.ВидыСубконто",
+        "maxExtDimensionCount": 2
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "input": {
+    "type": "AccountingRegister",
+    "name": "Основной",
+    "chartOfAccounts": "ChartOfAccounts.Хозрасчетный",
+    "correspondence": true,
+    "dimensions": ["Организация: CatalogRef.Организации"],
+    "resources": ["Сумма: Number(15,2)"]
+  },
+  "validatePath": "AccountingRegisters/Основной",
+  "expect": {
+    "files": ["AccountingRegisters/Основной.xml", "AccountingRegisters/Основной/Ext/RecordSetModule.bsl"]
+  }
+}

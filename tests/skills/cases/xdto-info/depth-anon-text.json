@@ -1,0 +1,8 @@
+{
+  "name": "разузлование: анонимный тип, значение элемента, обрыв цикла",
+  "caseFiles": ["nested.xsd"],
+  "preRun": [{ "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/nested.xsd", "-OutputDir": "{workDir}" } }],
+  "params": { "packagePath": "XDTOPackages/nested", "outFile": "depth-anon-text.txt" },
+  "args_extra": ["-Name", "Документ", "-Depth", "4"],
+  "expect": { "files": ["depth-anon-text.txt"] }
+}

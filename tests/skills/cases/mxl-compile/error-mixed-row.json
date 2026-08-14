@@ -1,0 +1,18 @@
+{
+  "name": "Ошибка: в строке часть ячеек с col, часть без",
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          { "cells": [{ "col": 1, "text": "А" }, { "text": "Б" }] }
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "Cell without 'col' mixed with positioned cells: area \"Шапка\", row 1"
+}

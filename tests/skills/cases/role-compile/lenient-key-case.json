@@ -1,0 +1,14 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL",
+  "input": {
+    "Name": "ПустаяРоль",
+    "Rights": {}
+  },
+  "validatePath": "Roles/ПустаяРоль",
+  "expect": {
+    "files": [
+      "Roles/ПустаяРоль.xml",
+      "Roles/ПустаяРоль/Ext/Rights.xml"
+    ]
+  }
+}

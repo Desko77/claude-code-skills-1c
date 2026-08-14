@@ -1,0 +1,17 @@
+{
+  "name": "несогласованные фасеты: length с min/maxLength, fractionDigits > totalDigits",
+  "caseFiles": [
+    "pkg-facets/XDTOPackages/facets.xml",
+    "pkg-facets/XDTOPackages/facets/Ext/Package.bin"
+  ],
+  "params": { "packagePath": "pkg-facets/XDTOPackages/facets" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "length задан вместе с minLength/maxLength",
+      "minLength (3) больше maxLength (2)",
+      "fractionDigits (9) больше totalDigits (5)"
+    ]
+  },
+  "noSnapshot": "навык только читает — сравнивать нечего, проверка через stdoutContains"
+}

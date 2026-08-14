@@ -1,0 +1,26 @@
+{
+  "name": "brief подчинённого справочника сообщает о подчинённости",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Контрагенты" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "БанковскиеСчета",
+        "owners": ["Catalog.Контрагенты"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/БанковскиеСчета" },
+  "args_extra": ["-Mode", "brief"],
+  "expect": {
+    "stdoutContains": ["Подчинён: Контрагенты"],
+    "stdoutNotContains": ["Стандартные реквизиты:", "обязательный"]
+  }
+}

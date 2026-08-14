@@ -1,0 +1,137 @@
+{
+  "name": "Заимствование формы с основным реквизитом: перенос UseAlways/Columns и заимствование ТЧ из AdditionalColumns",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Номенклатура",
+        "attributes": [
+          {
+            "name": "Артикул",
+            "type": "String",
+            "length": 25
+          }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Document",
+        "name": "ЗаказКлиента",
+        "attributes": [
+          {
+            "name": "Комментарий",
+            "type": "String",
+            "length": 100
+          }
+        ],
+        "tabularSections": {
+          "Товары": [
+            {
+              "name": "Номенклатура",
+              "type": "CatalogRef.Номенклатура"
+            },
+            {
+              "name": "Количество",
+              "type": "Number(10,3)"
+            }
+          ],
+          "Оплата": [
+            {
+              "name": "Сумма",
+              "type": "Number(15,2)"
+            }
+          ]
+        }
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/Documents/ЗаказКлиента.xml",
+        "-FormName": "ФормаДокумента"
+      }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Заказ клиента",
+        "elements": [
+          {
+            "input": "Комментарий",
+            "path": "Объект.Комментарий"
+          },
+          {
+            "table": "Товары",
+            "path": "Объект.Товары",
+            "columns": [
+              {
+                "input": "Номенклатура",
+                "path": "Объект.Товары.Номенклатура"
+              },
+              {
+                "label": "Артикул",
+                "path": "Объект.Товары.Артикул"
+              }
+            ]
+          }
+        ],
+        "attributes": [
+          {
+            "name": "Объект",
+            "type": "DocumentObject.ЗаказКлиента",
+            "main": true,
+            "useAlways": [
+              "Объект.Комментарий"
+            ],
+            "additionalColumns": [
+              {
+                "table": "Объект.Оплата",
+                "columns": []
+              },
+              {
+                "table": "Объект.Товары",
+                "columns": [
+                  {
+                    "name": "Артикул",
+                    "type": "String(25)"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputPath": "{workDir}/Documents/ЗаказКлиента/Forms/ФормаДокумента/Ext/Form.xml"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Тест",
+        "-OutputDir": "{workDir}/ext",
+        "-ConfigPath": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext",
+    "object": "Document.ЗаказКлиента.Form.ФормаДокумента"
+  },
+  "args_extra": [
+    "-BorrowMainAttribute",
+    "Form"
+  ]
+}

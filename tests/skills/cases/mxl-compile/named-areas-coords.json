@@ -1,0 +1,26 @@
+{
+  "name": "Именованные области координатами: тип выводится из осей",
+  "input": {
+    "columns": 4,
+    "areas": [
+      { "rows": [["А", "Б", "В", "Г"], ["{П1}", "{П2}", "{П3}", "{П4}"]] }
+    ],
+    "namedAreas": [
+      { "name": "ПолосаСтрок", "rows": "1-2" },
+      { "name": "ПолосаКолонок", "cols": "2-4" },
+      { "name": "Прямоугольник", "rows": 2, "cols": "2-3" },
+      { "name": "Ячейка", "rows": 1, "cols": 1 }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"],
+    "fileContains": {
+      "file": "Template.xml",
+      "text": ["<type>Rows</type>", "<type>Columns</type>", "<type>Rectangle</type>"]
+    }
+  }
+}

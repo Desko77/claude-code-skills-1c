@@ -1,0 +1,29 @@
+{
+  "name": "Пустой внешний отчёт",
+  "params": {
+    "name": "ТестовыйОтчёт"
+  },
+  "validatePath": "ТестовыйОтчёт",
+  "expect": {
+    "files": [
+      "ТестовыйОтчёт.xml"
+    ],
+    "preserves": [
+      {
+        "file": "ТестовыйОтчёт.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      },
+      {
+        "file": "ТестовыйОтчёт/Ext/ObjectModule.bsl",
+        "bom": true,
+        "eol": "crlf"
+      }
+    ]
+  }
+}

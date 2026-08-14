@@ -1,0 +1,38 @@
+<xs:schema xmlns:tns="urn:test:anon" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test:anon">
+	<xs:annotation>
+		<xs:appinfo>
+			<xdto:package xmlns:xdto="http://v8.1c.ru/8.1/xdto">
+				<xdto:name>anon_and_content</xdto:name>
+				<xdto:synonym lang="ru">anon_and_content</xdto:synonym>
+			</xdto:package>
+		</xs:appinfo>
+	</xs:annotation>
+	<xs:complexType name="Реквизиты">
+		<xs:sequence>
+			<xs:element name="Наименование">
+				<xs:simpleType>
+					<xs:restriction base="xs:string">
+						<xs:maxLength value="160"/>
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+			<xs:element name="Вложенный">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="Поле" type="xs:string"/>
+					</xs:sequence>
+					<xs:attribute name="Атрибут" type="xs:string"/>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="СТекстом">
+				<xs:complexType>
+					<xs:simpleContent>
+						<xs:extension base="xs:date">
+							<xs:attribute name="ИдПлатежа" type="xs:string"/>
+						</xs:extension>
+					</xs:simpleContent>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

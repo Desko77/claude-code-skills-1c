@@ -1,0 +1,32 @@
+{
+  "name": "добавление свойства в тип",
+  "caseFiles": [
+    "types.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/types.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/types"
+  },
+  "args_extra": [
+    "-Operation",
+    "add-property",
+    "-Target",
+    "Платёж",
+    "-Value",
+    "<xs:element name=\"Комментарий\" type=\"xs:string\" minOccurs=\"0\"/>",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/types/Ext/Package.bin"
+    ]
+  }
+}

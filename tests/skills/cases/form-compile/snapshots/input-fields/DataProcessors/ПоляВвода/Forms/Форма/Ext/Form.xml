@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+	<Title>
+		<v8:item>
+			<v8:lang>ru</v8:lang>
+			<v8:content>Поля ввода</v8:content>
+		</v8:item>
+	</Title>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
+		<HorizontalAlign>Right</HorizontalAlign>
+		<Autofill>false</Autofill>
+	</AutoCommandBar>
+	<ChildItems>
+		<InputField name="ОбычноеПоле" id="1">
+			<DataPath>ОбычноеПоле</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Обычное поле</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ОбычноеПолеКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="ОбычноеПолеРасширеннаяПодсказка" id="3"/>
+		</InputField>
+		<LabelField name="Ссылка" id="4">
+			<DataPath>ОбычноеПоле</DataPath>
+			<Hyperlink>true</Hyperlink>
+			<ContextMenu name="СсылкаКонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="СсылкаРасширеннаяПодсказка" id="6"/>
+		</LabelField>
+		<InputField name="МногострочноеПоле" id="7">
+			<DataPath>МногострочноеПоле</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Комментарий</v8:content>
+				</v8:item>
+			</Title>
+			<MultiLine>true</MultiLine>
+			<Height>5</Height>
+			<ContextMenu name="МногострочноеПолеКонтекстноеМеню" id="8"/>
+			<ExtendedTooltip name="МногострочноеПолеРасширеннаяПодсказка" id="9"/>
+		</InputField>
+		<InputField name="ПолеПароля" id="10">
+			<DataPath>ПолеПароля</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Пароль</v8:content>
+				</v8:item>
+			</Title>
+			<PasswordMode>true</PasswordMode>
+			<ContextMenu name="ПолеПароляКонтекстноеМеню" id="11"/>
+			<ExtendedTooltip name="ПолеПароляРасширеннаяПодсказка" id="12"/>
+		</InputField>
+		<InputField name="ЧисловоеПоле" id="13">
+			<DataPath>ЧисловоеПоле</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Число</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ЧисловоеПолеКонтекстноеМеню" id="14"/>
+			<ExtendedTooltip name="ЧисловоеПолеРасширеннаяПодсказка" id="15"/>
+		</InputField>
+		<InputField name="ПолеСКнопками" id="16">
+			<DataPath>ПолеСКнопками</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Выбор</v8:content>
+				</v8:item>
+			</Title>
+			<ClearButton>true</ClearButton>
+			<SpinButton>true</SpinButton>
+			<ContextMenu name="ПолеСКнопкамиКонтекстноеМеню" id="17"/>
+			<ExtendedTooltip name="ПолеСКнопкамиРасширеннаяПодсказка" id="18"/>
+		</InputField>
+		<InputField name="ПолеСписокВыбора" id="19">
+			<DataPath>ПолеСписокВыбора</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Список выбора</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ПолеСписокВыбораКонтекстноеМеню" id="20"/>
+			<ExtendedTooltip name="ПолеСписокВыбораРасширеннаяПодсказка" id="21"/>
+		</InputField>
+		<InputField name="ПолеПодсказка" id="22">
+			<DataPath>ПолеПодсказка</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Подсказка</v8:content>
+				</v8:item>
+			</Title>
+			<InputHint>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Введите значение...</v8:content>
+				</v8:item>
+			</InputHint>
+			<ContextMenu name="ПолеПодсказкаКонтекстноеМеню" id="23"/>
+			<ExtendedTooltip name="ПолеПодсказкаРасширеннаяПодсказка" id="24"/>
+		</InputField>
+		<InputField name="ПолеСвязи" id="25">
+			<DataPath>ПолеСвязи</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Поле со связями</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ПолеСвязиКонтекстноеМеню" id="26"/>
+			<ExtendedTooltip name="ПолеСвязиРасширеннаяПодсказка" id="27"/>
+		</InputField>
+		<InputField name="ПолеСвязиКратко" id="28">
+			<DataPath>ПолеСвязиКратко</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Связи (короткая форма)</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ПолеСвязиКраткоКонтекстноеМеню" id="29"/>
+			<ExtendedTooltip name="ПолеСвязиКраткоРасширеннаяПодсказка" id="30"/>
+		</InputField>
+		<CheckBoxField name="Флаг" id="31">
+			<DataPath>Флаг</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Включено</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ФлагКонтекстноеМеню" id="32"/>
+			<ExtendedTooltip name="ФлагРасширеннаяПодсказка" id="33"/>
+		</CheckBoxField>
+		<CheckBoxField name="ФлагПлатформенный" id="34">
+			<DataPath>ФлагПлатформенный</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Слева</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ФлагПлатформенныйКонтекстноеМеню" id="35"/>
+			<ExtendedTooltip name="ФлагПлатформенныйРасширеннаяПодсказка" id="36"/>
+		</CheckBoxField>
+		<CheckBoxField name="ФлагЯвный" id="37">
+			<DataPath>ФлагЯвный</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Сверху</v8:content>
+				</v8:item>
+			</Title>
+			<TitleLocation>top</TitleLocation>
+			<ContextMenu name="ФлагЯвныйКонтекстноеМеню" id="38"/>
+			<ExtendedTooltip name="ФлагЯвныйРасширеннаяПодсказка" id="39"/>
+		</CheckBoxField>
+		<CheckBoxField name="ФлагТумблер" id="40">
+			<DataPath>ФлагТумблер</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Тумблер</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ФлагТумблерКонтекстноеМеню" id="41"/>
+			<ExtendedTooltip name="ФлагТумблерРасширеннаяПодсказка" id="42"/>
+		</CheckBoxField>
+		<InputField name="ПолеСоставное" id="43">
+			<DataPath>ПолеСоставное</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Ограничение типов</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ПолеСоставноеКонтекстноеМеню" id="44"/>
+			<ExtendedTooltip name="ПолеСоставноеРасширеннаяПодсказка" id="45"/>
+		</InputField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="46">
+			<Type>
+				<v8:Type>cfg:DataProcessorObject.ПоляВвода</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+		</Attribute>
+		<Attribute name="ОбычноеПоле" id="47">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>100</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="МногострочноеПоле" id="48">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПолеПароля" id="49">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>50</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПолеСКнопками" id="50">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПолеСписокВыбора" id="51">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПолеПодсказка" id="52">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПолеСвязи" id="53">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПолеСвязиКратко" id="54">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="Флаг" id="55">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="ФлагПлатформенный" id="56">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="ФлагЯвный" id="57">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="ФлагТумблер" id="58">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="ЧисловоеПоле" id="59">
+			<Type>
+				<v8:Type>xs:decimal</v8:Type>
+				<v8:NumberQualifiers>
+					<v8:Digits>10</v8:Digits>
+					<v8:FractionDigits>2</v8:FractionDigits>
+					<v8:AllowedSign>Any</v8:AllowedSign>
+				</v8:NumberQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ДатаПоля" id="60">
+			<Type>
+				<v8:Type>xs:dateTime</v8:Type>
+				<v8:DateQualifiers>
+					<v8:DateFractions>DateTime</v8:DateFractions>
+				</v8:DateQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПолеСоставное" id="61">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+	</Attributes>
+</Form>

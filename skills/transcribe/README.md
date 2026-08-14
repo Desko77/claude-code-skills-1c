@@ -152,14 +152,19 @@ python ~/.claude/skills/transcribe/scripts/analyze_video_local.py \
 ├── SKILL.md                    # описание для Claude Code
 ├── README.md                   # эта инструкция
 ├── .env                        # ключи API (создаётся setup)
+├── glossary.txt                # термины и ослышки распознавателя (правится руками)
 ├── scripts/
 │   ├── transcribe_local.py     # orchestrator локального аудио (faster-whisper + diarize)
 │   ├── transcribe.py           # Gemini API клиент (видео + analyze-ui, chunked+parallel)
 │   ├── analyze_video_local.py  # локальный разбор видео (экран + речь + спикеры по голосу)
 │   ├── local_backends.py       # VLM/LLM на LM Studio + нарезка кадров ffmpeg
 │   ├── text_stage.py           # общий текст-модуль: спикеры->имена, связный лог, саммари
+│   ├── glossary.py             # подсказка терминов распознавателю + правка ослышек
+│   ├── speaker_validator.py    # программная проверка имен спикеров (без моделей)
 │   ├── voiceprints.py          # голосовая база (enrollment + матчинг по голосу)
+│   ├── voiceprints_dedup.py    # разбор и слияние дублей голосовой базы
 │   ├── diarize_sherpa.py       # worker диаризации sherpa-onnx (+ отпечатки голоса)
+│   ├── diarize_moss.py         # worker MOSS end-to-end (ASR + диаризация одной моделью)
 │   ├── setup.py                # установщик
 │   └── verify.py               # проверка установки
 ├── venv-whisper/               # создаётся setup: faster-whisper + Gemini + CUDA

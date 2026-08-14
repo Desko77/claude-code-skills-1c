@@ -1,0 +1,16 @@
+{
+  "name": "Регистр бухгалтерии без корреспонденции и с периодом корректировки",
+  "input": {
+    "type": "AccountingRegister",
+    "name": "Международный",
+    "chartOfAccounts": "ChartOfAccounts.Международный",
+    "correspondence": false,
+    "periodAdjustmentLength": 1,
+    "dimensions": ["Организация: CatalogRef.Организации"],
+    "resources": ["Сумма: Number(15,2)"]
+  },
+  "validatePath": "AccountingRegisters/Международный",
+  "expect": {
+    "files": ["AccountingRegisters/Международный.xml", "AccountingRegisters/Международный/Ext/RecordSetModule.bsl"]
+  }
+}

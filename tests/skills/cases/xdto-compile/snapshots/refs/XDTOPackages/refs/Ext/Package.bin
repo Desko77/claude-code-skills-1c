@@ -1,0 +1,11 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:refs">
+	<import namespace="urn:test:other"/>
+	<property xmlns:d2p1="urn:test:refs" name="Корень" type="d2p1:Документ"/>
+	<valueType name="СуммаТип" base="xs:decimal" totalDigits="18" fractionDigits="2"/>
+	<objectType name="Документ">
+		<property xmlns:d3p1="urn:test:refs" name="Сумма" type="d3p1:СуммаТип"/>
+		<property xmlns:d3p1="urn:test:refs" name="БезПрефикса" type="d3p1:СуммаТип"/>
+		<property xmlns:d3p1="urn:test:other" name="Чужой" type="d3p1:ВнешнийТип" lowerBound="0"/>
+		<property xmlns:d3p1="urn:test:refs" ref="d3p1:Корень" lowerBound="0"/>
+	</objectType>
+</package>

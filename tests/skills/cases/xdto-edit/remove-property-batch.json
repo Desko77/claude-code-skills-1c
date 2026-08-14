@@ -1,0 +1,30 @@
+{
+  "name": "удаление нескольких свойств через ;;",
+  "caseFiles": [
+    "types.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/types.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/types"
+  },
+  "args_extra": [
+    "-Operation",
+    "remove-property",
+    "-Target",
+    "Платёж.Необязательное ;; Платёж.Коллекция",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/types/Ext/Package.bin"
+    ]
+  }
+}

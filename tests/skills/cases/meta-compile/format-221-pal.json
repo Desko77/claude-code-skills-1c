@@ -1,0 +1,38 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке, <Color> у значения перечисления",
+  "setup": "empty-config-221",
+  "input": [
+    {
+      "type": "Enum",
+      "name": "ВидыЦен",
+      "values": [
+        "Оптовая",
+        "Розничная"
+      ]
+    },
+    {
+      "type": "Catalog",
+      "name": "Товары"
+    }
+  ],
+  "validatePath": "Enums/ВидыЦен",
+  "expect": {
+    "files": [
+      "Enums/ВидыЦен.xml",
+      "Catalogs/Товары.xml"
+    ],
+    "fileContains": [
+      {
+        "file": "Enums/ВидыЦен.xml",
+        "text": [
+          "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style=",
+          "<Color>auto</Color>"
+        ]
+      },
+      {
+        "file": "Catalogs/Товары.xml",
+        "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Раундтрип макета ПЛАТФОРМЫ байт в байт: Шрифты",
+  "setup": "fixture:platform-roundtrip",
+  "inputFrom": "back.json",
+  "preRun": [
+    {
+      "script": "mxl-decompile/scripts/mxl-decompile",
+      "args": {
+        "-TemplatePath": "Шрифты.xml",
+        "-OutputPath": "back.json"
+      },
+      "cwd": "{workDir}"
+    }
+  ],
+  "params": {
+    "outputPath": "out.xml"
+  },
+  "noSnapshot": "эталон — файл платформы, сверяется expect.filesEqual",
+  "expect": {
+    "filesEqual": {
+      "actual": "out.xml",
+      "expected": "Шрифты.xml"
+    }
+  }
+}

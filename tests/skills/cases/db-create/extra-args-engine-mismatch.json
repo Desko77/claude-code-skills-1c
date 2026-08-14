@@ -1,0 +1,10 @@
+{
+  "name": "Отказ: -AdditionalV8Arguments при выбранном движке ibcmd",
+  "preRun": [
+    { "writeFile": { "path": "ibcmd.cmd", "content": "@echo off\r\nexit /b 0\r\n" } }
+  ],
+  "args_extra": ["-V8Path", "{workDir}\\ibcmd.cmd", "-InfoBasePath", "{workDir}\\ib",
+                 "-AdditionalV8Arguments", "/UseHwLicenses+"],
+  "expectError": true,
+  "noSnapshot": "негативный кейс: платформа не запускается"
+}

@@ -1,0 +1,43 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "ТестРегистрКлючей"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/DataProcessors/ТестРегистрКлючей.xml",
+        "-FormName": "Форма"
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "DataProcessors/ТестРегистрКлючей/Forms/Форма/Ext/Form.xml"
+  },
+  "input": {
+    "Title": "Регистр ключей",
+    "Attributes": [
+      {
+        "Name": "Объект",
+        "Type": "DataProcessorObject.ТестРегистрКлючей",
+        "Main": true
+      }
+    ],
+    "Elements": [
+      {
+        "input": "Поле",
+        "Name": "Поле1",
+        "Path": "Объект"
+      }
+    ]
+  }
+}

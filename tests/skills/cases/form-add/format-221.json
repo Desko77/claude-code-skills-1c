@@ -1,0 +1,37 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапках метаданных формы и Form.xml",
+  "setup": "empty-config-221",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Товары.xml",
+    "formName": "ФормаЭлемента"
+  },
+  "validatePath": "Catalogs/Товары/Forms/ФормаЭлемента",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "Catalogs/Товары/Forms/ФормаЭлемента.xml",
+        "text": [
+          "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style=",
+          "<UseInInterfaceCompatibilityMode>Any</UseInInterfaceCompatibilityMode>"
+        ]
+      },
+      {
+        "file": "Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml",
+        "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+      }
+    ]
+  }
+}

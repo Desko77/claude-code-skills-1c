@@ -1,0 +1,16 @@
+{
+  "name": "Внешняя обработка: версия формы сверяется с корнем обработки, а не с конфигурацией",
+  "preRun": [
+    {
+      "script": "epf-init/scripts/init",
+      "args": { "-Name": "ТестВерсия", "-SrcDir": "{workDir}", "-FormatVersion": "2.20" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/ТестВерсия.xml", "-FormName": "Форма" }
+    }
+  ],
+  "params": { "formPath": "ТестВерсия/Forms/Форма" },
+  "expect": { "stdoutContains": "Validation OK" },
+  "skipPlatformVerify": "автономная внешняя обработка: верификатор грузит каталог как конфигурацию, EPF так не проверить"
+}

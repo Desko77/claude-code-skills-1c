@@ -1,0 +1,36 @@
+{
+  "name": "textLanguages: строка = текст на всех объявленных языках",
+  "input": {
+    "columns": 2,
+    "textLanguages": ["ru", "en"],
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          {
+            "cells": [
+              { "col": 1, "text": "Итого" },
+              { "col": 2, "text": { "ru": "Поставщик", "en": "Supplier" } }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"],
+    "fileContains": {
+      "file": "Template.xml",
+      "text": [
+        "<v8:lang>ru</v8:lang>",
+        "<v8:lang>en</v8:lang>",
+        "<v8:content>Итого</v8:content>",
+        "<v8:content>Supplier</v8:content>"
+      ]
+    }
+  }
+}

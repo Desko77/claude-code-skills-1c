@@ -1,0 +1,24 @@
+{
+  "name": "Нормализация MDObjectRef в Owners/BasedOn (CatalogRef./рус. запись → Catalog.)",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": [
+        { "type": "Catalog", "name": "Контрагенты" },
+        { "type": "Catalog", "name": "Организации" },
+        { "type": "Document", "name": "ЗаказПоставщику" },
+        { "type": "Catalog", "name": "ДоговорыКонтрагентов", "owners": ["Catalog.Контрагенты"] }
+      ],
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/ДоговорыКонтрагентов" },
+  "input": {
+    "modify": {
+      "properties": {
+        "Owners": ["CatalogRef.Контрагенты", "СправочникСсылка.Организации"],
+        "BasedOn": ["Справочник.Контрагенты", "DocumentRef.ЗаказПоставщику"]
+      }
+    }
+  }
+}

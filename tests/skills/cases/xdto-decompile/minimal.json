@@ -1,0 +1,14 @@
+{
+  "name": "round-trip минимального пакета через пару навыков",
+  "caseFiles": ["minimal.xsd"],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": { "-XsdPath": "{workDir}/minimal.xsd", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "packagePath": "XDTOPackages/minimal", "outFile": "roundtrip.xsd" },
+  "expect": {
+    "files": ["roundtrip.xsd"]
+  }
+}

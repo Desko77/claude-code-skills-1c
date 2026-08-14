@@ -1,0 +1,13 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:xdto="http://v8.1c.ru/8.1/xdto"
+           xmlns:tns="urn:test:fixed"
+           targetNamespace="urn:test:fixed">
+	<xs:complexType name="Позиция">
+		<xs:sequence>
+			<xs:element name="ИзСхемы" type="xs:string" fixed="Р"/>
+			<xs:element name="Зеркало" type="xs:string" default="Р" xdto:fixed="false"/>
+			<xs:element name="ТолькоDefault" type="xs:string" default="Р"/>
+		</xs:sequence>
+		<xs:attribute name="Атрибутом" type="xs:string" fixed="Р"/>
+	</xs:complexType>
+</xs:schema>

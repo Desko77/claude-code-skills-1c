@@ -1,0 +1,8 @@
+{
+  "name": "сводка пакета: точки входа, импорты, списки типов",
+  "caseFiles": ["common.xsd", "uses-common.xsd"],
+  "preRun": [{ "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/common.xsd", "-OutputDir": "{workDir}" } }, { "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/uses-common.xsd", "-OutputDir": "{workDir}" } }],
+  "params": { "packagePath": "XDTOPackages/uses_common", "outFile": "package-overview.txt" },
+  "args_extra": [],
+  "expect": { "files": ["package-overview.txt"] }
+}

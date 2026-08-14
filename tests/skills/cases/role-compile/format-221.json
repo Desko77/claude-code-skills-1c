@@ -1,0 +1,22 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в Role.xml, но не в Rights.xml",
+  "setup": "empty-config-221",
+  "input": {
+    "name": "Роль221"
+  },
+  "validatePath": "Roles/Роль221",
+  "expect": {
+    "files": [
+      "Roles/Роль221.xml",
+      "Roles/Роль221/Ext/Rights.xml"
+    ],
+    "fileContains": {
+      "file": "Roles/Роль221.xml",
+      "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+    },
+    "fileNotContains": {
+      "file": "Roles/Роль221/Ext/Rights.xml",
+      "text": "xmlns:pal="
+    }
+  }
+}

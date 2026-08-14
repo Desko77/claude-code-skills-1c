@@ -1,0 +1,8 @@
+{
+  "name": "раскрытие через границу пакета и отсутствующая зависимость",
+  "caseFiles": ["common.xsd", "uses-common.xsd"],
+  "preRun": [{ "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/common.xsd", "-OutputDir": "{workDir}" } }, { "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/uses-common.xsd", "-OutputDir": "{workDir}" } }],
+  "params": { "packagePath": "XDTOPackages/uses_common", "outFile": "cross-package.txt" },
+  "args_extra": ["-Name", "Заявка", "-Depth", "2"],
+  "expect": { "files": ["cross-package.txt"] }
+}

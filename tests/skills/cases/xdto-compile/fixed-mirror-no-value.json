@@ -1,0 +1,15 @@
+{
+  "name": "зеркало xdto:fixed=\"true\" без default — предупреждение на сборке, а не отказ платформы на db-update",
+  "caseFiles": ["fixed-mirror-no-value.xsd"],
+  "params": { "xsdFile": "fixed-mirror-no-value.xsd" },
+  "expect": {
+    "files": ["XDTOPackages/fixed_mirror_no_value.xml", "XDTOPackages/fixed_mirror_no_value/Ext/Package.bin"],
+    "stdoutContains": [
+      "БезЗначения",
+      "xdto:fixed=\"true\" без default",
+      "Отсутствует фиксированное значение"
+    ]
+  },
+  "noSnapshot": "проверяется диагностика сборки; заведомо невалидный пакет эталоном фиксировать нечего",
+  "skipPlatformVerify": "пакет невалиден by design — кейс проверяет, что о его невалидности предупредят на сборке; платформа отвергает его теми же словами («Отсутствует фиксированное значение свойства»)"
+}

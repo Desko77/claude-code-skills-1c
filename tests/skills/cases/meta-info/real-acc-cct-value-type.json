@@ -1,0 +1,14 @@
+{
+  "name": "ПВХ — составной ТипЗначения сворачивается в счётчик",
+  "setup": "external:C:/WS/tasks/cfsrc/acc_8.3.24",
+  "params": { "objectPath": "ChartsOfCharacteristicTypes/ВидыСубконтоХозрасчетные" },
+  "expect": {
+    "stdoutContains": [
+      "Стандартные реквизиты:",
+      "ТипЗначения",
+      "Составной (110)",
+      "Полный состав типов: -Name ТипЗначения"
+    ],
+    "stdoutNotContains": ["cfg:"]
+  }
+}

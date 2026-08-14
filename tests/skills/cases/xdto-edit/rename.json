@@ -1,0 +1,31 @@
+{
+  "name": "переименование: объект метаданных, файлы, регистрация",
+  "caseFiles": [
+    "types.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/types.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/types"
+  },
+  "args_extra": [
+    "-Operation",
+    "rename",
+    "-Value",
+    "ОбменСБанком",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/ОбменСБанком.xml",
+      "XDTOPackages/ОбменСБанком/Ext/Package.bin"
+    ]
+  }
+}

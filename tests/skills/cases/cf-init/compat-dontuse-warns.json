@@ -1,0 +1,20 @@
+{
+  "name": "CompatibilityMode DontUse: предупреждение, но конфигурация создаётся",
+  "params": {
+    "name": "КонфаDU"
+  },
+  "args_extra": [
+    "-CompatibilityMode",
+    "DontUse"
+  ],
+  "expect": {
+    "files": [
+      "Configuration.xml"
+    ],
+    "fileContains": {
+      "file": "Configuration.xml",
+      "text": "<CompatibilityMode>DontUse</CompatibilityMode>"
+    },
+    "stderrContains": "CompatibilityMode 'DontUse' is not"
+  }
+}

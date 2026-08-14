@@ -1,0 +1,23 @@
+{
+  "name": "Пустое расширение",
+  "params": {
+    "name": "МоёРасширение",
+    "outputDir": "ext"
+  },
+  "validatePath": "ext",
+  "expect": {
+    "files": [
+      "ext/Configuration.xml"
+    ],
+    "preserves": {
+      "file": "Configuration.xml",
+      "bom": true,
+      "eol": "crlf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

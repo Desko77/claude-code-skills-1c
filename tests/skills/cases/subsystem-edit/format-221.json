@@ -1,0 +1,31 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке дочерней подсистемы",
+  "setup": "empty-config-221",
+  "preRun": [
+    {
+      "script": "subsystem-compile/scripts/subsystem-compile",
+      "input": {
+        "name": "Продажи"
+      },
+      "args": {
+        "-DefinitionFile": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "subsystemPath": "Subsystems/Продажи.xml"
+  },
+  "input": [
+    {
+      "operation": "add-child",
+      "value": "Настройки"
+    }
+  ],
+  "expect": {
+    "fileContains": {
+      "file": "Subsystems/Продажи/Subsystems/Настройки.xml",
+      "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+    }
+  }
+}

@@ -1,0 +1,12 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:test:uses"
+           xmlns:c="urn:test:common" xmlns:miss="urn:test:отсутствует" targetNamespace="urn:test:uses">
+	<xs:import namespace="urn:test:common"/>
+	<xs:import namespace="urn:test:отсутствует"/>
+	<xs:element name="Корень" type="tns:Заявка"/>
+	<xs:complexType name="Заявка">
+		<xs:sequence>
+			<xs:element name="Вид" type="c:Справочник"/>
+			<xs:element name="Потерянный" type="miss:НетТакого" minOccurs="0"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

@@ -1,0 +1,11 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:annotations">
+	<objectType name="Контакт" sequenced="true">
+		<property name="Представление" type="xs:string" lowerBound="0" nillable="true" form="Attribute"/>
+		<property name="Комментарий" type="xs:string" lowerBound="0" form="Element"/>
+		<property name="alpha_3" type="xs:string" lowerBound="0" localName="alpha-3"/>
+	</objectType>
+	<objectType name="ЯвныйПорядок">
+		<property name="Элемент" type="xs:string"/>
+		<property name="Атрибут" type="xs:string" form="Attribute"/>
+	</objectType>
+</package>

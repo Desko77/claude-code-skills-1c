@@ -1,0 +1,16 @@
+{
+  "name": "Ошибка: объектный элемент шортката несёт col",
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [["А", { "col": 2, "text": "Б" }]]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "Row shorthand: cell object must not carry 'col': area \"Шапка\", row 1, cell 2"
+}

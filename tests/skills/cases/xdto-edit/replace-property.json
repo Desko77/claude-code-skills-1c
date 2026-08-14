@@ -1,0 +1,32 @@
+{
+  "name": "замена объявления свойства целиком",
+  "caseFiles": [
+    "types.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/types.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/types"
+  },
+  "args_extra": [
+    "-Operation",
+    "replace-property",
+    "-Target",
+    "Платёж.Необязательное",
+    "-Value",
+    "<xs:element name=\"Необязательное\" type=\"xs:string\" maxOccurs=\"unbounded\"/>",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/types/Ext/Package.bin"
+    ]
+  }
+}

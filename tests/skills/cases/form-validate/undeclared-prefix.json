@@ -1,0 +1,8 @@
+{
+  "name": "Ошибка: префикс в значении типа не объявлен — платформа не прочитает файл (XDTO)",
+  "setup": "fixture:undeclared-prefix",
+  "params": { "formPath": "DataProcessors/Opaque/Forms/Форма" },
+  "expectError": true,
+  "expect": { "stdoutContains": "prefix 'cfg:' is not declared" },
+  "skipPlatformVerify": "фикстура намеренно нечитаема платформой — в этом и смысл кейса"
+}

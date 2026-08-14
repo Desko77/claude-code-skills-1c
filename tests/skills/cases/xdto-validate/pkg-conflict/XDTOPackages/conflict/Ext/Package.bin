@@ -1,0 +1,11 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:conflict">
+	<valueType name="Простой" base="xs:string"/>
+	<objectType name="Документ" xmlns:d2p1="urn:test:conflict" base="d2p1:Простой">
+		<property xmlns:d3p1="urn:test:conflict" name="Поле" ref="d3p1:Поле" type="xs:string"/>
+		<property name="Дубль" type="xs:string"/>
+		<property name="Дубль" type="xs:string"/>
+		<property name="СВложенным" type="xs:string">
+			<typeDef base="xs:string"/>
+		</property>
+	</objectType>
+</package>

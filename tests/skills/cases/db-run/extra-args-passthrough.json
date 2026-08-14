@@ -1,0 +1,25 @@
+{
+  "name": "Доп. аргументы доходят до 1cv8 при строковой склейке (fake platform)",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\necho ARGS: %*\r\nexit /b 1\r\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBasePath",
+    "{workDir}\\ib",
+    "-AdditionalV8Arguments",
+    "/ClearCache,/UseHwLicenses+"
+  ],
+  "expect": {
+    "stdoutContains": "/DisableStartupDialogs /ClearCache /UseHwLicenses+"
+  },
+  "expectError": true,
+  "noSnapshot": "проверяется командная строка в stdout, файлов на выходе нет",
+  "osOnly": "win32"
+}

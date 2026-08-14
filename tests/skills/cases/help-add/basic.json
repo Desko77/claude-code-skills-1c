@@ -1,0 +1,39 @@
+{
+  "name": "Добавление справки к обработке",
+  "preRun": [
+    {
+      "script": "epf-init/scripts/init",
+      "args": {
+        "-Name": "МояОбработка",
+        "-SrcDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectName": "МояОбработка"
+  },
+  "expect": {
+    "preserves": [
+      {
+        "file": "МояОбработка.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      },
+      {
+        "file": "МояОбработка/Ext/Help.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      }
+    ]
+  }
+}

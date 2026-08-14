@@ -1,0 +1,9 @@
+{
+  "name": "Прощающий ввод: регистр ключей И значения операции",
+  "input": [
+    {
+      "Operation": "Modify-Property",
+      "Value": "Version=3.0.0"
+    }
+  ]
+}

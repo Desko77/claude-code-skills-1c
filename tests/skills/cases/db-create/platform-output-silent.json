@@ -1,0 +1,23 @@
+{
+  "name": "Молчащая платформа не печатает блок вывода (fake platform)",
+  "osOnly": "win32",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\nexit /b 1\r\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBasePath",
+    "{workDir}\\ib"
+  ],
+  "expect": {
+    "stdoutNotContains": "--- Вывод платформы ---"
+  },
+  "expectError": true,
+  "noSnapshot": "проверяется отсутствие блока"
+}

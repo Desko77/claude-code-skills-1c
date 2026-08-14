@@ -1,0 +1,34 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке",
+  "params": {
+    "name": "Конф221"
+  },
+  "args_extra": [
+    "-FormatVersion",
+    "2.21"
+  ],
+  "expect": {
+    "files": [
+      "Configuration.xml",
+      "Languages/Русский.xml"
+    ],
+    "fileContains": [
+      {
+        "file": "Configuration.xml",
+        "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+      },
+      {
+        "file": "Languages/Русский.xml",
+        "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+      },
+      {
+        "file": "Configuration.xml",
+        "text": "<app:functionality>TextToSpeech</app:functionality>"
+      }
+    ],
+    "fileNotContains": {
+      "file": "Ext/ClientApplicationInterface.xml",
+      "text": "xmlns:pal="
+    }
+  }
+}

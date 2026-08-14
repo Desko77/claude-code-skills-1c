@@ -1,0 +1,22 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:complex">
+	<objectType name="Основание" abstract="true">
+		<property name="Идентификатор" type="xs:string"/>
+	</objectType>
+	<objectType xmlns:d2p1="urn:test:complex" name="Наследник" base="d2p1:Основание">
+		<property name="Дополнение" type="xs:string"/>
+	</objectType>
+	<objectType name="Выбор" ordered="false">
+		<property name="Вариант1" type="xs:string"/>
+		<property name="Вариант2" type="xs:decimal"/>
+	</objectType>
+	<objectType name="Открытый" open="true">
+		<property name="Известное" type="xs:string" lowerBound="0"/>
+	</objectType>
+	<objectType name="Смешанный" mixed="true">
+		<property name="Вставка" type="xs:string" lowerBound="0" upperBound="-1"/>
+	</objectType>
+	<objectType name="ТолькоАтрибуты">
+		<property name="Код" type="xs:string" form="Attribute"/>
+		<property name="Значение" type="xs:string" form="Attribute"/>
+	</objectType>
+</package>

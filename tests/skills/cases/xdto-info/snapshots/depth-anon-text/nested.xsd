@@ -1,0 +1,20 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:test:nested" targetNamespace="urn:test:nested">
+	<xs:complexType name="Документ">
+		<xs:sequence>
+			<xs:element name="Реквизиты" type="tns:Реквизиты"/>
+			<xs:element name="Дочерний" type="tns:Документ" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element name="Встроенный">
+				<xs:complexType>
+					<xs:simpleContent>
+						<xs:extension base="xs:date">
+							<xs:attribute name="Ид" type="xs:string"/>
+						</xs:extension>
+					</xs:simpleContent>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="Реквизиты">
+		<xs:sequence><xs:element name="Наименование" type="xs:string"/></xs:sequence>
+	</xs:complexType>
+</xs:schema>

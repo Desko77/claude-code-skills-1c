@@ -1,0 +1,41 @@
+{
+  "name": "ChartOfAccounts Item — план счетов с флагами и субконто",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "ChartOfCharacteristicTypes",
+        "name": "ВидыСубконто",
+        "valueType": "String(100)",
+        "predefined": ["Номенклатура: String(100)"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "ChartOfAccounts",
+        "name": "Хозрасчетный",
+        "codeLength": 9,
+        "descriptionLength": 100,
+        "extDimensionTypes": "ChartOfCharacteristicTypes.ВидыСубконто",
+        "maxExtDimensionCount": 3,
+        "accountingFlags": [
+          { "name": "Валютный" },
+          { "name": "Количественный" }
+        ],
+        "extDimensionAccountingFlags": [
+          { "name": "Валютный" },
+          { "name": "Количественный" }
+        ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/ChartsOfAccounts/Хозрасчетный.xml", "-FormName": "ФормаСчета" }
+    }
+  ],
+  "params": { "outputPath": "ChartsOfAccounts/Хозрасчетный/Forms/ФормаСчета/Ext/Form.xml" },
+  "validatePath": "ChartsOfAccounts/Хозрасчетный/Forms/ФормаСчета/Ext/Form.xml"
+}

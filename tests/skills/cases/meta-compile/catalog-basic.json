@@ -1,0 +1,24 @@
+{
+  "name": "Простой справочник без реквизитов",
+  "input": {
+    "type": "Catalog",
+    "name": "Валюты"
+  },
+  "validatePath": "Catalogs/Валюты",
+  "expect": {
+    "files": [
+      "Catalogs/Валюты.xml",
+      "Catalogs/Валюты/Ext/ObjectModule.bsl"
+    ],
+    "preserves": {
+      "file": "Catalogs/Валюты.xml",
+      "bom": true,
+      "eol": "crlf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

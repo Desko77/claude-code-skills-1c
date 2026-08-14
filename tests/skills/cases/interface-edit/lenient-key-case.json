@@ -1,0 +1,28 @@
+{
+  "name": "Прощающий ввод: регистр ключей И значения операции",
+  "preRun": [
+    {
+      "script": "subsystem-compile/scripts/subsystem-compile",
+      "input": {
+        "name": "Продажи",
+        "children": [
+          "Оптовые",
+          "Розничные"
+        ]
+      },
+      "args": {
+        "-DefinitionFile": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "ciPath": "Subsystems/Продажи/CommandInterface"
+  },
+  "input": [
+    {
+      "Operation": "Subsystem-Order",
+      "Value": "[\"Subsystem.Продажи.Subsystem.Розничные\",\"Subsystem.Продажи.Subsystem.Оптовые\"]"
+    }
+  ]
+}

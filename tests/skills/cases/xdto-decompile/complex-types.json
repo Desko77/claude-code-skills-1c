@@ -1,0 +1,14 @@
+{
+  "name": "round-trip: наследование, choice, open, mixed",
+  "caseFiles": ["complex-types.xsd"],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": { "-XsdPath": "{workDir}/complex-types.xsd", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "packagePath": "XDTOPackages/complex_types", "outFile": "roundtrip.xsd" },
+  "expect": {
+    "files": ["roundtrip.xsd"]
+  }
+}

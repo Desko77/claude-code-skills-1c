@@ -1,0 +1,8 @@
+{
+  "name": "перевод типов в нотацию 1С, фасеты, перечисление, флаги кратности",
+  "caseFiles": ["types.xsd"],
+  "preRun": [{ "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/types.xsd", "-OutputDir": "{workDir}" } }],
+  "params": { "packagePath": "XDTOPackages/types", "outFile": "type-notation.txt" },
+  "args_extra": ["-Name", "Платёж"],
+  "expect": { "files": ["type-notation.txt"] }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Обычный режим совместимости: предупреждения про DontUse нет",
+  "params": {
+    "name": "КонфаОК"
+  },
+  "args_extra": [
+    "-CompatibilityMode",
+    "Version8_3_27",
+    "-FormatVersion",
+    "2.20"
+  ],
+  "expect": {
+    "fileContains": {
+      "file": "Configuration.xml",
+      "text": "<CompatibilityMode>Version8_3_27</CompatibilityMode>"
+    },
+    "stdoutNotContains": "DontUse"
+  }
+}

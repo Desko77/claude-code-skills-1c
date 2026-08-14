@@ -1,0 +1,30 @@
+{
+  "name": "Доп. аргументы берутся из v8args в .v8-project.json (fake platform)",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\necho ARGS: %*\r\nexit /b 0\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": ".v8-project.json",
+        "content": "{\n  \"v8path\": \"fake\",\n  \"v8args\": [\"/UseHwLicenses+\"],\n  \"ibcmdargs\": [\"--verbose\"]\n}\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBasePath",
+    "{workDir}\\ib"
+  ],
+  "expect": {
+    "stdoutContains": "/DisableStartupDialogs /UseHwLicenses+"
+  },
+  "expectError": true,
+  "noSnapshot": "проверяется командная строка в stdout, файлов на выходе нет",
+  "cwd": "workDir",
+  "osOnly": "win32"
+}

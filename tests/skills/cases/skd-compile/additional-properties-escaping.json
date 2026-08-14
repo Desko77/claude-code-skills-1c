@@ -1,0 +1,36 @@
+{
+  "name": "additionalProperties: ключ идёт в значение атрибута — кавычка экранируется",
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "input": {
+    "dataSets": [
+      {
+        "name": "Основной",
+        "query": "ВЫБРАТЬ 1 КАК Поле1",
+        "fields": ["Поле1: Число(1,0)"]
+      }
+    ],
+    "settingsVariants": [
+      {
+        "name": "Основной",
+        "presentation": "Основной вариант",
+        "settings": {
+          "additionalProperties": {
+            "Ключ \"в кавычках\" & <угол>": "Значение \"в кавычках\" & <угол>"
+          }
+        }
+      }
+    ]
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "fileContains": {
+      "file": "Template.xml",
+      "text": [
+        "<v8:Property name=\"Ключ &quot;в кавычках&quot; &amp; &lt;угол&gt;\">",
+        "<v8:Value xsi:type=\"xs:string\">Значение \"в кавычках\" &amp; &lt;угол&gt;</v8:Value>"
+      ]
+    }
+  }
+}

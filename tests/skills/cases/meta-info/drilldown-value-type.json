@@ -1,0 +1,27 @@
+{
+  "name": "Drill-down разворачивает свёрнутый ТипЗначения ПВХ",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "ChartOfCharacteristicTypes",
+        "name": "ВидыСубконто",
+        "valueType": "String(100) + Number(10,2) + Date + Boolean + CatalogRef + DocumentRef"
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "ChartsOfCharacteristicTypes/ВидыСубконто" },
+  "args_extra": ["-Name", "ТипЗначения"],
+  "expect": {
+    "stdoutContains": [
+      "Стандартный реквизит: ТипЗначения",
+      "Типы (6):",
+      "Строка(100)",
+      "СправочникСсылка",
+      "ДокументСсылка"
+    ],
+    "stdoutNotContains": ["Составной (", "cfg:"]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "xdto:-аннотации и свойства метаданного через xs:appinfo",
+  "caseFiles": ["annotations.xsd"],
+  "params": { "xsdFile": "annotations.xsd" },
+  "validatePath": "XDTOPackages/ПакетСАннотациями",
+  "expect": {
+    "files": ["XDTOPackages/ПакетСАннотациями.xml", "XDTOPackages/ПакетСАннотациями/Ext/Package.bin"]
+  }
+}

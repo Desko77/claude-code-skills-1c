@@ -1,0 +1,37 @@
+{
+  "name": "Drill-down по стандартному реквизиту Владелец",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Контрагенты" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Организации" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "БанковскиеСчета",
+        "owners": ["Catalog.Контрагенты", "Catalog.Организации"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/БанковскиеСчета" },
+  "args_extra": ["-Name", "Владелец"],
+  "expect": {
+    "stdoutContains": [
+      "Стандартный реквизит: Владелец",
+      "Типы (2):",
+      "СправочникСсылка.Контрагенты",
+      "СправочникСсылка.Организации",
+      "Свойства: обязательный"
+    ],
+    "stdoutNotContains": ["Реквизиты ("]
+  }
+}

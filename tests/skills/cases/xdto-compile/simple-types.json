@@ -1,0 +1,9 @@
+{
+  "name": "фасеты, pattern, enumeration, list, union",
+  "caseFiles": ["simple-types.xsd"],
+  "params": { "xsdFile": "simple-types.xsd" },
+  "validatePath": "XDTOPackages/simple_types",
+  "expect": {
+    "files": ["XDTOPackages/simple_types.xml", "XDTOPackages/simple_types/Ext/Package.bin"]
+  }
+}

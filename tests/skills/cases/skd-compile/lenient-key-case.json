@@ -1,0 +1,21 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL",
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "input": {
+    "DataSets": [
+      {
+        "Name": "Основной",
+        "Type": "Query",
+        "Query": "SELECT 1 AS Поле"
+      }
+    ]
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": [
+      "Template.xml"
+    ]
+  }
+}

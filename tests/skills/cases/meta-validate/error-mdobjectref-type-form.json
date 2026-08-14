@@ -1,0 +1,9 @@
+{
+  "name": "Валидатор находит ошибку: MDObjectRef указывает на тип ссылки вместо объекта метаданных",
+  "setup": "fixture:catalog-bad-mdobjectref",
+  "params": { "objectPath": "Catalogs/ДоговорыТест.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": "17. MDObjectRef 'CatalogRef.ВалютыТест'"
+  }
+}

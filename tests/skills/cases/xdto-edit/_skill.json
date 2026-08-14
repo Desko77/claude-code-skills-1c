@@ -1,0 +1,11 @@
+{
+  "script": "xdto-edit/scripts/xdto-edit",
+  "setup": "empty-config",
+  "args": [
+    { "flag": "-PackagePath", "from": "workPath", "field": "packagePath" }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": true
+  }
+}

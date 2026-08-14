@@ -1,0 +1,38 @@
+{
+  "type": "Catalog",
+  "name": "ДоговорыЭДО",
+  "synonym": "Договоры эдо",
+  "hierarchical": true,
+  "quickChoice": true,
+  "dataLockControlMode": "Automatic",
+  "createOnInput": "DontUse",
+  "standardAttributes": {
+    "Owner": {
+      "fillChecking": "DontCheck",
+      "fillFromFillingValue": false
+    },
+    "Parent": {
+      "fillFromFillingValue": false
+    },
+    "Description": {
+      "fillChecking": "DontCheck"
+    }
+  },
+  "attributes": [
+    {
+      "name": "СтавкаНДС",
+      "type": "Number(5,2)",
+      "synonym": "Ставка ндс"
+    },
+    "Ответственный: String(50)"
+  ],
+  "tabularSections": {
+    "Представления": [
+      {
+        "name": "",
+        "type": "String(10)",
+        "synonym": ""
+      }
+    ]
+  }
+}

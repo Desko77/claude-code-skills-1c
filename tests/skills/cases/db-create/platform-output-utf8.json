@@ -1,0 +1,18 @@
+{
+  "name": "Вывод платформы в UTF-8 читается (fake platform)",
+  "osOnly": "win32",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\nchcp 65001 >nul\r\necho Не найдена лицензия\r\nexit /b 1\r\n"
+      }
+    }
+  ],
+  "args_extra": ["-V8Path", "{workDir}\\fake.cmd", "-InfoBasePath", "{workDir}\\ib"],
+  "expect": {
+    "stdoutContains": ["--- Вывод платформы ---", "Не найдена лицензия"]
+  },
+  "expectError": true,
+  "noSnapshot": "проверяется декодирование вывода платформы"
+}

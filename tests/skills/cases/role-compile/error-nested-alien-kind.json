@@ -1,0 +1,12 @@
+{
+  "name": "Отказ: вид вложенности не от того типа",
+  "input": {
+    "name": "Кладовщик",
+    "objects": ["Catalog.Товары.Field.Цена: View"]
+  },
+  "expectError": "бывает только у ExternalDataSource",
+  "noSnapshot": "негативный кейс: навык не должен создать ни одного файла",
+  "expect": {
+    "filesAbsent": ["Roles/Кладовщик/Ext/Rights.xml"]
+  }
+}

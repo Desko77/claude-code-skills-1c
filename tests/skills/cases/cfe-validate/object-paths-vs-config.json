@@ -1,0 +1,43 @@
+{
+  "name": "С -ConfigPath ловится путь на несуществующую колонку ТЧ (Объект.Товары.Артикул)",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Document", "name": "ЗаказКлиента",
+        "tabularSections": { "Товары": [ { "name": "Количество", "type": "Number(10,3)" } ] }
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Documents/ЗаказКлиента.xml", "-FormName": "ФормаДокумента" }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Заказ клиента",
+        "elements": [
+          { "table": "Товары", "path": "Объект.Товары", "columns": [
+            { "input": "Количество", "path": "Объект.Товары.Количество" },
+            { "input": "Артикул", "path": "Объект.Товары.Артикул" }
+          ] }
+        ],
+        "attributes": [ { "name": "Объект", "type": "DocumentObject.ЗаказКлиента", "main": true } ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputPath": "{workDir}/Documents/ЗаказКлиента/Forms/ФормаДокумента/Ext/Form.xml" }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": { "-Name": "Тест", "-OutputDir": "{workDir}/ext", "-ConfigPath": "{workDir}" }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": { "-ExtensionPath": "{workDir}/ext", "-ConfigPath": "{workDir}", "-Object": "Document.ЗаказКлиента.Form.ФормаДокумента", "-BorrowMainAttribute": "Form" }
+    }
+  ],
+  "params": { "extensionPath": "ext" },
+  "args_extra": ["-ConfigPath", "{workDir}"],
+  "expectError": true,
+  "expect": { "stdoutContains": "Объект.Товары.Артикул" }
+}

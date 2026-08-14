@@ -1,0 +1,26 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Контрагенты"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Контрагенты"
+  },
+  "input": {
+    "Add": {
+      "Attributes": [
+        "ИНН: String(12)"
+      ]
+    }
+  }
+}

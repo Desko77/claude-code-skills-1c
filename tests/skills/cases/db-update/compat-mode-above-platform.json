@@ -1,0 +1,37 @@
+{
+  "name": "Режим совместимости выше платформы: сообщение классифицируется как отказ (issue #63)",
+  "osOnly": "win32",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\nrem SELF запоминаем ДО цикла: shift сдвигает и %0, после него %~dp0 указывает не на скрипт\r\nset SELF=%~dp0\r\n:loop\r\nif \"%~1\"==\"\" goto done\r\nif /i \"%~1\"==\"/Out\" set OUT=%~2\r\nshift\r\ngoto loop\r\n:done\r\ncopy /y \"%SELF%log.txt\" \"%OUT%\" >nul\r\nexit /b 0\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "log.txt",
+        "content": "﻿Для работы с конфигурацией необходима версия платформы не меньше, чем 8.3.27.\r\nТекущая версия 8.3.24.1691.\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "ib/1Cv8.1CD",
+        "content": "stub"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBasePath",
+    "{workDir}\\ib"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "[warning] platform reported success, but the log contains 1 problem(s):",
+      "необходима версия платформы не меньше"
+    ]
+  },
+  "noSnapshot": "навык ничего не пишет в рабочий каталог — проверяется разбор лога платформы"
+}

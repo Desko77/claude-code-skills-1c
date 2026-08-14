@@ -1,0 +1,14 @@
+{
+  "name": "round-trip: анонимные типы и simpleContent",
+  "caseFiles": ["anon-and-content.xsd"],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": { "-XsdPath": "{workDir}/anon-and-content.xsd", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "packagePath": "XDTOPackages/anon_and_content", "outFile": "roundtrip.xsd" },
+  "expect": {
+    "files": ["roundtrip.xsd"]
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "name": "Дробный размер шрифта сохраняется",
+  "input": {
+    "columns": 3,
+    "fonts": {
+      "default": {
+        "face": "Arial",
+        "size": 10
+      },
+      "мелкий": {
+        "face": "Arial",
+        "size": 8.3
+      },
+      "крупный": {
+        "face": "Arial",
+        "size": 11.3,
+        "bold": true
+      }
+    },
+    "styles": {
+      "мелкий": {
+        "font": "мелкий"
+      },
+      "крупный": {
+        "font": "крупный"
+      },
+      "обычный": {
+        "font": "default",
+        "horizontalAlignment": "Center"
+      }
+    },
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          {
+            "cells": [
+              {
+                "col": 1,
+                "style": "крупный",
+                "text": "Заголовок"
+              },
+              {
+                "col": 2,
+                "style": "мелкий",
+                "text": "сноска"
+              },
+              {
+                "col": 3,
+                "style": "обычный",
+                "text": "обычный"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": [
+      "Template.xml"
+    ],
+    "fileContains": {
+      "file": "Template.xml",
+      "text": [
+        "height=\"8.3\"",
+        "height=\"11.3\"",
+        "height=\"10\""
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Раундтрип макета ПЛАТФОРМЫ байт в байт: Простой3КолонкиСРазнойШириной",
+  "setup": "fixture:platform-roundtrip",
+  "preRun": [
+    {
+      "script": "mxl-decompile/scripts/mxl-decompile",
+      "args": {
+        "-TemplatePath": "Простой3КолонкиСРазнойШириной.xml",
+        "-OutputPath": "back.json"
+      },
+      "cwd": "{workDir}"
+    }
+  ],
+  "params": {
+    "outputPath": "out.xml"
+  },
+  "noSnapshot": "эталон — файл платформы, сверяется expect.filesEqual",
+  "expect": {
+    "filesEqual": {
+      "actual": "out.xml",
+      "expected": "Простой3КолонкиСРазнойШириной.xml"
+    }
+  },
+  "inputFrom": "back.json"
+}

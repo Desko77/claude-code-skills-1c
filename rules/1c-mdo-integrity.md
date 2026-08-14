@@ -72,7 +72,7 @@ py commands/check_uuid_duplicates.py <путь_к_src>
 
 ---
 
-## Типы данных реквизитов — ограничения, ломающие реструктуризацию БД
+## Типы данных реквизитов — ловушки, ломающие реструктуризацию БД
 
 Следующие ошибки в описании типов НЕ ловятся EDT-валидацией (`get_project_errors`, `revalidate_objects`), но вызывают падение при `updateDatabaseConfiguration` (запуск ИБ из EDT / обновление через Конфигуратор) с труднодиагностируемыми сообщениями.
 
@@ -110,19 +110,11 @@ py commands/check_uuid_duplicates.py <путь_к_src>
 
 **Проверка:** `grep -rE "<length>(1[0-9]{3}|[2-9][0-9]{3,})</length>" <src> --include="*.mdo" | grep -v "<length>1024</length>"`
 
-### Number — всегда явный `<scale>` в `<numberQualifiers>`
+### Number — `<scale>` опускается EDT для integer (это НОРМА, не баг)
+
+EDT-сериализатор **опускает** `<scale>0</scale>` для целочисленных Number-реквизитов (0 = дефолт `NumberQualifiers`, EMF не пишет default-значения). Целое число сериализуется так:
 
 ```xml
-<!-- ОК: целое число -->
-<type>
-  <types>Number</types>
-  <numberQualifiers>
-    <precision>10</precision>
-    <scale>0</scale>
-  </numberQualifiers>
-</type>
-
-<!-- ❌ НЕПРАВИЛЬНО: scale отсутствует -->
 <type>
   <types>Number</types>
   <numberQualifiers>
@@ -131,30 +123,13 @@ py commands/check_uuid_duplicates.py <путь_к_src>
 </type>
 ```
 
-**EDT-линтер склонен удалять `<scale>0</scale>`** из MDO при нормализации (считает что 0 — дефолт). Формально это валидно для EDT, но при реструктуризации БД платформа интерпретирует отсутствующий scale как максимально допустимый — SDBL падает.
+Это **нормальное, корректное поведение EDT** — НЕ требует вмешательства, НЕ нужно «восстанавливать» `<scale>0</scale>`.
 
-**Симптом:** та же `Ошибка SDBL: Слишком большое значение описателя длины`.
+**Эмпирически проверено 2026-07-28** (EDT 2026.1.2.2, ИБ Демо_БСП): integer Number-реквизит БЕЗ `<scale>` создан через `edit_metadata` -> `.mdo` без `<scale>` -> `update_database` -> `UPDATED`, «Database update finished successfully», **без ошибок**. Во всём конфиге Демо_БСП — **НОЛЬ** `<scale>0</scale>` при десятках integer-реквизитов (только non-zero: 1/2/3/4/5/90); ИБ работает штатно.
 
-**Проверка после работы EDT-линтера:**
-```bash
-git diff <base>..HEAD -- '**/*.mdo' | grep -cE "^-[ ]+<scale>0</scale>"
-```
+Платформа **НЕ падает** от отсутствующего `<scale>` — она трактует его как 0 (integer), а НЕ как «максимально допустимый».
 
-**Автоисправление:**
-```python
-import re
-from pathlib import Path
-def fix(p):
-    text = Path(p).read_text(encoding='utf-8')
-    def fix_block(m):
-        b = m.group(0)
-        if '<scale>' in b: return b
-        return re.sub(r'(<precision>\d+</precision>\n)(\s*)',
-                      lambda pm: pm.group(1) + pm.group(2) + '<scale>0</scale>\n' + pm.group(2),
-                      b, count=1)
-    new = re.sub(r'<numberQualifiers>.*?</numberQualifiers>', fix_block, text, flags=re.DOTALL)
-    if new != text: Path(p).write_text(new, encoding='utf-8')
-```
+> **ПРЕДУПРЕЖДЕНИЕ.** Прежняя редакция этого раздела утверждала, что отсутствие `<scale>` вызывает `Ошибка SDBL: Слишком большое значение описателя длины`, и рекомендовала принудительно восстанавливать `<scale>0</scale>` (grep + inject). **Это было неверно** — проверено экспериментом выше. Реальная причина ошибки SDBL «Слишком большое значение описателя длины» — String `length > 1024` (см. раздел выше), а НЕ missing Number scale. Принудительное восстановление `<scale>0` — борьба с правильной сериализацией EDT (он всё равно уберёт при следующей нормализации, что агент и наблюдал как «снова вырезали»).
 
 ### fillValue — никогда пустой NumberValue
 

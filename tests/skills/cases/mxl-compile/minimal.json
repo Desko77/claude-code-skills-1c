@@ -1,0 +1,40 @@
+{
+  "name": "Минимальный макет — одна область, одна ячейка",
+  "input": {
+    "columns": 1,
+    "areas": [
+      {
+        "name": "Ячейка",
+        "rows": [
+          {
+            "cells": [
+              {
+                "col": 1,
+                "text": "Значение"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": [
+      "Template.xml"
+    ],
+    "preserves": {
+      "file": "Template.xml",
+      "bom": true,
+      "eol": "crlf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

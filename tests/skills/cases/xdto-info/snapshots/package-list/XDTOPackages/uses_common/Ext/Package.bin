@@ -1,0 +1,9 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:uses">
+	<import namespace="urn:test:common"/>
+	<import namespace="urn:test:отсутствует"/>
+	<property xmlns:d2p1="urn:test:uses" name="Корень" type="d2p1:Заявка"/>
+	<objectType name="Заявка">
+		<property xmlns:d3p1="urn:test:common" name="Вид" type="d3p1:Справочник"/>
+		<property xmlns:d3p1="urn:test:отсутствует" name="Потерянный" type="d3p1:НетТакого" lowerBound="0"/>
+	</objectType>
+</package>

@@ -98,8 +98,9 @@ VLM_MAX_TOKENS = _env_int("LOCAL_VLM_MAX_TOKENS", 5500)   # целевой по�
 VLM_PARALLEL = _env_int("LOCAL_VLM_PARALLEL", 4)          # ПОТОЛОК параллельных кадров (== "Max Concurrent
 #   Predictions" в LM Studio). Фактическая параллельность урезается под контекст (слоты делят ОДНО окно -
 #   unified KV cache): parallel*(VLM_PROMPT_RESERVE + max_tokens) <= context.
-VLM_PROMPT_RESERVE = _env_int("LOCAL_VLM_PROMPT_RESERVE", 2600)  # резерв контекста на картинку+промпт 1
-#   запроса (наблюдалось ~2464 даже для 1440p - qwen3-vl тайлит с потолком, промпт предсказуем).
+VLM_PROMPT_RESERVE = _env_int("LOCAL_VLM_PROMPT_RESERVE", 2600)  # НАЧАЛЬНАЯ оценка резерва контекста
+#   на картинку+промпт одного запроса. Оценка сверху и обычно завышена вдвое (замер на видео - 1196),
+#   поэтому фактическое значение меряется на первом кадре: см. replan_with_measured.
 VLM_FALLBACK_CONTEXT = _env_int("LOCAL_VLM_CONTEXT", 8192)  # если /api/v0/models не отдал длину контекста.
 
 DEFAULT_FRAME_PROMPT = (
@@ -109,13 +110,27 @@ DEFAULT_FRAME_PROMPT = (
     "выписывай ВСЕ коды счетов до единого, ничего не пропуская. "
     "ВАЖНО: текст на РУССКОМ. Сохраняй кириллицу дословно, НЕ заменяй русские буквы на похожие "
     "латинские или цифры (например 'БУ' и 'НУ' - это кириллица, а не 'BU'/'HU'; 'ООО' - это буквы, не '000'). "
+    "НИЧЕГО НЕ ДОДУМЫВАЙ. Пиши только то, что реально видно на этом кадре. Нечитаемое "
+    "(размыто, мелко, перекрыто, обрезано) так и помечай: 'не читается'. Пустое поле описывай "
+    "как пустое. НЕ подставляй правдоподобные названия организаций, суммы, номера документов, "
+    "даты и коды вместо тех, что не разобрал, и не приводи примеров - лучше признать, что не "
+    "видно, чем назвать похожее. "
     "Затем одной-двумя фразами опиши, какая форма/раздел открыт и что на экране происходит "
     "(что выделено или активно). Без рассуждений, только факты с экрана. Отвечай по-русски."
 )
 
 
 class LocalBackendError(RuntimeError):
-    """Ошибка локального бэкенда (сервер 150 или ffmpeg)."""
+    """Ошибка локального бэкенда (сервер 150 или ffmpeg).
+
+    status/elapsed нужны, чтобы отличить выгруженную из памяти модель от настоящей поломки:
+    текст ошибки для этого не годится (LM Studio отдаёт generic-страницу), а время - годится.
+    """
+
+    def __init__(self, message, status=None, elapsed=None):
+        super().__init__(message)
+        self.status = status      # HTTP-код, если ошибка пришла от сервера
+        self.elapsed = elapsed    # сколько секунд заняла неудачная попытка
 
 
 # ============================ Утилиты ============================
@@ -153,6 +168,7 @@ def _post_chat(model, messages, base=None, max_tokens=1400, temperature=0.2,
     data = json.dumps(payload).encode("utf-8")
     last = None
     for attempt in range(retries + 1):
+        t0 = time.time()
         try:
             req = urllib.request.Request(
                 url, data=data,
@@ -162,14 +178,56 @@ def _post_chat(model, messages, base=None, max_tokens=1400, temperature=0.2,
                 return json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")[:400]
-            last = LocalBackendError(f"HTTP {e.code} от 150 [{label}]: {body}")
+            last = LocalBackendError(f"HTTP {e.code} от 150 [{label}]: {body}",
+                                     status=e.code, elapsed=time.time() - t0)
             if e.code != 429 and 400 <= e.code < 500:
                 raise last  # плохой запрос/модель - ретрай не поможет
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            last = LocalBackendError(f"Сеть/таймаут к 150 [{label}]: {type(e).__name__}: {e}")
+            last = LocalBackendError(f"Сеть/таймаут к 150 [{label}]: {type(e).__name__}: {e}",
+                                     elapsed=time.time() - t0)
         if attempt < retries:
             time.sleep(2 * (attempt + 1))
     raise last or LocalBackendError(f"150 недоступен [{label}]")
+
+
+UNLOADED_MAX_SECONDS = _env_float("LOCAL_UNLOADED_MAX_SECONDS", 1.0)
+
+
+def looks_unloaded(err):
+    """Похоже ли, что модель просто выгружена из памяти, а не сломалась.
+
+    Отличаем по ВРЕМЕНИ, а не по тексту: на запрос к выгруженной модели LM Studio отвечает generic
+    ошибкой без внятного содержания, зато почти мгновенно, тогда как настоящая генерация занимает
+    секунды. Нужно, чтобы выгрузка по TTL посреди прогона не засчитывалась как сбой сервера.
+    """
+    status = getattr(err, "status", None)
+    elapsed = getattr(err, "elapsed", None)
+    return bool(status and status >= 500 and elapsed is not None
+                and elapsed < UNLOADED_MAX_SECONDS)
+
+
+def looks_context_overflow(err):
+    """Похоже ли, что запрос не влез в контекст, а не сервер сломался.
+
+    Это НЕ повод бросать кадр: слоты LM Studio делят одно окно, поэтому виновата параллельность,
+    а сам запрос корректен. Лечится снижением параллельности и повтором. Принимает и исключение,
+    и уже сохранённый текст ошибки - в статус-файл попадает строка.
+    """
+    text = str(err or "").lower()
+    status = getattr(err, "status", None)
+    if not (status == 400 or "http 400" in text):
+        return False
+    return any(k in text for k in ("context", "exceed", "too long", "too large", "token",
+                                   "контекст"))
+
+
+def ensure_loaded(model=None, base=None, timeout=600):
+    """Убедиться, что модель в памяти: прогреть и проверить по каталогу. True если готова."""
+    model = model or LOCAL_VLM_MODEL
+    if get_loaded_info(model, base=base)["loaded"]:
+        return True
+    warmup_model(model, base=base, timeout=timeout)
+    return get_loaded_info(model, base=base)["loaded"]
 
 
 def check_server(base=None):
@@ -185,24 +243,70 @@ def check_server(base=None):
         raise LocalBackendError(f"Сервер 150 недоступен ({base}): {e}")
 
 
-def get_loaded_context(model=None, base=None):
-    """loaded_context_length модели из нативного API LM Studio (/api/v0/models). None если недоступно."""
-    model = model or LOCAL_VLM_MODEL
+def _api_root(base=None):
+    """Корень сервера без суффикса /v1: нативные эндпоинты LM Studio живут от корня."""
     root = (base or LOCAL_150_BASE).rstrip("/")
     if root.endswith("/v1"):
         root = root[:-3].rstrip("/")
-    url = root + "/api/v0/models"
-    try:
-        req = urllib.request.Request(url, headers={"Authorization": "Bearer lm-studio"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = json.loads(r.read().decode("utf-8"))
-        for m in data.get("data", []):
-            if m.get("id") == model:
-                c = m.get("loaded_context_length") or m.get("max_context_length")
-                return int(c) if c else None
+    return root
+
+
+def _get_json(url, timeout=10):
+    req = urllib.request.Request(url, headers={"Authorization": "Bearer lm-studio"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def _model_matches(entry, model):
+    """Совпадает ли запись каталога с запрошенным именем модели (с учётом варианта квантизации)."""
+    if model in (entry.get("key"), entry.get("id"), entry.get("selected_variant")):
+        return True
+    return model in (entry.get("variants") or [])
+
+
+def get_loaded_info(model=None, base=None):
+    """Что сервер знает о модели ПРЯМО СЕЙЧАС: загружена ли и с какими параметрами.
+
+    Возвращает dict(loaded, context, parallel, reasoning); context и parallel заполняются ТОЛЬКО
+    для загруженной модели. Паспортный max_context_length сознательно не подставляется: у
+    выгруженной модели он на порядок больше рабочего (262144 против фактических 32000), и
+    посчитанный от него бюджет переполняет контекст на первом же параллельном кадре.
+    """
+    model = model or LOCAL_VLM_MODEL
+    root = _api_root(base)
+    info = {"loaded": False, "context": None, "parallel": None, "reasoning": None}
+
+    try:  # /api/v1 точнее: отдаёт конфиг конкретного загруженного инстанса
+        for m in _get_json(root + "/api/v1/models").get("models", []):
+            if not _model_matches(m, model):
+                continue
+            caps = (m.get("capabilities") or {}).get("reasoning") or {}
+            info["reasoning"] = caps.get("allowed_options") or None
+            inst = m.get("loaded_instances") or []
+            if inst:
+                cfg = inst[0].get("config") or {}
+                info.update(loaded=True, context=cfg.get("context_length"),
+                            parallel=cfg.get("parallel"))
+            return info
     except Exception:
-        return None
-    return None
+        pass
+
+    try:  # сборки LM Studio без /api/v1: состояние приходит отдельным полем state
+        for m in _get_json(root + "/api/v0/models").get("data", []):
+            if not _model_matches(m, model):
+                continue
+            if m.get("state") == "loaded":
+                info.update(loaded=True, context=m.get("loaded_context_length"))
+            return info
+    except Exception:
+        pass
+    return info
+
+
+def get_loaded_context(model=None, base=None):
+    """Рабочий контекст ЗАГРУЖЕННОЙ модели. None если она выгружена или сервер не отвечает."""
+    c = get_loaded_info(model, base=base).get("context")
+    return int(c) if c else None
 
 
 def warmup_model(model=None, base=None, timeout=180):
@@ -226,40 +330,69 @@ def warmup_model(model=None, base=None, timeout=180):
         return False
 
 
-def plan_vlm_budget(model=None, base=None, max_tokens=None, parallel_cap=None):
-    """Согласовать вывод и параллельность под контекст VLM на 150.
+def fit_parallel(context, reserve, max_tokens, parallel_cap):
+    """Сколько кадров слать одновременно. Слоты LM Studio делят ОДНО окно (unified KV cache),
+    поэтому действует parallel*(reserve + max_tokens) <= context."""
+    per_req = max(1, reserve) + max(1, max_tokens)   # max(1) - защита от порченого env
+    return max(1, min(parallel_cap, context // per_req))
 
-    Слоты параллелизма LM Studio делят ОДНО окно (unified KV cache), поэтому действует
-    parallel*(VLM_PROMPT_RESERVE + max_tokens) <= context. max_tokens держим (приоритет - без обрезки),
-    параллельность выводим из контекста. Возвращает (context, parallel, max_tokens, source)."""
+
+def plan_vlm_budget(model=None, base=None, max_tokens=None, parallel_cap=None):
+    """Согласовать вывод и параллельность под контекст ЗАГРУЖЕННОЙ VLM на 150.
+
+    Возвращает dict(context, parallel, max_tokens, reserve, cap, source, measured). Резерв на этой
+    стадии - оценка из конфига; фактический меряется на первом кадре (see replan_with_measured).
+    """
     max_tokens = max_tokens or VLM_MAX_TOKENS
     parallel_cap = parallel_cap or VLM_PARALLEL
-    ctx = get_loaded_context(model, base=base)
-    if not ctx:   # модель выгружена -> JIT-прогрев и перемерить (иначе fallback -> parallel=1)
+    info = get_loaded_info(model, base=base)
+    if not info["loaded"]:   # выгружена по TTL - прогреть и перемерить, иначе бюджет уйдёт в fallback
         warmup_model(model, base=base)
-        ctx = get_loaded_context(model, base=base)
-    source = "api"
+        info = get_loaded_info(model, base=base)
+    ctx, source = info.get("context"), "api"
     if not ctx:
         ctx, source = VLM_FALLBACK_CONTEXT, "fallback"
-    per_req = VLM_PROMPT_RESERVE + max_tokens
-    if per_req <= 0:   # только при порче env (max_tokens/reserve <= 0) - защита от ZeroDivision ниже
-        max_tokens = max(256, max_tokens)
-        per_req = max(1, VLM_PROMPT_RESERVE) + max_tokens
-    if ctx < per_req:   # контекст не вмещает даже ОДИН запрос: ужимаем вывод, чтобы печатаемый бюджет не врал
-        max_tokens = max(256, ctx - VLM_PROMPT_RESERVE)
-        per_req = VLM_PROMPT_RESERVE + max_tokens
-        print(f"[warn] контекст VLM {ctx} мал для резерва {VLM_PROMPT_RESERVE}+вывода: "
+    if info.get("parallel"):   # сервер знает свой реальный потолок слотов - он главнее догадки из env
+        parallel_cap = min(parallel_cap, int(info["parallel"]))
+    reserve = VLM_PROMPT_RESERVE
+    if ctx < reserve + max_tokens:   # контекст не вмещает даже ОДИН запрос: ужимаем вывод,
+        max_tokens = max(256, ctx - reserve)   # чтобы печатаемый бюджет не врал
+        print(f"[warn] контекст VLM {ctx} мал для резерва {reserve}+вывода: "
               f"ужал max_tokens до {max_tokens}", file=sys.stderr)
-    parallel = max(1, min(parallel_cap, ctx // per_req))
-    return ctx, parallel, max_tokens, source
+    return {"context": ctx, "parallel": fit_parallel(ctx, reserve, max_tokens, parallel_cap),
+            "max_tokens": max_tokens, "reserve": reserve, "cap": parallel_cap,
+            "source": source, "measured": False}
 
 
-def _extract_text(resp):
+def replan_with_measured(budget, prompt_tokens, headroom=1.15):
+    """Пересчитать бюджет под ИЗМЕРЕННЫЙ на первом кадре размер промпта.
+
+    prompt_tokens кадра практически постоянен (зависит от разрешения, а не от содержимого экрана),
+    поэтому одного замера достаточно на весь прогон. Константа из конфига - оценка сверху и обычно
+    завышена вдвое, а завышенный резерв режет параллельность на ровном месте. Запас headroom - на
+    разброс тайлинга между кадрами. Возвращает НОВЫЙ dict, исходный не меняет.
+    """
+    if not prompt_tokens or prompt_tokens <= 0:
+        return budget
+    out = dict(budget)
+    out["reserve"] = int(prompt_tokens * headroom)
+    out["measured"] = True
+    out["parallel"] = fit_parallel(out["context"], out["reserve"], out["max_tokens"], out["cap"])
+    return out
+
+
+def _extract_text(resp, allow_reasoning=True):
+    """Текст ответа OpenAI-совместимого эндпоинта.
+
+    allow_reasoning=False обязателен для задач со СТРОГИМ форматом (JSON спикеров): думающая модель
+    может отдать пустой content, положив весь вывод в reasoning_content. Подстановка размышлений
+    вместо ответа превращает явный отказ в тихо неверный результат - для строгих задач это ошибка.
+    """
     ch = (resp.get("choices") or [{}])[0]
     msg = ch.get("message", {}) or {}
     content = (msg.get("content") or "").strip()
-    if not content:
-        content = (msg.get("reasoning_content") or "").strip()  # думающая модель
+    if not content and allow_reasoning:
+        content = (msg.get("reasoning_content") or "").strip()
     return content, ch.get("finish_reason"), resp.get("usage", {}) or {}
 
 
@@ -273,10 +406,13 @@ def vlm_read_frame(image_path, model=None, prompt=None, base=None, max_tokens=No
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}},
     ]}]
-    extra = {"chat_template_kwargs": {"enable_thinking": False}} if "qwen" in model.lower() else {}
+    # Зрение остаётся на OpenAI-совместимом эндпоинте: нативный /api/v1/chat принимает только
+    # текстовый input, картинку туда не передать.
     resp = _post_chat(model, messages, base=base, max_tokens=max_tokens,
-                      extra_body=extra, label=f"vlm:{Path(image_path).name}")
-    text, finish, usage = _extract_text(resp)
+                      label=f"vlm:{Path(image_path).name}")
+    # allow_reasoning=False: описание экрана - строгая задача. Размышления вместо распознанного
+    # текста выглядят как валидный ответ и молча уезжают в лог, поэтому лучше явный сбой кадра.
+    text, finish, usage = _extract_text(resp, allow_reasoning=False)
     if not text:
         raise LocalBackendError(f"Пустой ответ VLM (finish={finish}) на {Path(image_path).name}")
     pt = usage.get("prompt_tokens")
@@ -291,18 +427,94 @@ def vlm_read_frame(image_path, model=None, prompt=None, base=None, max_tokens=No
             "completion_tokens": usage.get("completion_tokens"), "finish": finish}
 
 
-def llm_summary_pass(data_text, instruction, model=None, base=None, max_tokens=4000):
-    """Один текстовый проход саммари на 150 (порядок как build_summary: данные, затем инструкция)."""
+def _post_native_chat(model, input_text, base=None, reasoning="off", max_output_tokens=4000,
+                      temperature=0.2, timeout=HTTP_TIMEOUT, retries=HTTP_RETRIES, label=""):
+    """POST /api/v1/chat - нативный эндпоинт LM Studio, ретраи как у _post_chat.
+
+    Нужен ради параметра `reasoning`: на /v1/chat/completions он молча игнорируется (проверено на
+    150: off и on дают идентичный ответ), а chat_template_kwargs.enable_thinking для qwen3.x мёртв.
+    Размышления стоят 45-кратного времени и корневую ошибку привязки имён не лечат - по умолчанию off.
+    """
+    url = _api_root(base) + "/api/v1/chat"
+    payload = {"model": model, "input": input_text, "reasoning": reasoning,
+               "max_output_tokens": max_output_tokens, "temperature": temperature}
+    data = json.dumps(payload).encode("utf-8")
+    last = None
+    for attempt in range(retries + 1):
+        t0 = time.time()
+        try:
+            req = urllib.request.Request(
+                url, data=data,
+                headers={"Authorization": "Bearer lm-studio", "Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")[:400]
+            last = LocalBackendError(f"HTTP {e.code} от 150 [{label}]: {body}",
+                                     status=e.code, elapsed=time.time() - t0)
+            if e.code != 429 and 400 <= e.code < 500:
+                raise last  # плохой запрос/модель - ретрай не поможет
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last = LocalBackendError(f"Сеть/таймаут к 150 [{label}]: {type(e).__name__}: {e}",
+                                     elapsed=time.time() - t0)
+        if attempt < retries:
+            time.sleep(2 * (attempt + 1))
+    raise last or LocalBackendError(f"150 недоступен [{label}]")
+
+
+def _extract_native(resp, allow_reasoning=False):
+    """Текст из ответа /api/v1/chat: output[] содержит элементы type=message и/или type=reasoning.
+
+    При reasoning=on и упоре в потолок токенов ответ состоит ТОЛЬКО из размышлений, без единого
+    message - вернуть их вместо ответа нельзя по той же причине, что и в _extract_text.
+    """
+    out = resp.get("output") or []
+    text = "\n".join((o.get("content") or "") for o in out if o.get("type") == "message").strip()
+    if not text and allow_reasoning:
+        text = "\n".join((o.get("content") or "") for o in out
+                         if o.get("type") == "reasoning").strip()
+    return text, resp.get("stats", {}) or {}
+
+
+def llm_summary_pass(data_text, instruction, model=None, base=None, max_tokens=4000,
+                     reasoning="off"):
+    """Один СВОБОДНЫЙ текстовый проход на 150 (порядок как в build_summary: данные, затем инструкция)."""
     model = model or LOCAL_SUMMARY_MODEL
     combined = f"{data_text}\n\n---\n\n{instruction}"
-    messages = [{"role": "user", "content": combined}]
-    extra = {"chat_template_kwargs": {"enable_thinking": False}} if "qwen" in model.lower() else {}
-    resp = _post_chat(model, messages, base=base, max_tokens=max_tokens,
-                      extra_body=extra, label=f"summary:{model}")
-    out, finish, _ = _extract_text(resp)
+    resp = _post_native_chat(model, combined, base=base, reasoning=reasoning,
+                             max_output_tokens=max_tokens, label=f"text:{model}")
+    out, stats = _extract_native(resp)
     if not out:
-        raise LocalBackendError(f"Пустой ответ summary-модели {model} (finish={finish})")
+        raise LocalBackendError(
+            f"Пустой ответ text-модели {model} (вывод {stats.get('total_output_tokens')} ток., "
+            f"из них размышления {stats.get('reasoning_output_tokens')})")
+    produced = stats.get("total_output_tokens") or 0
+    if produced >= max_tokens:   # упёрлись в потолок - хвост почти наверняка обрезан
+        print(f"[warn] {model}: вывод достиг потолка {max_tokens} токенов - возможен обрыв хвоста",
+              file=sys.stderr)
     return out
+
+
+def llm_json_pass(data_text, instruction, schema, model=None, base=None, max_tokens=2000):
+    """Строгий JSON-проход: формат гарантирует СЕРВЕР (response_format=json_schema), а не послушание
+    модели. Живёт на /v1/chat/completions - нативный /api/v1/chat схемы вывода не принимает.
+
+    Пустой ответ и невалидный JSON - громкая ошибка: тихо неверный маппинг спикеров дороже отказа.
+    """
+    model = model or LOCAL_SPEAKER_MODEL
+    combined = f"{data_text}\n\n---\n\n{instruction}"
+    extra = {"response_format": {"type": "json_schema", "json_schema": {
+        "name": "result", "strict": True, "schema": schema}}}
+    resp = _post_chat(model, [{"role": "user", "content": combined}], base=base,
+                      max_tokens=max_tokens, temperature=0, extra_body=extra, label=f"json:{model}")
+    text, finish, _ = _extract_text(resp, allow_reasoning=False)
+    if not text:
+        raise LocalBackendError(f"Пустой ответ модели {model} на строгий JSON (finish={finish})")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        raise LocalBackendError(f"Модель {model} вернула невалидный JSON ({e}): {text[:300]}")
 
 
 # ============================ Нарезка кадров ============================

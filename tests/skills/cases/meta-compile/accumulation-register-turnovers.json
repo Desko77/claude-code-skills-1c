@@ -1,0 +1,14 @@
+{
+  "name": "Оборотный регистр накопления (без ВидДвижения)",
+  "input": {
+    "type": "AccumulationRegister",
+    "name": "ПродажиОбороты",
+    "registerType": "Turnovers",
+    "dimensions": ["Номенклатура: CatalogRef.Номенклатура"],
+    "resources": ["Количество: Number(15,3)", "Сумма: Number(15,2)"]
+  },
+  "validatePath": "AccumulationRegisters/ПродажиОбороты",
+  "expect": {
+    "files": ["AccumulationRegisters/ПродажиОбороты.xml", "AccumulationRegisters/ПродажиОбороты/Ext/RecordSetModule.bsl"]
+  }
+}

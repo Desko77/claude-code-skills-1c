@@ -1,0 +1,30 @@
+{
+  "name": "добавление нового типа",
+  "caseFiles": [
+    "types.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/types.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/types"
+  },
+  "args_extra": [
+    "-Operation",
+    "add-type",
+    "-Value",
+    "<xs:complexType name=\"Квитанция\"><xs:sequence><xs:element name=\"Дата\" type=\"xs:date\"/></xs:sequence></xs:complexType>",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/types/Ext/Package.bin"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "Формат 2.20 (8.3.27): TypeReductionMode + LineNumberLength (режим 8_3_27 → 9)",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Валюты" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "input": [
+    {
+      "type": "Catalog",
+      "name": "Договоры",
+      "owners": ["Catalog.Валюты"],
+      "standardAttributes": { "Description": { "fillChecking": "ShowError" } },
+      "tabularSections": { "Условия": ["Условие: String(100)"] }
+    },
+    {
+      "type": "InformationRegister",
+      "name": "КурсыВалют",
+      "periodicity": "Day",
+      "dimensions": ["Валюта: CatalogRef.Валюты | master, mainFilter"],
+      "resources": ["Курс: Number(15,4)"]
+    },
+    {
+      "type": "DataProcessor",
+      "name": "ЗагрузкаКурсов",
+      "tabularSections": { "Строки": ["Значение: Число(15,2)"] }
+    }
+  ],
+  "validatePath": "Catalogs/Договоры",
+  "expect": {
+    "files": ["Catalogs/Договоры.xml", "InformationRegisters/КурсыВалют.xml"]
+  }
+}

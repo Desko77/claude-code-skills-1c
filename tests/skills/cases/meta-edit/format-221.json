@@ -1,0 +1,36 @@
+{
+  "name": "Формат 2.21 (8.5): <Color> у добавляемого значения перечисления",
+  "setup": "empty-config-221",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Enum",
+        "name": "ВидыЦен",
+        "values": [
+          "Оптовая"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "Enums/ВидыЦен"
+  },
+  "input": {
+    "add": {
+      "values": [
+        "Розничная"
+      ]
+    }
+  },
+  "expect": {
+    "fileContains": {
+      "file": "Enums/ВидыЦен.xml",
+      "text": "<Color>auto</Color>"
+    }
+  }
+}

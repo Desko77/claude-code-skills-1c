@@ -1,0 +1,19 @@
+{
+  "name": "Формат 2.21: форма, созданную штатной цепочкой, валидатор считает чистой (issue #63)",
+  "preRun": [
+    {
+      "script": "epf-init/scripts/init",
+      "args": { "-Name": "Версия221", "-SrcDir": "{workDir}", "-FormatVersion": "2.21" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Версия221.xml", "-FormName": "Форма" }
+    }
+  ],
+  "params": { "formPath": "Версия221/Forms/Форма" },
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": "[WARN]"
+  },
+  "skipPlatformVerify": "автономная внешняя обработка: верификатор грузит каталог как конфигурацию, EPF так не проверить"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "анонимные simple/complex типы и xs:simpleContent",
+  "caseFiles": ["anon-and-content.xsd"],
+  "params": { "xsdFile": "anon-and-content.xsd" },
+  "validatePath": "XDTOPackages/anon_and_content",
+  "expect": {
+    "files": ["XDTOPackages/anon_and_content.xml", "XDTOPackages/anon_and_content/Ext/Package.bin"]
+  }
+}

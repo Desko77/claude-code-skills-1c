@@ -1,0 +1,8 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:test:common" targetNamespace="urn:test:common">
+	<xs:complexType name="Справочник">
+		<xs:sequence>
+			<xs:element name="Код" type="xs:string"/>
+			<xs:element name="Наименование" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

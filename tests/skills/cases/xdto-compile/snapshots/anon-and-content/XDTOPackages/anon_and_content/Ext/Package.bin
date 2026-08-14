@@ -1,0 +1,19 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:anon">
+	<objectType name="Реквизиты">
+		<property name="Наименование">
+			<typeDef xsi:type="ValueType" base="xs:string" maxLength="160"/>
+		</property>
+		<property name="Вложенный">
+			<typeDef xsi:type="ObjectType">
+				<property name="Атрибут" type="xs:string" form="Attribute"/>
+				<property name="Поле" type="xs:string"/>
+			</typeDef>
+		</property>
+		<property name="СТекстом">
+			<typeDef xsi:type="ObjectType">
+				<property name="ИдПлатежа" type="xs:string" form="Attribute"/>
+				<property name="__content" type="xs:date" form="Text"/>
+			</typeDef>
+		</property>
+	</objectType>
+</package>

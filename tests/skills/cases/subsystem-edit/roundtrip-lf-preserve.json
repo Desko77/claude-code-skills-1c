@@ -1,0 +1,20 @@
+{
+  "name": "round-trip: add-content на LF-исходнике сохраняет LF (порты расходились здесь: PS форсировал CRLF)",
+  "setup": "fixture:lf-subsystem",
+  "params": { "subsystemPath": "Subsystems/КрлфПС.xml" },
+  "input": [
+    { "operation": "add-content", "value": "CommonModule.Второй" }
+  ],
+  "expect": {
+    "preserves": {
+      "file": "Subsystems/КрлфПС.xml",
+      "bom": true,
+      "eol": "lf",
+      "encoding": "UTF-8",
+      "finalNewline": true,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

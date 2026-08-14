@@ -1,0 +1,34 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "РедРегистр"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/DataProcessors/РедРегистр.xml",
+        "-FormName": "Форма"
+      }
+    }
+  ],
+  "params": {
+    "formPath": "DataProcessors/РедРегистр/Forms/Форма/Ext/Form.xml"
+  },
+  "input": {
+    "Attributes": [
+      {
+        "Name": "Сумма",
+        "Type": "decimal(15,2)"
+      }
+    ]
+  }
+}

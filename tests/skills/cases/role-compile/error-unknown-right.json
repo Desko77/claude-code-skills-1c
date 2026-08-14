@@ -1,0 +1,12 @@
+{
+  "name": "Отказ: несуществующее право у известного типа",
+  "input": {
+    "name": "Кладовщик",
+    "objects": ["Catalog.Товары: Reed"]
+  },
+  "expectError": "право 'Reed' не существует у типа 'Catalog'",
+  "noSnapshot": "негативный кейс: навык не должен создать ни одного файла",
+  "expect": {
+    "filesAbsent": ["Roles/Кладовщик/Ext/Rights.xml"]
+  }
+}

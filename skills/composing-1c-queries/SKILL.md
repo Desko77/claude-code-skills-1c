@@ -31,9 +31,9 @@ Before composing a query, if you are not certain about the exact names, **use `g
 
 A query with a wrong object or field name will fail with a runtime error. Spending one call on metadata retrieval is always cheaper than debugging a failed query.
 
-## Validate Query via EDT-MCP
+## Validate Query via AI-EDT
 
-Если EDT-MCP сервер подключен (инструменты `1c-edt` доступны), **обязательно проверяй запрос** перед выполнением через `validate_query`:
+Если сервер AI-EDT подключен (инструменты `ai-edt` доступны), **обязательно проверяй запрос** перед выполнением через `validate_query`:
 - Проверяет синтаксис и семантику в контексте реального проекта
 - Для запросов СКД: `dcsMode=true`
 - Ловит ошибки имён таблиц, полей, типов до выполнения

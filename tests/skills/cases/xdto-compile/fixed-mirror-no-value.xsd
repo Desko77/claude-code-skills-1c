@@ -1,0 +1,10 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:xdto="http://v8.1c.ru/8.1/xdto"
+           xmlns:tns="urn:test:fixedwarn"
+           targetNamespace="urn:test:fixedwarn">
+	<xs:complexType name="Позиция">
+		<xs:sequence>
+			<xs:element name="БезЗначения" type="xs:string" xdto:fixed="true"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

@@ -1,0 +1,19 @@
+{
+  "name": "Версия формы ниже проверенного диапазона: предупреждение о непокрытии, не об ошибке",
+  "preRun": [
+    {
+      "script": "epf-init/scripts/init",
+      "args": { "-Name": "Версия216", "-SrcDir": "{workDir}", "-FormatVersion": "2.16" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Версия216.xml", "-FormName": "Форма" }
+    }
+  ],
+  "params": { "formPath": "Версия216/Forms/Форма" },
+  "expect": {
+    "stdoutContains": "Format version '2.16' is below the tested range 2.17-2.21",
+    "stdoutNotContains": "[ERROR]"
+  },
+  "skipPlatformVerify": "автономная внешняя обработка: верификатор грузит каталог как конфигурацию, EPF так не проверить"
+}

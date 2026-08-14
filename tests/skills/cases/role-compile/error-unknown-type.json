@@ -1,0 +1,13 @@
+{
+  "name": "Отказ: незнакомый тип объекта с подсказкой",
+  "input": {
+    "name": "Кладовщик",
+    "objects": ["Catalogg.Товары: Read"]
+  },
+  "expectError": "неизвестный тип объекта 'Catalogg'",
+  "noSnapshot": "негативный кейс: навык не должен создать ни одного файла",
+  "expect": {
+    "stderrContains": "Возможно: Catalog?",
+    "filesAbsent": ["Roles/Кладовщик/Ext/Rights.xml"]
+  }
+}

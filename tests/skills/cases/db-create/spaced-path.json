@@ -1,0 +1,23 @@
+{
+  "name": "Путь с пробелом попадает в командную строку в кавычках (fake platform)",
+  "osOnly": "win32",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\necho ARGS: %*\r\nexit /b 1\r\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBasePath",
+    "{workDir}\\с пробелом"
+  ],
+  "expect": {
+    "stdoutContains": "ARGS: CREATEINFOBASE File=\""
+  },
+  "expectError": true,
+  "noSnapshot": "проверяется форма токена, файлов на выходе нет"
+}

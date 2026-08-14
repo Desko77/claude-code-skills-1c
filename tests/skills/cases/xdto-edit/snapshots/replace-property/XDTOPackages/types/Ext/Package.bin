@@ -1,0 +1,26 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:types">
+	<valueType name="СуммаТип" base="xs:decimal" totalDigits="18" fractionDigits="2"/>
+	<valueType name="СчётТип" base="xs:string" length="20">
+		<pattern>[0-9]{20}</pattern>
+	</valueType>
+	<valueType name="ВидДокумента" base="xs:string">
+		<enumeration>Поручение</enumeration>
+		<enumeration>Требование</enumeration>
+	</valueType>
+	<objectType name="Платёж">
+		<property name="Атрибутом" type="xs:string" form="Attribute"/>
+		<property name="Строкой" type="xs:string"/>
+		<property name="Целым" type="xs:integer"/>
+		<property name="Дробным" type="xs:double"/>
+		<property name="Датой" type="xs:dateTime"/>
+		<property name="Флагом" type="xs:boolean"/>
+		<property name="Двоичным" type="xs:base64Binary"/>
+		<property name="Произвольным"/>
+		<property xmlns:d3p1="urn:test:types" name="Сумма" type="d3p1:СуммаТип"/>
+		<property xmlns:d3p1="urn:test:types" name="Счёт" type="d3p1:СчётТип"/>
+		<property xmlns:d3p1="urn:test:types" name="Вид" type="d3p1:ВидДокумента"/>
+		<property name="Необязательное" type="xs:string" upperBound="-1"/>
+		<property name="Коллекция" type="xs:string" lowerBound="0" upperBound="-1"/>
+		<property name="ДоТрёх" type="xs:string" upperBound="3"/>
+	</objectType>
+</package>

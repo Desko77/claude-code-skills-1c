@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
+		<Autofill>true</Autofill>
+		<ChildItems>
+			<Button name="КнопкаЛокализация" id="5">
+				<CommandName>Form.Command.ЛокализованнаяКоманда</CommandName>
+				<ExtendedTooltip name="КнопкаЛокализацияРасширеннаяПодсказка" id="6"/>
+			</Button>
+		</ChildItems>
+	</AutoCommandBar>
+	<ChildItems>
+		<InputField name="Поле" id="2">
+			<DataPath>Объект.Наименование</DataPath>
+			<ContextMenu name="ПолеКонтекстноеМеню" id="3"/>
+			<ExtendedTooltip name="ПолеРасширеннаяПодсказка" id="4"/>
+		</InputField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="1">
+			<Type>
+				<v8:Type>cfg:DataProcessorObject.БезДействия</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="ЛокализованнаяКоманда" id="1">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Локализованная команда</v8:content>
+				</v8:item>
+			</Title>
+		</Command>
+	</Commands>
+</Form>

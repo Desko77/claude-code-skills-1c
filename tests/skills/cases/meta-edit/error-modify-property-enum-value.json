@@ -1,0 +1,31 @@
+{
+  "name": "Ошибка: недопустимое значение свойства-перечисления",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "AccumulationRegister",
+        "name": "Продажи",
+        "registerType": "Balance",
+        "resources": [
+          "Количество: Number(10,3)"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "AccumulationRegisters/Продажи"
+  },
+  "input": {
+    "modify": {
+      "properties": {
+        "RegisterType": "ЧтоУгодно"
+      }
+    }
+  },
+  "expectError": "Invalid value"
+}

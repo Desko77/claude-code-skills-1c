@@ -1,0 +1,41 @@
+<xs:schema xmlns:tns="urn:test:simple" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xdto="http://v8.1c.ru/8.1/xdto" targetNamespace="urn:test:simple">
+	<xs:annotation>
+		<xs:appinfo>
+			<xdto:package xmlns:xdto="http://v8.1c.ru/8.1/xdto">
+				<xdto:name>simple_types</xdto:name>
+				<xdto:synonym lang="ru">simple_types</xdto:synonym>
+			</xdto:package>
+		</xs:appinfo>
+	</xs:annotation>
+	<xs:simpleType name="СчётТип">
+		<xs:restriction base="xs:string">
+			<xs:length value="20"/>
+			<xs:pattern value="[0-9]{20}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Версия">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="1.05"/>
+			<xs:enumeration value="1.06"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Диапазон">
+		<xs:restriction base="xs:integer">
+			<xs:minInclusive value="0"/>
+			<xs:maxInclusive value="100"/>
+			<xs:whiteSpace value="collapse"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="Список">
+		<xs:list itemType="xs:anyURI" xdto:variety="List"/>
+	</xs:simpleType>
+	<xs:simpleType name="Объединение">
+		<xs:union memberTypes="tns:Версия xs:string" xdto:variety="Union"/>
+	</xs:simpleType>
+	<xs:simpleType name="ОграниченнаяДлина">
+		<xs:restriction base="xs:string">
+			<xs:minLength value="1"/>
+			<xs:maxLength value="160"/>
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

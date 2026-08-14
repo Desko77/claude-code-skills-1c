@@ -1,0 +1,33 @@
+{
+  "name": "регистрация в LF-ном Configuration.xml: правка наследует LF, создаваемый пакет — канон CRLF",
+  "setup": "fixture:lf-config",
+  "caseFiles": [
+    "minimal.xsd"
+  ],
+  "params": {
+    "xsdFile": "minimal.xsd"
+  },
+  "validatePath": "XDTOPackages/minimal",
+  "expect": {
+    "preserves": [
+      {
+        "file": "Configuration.xml",
+        "bom": true,
+        "eol": "lf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true
+      },
+      {
+        "file": "XDTOPackages/minimal.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      }
+    ]
+  }
+}

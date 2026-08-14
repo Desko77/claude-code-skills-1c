@@ -1,0 +1,8 @@
+{
+  "name": "тип значения: развёрнутое значение и список допустимых литералов",
+  "caseFiles": ["types.xsd"],
+  "preRun": [{ "script": "xdto-compile/scripts/xdto-compile", "args": { "-XsdPath": "{workDir}/types.xsd", "-OutputDir": "{workDir}" } }],
+  "params": { "packagePath": "XDTOPackages/types", "outFile": "value-type.txt" },
+  "args_extra": ["-Name", "ВидДокумента"],
+  "expect": { "files": ["value-type.txt"] }
+}

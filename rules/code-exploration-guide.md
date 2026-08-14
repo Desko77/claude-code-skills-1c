@@ -76,20 +76,20 @@ Data (База данных, регистры)
 
 При наличии MCP-серверов использовать их для ускорения каждого этапа:
 
-В AI-EDT (ранее EDT-MCP) для поиска и навигации есть унифицированный фасад `code_search` (operations: `text_search`, `object_references`, `method_references`, `resolve_symbol`, `call_hierarchy`, `help`) - предпочтителен для нового кода. Standalone-имена ниже (`search_in_code`, `find_references`, ...) в tools/list скрыты (Canonical preset), но вызываемы как backward-compat алиасы, маршрутизируемые в operations фасада.
+В AI-EDT для поиска и навигации есть унифицированный фасад `code_search` (operations: `text_search`, `object_references`, `method_references`, `resolve_symbol`, `call_hierarchy`, `help`) - предпочтителен для нового кода. Standalone-имена ниже (`search_in_code`, `find_references`, ...) в tools/list скрыты (Canonical preset), но вызываемы как backward-compat алиасы, маршрутизируемые в operations фасада.
 
 | Этап | Инструмент (сервер) | Что даёт |
 |------|---------------------|----------|
-| Feature Discovery | `get_metadata_objects` (1c-edt) | Список объектов метаданных с фильтрацией по типу |
-| Feature Discovery | `list_modules` (1c-edt) | Все модули объекта или проекта |
-| Feature Discovery | `find_references` (1c-edt) или `code_search operation=object_references` | Все ссылки на объект: код, формы, роли, подсистемы |
-| Execution Flow | `get_module_structure` (1c-edt) | Структура модуля (методы, сигнатуры, регионы) без чтения всего кода |
-| Execution Flow | `read_method_source` (1c-edt) | Код конкретного метода по имени |
-| Execution Flow | `get_method_call_hierarchy` (1c-edt) или `code_search operation=call_hierarchy` | Кто вызывает / что вызывает (callers/callees) |
-| Architecture | `search_in_code` (1c-edt) или `code_search operation=text_search` | Полнотекстовый/regex поиск по всем модулям (`wholeWord`, `compact`, pre-filter по `metadataType`/`fileMask`) |
+| Feature Discovery | `get_metadata_objects` (ai-edt) | Список объектов метаданных с фильтрацией по типу |
+| Feature Discovery | `list_modules` (ai-edt) | Все модули объекта или проекта |
+| Feature Discovery | `find_references` (ai-edt) или `code_search operation=object_references` | Все ссылки на объект: код, формы, роли, подсистемы |
+| Execution Flow | `get_module_structure` (ai-edt) | Структура модуля (методы, сигнатуры, регионы) без чтения всего кода |
+| Execution Flow | `read_method_source` (ai-edt) | Код конкретного метода по имени |
+| Execution Flow | `get_method_call_hierarchy` (ai-edt) или `code_search operation=call_hierarchy` | Кто вызывает / что вызывает (callers/callees) |
+| Architecture | `search_in_code` (ai-edt) или `code_search operation=text_search` | Полнотекстовый/regex поиск по всем модулям (`wholeWord`, `compact`, pre-filter по `metadataType`/`fileMask`) |
 | Architecture | `ssl_search` (1c-mcp_ssl_server) | Поиск функций БСП по описанию |
-| Implementation | `get_project_errors` (1c-edt) | Ошибки и предупреждения проекта |
-| Implementation | `validate_query` (1c-edt) | Валидация запросов (синтаксис + семантика) |
+| Implementation | `get_project_errors` (ai-edt) | Ошибки и предупреждения проекта |
+| Implementation | `validate_query` (ai-edt) | Валидация запросов (синтаксис + семантика) |
 | API платформы | `search` (bsl-platform-help) | Поиск встроенных функций и типов |
 | Методология | `its_help` + `fetch_its` (1c-naparnik) | Стандарты и методические рекомендации ИТС |
 | Справка | `search_1c_documentation` / `config_help` (1c-naparnik) | Документация платформы и конфигураций |

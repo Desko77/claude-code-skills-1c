@@ -1,0 +1,14 @@
+{
+  "name": "вложенные частицы и группы: уплощение с предупреждениями, ни одно свойство не потеряно",
+  "caseFiles": ["nested-particles.xsd"],
+  "params": { "xsdFile": "nested-particles.xsd" },
+  "validatePath": "XDTOPackages/nested_particles",
+  "expect": {
+    "files": ["XDTOPackages/nested_particles/Ext/Package.bin"],
+    "stdoutContains": [
+      "вложенная xs:choice уплощена",
+      "кратность на вложенной частице",
+      "xs:all трактуется как последовательность"
+    ]
+  }
+}

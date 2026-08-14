@@ -1,0 +1,13 @@
+{
+  "name": "Прощающий ввод: регистр ключей DSL",
+  "input": {
+    "Name": "ТестРегистр",
+    "IncludeInCommandInterface": false
+  },
+  "validatePath": "Subsystems/ТестРегистр",
+  "expect": {
+    "files": [
+      "Subsystems/ТестРегистр.xml"
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке подсистемы",
+  "setup": "empty-config-221",
+  "input": {
+    "name": "Продажи221"
+  },
+  "validatePath": "Subsystems/Продажи221",
+  "expect": {
+    "files": [
+      "Subsystems/Продажи221.xml"
+    ],
+    "fileContains": {
+      "file": "Subsystems/Продажи221.xml",
+      "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+    }
+  }
+}

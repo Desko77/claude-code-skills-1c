@@ -1,0 +1,37 @@
+{
+  "name": "Русские имена типов принимаются в обеих формах — с ё и без",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": [
+        { "type": "ChartOfCalculationTypes", "name": "ВидыРасчета" },
+        { "type": "CalculationRegister", "name": "Начисления", "chartOfCalculationTypes": "ChartOfCalculationTypes.ВидыРасчета" },
+        { "type": "Report", "name": "Сводный" }
+      ],
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "input": {
+    "name": "РольАлиасы",
+    "objects": [
+      "РегистрРасчёта.Начисления: Read",
+      "ПланВидовРасчёта.ВидыРасчета: Read",
+      "Отчёт.Сводный: View"
+    ]
+  },
+  "validatePath": "Roles/РольАлиасы",
+  "expect": {
+    "files": ["Roles/РольАлиасы/Ext/Rights.xml"],
+    "fileContains": {
+      "file": "Roles/РольАлиасы/Ext/Rights.xml",
+      "text": [
+        "CalculationRegister.Начисления",
+        "ChartOfCalculationTypes.ВидыРасчета",
+        "Report.Сводный"
+      ]
+    }
+  }
+}

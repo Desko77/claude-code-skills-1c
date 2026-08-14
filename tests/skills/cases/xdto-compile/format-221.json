@@ -1,0 +1,17 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке пакета XDTO",
+  "setup": "empty-config-221",
+  "caseFiles": [
+    "annotations.xsd"
+  ],
+  "params": {
+    "xsdFile": "annotations.xsd"
+  },
+  "validatePath": "XDTOPackages/ПакетСАннотациями",
+  "expect": {
+    "fileContains": {
+      "file": "XDTOPackages/ПакетСАннотациями.xml",
+      "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+    }
+  }
+}

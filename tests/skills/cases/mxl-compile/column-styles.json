@@ -1,0 +1,47 @@
+{
+  "name": "Стиль колонки — в документной раскладке и в columnSets",
+  "input": {
+    "columns": 5,
+    "defaultWidth": 20,
+    "fonts": {
+      "default": { "face": "Arial", "size": 10 },
+      "bold": { "face": "Arial", "size": 10, "bold": true }
+    },
+    "styles": {
+      "по-центру": { "horizontalAlignment": "Center" },
+      "скрытая": { "hidden": true },
+      "жирная-с-фоном": { "font": "bold", "backColor": "#EBEBEB" }
+    },
+    "columnWidths": { "1": 30, "2-3": 15 },
+    "columnStyles": { "1": "по-центру", "4": "скрытая" },
+    "columnSets": {
+      "таблица": {
+        "columns": 3,
+        "columnWidths": { "1": 12 },
+        "columnStyles": { "2-3": "жирная-с-фоном" }
+      }
+    },
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          { "cells": [ { "col": 1, "span": 5, "text": "Заголовок" } ] }
+        ]
+      },
+      {
+        "name": "Таблица",
+        "columnSet": "таблица",
+        "rows": [
+          { "cells": [
+            { "col": 1, "param": "Код" },
+            { "col": 2, "param": "Имя" },
+            { "col": 3, "param": "Сумма" }
+          ]}
+        ]
+      }
+    ]
+  },
+  "params": { "outputPath": "Template.xml" },
+  "validatePath": "Template.xml",
+  "expect": { "files": ["Template.xml"] }
+}

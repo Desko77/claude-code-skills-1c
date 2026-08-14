@@ -1,0 +1,6 @@
+{
+  "name": "Команда без Action — предупреждение, а не ошибка (действие назначается в рантайме)",
+  "setup": "fixture:command-without-action",
+  "params": { "formPath": "DataProcessors/БезДействия/Forms/Форма" },
+  "expect": { "stdoutContains": "no Action" }
+}

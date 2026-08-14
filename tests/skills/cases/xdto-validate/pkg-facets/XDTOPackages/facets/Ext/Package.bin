@@ -1,0 +1,4 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:facets">
+	<valueType name="Плохой" base="xs:string" variety="Atomic" length="10" minLength="3" maxLength="2"/>
+	<valueType name="Число" base="xs:decimal" variety="Atomic" totalDigits="5" fractionDigits="9"/>
+</package>

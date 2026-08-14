@@ -1,0 +1,7 @@
+=== Пакеты XDTO: 2 ===
+
+  common          1  urn:test:common
+  uses_common     1  urn:test:uses
+
+Колонки: имя пакета, число типов, namespace.
+Следующий шаг: -Package <имя> или -Namespace <URI> — состав пакета; -Name <Тип> — поиск типа по всем пакетам

@@ -1,0 +1,51 @@
+{
+  "name": "Тихий отказ в логе на *nix: py-порт предупреждает (fake platform)",
+  "osOnly": [
+    "darwin",
+    "linux"
+  ],
+  "runtimeOnly": "python",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.sh",
+        "content": "#!/bin/sh\n# Фейк платформы для *nix: вычитывает путь из /Out и кладёт туда готовый лог.\n# Значение /Out несёт кавычки ВНУТРИ токена (соглашение 1С, см. run_v8) — в batch их\n# снимает %~2, в sh их надо снять руками, иначе cp целится в имя с кавычками.\nSELF=$(dirname \"$0\")\nOUT=\"\"\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = \"/Out\" ]; then\n    OUT=\"$2\"\n    OUT=\"${OUT#\\\"}\"\n    OUT=\"${OUT%\\\"}\"\n  fi\n  shift\ndone\ncp \"$SELF/log.txt\" \"$OUT\"\nexit 0\n",
+        "executable": true
+      }
+    },
+    {
+      "writeFile": {
+        "path": "log.txt",
+        "content": "﻿Загрузка конфигурации из файлов.\r\nНеверное свойство объекта метаданных. Свойство LineNumberLength не входит в состав объекта метаданных TabularSection. - LineNumberLength\r\nЗагрузка завершена.\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "ib/1Cv8.1CD",
+        "content": "stub"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "src/Configuration.xml",
+        "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<MetaDataObject/>"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}/fake.sh",
+    "-InfoBasePath",
+    "{workDir}/ib",
+    "-ConfigDir",
+    "{workDir}/src"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "[warning] platform reported success, but the log contains 1 problem(s):",
+      "Свойство LineNumberLength не входит в состав объекта метаданных"
+    ],
+    "stdoutNotContains": "-StrictLog"
+  },
+  "noSnapshot": "навык ничего не пишет в рабочий каталог — проверяется разбор лога платформы"
+}

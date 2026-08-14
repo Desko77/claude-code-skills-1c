@@ -1,0 +1,10 @@
+{
+  "name": "Отказ: доп. аргумент /F конфликтует со скрипт-контролируемым ключом",
+  "preRun": [
+    { "writeFile": { "path": "fake.cmd", "content": "@echo off\r\nexit /b 0\r\n" } }
+  ],
+  "args_extra": ["-V8Path", "{workDir}\\fake.cmd", "-InfoBasePath", "{workDir}\\ib",
+                 "-AdditionalV8Arguments", "/F,C:\\tmp"],
+  "expectError": true,
+  "noSnapshot": "негативный кейс: платформа не запускается"
+}

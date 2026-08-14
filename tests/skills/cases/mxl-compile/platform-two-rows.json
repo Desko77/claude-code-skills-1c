@@ -1,0 +1,25 @@
+{
+  "name": "Раундтрип макета ПЛАТФОРМЫ байт в байт: Простой2Строки",
+  "setup": "fixture:platform-roundtrip",
+  "preRun": [
+    {
+      "script": "mxl-decompile/scripts/mxl-decompile",
+      "args": {
+        "-TemplatePath": "Простой2Строки.xml",
+        "-OutputPath": "back.json"
+      },
+      "cwd": "{workDir}"
+    }
+  ],
+  "params": {
+    "outputPath": "out.xml"
+  },
+  "noSnapshot": "эталон — файл платформы, сверяется expect.filesEqual",
+  "expect": {
+    "filesEqual": {
+      "actual": "out.xml",
+      "expected": "Простой2Строки.xml"
+    }
+  },
+  "inputFrom": "back.json"
+}

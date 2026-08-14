@@ -1,0 +1,32 @@
+{
+  "name": "Минимальная СКД — один набор, один запрос",
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "input": {
+    "dataSets": [
+      {
+        "query": "ВЫБРАТЬ Номенклатура.Наименование КАК Наименование ИЗ Справочник.Номенклатура КАК Номенклатура",
+        "fields": [
+          "Наименование"
+        ]
+      }
+    ]
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": [
+      "Template.xml"
+    ],
+    "preserves": {
+      "file": "Template.xml",
+      "bom": true,
+      "eol": "crlf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

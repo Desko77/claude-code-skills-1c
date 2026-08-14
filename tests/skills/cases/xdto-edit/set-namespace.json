@@ -1,0 +1,40 @@
+{
+  "name": "смена namespace: ссылки внутри пакета и объект метаданных",
+  "caseFiles": [
+    "common.xsd",
+    "uses-common.xsd"
+  ],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/common.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/uses-common.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "packagePath": "XDTOPackages/common"
+  },
+  "args_extra": [
+    "-Operation",
+    "set-namespace",
+    "-Value",
+    "urn:test:common:v2",
+    "-NoValidate"
+  ],
+  "expect": {
+    "files": [
+      "XDTOPackages/common/Ext/Package.bin",
+      "XDTOPackages/common.xml"
+    ]
+  },
+  "skipPlatformVerify": "смена namespace намеренно оставляет импорт зависящего пакета висящим — это документированное поведение операции"
+}

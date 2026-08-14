@@ -1,0 +1,32 @@
+{
+  "name": "HTTP-сервис с шаблонами URL",
+  "input": {
+    "type": "HTTPService",
+    "name": "ТоварныйAPI",
+    "rootURL": "api/v1",
+    "reuseSessions": "Use",
+    "sessionMaxAge": 30,
+    "comment": "Публичный API",
+    "urlTemplates": {
+      "Товары": {
+        "template": "/products/{id}",
+        "methods": {
+          "Получить": "GET",
+          "Обновить": "PUT"
+        }
+      },
+      "rpc": {
+        "template": "/rpc",
+        "comment": "Удалённый вызов",
+        "methods": {
+          "post": { "httpMethod": "POST", "handler": "ВызовЧерезТелоЗапроса",
+                    "synonym": { "ru": "Отправить", "en": "Post" } }
+        }
+      }
+    }
+  },
+  "validatePath": "HTTPServices/ТоварныйAPI",
+  "expect": {
+    "files": ["HTTPServices/ТоварныйAPI.xml", "HTTPServices/ТоварныйAPI/Ext/Module.bsl"]
+  }
+}

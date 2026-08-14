@@ -4,23 +4,31 @@ analyze_video_local.py - ПОЛНОСТЬЮ ЛОКАЛЬНЫЙ разбор ви
 Аналог `transcribe.py --analyze-ui`, но без Gemini: клиентское видео не покидает сеть.
 
 Пайплайн:
-  1. Речь   - transcribe_local.py (whisper venv, CUDA) -> `<имя> - транскрипция.md/.txt`.
-  2. Кадры  - local_backends.extract_scene_frames (ffmpeg scene-detect + пол + dhash-дедуп + кап).
-  3. Зрение - каждый кадр -> Qwen3-VL-8B на сервере 150 (инкрементально, маркер+circuit-breaker при сбое).
-  4. Лог    - `<имя> - детальный.md`: механическая сшивка по таймкодам (VLM-описание кадра +
-              реплики whisper за интервал). БЕЗ отдельного LLM-прохода (осознанный компромисс MVP).
-  5. Саммари- `<имя> - саммари.md`: 2 прохода на 150 (копия логики build_summary, вход = только
-              текст транскрипции; детальный лог в саммари НЕ подаётся).
+  1. Речь    - transcribe_local.py (whisper venv, CUDA) -> `<имя> - транскрипция.md/.txt`.
+  2. Спикеры - имена за метками: голосовая база отпечатков, затем модель на 150, затем
+               ОБЯЗАТЕЛЬНАЯ программная проверка по обращениям (speaker_validator).
+  3. Кадры   - extract_scene_frames (ffmpeg scene-detect + пол + dhash-дедуп + кап) и зрение:
+               каждый кадр -> VLM на сервере 150, лог пишется инкрементально по таймкодам.
+  4. Связный - `<имя> - связный.md`: нарратив из механического лога.
+  5. Саммари - `<имя> - саммари.md`: 2 прохода на 150, вход - только текст транскрипции.
 
-Инвариант: все кадры через VLM ПОЛНОСТЬЮ до summary-стадии (один своп модели на прогон).
-Запуск: python analyze_video_local.py "<video>" [--output-dir DIR] [--diarize] [--no-summary]
-Требует: сервер 150 доступен, модели qwen3-vl-8b-instruct и google/gemma-4-26b-a4b загружены/скачаны, ffmpeg.
+Стадии деградируют ПООТДЕЛЬНОСТИ. Нет модели зрения - будут речь, спикеры и саммари; нет 150
+вообще - будут речь и спикеры (голос и разбор обращений моделей не требуют). Сбой кадра не
+прерывает разбор: кадр помечается, прогон идёт дальше. Что сделано, а что нет, пишется в
+`<имя>.status.json` - по нему же работает резюм `--reuse-frames`.
+
+Спикеры считаются ДО зрения: раньше стадия стояла после него, и любая проблема с VLM обнуляла
+именование и авто-enroll голосовой базы, к зрению отношения не имеющие.
+
+Запуск: python analyze_video_local.py "<video>" [--output-dir DIR] [--diarize] [--no-vlm]
+        [--no-summary] [--no-coherent] [--reuse-transcript] [--reuse-frames]
 """
 import os
 import re
 import sys
 import json
 import argparse
+import threading
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -29,6 +37,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import local_backends as lb  # noqa: E402
 import text_stage as ts  # noqa: E402
 import voiceprints as vp  # noqa: E402
+import speaker_validator as sv  # noqa: E402
+import glossary as gloss  # noqa: E402
 
 # Whisper живет в отдельном venv (изоляция CUDA-DLL ctranslate2 vs torch). Дефолт - venv скилла;
 # реальный путь задай через env WHISPER_PYTHON (или .env, он gitignore и не в паблик-репо).
@@ -38,7 +48,9 @@ WHISPER_PYTHON = os.environ.get("WHISPER_PYTHON", str(_DEFAULT_WHISPER_PY))
 TRANSCRIBE_LOCAL = Path(__file__).resolve().parent / "transcribe_local.py"
 
 VIDEO_EXTS = {".mp4", ".mkv", ".webm", ".avi", ".mov"}
-CONSEC_FAIL_ABORT = 3  # столько подряд-сбоев VLM => разбор экрана прерываем (circuit breaker)
+CONSEC_FAIL_ABORT = 3  # столько сбоев подряд => проверить сервер и модель. Раньше это обрывало
+#   разбор совсем и бросало весь хвост кадров без единой попытки; теперь по этому порогу идёт
+#   попытка восстановления, и стадия останавливается, только если сервер действительно не поднялся.
 
 # Промпты и текстовая обработка (спикеры -> имена, связный лог, саммари) вынесены в общий
 # модуль text_stage - единый источник истины для локального и облачного движков.
@@ -63,7 +75,7 @@ def run_whisper(video: Path, output_dir: Path, diarize=False, extra=None, reuse=
     if reuse and md.exists() and md.stat().st_size > 0:
         spk = output_dir / f"{video.stem} - со спикерами.md"
         note = "со спикерами" if spk.exists() else "без спикеров"
-        print(f"[1/5 речь] переиспользую готовую транскрипцию ({note}, --reuse-transcript): {md.name}",
+        print(f"[речь] переиспользую готовую транскрипцию ({note}, --reuse-transcript): {md.name}",
               flush=True)
         return md
     if not Path(WHISPER_PYTHON).exists():
@@ -78,11 +90,11 @@ def run_whisper(video: Path, output_dir: Path, diarize=False, extra=None, reuse=
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
-    print(f"[1/5 речь] whisper (diarize={diarize})...", flush=True)
+    print(f"[речь] whisper (diarize={diarize})...", flush=True)
     rc = subprocess.run(cmd, env=env).returncode
     if md.exists() and md.stat().st_size > 0:
         if rc != 0:
-            print(f"[1/5 речь] whisper вернул код {rc}, но транскрипция создана - продолжаю "
+            print(f"[речь] whisper вернул код {rc}, но транскрипция создана - продолжаю "
                   f"(вероятно упала только диаризация).", file=sys.stderr)
         return md
     raise lb.LocalBackendError(f"transcribe_local.py упал (код {rc}), транскрипция не создана: {md}")
@@ -133,75 +145,211 @@ def _frame_block(i, frames, n, segs, desc):
     return "".join(block)
 
 
-def analyze_frames(video: Path, output_dir: Path, segs, detailed_path: Path, vlm_model=None,
-                   parallel=None, max_tokens=None):
-    """Нарезать кадры, прогнать через VLM ПАРАЛЛЕЛЬНО (parallel потоков, урезан под контекст),
-    детальный лог писать инкрементально СТРОГО в порядке таймкодов. Вернуть кол-во распознанных."""
-    parallel = parallel or lb.VLM_PARALLEL
-    max_tokens = max_tokens or lb.VLM_MAX_TOKENS
+def load_status(path: Path):
+    """Статус прошлого прогона. Пустой словарь, если файла нет или он испорчен."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save_status(path: Path, data):
+    """Машиночитаемый статус рядом с выходами: что разобрано, что нет и чем упало.
+
+    Нужен и человеку, и агенту: по нему видно, какие кадры остались непокрытыми, и не приходится
+    вычитывать весь детальный лог, чтобы это выяснить.
+    """
+    try:
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError as e:
+        print(f"[warn] не удалось записать статус прогона: {e}", file=sys.stderr)
+
+
+def _vlm_worker(fpath, vlm_model, max_tokens, state, lock):
+    """Один кадр через VLM. Выгрузку модели по TTL лечим на месте и сбоем НЕ считаем."""
+    if state["abort"]:
+        return {"state": "skipped", "error": state["abort"]}
+    try:
+        r = lb.vlm_read_frame(fpath, model=vlm_model, max_tokens=max_tokens)
+        return {"state": "ok", "text": r["text"], "prompt_tokens": r["prompt_tokens"]}
+    except lb.LocalBackendError as e:
+        if not lb.looks_unloaded(e):
+            return {"state": "failed", "error": str(e)}
+        with lock:                       # грузим один раз на всех, а не каждым потоком
+            ready = lb.ensure_loaded(vlm_model)
+        if ready:
+            try:
+                r = lb.vlm_read_frame(fpath, model=vlm_model, max_tokens=max_tokens)
+                return {"state": "ok", "text": r["text"], "prompt_tokens": r["prompt_tokens"],
+                        "recovered": True}
+            except lb.LocalBackendError as again:
+                return {"state": "failed", "error": str(again), "unloaded": True}
+        return {"state": "failed", "error": str(e), "unloaded": True}
+
+
+def analyze_frames(video: Path, output_dir: Path, segs, detailed_path: Path, status_path: Path,
+                   vlm_model=None, budget=None, reuse=False):
+    """Нарезать кадры, прогнать через VLM параллельно, детальный лог писать инкрементально
+    СТРОГО в порядке таймкодов. Возвращает сводку dict(frames, ok, failed, skipped, reused).
+
+    Сбой кадра больше не прерывает стадию: неудачный помечается маркером, разбор идёт дальше.
+    Останавливаемся только если сервер действительно не отвечает и поднять его не удалось -
+    тогда остаток честно помечается неразобранным, а пайплайн продолжается.
+    """
+    budget = budget or lb.plan_vlm_budget(vlm_model)
+    max_tokens = budget["max_tokens"]
     shots_dir = output_dir / "screenshots"
-    print(f"[2/5 кадры] нарезка scene-кадров -> {shots_dir}", flush=True)
+    print(f"[кадры] нарезка scene-кадров -> {shots_dir}", flush=True)
     frames, truncated = lb.extract_scene_frames(video, shots_dir)
-    print(f"[2/5 кадры] кадров: {len(frames)} (параллельно {parallel}, вывод/кадр {max_tokens})"
-          + (" (ДОСТИГНУТ КАП - часть кадров прорежена)" if truncated else ""), flush=True)
-
-    # clean start: заголовок пишется всегда (перезаписывает возможный старый файл)
-    detailed_path.write_text(
-        f"# Детальный лог (локальный разбор экрана): {video.name}\n\n"
-        f"Зрение: `{vlm_model or lb.LOCAL_VLM_MODEL}` (локально, сервер 150, параллельно {parallel}). "
-        f"Кадров: {len(frames)}" + (" [достигнут кап]" if truncated else "") + "\n\n---\n\n",
-        encoding="utf-8")
-    if not frames:
-        _append(detailed_path, "> **[!] Кадры не извлечены** (пустое/битое видео?).\n")
-        return 0
-
     n = len(frames)
-    results = {}        # i -> готовый текст описания (или маркер сбоя)
-    ok = 0
-    next_write = 0      # индекс следующего кадра к записи: пишем строго по возрастанию таймкода
-    consec_fail = 0
-    aborted = False
 
-    def flush_ready():  # дозаписать все готовые кадры, идущие подряд от next_write
+    done = {}
+    if reuse:   # резюм: описания прошлого прогона берём готовыми, заново зрение не гоняем
+        for item in load_status(status_path).get("frames", []):
+            if item.get("state") == "ok" and item.get("text") and item.get("file"):
+                done[item["file"]] = item["text"]
+        if done:
+            print(f"[кадры] переиспользую готовые описания: {len(done)} (--reuse-frames)",
+                  flush=True)
+
+    header = (f"# Детальный лог (локальный разбор экрана): {video.name}\n\n"
+              f"Зрение: `{vlm_model or lb.LOCAL_VLM_MODEL}` (локально, сервер 150). "
+              f"Кадров: {n}"
+              + (" [достигнут кап - часть прорежена]" if truncated else "") + "\n\n---\n\n")
+    detailed_path.write_text(header, encoding="utf-8")
+    if not frames:
+        _append(detailed_path, "> **[!] Кадры не извлечены** (пустое или битое видео?).\n")
+        return {"frames": 0, "ok": 0, "failed": 0, "skipped": 0, "reused": 0, "truncated": truncated}
+
+    results = {}
+    records = [None] * n
+    next_write = 0      # пишем строго по возрастанию таймкода, независимо от порядка ответов
+    state = {"abort": ""}
+    lock = threading.Lock()
+
+    def remember(i, res):
+        t, fpath = frames[i]
+        rec = {"index": i, "tc": lb.format_tc(t), "file": fpath.name, "state": res["state"]}
+        if res.get("error"):
+            rec["error"] = res["error"][:400]
+        if res.get("text"):
+            rec["text"] = res["text"]
+        records[i] = rec
+        if res["state"] == "ok":
+            results[i] = res["text"]
+        else:
+            results[i] = (f"> **[!] Кадр не распознан.** Причина: "
+                          f"{res.get('error') or 'стадия зрения остановлена'}")
+
+    def flush_ready():
         nonlocal next_write
-        while next_write in results:
+        while next_write < n and next_write in results:
             _append(detailed_path, _frame_block(next_write, frames, n, segs, results[next_write]))
             next_write += 1
 
-    # ожидаемые сбои VLM (сеть/сервер/пустой ответ) маскируем маркером; программные ошибки
-    # (KeyError и т.п.) прилетают из fut.result() и НЕ ловятся здесь - пусть падают громко.
+    counters = {"ok": 0, "failed": 0, "skipped": 0, "reused": 0}
+    pending = []
+    for i, (t, fpath) in enumerate(frames):
+        if fpath.name in done:
+            remember(i, {"state": "ok", "text": done[fpath.name]})
+            counters["reused"] += 1
+        else:
+            pending.append(i)
+    flush_ready()
+
+    # Первый кадр идём ОДИН: его prompt_tokens и есть настоящий резерв контекста под картинку
+    # (он зависит от разрешения, а не от содержимого экрана). До этого замера параллельность
+    # считается от оценки из конфига, обычно завышенной вдвое - и зря режет пропускную способность.
+    if pending:
+        first = pending.pop(0)
+        res = _vlm_worker(frames[first][1], vlm_model, max_tokens, state, lock)
+        remember(first, res)
+        counters[res["state"]] += 1
+        flush_ready()
+        if res.get("prompt_tokens"):
+            budget = lb.replan_with_measured(budget, res["prompt_tokens"])
+            print(f"[кадры] замер на первом кадре: промпт {res['prompt_tokens']} ток. "
+                  f"-> резерв {budget['reserve']}, параллельно {budget['parallel']}", flush=True)
+    parallel = budget["parallel"]
+    print(f"[кадры] всего {n}, к разбору {len(pending)} (параллельно {parallel}, "
+          f"вывод/кадр {max_tokens})", flush=True)
+
+    consec_fail = 0
     with ThreadPoolExecutor(max_workers=parallel) as ex:
-        futs = {ex.submit(lb.vlm_read_frame, fpath, model=vlm_model, max_tokens=max_tokens): i
-                for i, (t, fpath) in enumerate(frames)}
+        futs = {ex.submit(_vlm_worker, frames[i][1], vlm_model, max_tokens, state, lock): i
+                for i in pending}
+        # Ожидаемые сбои VLM возвращаются воркером как state=failed; программные ошибки
+        # (KeyError и прочее) прилетают из fut.result() и НЕ ловятся - пусть падают громко.
         for fut in as_completed(futs):
             i = futs[fut]
-            t = frames[i][0]
-            try:
-                r = fut.result()
-                results[i] = r["text"]
-                ok += 1
+            res = fut.result()
+            remember(i, res)
+            counters[res["state"]] += 1
+            if res["state"] == "ok":
                 consec_fail = 0
-                print(f"  [кадр {i+1}/{n}] {lb.format_tc(t)}  VLM ok "
-                      f"(pt={r['prompt_tokens']}, {r['finish']})", flush=True)
-            except lb.LocalBackendError as e:
-                results[i] = f"> **[!] Кадр не распознан.** Причина: {e}"
+                mark = " (после перезагрузки модели)" if res.get("recovered") else ""
+                print(f"  [кадр {i+1}/{n}] {lb.format_tc(frames[i][0])}  ok{mark}", flush=True)
+            elif res["state"] == "failed":
                 consec_fail += 1
-                print(f"  [кадр {i+1}/{n}] {lb.format_tc(t)}  VLM FAIL: {e}",
-                      file=sys.stderr, flush=True)
+                print(f"  [кадр {i+1}/{n}] {lb.format_tc(frames[i][0])}  СБОЙ: "
+                      f"{res.get('error', '')[:200]}", file=sys.stderr, flush=True)
             flush_ready()
-            if consec_fail >= CONSEC_FAIL_ABORT:  # сервер лёг - прерываем, пишем маркер
-                aborted = True
-                for f in futs:
-                    f.cancel()
-                break
+            if consec_fail >= CONSEC_FAIL_ABORT and not state["abort"]:
+                # Подряд идущие сбои - повод проверить сервер, а не молча бросить остаток кадров.
+                print(f"[кадры] {consec_fail} сбоя подряд - проверяю сервер и модель",
+                      file=sys.stderr, flush=True)
+                try:
+                    lb.check_server()
+                    alive = lb.ensure_loaded(vlm_model)
+                except lb.LocalBackendError:
+                    alive = False
+                if alive:
+                    consec_fail = 0
+                    print("[кадры] сервер жив, модель загружена - продолжаю", flush=True)
+                else:
+                    state["abort"] = ("сервер 150 не отвечает или модель зрения не поднялась - "
+                                      "остаток кадров не разобран")
+                    print(f"[кадры] {state['abort']}", file=sys.stderr, flush=True)
 
-    if aborted:
+    # Переполнение контекста - не отказ сервера, а слишком большая параллельность: слоты делят
+    # ОДНО окно. Политика прямо требует снизить параллельность и ПОВТОРИТЬ, а не терять кадры.
+    # Без этого шага исправный VLM оставлял бы почти все кадры неразобранными.
+    overflow = [i for i in range(n) if records[i] and records[i]["state"] == "failed"
+                and lb.looks_context_overflow(records[i].get("error"))]
+    if overflow and not state["abort"]:
+        print(f"[кадры] {len(overflow)} кадров не влезли в контекст при параллельности {parallel}"
+              f" - повторяю по одному", flush=True)
+        for i in overflow:
+            res = _vlm_worker(frames[i][1], vlm_model, max_tokens, state, lock)
+            was = records[i]["state"]
+            remember(i, res)
+            counters[was] -= 1
+            counters[res["state"]] += 1
+            print(f"  [кадр {i+1}/{n}] {lb.format_tc(frames[i][0])}  повтор: {res['state']}",
+                  flush=True)
+        # Лог пишется инкрементально, поэтому маркеры сбоя по этим кадрам уже на диске:
+        # пересобираем его целиком из накопленных описаний, иначе повтор починил бы только статус.
+        detailed_path.write_text(header, encoding="utf-8")
+        next_write = 0
+        flush_ready()
+
+    flush_ready()
+    for i in range(n):   # кадры, до которых очередь не дошла из-за остановки стадии
+        if records[i] is None:
+            remember(i, {"state": "skipped", "error": state["abort"] or "не обработан"})
+            counters["skipped"] += 1
+    flush_ready()
+
+    if counters["failed"] or counters["skipped"]:
         _append(detailed_path,
-                f"\n> **[!] VLM сбоит {consec_fail} кадров подряд - разбор экрана прерван "
-                f"(записано {next_write}/{n} кадров по порядку, остальные пропущены).**\n")
-        raise lb.LocalBackendError(
-            f"VLM недоступен/сбоит {consec_fail} кадров подряд - прерываю разбор экрана")
-    return ok
+                f"\n> **[!] Разбор экрана неполный:** распознано {counters['ok'] + counters['reused']}"
+                f" из {n}, сбоев {counters['failed']}, не обработано {counters['skipped']}."
+                + (f" Причина остановки: {state['abort']}." if state["abort"] else "") + "\n")
+
+    summary = {"frames": n, "truncated": truncated, **counters,
+               "aborted_reason": state["abort"] or None,
+               "records": [r for r in records if r]}
+    return summary
 
 
 # ---------------- Шаг 5: текстовая стадия (общий text_stage) ----------------
@@ -222,11 +370,21 @@ def main():
                     help="Точное число спикеров (опционально; без него автодетект pyannote community-1)")
     ap.add_argument("--no-summary", action="store_true", help="Не строить саммари")
     ap.add_argument("--no-coherent", action="store_true", help="Не строить связный лог (быстрее)")
+    ap.add_argument("--no-vlm", action="store_true",
+                    help="Не разбирать экран моделью зрения (речь, спикеры и саммари считаются как обычно). "
+                         "Кадры при этом всё равно нарезаются - их можно посмотреть глазами")
     ap.add_argument("--reuse-transcript", action="store_true",
                     help="Переиспользовать готовую транскрипцию (не гонять whisper заново), если файл уже есть и непуст")
+    ap.add_argument("--reuse-frames", action="store_true",
+                    help="Переиспользовать описания кадров из статуса прошлого прогона (дораспознать только оставшиеся)")
     ap.add_argument("--vlm-model", default=None, help=f"VLM на 150 (по умолч. {lb.LOCAL_VLM_MODEL})")
     ap.add_argument("--summary-model", default=None, help=f"Summary на 150 (по умолч. {lb.LOCAL_SUMMARY_MODEL})")
     ap.add_argument("--speaker-model", default=None, help=f"Маппинг спикеров (по умолч. {lb.LOCAL_SPEAKER_MODEL})")
+    ap.add_argument("--glossary", default=None,
+                    help="Файл глоссария терминов (по умолч. glossary.txt в корне скила). "
+                         "Правильные написания подсказываются распознавателю, ослышки правятся в "
+                         "готовом тексте - иначе DAX уходит в отчет как 'ДАКС'")
+    ap.add_argument("--no-glossary", action="store_true", help="Не использовать глоссарий терминов")
     ap.add_argument("--voiceprint-db", default=None, help=f"База голосов (по умолч. {vp.DEFAULT_DB})")
     ap.add_argument("--project", default=None, help="Проект/заказчик - провенанс в базе голосов")
     ap.add_argument("--no-voiceprints", action="store_true", help="Не использовать голосовую базу")
@@ -254,44 +412,60 @@ def main():
         return lb.llm_summary_pass(data, instruction, model=summary_model, max_tokens=6000)
 
     def speaker_llm(data, instruction):
-        """LLM-вызов маппинга спикеров на 150 (qwen - лучше на связке имён, 4/4 vs 3/4)."""
-        return lb.llm_summary_pass(data, instruction, model=speaker_model, max_tokens=2000)
+        """Маппинг спикеров на 150 строгим JSON по схеме: формат гарантирует сервер, а не
+        послушание модели. Отдаём текстом - text_stage разбирает ответ сам и одинаково понимает
+        движки со строгими схемами и без них."""
+        return json.dumps(lb.llm_json_pass(data, instruction, ts.SPEAKERS_SCHEMA,
+                                           model=speaker_model, max_tokens=2000),
+                          ensure_ascii=False)
 
     transcript_md = output_dir / f"{video.stem} - транскрипция.md"
     detailed_path = output_dir / f"{video.stem} - детальный.md"
     coherent_path = output_dir / f"{video.stem} - связный.md"
     summary_path = output_dir / f"{video.stem} - саммари.md"
+    status_path = output_dir / f"{video.stem}.status.json"
 
-    # ----- Предполётная проверка: 150 + модели + ffmpeg -----
-    print(f"[0/5] проверка сервера 150: {lb.LOCAL_150_BASE}", flush=True)
+    # ----- Предполётная проверка: постадийно, а не всё-или-ничего -----
+    # Отсутствие одной модели гасит ТОЛЬКО свою стадию. Раньше любая недостача обрывала прогон
+    # целиком, и человек не получал даже транскрипцию, хотя речь считается локально и от 150
+    # вообще не зависит.
+    print(f"[0] проверка сервера 150: {lb.LOCAL_150_BASE}", flush=True)
+    models = []
     try:
         models = lb.check_server()
     except lb.LocalBackendError as e:
-        print(f"ОШИБКА: {e}\nСервер 150 недоступен - локальный разбор невозможен. "
-              f"Проверь LM Studio на {lb.LOCAL_150_BASE}.", file=sys.stderr)
-        sys.exit(2)
-    if vlm_model not in models:
-        print(f"ОШИБКА: VLM-модель '{vlm_model}' не найдена на 150. Доступны: {', '.join(models)}",
-              file=sys.stderr)
-        sys.exit(2)
-    if summary_model not in models:  # нужна для текстовой стадии (связный лог/саммари)
-        print(f"ОШИБКА: text-модель '{summary_model}' не найдена на 150. Доступны: {', '.join(models)}",
-              file=sys.stderr)
-        sys.exit(2)
-    if speaker_model not in models:  # маппинг спикеров->имена
-        print(f"ОШИБКА: speaker-модель '{speaker_model}' не найдена на 150. Доступны: {', '.join(models)}",
-              file=sys.stderr)
-        sys.exit(2)
-    try:
-        lb.ffmpeg_exe()
-    except lb.LocalBackendError as e:
-        print(f"ОШИБКА: {e}", file=sys.stderr)
-        sys.exit(2)
-    print(f"[0/5] OK: VLM={vlm_model}, speakers={speaker_model}, summary={summary_model}", flush=True)
-    ctx_len, vlm_parallel, vlm_max_tokens, ctx_src = lb.plan_vlm_budget(vlm_model)
-    print(f"[0/5] VLM-бюджет: контекст={ctx_len} ({ctx_src}), вывод/кадр={vlm_max_tokens}, "
-          f"параллельно={vlm_parallel} "
-          f"[{vlm_parallel}*({lb.VLM_PROMPT_RESERVE}+{vlm_max_tokens}) <= {ctx_len}]", flush=True)
+        print(f"[0] сервер 150 недоступен ({e}). Речь и спикеры посчитаю, разбор экрана и саммари - нет.",
+              file=sys.stderr, flush=True)
+
+    use_vlm = not args.no_vlm
+    if args.no_vlm:
+        print("[0] разбор экрана отключён (--no-vlm)", flush=True)
+    elif vlm_model not in models:
+        use_vlm = False
+        print(f"[0] модель зрения '{vlm_model}' на 150 недоступна - кадры будут нарезаны, "
+              f"но не разобраны", file=sys.stderr, flush=True)
+    if use_vlm:
+        try:
+            lb.ffmpeg_exe()
+        except lb.LocalBackendError as e:
+            use_vlm = False
+            print(f"[0] {e} - разбор экрана невозможен", file=sys.stderr, flush=True)
+
+    use_text = summary_model in models
+    if not use_text:
+        print(f"[0] text-модель '{summary_model}' на 150 недоступна - связного лога и саммари не будет",
+              file=sys.stderr, flush=True)
+    use_speaker_llm = speaker_model in models
+    if not use_speaker_llm:
+        print(f"[0] speaker-модель '{speaker_model}' на 150 недоступна - имена определю "
+              f"по голосовой базе и обращениям в тексте", file=sys.stderr, flush=True)
+
+    budget = None
+    if use_vlm:
+        budget = lb.plan_vlm_budget(vlm_model)
+        print(f"[0] бюджет зрения: контекст={budget['context']} ({budget['source']}), "
+              f"вывод/кадр={budget['max_tokens']}, параллельно={budget['parallel']} "
+              f"(резерв промпта {budget['reserve']}, уточню на первом кадре)", flush=True)
 
     # ----- clean start: не выдать результаты прошлого прогона за текущие -----
     if not args.reuse_transcript:
@@ -303,38 +477,45 @@ def main():
     # detailed_path сбрасывается внутри analyze_frames
 
     # ----- 1. Речь -----
-    diar_extra = ["--num-speakers", str(args.num_speakers)] if args.num_speakers else None
+    whisper_extra = ["--num-speakers", str(args.num_speakers)] if args.num_speakers else []
+    if args.glossary:
+        whisper_extra += ["--glossary", args.glossary]
+    if args.no_glossary:
+        whisper_extra.append("--no-glossary")
     transcript_md = run_whisper(video, output_dir, diarize=args.diarize, reuse=args.reuse_transcript,
-                                extra=diar_extra)
+                                extra=whisper_extra or None)
     segs = parse_transcript(output_dir, video.stem)
-    print(f"[1/5 речь] сегментов транскрипции: {len(segs)}"
+    print(f"[речь] сегментов транскрипции: {len(segs)}"
           + (" (со спикерами)" if (output_dir / f'{video.stem} - со спикерами.md').exists() else ""),
           flush=True)
 
-    # ----- 2-4. Кадры + зрение + детальный лог -----
-    exit_code = 0
-    try:
-        ok = analyze_frames(video, output_dir, segs, detailed_path, vlm_model=vlm_model,
-                            parallel=vlm_parallel, max_tokens=vlm_max_tokens)
-    except lb.LocalBackendError as e:
-        print(f"[3-4/5] разбор экрана прерван: {e}\n"
-              f"         (транскрипция сохранена, перехожу к саммари).", file=sys.stderr)
-        ok = 0
-        exit_code = 3
-    else:
-        print(f"[3-4/5] детальный лог готов: распознано кадров {ok}", flush=True)
-        if ok == 0:
-            print("[3-4/5] ВНИМАНИЕ: ни один кадр не распознан - детальный лог только из маркеров.",
-                  file=sys.stderr)
-            exit_code = 3
+    # Страховочная правка ослышек по глоссарию. Whisper уже правит свой вывод, но при
+    # --reuse-transcript он не запускался вовсе, а старые транскрипции сделаны до глоссария.
+    # Замена идемпотентна (правильные написания не входят в список ослышек), так что повтор безвреден.
+    gl = gloss.load(args.glossary, enabled=not args.no_glossary)
+    for w in gl.warnings:
+        print(f"[термины] {w}", file=sys.stderr)
+    if gl:
+        print(f"[термины] {gloss.describe(gl)}", flush=True)
+        seg_dicts = [{"text": t} for _s, t in segs]
+        stats = gl.fix_segments(seg_dicts)
+        if stats:
+            segs = [(s, d["text"]) for (s, _t), d in zip(segs, seg_dicts)]
+            print("[термины] исправлено: "
+                  + ", ".join(f"{k} x{v}" for k, v in sorted(stats.items())), flush=True)
 
-    # ----- 5. Текстовая стадия на 150 (gemma): спикеры -> имена, связный лог, саммари -----
-    # После всех кадров - один своп VLM -> gemma на весь блок.
+    exit_code = 0
+
+    # ----- 2. Спикеры -> имена. ДО разбора экрана -----
+    # Стадия к зрению отношения не имеет, а раньше стояла после него: любая проблема с VLM
+    # обнуляла и именование, и авто-enroll голосовой базы. Свопа моделей перенос не создаёт -
+    # на 150 они со-резидентны.
     transcript_text = _transcript_text(segs)
 
-    # 5.1 Спикеры -> имена. СЛОЙ 1 - голос (база отпечатков, cosine > порог): узнаёт различимых даже
-    #     неназванных и между встречами (сверх Gemini). СЛОЙ 2 - текст (in-context, qwen): похожие голоса
-    #     и остальные. Голос приоритетнее. Авто-enroll: названных текстом дописываем в базу (бутстрап).
+    # СЛОЙ 1 - голос (база отпечатков, cosine > порог): узнаёт различимых даже неназванных и между
+    # встречами. СЛОЙ 2 - текст (модель на 150). СЛОЙ 3 - программная проверка по обращениям
+    # (speaker_validator): без неё модель систематически вешает имя на того, кто его ПРОИЗНОСИТ,
+    # а не на адресата. Голос приоритетнее текста, и проверка его не пересматривает.
     name_map = {}
     if transcript_text.strip():
         vp_path = output_dir / f"{video.stem}.voiceprints.json"
@@ -346,33 +527,33 @@ def main():
                 prints = json.loads(vp_path.read_text(encoding="utf-8"))
                 voice_ids = vp.identify(prints, db, project=args.project)
                 if voice_ids:
-                    print("[5/7 спикеры] по голосу: "
+                    print("[спикеры] по голосу: "
                           + ", ".join(f"{k}->{n}({s})" for k, (n, s) in voice_ids.items()), flush=True)
             except Exception as e:
                 use_voice = False
-                print(f"[5/7 спикеры] голосовой слой пропущен ({e})", file=sys.stderr)
-        try:
-            text_names = ts.map_speakers(transcript_text, speaker_llm)
-        except lb.LocalBackendError as e:
-            text_names = {}
-            print(f"[5/7 спикеры] текстовый слой пропущен ({e})", file=sys.stderr)
-        for label, (name, _score) in voice_ids.items():   # голос приоритетнее текста
-            name_map[label] = name
-        for label, name in text_names.items():
-            name_map.setdefault(label, name)
-        if use_voice and db is not None and text_names:   # авто-enroll: текст назвал, голос - нет
-            # Неоднозначные имена (текст повесил одно имя на >1 метку) НЕ заносим: иначе в одну запись
-            # базы попадут голоса РАЗНЫХ людей и отпечаток испортится. Заносим только имена, однозначно
-            # привязанные к одной метке в этом прогоне (защита персистентной базы от самопорчи).
-            name_counts = {}
-            for n in text_names.values():
-                name_counts[n] = name_counts.get(n, 0) + 1
+                print(f"[спикеры] голосовой слой пропущен ({e})", file=sys.stderr)
+        text_names = {}
+        if use_speaker_llm:
+            # log обязателен: map_speakers гасит ошибку модели внутри себя, и без него сбой
+            # текстового слоя прошёл бы молча.
+            text_names = ts.map_speakers(
+                transcript_text, speaker_llm, validate=False,   # проверка - ниже, по общей картине
+                log=lambda m: print(f"[спикеры] {m}", file=sys.stderr, flush=True))
+
+        merged = {label: name for label, (name, _score) in voice_ids.items()}
+        for label, name in text_names.items():   # голос приоритетнее текста
+            merged.setdefault(label, name)
+        name_map, checks = sv.validate(merged, transcript_text, voice_confirmed=set(voice_ids))
+        for line in checks:
+            print(f"[спикеры] проверка: {line}", flush=True)
+
+        if use_voice and db is not None and name_map:   # авто-enroll: голос не узнал, но имя есть
+            # Проверка уже гарантирует, что одно имя не висит на двух метках, поэтому отдельный
+            # подсчёт неоднозначностей больше не нужен: в базу не попадут голоса разных людей
+            # под одной записью.
             added, skipped = 0, 0
-            for label, name in text_names.items():
+            for label, name in name_map.items():
                 if label in voice_ids or label not in prints:
-                    continue
-                if name_counts[name] > 1:   # имя висит на нескольких метках - неоднозначно, пропускаем
-                    skipped += 1
                     continue
                 if not vp.is_plausible_name(name):   # мусорное имя (КС/инициалы/огрызок) - не засоряем базу
                     skipped += 1
@@ -382,56 +563,133 @@ def main():
             if added:
                 try:
                     vp.save_db(db, voiceprint_db)
-                    msg = f"[5/7 спикеры] авто-enroll в базу: +{added} голос(ов)"
+                    msg = f"[спикеры] авто-enroll в базу: +{added} голос(ов)"
                     if skipped:
                         msg += f" (пропущено неоднозначных: {skipped})"
                     print(msg, flush=True)
                 except Exception as e:
-                    print(f"[5/7 спикеры] авто-enroll не сохранён ({e})", file=sys.stderr)
+                    print(f"[спикеры] авто-enroll не сохранён ({e})", file=sys.stderr)
             elif skipped:
-                print(f"[5/7 спикеры] авто-enroll пропущен: все {skipped} имён неоднозначны", flush=True)
+                print(f"[спикеры] авто-enroll пропущен: все {skipped} имён неоднозначны", flush=True)
 
     if name_map:
-        print(f"[5/7 спикеры] итог: {', '.join(f'{k}->{v}' for k, v in name_map.items())}", flush=True)
-        if detailed_path.exists():
-            detailed_path.write_text(
-                ts.apply_names(detailed_path.read_text(encoding="utf-8"), name_map), encoding="utf-8")
+        print(f"[спикеры] итог: {', '.join(f'{k}->{v}' for k, v in name_map.items())}", flush=True)
+        # Имена подставляются ДО разбора экрана, поэтому детальный лог сразу пишется с ними и
+        # переписывать его задним числом больше не нужно.
         segs = [(s, ts.apply_names(t, name_map)) for s, t in segs]
         transcript_text = _transcript_text(segs)
     else:
-        print("[5/7 спикеры] имена не определены - оставляю метки", flush=True)
+        print("[спикеры] имена не определены - оставляю метки", flush=True)
 
-    # 5.2 Связный лог (нарратив из механического детального)
+    # ----- 3. Кадры + зрение + детальный лог -----
+    vision = None
+    if use_vlm:
+        vision = analyze_frames(video, output_dir, segs, detailed_path, status_path,
+                                vlm_model=vlm_model, budget=budget, reuse=args.reuse_frames)
+        recognized = vision["ok"] + vision["reused"]
+        print(f"[кадры] детальный лог готов: распознано {recognized} из {vision['frames']}"
+              + (f", сбоев {vision['failed']}" if vision["failed"] else "")
+              + (f", не обработано {vision['skipped']}" if vision["skipped"] else ""), flush=True)
+        if vision["frames"] and recognized < vision["frames"]:
+            exit_code = 3
+    else:
+        # Зрение выключено - кадры всё равно нарезаем: их можно посмотреть глазами, а речь по
+        # интервалам уже разложена. Раньше единственным способом сюда попасть было убийство процесса.
+        detailed_path.write_text(
+            f"# Детальный лог (речь по интервалам кадров): {video.name}\n\n"
+            f"> Разбор экрана не выполнялся"
+            f"{' (--no-vlm)' if args.no_vlm else ' - модель зрения недоступна'}. "
+            f"Скриншоты нарезаны в `screenshots/`.\n\n---\n\n", encoding="utf-8")
+        try:
+            frames, _trunc = lb.extract_scene_frames(video, output_dir / "screenshots")
+            for i in range(len(frames)):
+                _append(detailed_path, _frame_block(i, frames, len(frames), segs,
+                                                    "_(экран не разобран)_"))
+            print(f"[кадры] нарезано без разбора: {len(frames)}", flush=True)
+            # Кадры перечисляем поимённо даже без разбора: по этому списку человек или агент
+            # находит, что именно осталось непокрытым, не вычитывая весь детальный лог.
+            vision = {"frames": len(frames), "ok": 0, "failed": 0, "skipped": len(frames),
+                      "reused": 0, "aborted_reason": "зрение отключено",
+                      "records": [{"index": i, "tc": lb.format_tc(t), "file": p.name,
+                                   "state": "skipped"} for i, (t, p) in enumerate(frames)]}
+        except lb.LocalBackendError as e:
+            print(f"[кадры] нарезка не удалась: {e}", file=sys.stderr)
+        if not args.no_vlm:   # выключили не мы, а недоступность модели - это неполный результат
+            exit_code = 3
+
+    # ----- 4. Связный лог (нарратив из механического детального) -----
     coherent_path.unlink(missing_ok=True)  # чистый старт: не оставить старый связный лог
     if args.no_coherent:
-        print("[6/7 связный] пропущено (--no-coherent)", flush=True)
+        print("[связный] пропущено (--no-coherent)", flush=True)
+    elif not use_text:
+        print("[связный] пропущено: text-модель недоступна", file=sys.stderr)
     elif detailed_path.exists():
-        print("[6/7 связный] сборка связного нарратива (чанками)...", flush=True)
+        print("[связный] сборка связного нарратива (чанками)...", flush=True)
         try:
-            coherent = ts.build_coherent_log(detailed_path.read_text(encoding="utf-8"), gemma_llm)
+            unsupported = []
+            coherent = ts.build_coherent_log(detailed_path.read_text(encoding="utf-8"), gemma_llm,
+                                             report=unsupported)
             if coherent:
+                # Числа, которых нет в описаниях кадров, выносим сноской в конец файла: молча
+                # вырезать их из нарратива нельзя (порвется фраза), а молча оставить - значит выдать
+                # выдумку модели за прочитанное с экрана. На реальном прогоне таких было восемь -
+                # суммы, коды счетов и годы, которых кадры не содержали.
+                note = ""
+                if unsupported:
+                    note = ("\n\n---\n\n> **Не подтверждено кадрами.** Эти числа и коды есть в "
+                            "нарративе, но их нет в описаниях экрана, из которых он собран - "
+                            "проверь по скриншотам, прежде чем использовать:\n>\n"
+                            + "".join(f"> - {line}\n" for line in unsupported))
                 coherent_path.write_text(
-                    f"# Связный лог (экран + речь): {video.name}\n\n{coherent}\n", encoding="utf-8")
-                print(f"[6/7 связный] сохранено: {coherent_path.name}", flush=True)
+                    f"# Связный лог (экран + речь): {video.name}\n\n{coherent}\n{note}",
+                    encoding="utf-8")
+                print(f"[связный] сохранено: {coherent_path.name}", flush=True)
+                if unsupported:
+                    print(f"[связный] ВНИМАНИЕ: {len(unsupported)} фрагмент(ов) с числами, которых "
+                          f"нет в кадрах - сноска в конце файла", file=sys.stderr, flush=True)
         except lb.LocalBackendError as e:
-            print(f"[6/7 связный] ОШИБКА (пропускаю): {e}", file=sys.stderr)
+            print(f"[связный] ОШИБКА (пропускаю): {e}", file=sys.stderr)
 
-    # 5.3 Саммари (протокол задач/решений из полного текста)
+    # ----- 5. Саммари (протокол задач и решений из полного текста) -----
+    summary_done = False   # именно ФАКТ построения, а не "модель была доступна": иначе статус-файл
+    #                        отрапортует успех там, где в саммари лежит маркер ошибки
     if args.no_summary:
-        print("[7/7 саммари] пропущено (--no-summary)", flush=True)
+        print("[саммари] пропущено (--no-summary)", flush=True)
+    elif not use_text:
+        summary_path.write_text(
+            "> **[!] Саммари не построено:** text-модель на 150 недоступна.\n", encoding="utf-8")
+        print("[саммари] пропущено: text-модель недоступна", file=sys.stderr)
+        exit_code = exit_code or 3
     else:
-        print("[7/7 саммари] генерация протокола...", flush=True)
+        print("[саммари] генерация протокола...", flush=True)
         try:
             summary = ts.build_summary(transcript_text, gemma_llm)
             if summary:
                 summary_path.write_text(summary, encoding="utf-8")
-                print(f"[7/7 саммари] сохранено: {summary_path.name}", flush=True)
+                summary_done = True
+                print(f"[саммари] сохранено: {summary_path.name}", flush=True)
             else:
                 summary_path.write_text("> Транскрипция пуста - саммари не построено.\n", encoding="utf-8")
-                print("[7/7 саммари] пустая транскрипция - саммари не построено", file=sys.stderr)
+                print("[саммари] пустая транскрипция - саммари не построено", file=sys.stderr)
         except lb.LocalBackendError as e:
             summary_path.write_text(f"> **[!] Саммари не построено.** Причина: {e}\n", encoding="utf-8")
-            print(f"[7/7 саммари] ОШИБКА (транскрипция и детальный лог сохранены): {e}", file=sys.stderr)
+            print(f"[саммари] ОШИБКА (транскрипция и детальный лог сохранены): {e}", file=sys.stderr)
+            exit_code = exit_code or 3
+
+    # ----- Статус прогона: что сделано, что нет и почему -----
+    save_status(status_path, {
+        "video": video.name,
+        "speakers": name_map,
+        "stages": {
+            "speech": {"segments": len(segs)},
+            "vision": {"enabled": use_vlm,
+                       **({k: v for k, v in vision.items() if k != "records"} if vision else {})},
+            "coherent": {"done": coherent_path.exists()},
+            "summary": {"done": summary_done, "skipped": bool(args.no_summary)},
+        },
+        "exit_code": exit_code,
+        "frames": (vision or {}).get("records", []),
+    })
 
     print("\n" + "=" * 60)
     print(f"Готово (локально, без облака). Результаты в: {output_dir}")
@@ -441,9 +699,10 @@ def main():
         print(f"  - {coherent_path.name} (связный)")
     if not args.no_summary:
         print(f"  - {summary_path.name}")
-    print(f"  - screenshots/")
+    print(f"  - {status_path.name} (статус прогона)")
+    print("  - screenshots/")
     if exit_code:
-        print("[!] Разбор экрана неполный (см. предупреждения выше).", file=sys.stderr)
+        print("[!] Результат неполный (см. предупреждения выше и статус-файл).", file=sys.stderr)
     print("=" * 60)
     sys.exit(exit_code)
 

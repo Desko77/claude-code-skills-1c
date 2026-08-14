@@ -1,0 +1,12 @@
+{
+  "script": "xdto-decompile/scripts/xdto-decompile",
+  "setup": "empty-config",
+  "args": [
+    { "flag": "-PackagePath", "from": "workPath", "field": "packagePath" },
+    { "flag": "-OutFile", "from": "workPath", "field": "outFile" }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": true
+  }
+}

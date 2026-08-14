@@ -1,0 +1,18 @@
+{
+  "name": "round-trip: add-attribute на LF-исходнике сохраняет LF (порты расходились здесь: PS форсировал CRLF)",
+  "setup": "fixture:lf-catalog",
+  "params": { "objectPath": "Catalogs/КрлфСпр.xml" },
+  "input": { "add": { "attributes": ["Новый: Boolean"] } },
+  "expect": {
+    "preserves": {
+      "file": "Catalogs/КрлфСпр.xml",
+      "bom": true,
+      "eol": "lf",
+      "encoding": "UTF-8",
+      "finalNewline": true,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

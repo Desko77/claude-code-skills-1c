@@ -1,0 +1,14 @@
+{
+  "name": "round-trip: xdto:-аннотации и свойства метаданного восстанавливаются",
+  "caseFiles": ["annotations.xsd"],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": { "-XsdPath": "{workDir}/annotations.xsd", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "packagePath": "XDTOPackages/ПакетСАннотациями", "outFile": "roundtrip.xsd" },
+  "expect": {
+    "files": ["roundtrip.xsd"]
+  }
+}

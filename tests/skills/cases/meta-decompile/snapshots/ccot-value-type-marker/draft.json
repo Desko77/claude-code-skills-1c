@@ -1,0 +1,16 @@
+{
+  "type": "ChartOfCharacteristicTypes",
+  "name": "ВидыСведений",
+  "descriptionLength": 25,
+  "checkUnique": false,
+  "quickChoice": true,
+  "dataLockControlMode": "Automatic",
+  "standardAttributes": {
+    "Description": {
+      "fillChecking": "DontCheck"
+    },
+    "Parent": {
+      "fillFromFillingValue": false
+    }
+  }
+}

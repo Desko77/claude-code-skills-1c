@@ -1,0 +1,52 @@
+{
+  "name": "Заимствование формы без основного реквизита: связь параметров выбора переводится на uuid реквизита",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Партнеры" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "КонтактныеЛица" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Document", "name": "ЗаказПоставщику",
+        "attributes": [
+          { "name": "Партнер", "type": "CatalogRef.Партнеры" },
+          { "name": "КонтактноеЛицо", "type": "CatalogRef.КонтактныеЛица" }
+        ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Documents/ЗаказПоставщику.xml", "-FormName": "ФормаДокумента" }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Заказ поставщику",
+        "elements": [
+          { "input": "Партнер", "path": "Объект.Партнер" },
+          {
+            "input": "КонтактноеЛицо", "path": "Объект.КонтактноеЛицо",
+            "choiceParameterLinks": [
+              { "name": "Отбор.Владелец", "dataPath": "Объект.Партнер" }
+            ]
+          }
+        ],
+        "attributes": [ { "name": "Объект", "type": "DocumentObject.ЗаказПоставщику", "main": true } ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputPath": "{workDir}/Documents/ЗаказПоставщику/Forms/ФормаДокумента/Ext/Form.xml" }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": { "-Name": "Тест", "-OutputDir": "{workDir}/ext", "-ConfigPath": "{workDir}" }
+    }
+  ],
+  "params": { "extensionPath": "ext", "object": "Document.ЗаказПоставщику.Form.ФормаДокумента" }
+}

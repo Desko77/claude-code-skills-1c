@@ -1,0 +1,17 @@
+{
+  "name": "fixed без значения и значение внутри fixed — платформа такой пакет отвергает",
+  "caseFiles": [
+    "pkg-fixed/XDTOPackages/fixedbad.xml",
+    "pkg-fixed/XDTOPackages/fixedbad/Ext/Package.bin"
+  ],
+  "params": { "packagePath": "pkg-fixed/XDTOPackages/fixedbad" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "Отсутствует фиксированное значение свойства 'БезЗначения'",
+      "Свойство \"ЗначениеВПризнаке\": fixed=\"Р\""
+    ],
+    "stdoutNotContains": ["Правильное", "НеФиксированное"]
+  },
+  "noSnapshot": "навык только читает — сравнивать нечего, проверка через stdoutContains"
+}

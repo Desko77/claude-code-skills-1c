@@ -1,0 +1,17 @@
+{
+  "name": "Спецсимволы в синониме: экранируются только & < >",
+  "params": {
+    "name": "Экранирование"
+  },
+  "args_extra": [
+    "-Synonym",
+    "Кавычка \" апостроф ' амперсанд & угол <"
+  ],
+  "expect": {
+    "files": ["Configuration.xml"],
+    "fileContains": {
+      "file": "Configuration.xml",
+      "text": "<v8:content>Кавычка \" апостроф ' амперсанд &amp; угол &lt;</v8:content>"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "Отказ до запуска: информационная база не найдена",
+  "args_extra": [
+    "-V8Path",
+    "{workDir}",
+    "-InfoBasePath",
+    "{workDir}\\нет-такой-базы",
+    "-OutputFile",
+    "{workDir}\\out.cf"
+  ],
+  "expectError": true,
+  "noSnapshot": "негативный кейс: платформа не запускается"
+}

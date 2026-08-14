@@ -1,0 +1,13 @@
+{
+  "name": "Ошибка: columnSet задан объектом вместо имени",
+  "input": {
+    "columns": 3,
+    "areas": [
+      { "name": "Шапка", "columnSet": { "columns": 5 }, "rows": [["А", "Б", "В"]] }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "'columnSet' must be a name declared in columnSets, got an object: area \"Шапка\""
+}

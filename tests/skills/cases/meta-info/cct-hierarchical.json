@@ -1,0 +1,26 @@
+{
+  "name": "Иерархия выводится не только у справочника, но и у ПВХ",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "ChartOfCharacteristicTypes",
+        "name": "ВидыСубконто",
+        "hierarchical": true,
+        "valueType": "String(100)"
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "ChartsOfCharacteristicTypes/ВидыСубконто" },
+  "args_extra": ["-Mode", "full"],
+  "expect": {
+    "stdoutContains": [
+      "Иерархический:",
+      "Стандартные реквизиты:",
+      "Родитель",
+      "ПВХСсылка.ВидыСубконто"
+    ]
+  }
+}

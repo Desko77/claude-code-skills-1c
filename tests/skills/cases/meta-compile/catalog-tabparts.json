@@ -1,0 +1,29 @@
+{
+  "name": "Справочник с табличной частью",
+  "input": {
+    "type": "Catalog",
+    "name": "Товары",
+    "attributes": [
+      { "name": "Артикул", "type": "String", "length": 25 }
+    ],
+    "tabularSections": [
+      {
+        "name": "Штрихкоды",
+        "attributes": [
+          { "name": "Штрихкод", "type": "String", "length": 128 }
+        ]
+      },
+      {
+        "name": "Характеристики",
+        "synonym": { "ru": "Характеристики", "en": "Features" },
+        "tooltip": "Дополнительные характеристики товара",
+        "comment": "ТЧ характеристик",
+        "attributes": [ "Свойство: String(100)", "Значение: String(200)" ]
+      }
+    ]
+  },
+  "validatePath": "Catalogs/Товары",
+  "expect": {
+    "files": ["Catalogs/Товары.xml", "Catalogs/Товары/Ext/ObjectModule.bsl"]
+  }
+}

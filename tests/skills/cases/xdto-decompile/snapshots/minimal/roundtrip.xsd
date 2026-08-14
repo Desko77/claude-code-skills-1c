@@ -1,0 +1,16 @@
+<xs:schema xmlns:tns="urn:test:minimal" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:test:minimal">
+	<xs:annotation>
+		<xs:appinfo>
+			<xdto:package xmlns:xdto="http://v8.1c.ru/8.1/xdto">
+				<xdto:name>minimal</xdto:name>
+				<xdto:synonym lang="ru">minimal</xdto:synonym>
+			</xdto:package>
+		</xs:appinfo>
+	</xs:annotation>
+	<xs:complexType name="ОписаниеОшибки">
+		<xs:sequence>
+			<xs:element name="КраткоеОписание" type="xs:string"/>
+			<xs:element name="ПодробноеОписание" type="xs:string"/>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>

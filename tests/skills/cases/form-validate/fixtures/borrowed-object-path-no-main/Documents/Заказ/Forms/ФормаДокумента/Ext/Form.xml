@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.20">
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
+		<Autofill>false</Autofill>
+	</AutoCommandBar>
+	<ChildItems>
+		<InputField name="КонтактноеЛицо" id="4">
+			<ChoiceParameterLinks>
+				<xr:Link>
+					<xr:Name>Отбор.Владелец</xr:Name>
+					<xr:DataPath xsi:type="xs:string">Объект.Партнер</xr:DataPath>
+					<xr:ValueChange>Clear</xr:ValueChange>
+				</xr:Link>
+			</ChoiceParameterLinks>
+			<ContextMenu name="КонтактноеЛицоКонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="КонтактноеЛицоРасширеннаяПодсказка" id="6"/>
+		</InputField>
+	</ChildItems>
+	<Attributes/>
+	<BaseForm version="2.20">
+		<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
+			<Autofill>false</Autofill>
+		</AutoCommandBar>
+		<ChildItems>
+			<InputField name="КонтактноеЛицо" id="4">
+				<ChoiceParameterLinks>
+					<xr:Link>
+						<xr:Name>Отбор.Владелец</xr:Name>
+						<xr:DataPath xsi:type="xs:string">Объект.Партнер</xr:DataPath>
+						<xr:ValueChange>Clear</xr:ValueChange>
+					</xr:Link>
+				</ChoiceParameterLinks>
+				<ContextMenu name="КонтактноеЛицоКонтекстноеМеню" id="5"/>
+				<ExtendedTooltip name="КонтактноеЛицоРасширеннаяПодсказка" id="6"/>
+			</InputField>
+		</ChildItems>
+		<Attributes/>
+	</BaseForm>
+</Form>

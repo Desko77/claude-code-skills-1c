@@ -1,0 +1,23 @@
+{
+  "name": "Пустая конфигурация",
+  "params": {
+    "name": "ТестоваяКонфигурация"
+  },
+  "expect": {
+    "files": [
+      "Configuration.xml",
+      "Languages/Русский.xml",
+      "Ext/ClientApplicationInterface.xml"
+    ],
+    "preserves": {
+      "file": "Configuration.xml",
+      "bom": true,
+      "eol": "crlf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

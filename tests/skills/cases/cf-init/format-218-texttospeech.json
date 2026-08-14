@@ -1,0 +1,25 @@
+{
+  "name": "Формат 2.18: TextToSpeech в мобильной функциональности (появился в 8.3.25, не в 8.5)",
+  "params": {
+    "name": "Конфа218"
+  },
+  "args_extra": [
+    "-FormatVersion",
+    "2.18",
+    "-CompatibilityMode",
+    "Version8_3_25"
+  ],
+  "expect": {
+    "fileContains": {
+      "file": "Configuration.xml",
+      "text": [
+        "<app:functionality>TextToSpeech</app:functionality>",
+        "version=\"2.18\""
+      ]
+    },
+    "fileNotContains": {
+      "file": "Configuration.xml",
+      "text": "xmlns:pal="
+    }
+  }
+}

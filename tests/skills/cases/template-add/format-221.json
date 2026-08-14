@@ -1,0 +1,28 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке макета",
+  "setup": "empty-config-221",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "Обработка221"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectName": "Обработка221",
+    "templateName": "Макет221",
+    "templateType": "SpreadsheetDocument"
+  },
+  "expect": {
+    "fileContains": {
+      "file": "DataProcessors/Обработка221/Templates/Макет221.xml",
+      "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+    }
+  }
+}

@@ -1,0 +1,28 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:t" targetNamespace="urn:t">
+	<xs:group name="Общие">
+		<xs:sequence><xs:element name="ИзГруппы" type="xs:string"/></xs:sequence>
+	</xs:group>
+	<xs:attributeGroup name="Служебные">
+		<xs:attribute name="Версия" type="xs:string"/>
+	</xs:attributeGroup>
+	<xs:complexType name="Документ">
+		<xs:sequence>
+			<xs:element name="Первый" type="xs:string"/>
+			<xs:choice>
+				<xs:element name="ВариантА" type="xs:string"/>
+				<xs:element name="ВариантБ" type="xs:string"/>
+			</xs:choice>
+			<xs:group ref="tns:Общие"/>
+			<xs:sequence maxOccurs="unbounded">
+				<xs:element name="Повторяемый" type="xs:string"/>
+			</xs:sequence>
+		</xs:sequence>
+		<xs:attributeGroup ref="tns:Служебные"/>
+	</xs:complexType>
+	<xs:complexType name="Всё">
+		<xs:all><xs:element name="Любой" type="xs:string"/></xs:all>
+	</xs:complexType>
+	<xs:complexType name="ЧерезГруппу">
+		<xs:group ref="tns:Общие"/>
+	</xs:complexType>
+</xs:schema>

@@ -1,0 +1,9 @@
+{
+  "name": "Валидатор находит ошибку: LineNumberLength вне диапазона 5..9",
+  "setup": "fixture:catalog-lnl-out-of-range",
+  "params": { "objectPath": "Catalogs/Договоры.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": "19. LineNumberLength=12 вне допустимого диапазона 5..9"
+  }
+}

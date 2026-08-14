@@ -1,0 +1,18 @@
+{
+  "name": "Ошибка: раскладка без col не влезает в columns",
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          { "cells": [{ "text": "А" }, { "text": "Б" }, { "text": "В" }, { "text": "Г" }] }
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "Row exceeds 'columns' (3): area \"Шапка\", row 1"
+}

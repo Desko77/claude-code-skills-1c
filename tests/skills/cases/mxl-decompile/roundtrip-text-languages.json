@@ -1,0 +1,29 @@
+{
+  "name": "Декомпиляция макета с текстом на нескольких языках",
+  "preRun": [
+    {
+      "script": "mxl-compile/scripts/mxl-compile",
+      "input": {
+        "columns": 2,
+        "textLanguages": ["ru", "en"],
+        "areas": [
+          {
+            "name": "Test",
+            "rows": [
+              {
+                "cells": [
+                  { "col": 1, "text": "Итого" },
+                  { "col": 2, "text": { "ru": "Поставщик", "en": "Supplier" } }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputPath": "Template.xml" },
+      "cwd": "{workDir}"
+    }
+  ],
+  "params": { "templatePath": "Template.xml" },
+  "expect": { "stdoutContains": "textLanguages" }
+}

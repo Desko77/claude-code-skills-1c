@@ -1,0 +1,29 @@
+{
+  "name": "Запись по несуществующему пути: каталог назначения создаётся навыком",
+  "input": {
+    "columns": 1,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          { "cells": [{ "col": 1, "text": "Привет" }] }
+        ]
+      }
+    ]
+  },
+  "params": { "outputPath": "Templates/Макет/Ext/Template.xml" },
+  "validatePath": "Templates/Макет/Ext/Template.xml",
+  "expect": {
+    "files": ["Templates/Макет/Ext/Template.xml"],
+    "preserves": {
+      "file": "Templates/Макет/Ext/Template.xml",
+      "bom": true,
+      "eol": "crlf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "Позитив: операции сервисов, вложенные объекты и внешний источник данных",
+  "input": {
+    "name": "Интеграция",
+    "synonym": "Интеграция",
+    "objects": [
+      "WebService.Обмен.Operation.Загрузить: Use",
+      "HTTPService.ПередачаДанных.URLTemplate.Файлы.Method.get: Use",
+      "IntegrationService.Канал.IntegrationServiceChannel.Основной: Use",
+      "Catalog.Товары.Attribute.Цена: View, Edit",
+      "Subsystem.Продажи.Subsystem.Опт: View",
+      "CalculationRegister.Начисления.Recalculation.Перерасчет: Read, Update",
+      "ExternalDataSource.Источник: Use, Administration",
+      "ExternalDataSource.Источник.Table.Заказы: Read, View",
+      "ExternalDataSource.Источник.Table.Заказы.Field.Сумма: View, Edit",
+      "ExternalDataSource.Источник.Cube.Продажи.Dimension.Период: View"
+    ]
+  },
+  "expect": {
+    "files": [
+      "Roles/Интеграция/Ext/Rights.xml"
+    ]
+  },
+  "skipValidation": true,
+  "skipPlatformVerify": "роль ссылается на объекты, которых нет в пустой фикстуре и которые не создаёт ни один навык (веб-сервис, HTTP-сервис, сервис интеграции, внешний источник данных, перерасчёт); платформа отвергает такую конфигурацию по составу, а не по формату Rights.xml"
+}

@@ -1,0 +1,34 @@
+{
+  "name": "Кавычка в значении атрибута экранируется (&quot;), иначе XML невалиден",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "DataProcessor", "name": "Экранирование" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/DataProcessors/Экранирование.xml", "-FormName": "Форма" }
+    }
+  ],
+  "params": { "outputPath": "DataProcessors/Экранирование/Forms/Форма/Ext/Form.xml" },
+  "validatePath": "DataProcessors/Экранирование/Forms/Форма/Ext/Form.xml",
+  "input": {
+    "attributes": [ { "name": "Значение", "type": "String" } ],
+    "elements": [
+      {
+        "input": "Поле",
+        "path": "Значение",
+        "choiceParameters": [
+          { "name": "Отбор.Наименование \"в кавычках\" & <угол>", "value": "тест" }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "fileContains": {
+      "file": "DataProcessors/Экранирование/Forms/Форма/Ext/Form.xml",
+      "text": "name=\"Отбор.Наименование &quot;в кавычках&quot; &amp; &lt;угол&gt;\""
+    }
+  }
+}

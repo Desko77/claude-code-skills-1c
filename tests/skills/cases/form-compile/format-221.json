@@ -1,0 +1,45 @@
+{
+  "name": "Формат 2.21 (8.5): xmlns:pal в шапке Form.xml",
+  "setup": "empty-config-221",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/Catalogs/Товары.xml",
+        "-FormName": "ФормаЭлемента"
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml"
+  },
+  "input": {
+    "title": "Тест",
+    "elements": [],
+    "attributes": [
+      {
+        "name": "Объект",
+        "type": "CatalogObject.Товары",
+        "main": true
+      }
+    ]
+  },
+  "validatePath": "Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml",
+  "expect": {
+    "fileContains": {
+      "file": "Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml",
+      "text": "xmlns:lf=\"http://v8.1c.ru/8.2/managed-application/logform\" xmlns:pal=\"http://v8.1c.ru/8.1/data/ui/colors/palette\" xmlns:style="
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Отказ: тип без прав в ролях (Enum), файлы не созданы",
+  "input": {
+    "name": "Кладовщик",
+    "objects": [
+      "Enum.ЮрФизЛицо: Read",
+      "Перечисление.ЮрФизЛицо: Чтение"
+    ]
+  },
+  "expectError": "не имеет прав в роли",
+  "noSnapshot": "негативный кейс: навык не должен создать ни одного файла",
+  "expect": {
+    "filesAbsent": [
+      "Roles/Кладовщик.xml",
+      "Roles/Кладовщик/Ext/Rights.xml"
+    ],
+    "fileNotContains": { "file": "Configuration.xml", "text": "Кладовщик" }
+  }
+}

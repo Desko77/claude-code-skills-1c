@@ -1,0 +1,23 @@
+{
+  "name": "Блок без имени не порождает именованную область",
+  "input": {
+    "columns": 3,
+    "areas": [
+      { "name": "Шапка", "rows": [["А", "Б", "В"]] },
+      { "rows": [["строки вне областей", ">", ">"]] },
+      { "name": "Строка", "rows": [["{П1}", "{П2}", "{П3}"]] }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"],
+    "stdoutContains": "Areas: 2",
+    "fileContains": {
+      "file": "Template.xml",
+      "text": ["<name>Шапка</name>", "<name>Строка</name>", "строки вне областей"]
+    }
+  }
+}

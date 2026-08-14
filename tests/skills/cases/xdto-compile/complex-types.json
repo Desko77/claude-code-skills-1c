@@ -1,0 +1,9 @@
+{
+  "name": "наследование, abstract, choice, open (any+anyAttribute), mixed",
+  "caseFiles": ["complex-types.xsd"],
+  "params": { "xsdFile": "complex-types.xsd" },
+  "validatePath": "XDTOPackages/complex_types",
+  "expect": {
+    "files": ["XDTOPackages/complex_types.xml", "XDTOPackages/complex_types/Ext/Package.bin"]
+  }
+}

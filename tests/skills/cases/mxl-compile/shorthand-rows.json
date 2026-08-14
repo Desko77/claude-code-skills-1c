@@ -1,0 +1,23 @@
+{
+  "name": "Шорткат строк: текст, параметр, пропуск, объектный элемент",
+  "input": {
+    "columns": 4,
+    "styles": { "hdr": { "align": "center", "border": "all" } },
+    "areas": [
+      {
+        "name": "Таблица",
+        "rows": [
+          ["Наименование", "Количество", "Сумма", "Примечание"],
+          ["{Товар}", "{Кол}", null, { "text": "хвост", "style": "hdr" }]
+        ]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"]
+  }
+}

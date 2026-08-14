@@ -1,0 +1,6 @@
+<package xmlns="http://v8.1c.ru/8.1/xdto" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="urn:test:unresolved">
+	<objectType name="Документ">
+		<property xmlns:d3p1="urn:test:unresolved" name="Поле" type="d3p1:НетТакогоТипа"/>
+		<property xmlns:d3p1="urn:test:чужой" name="Чужое" type="d3p1:Тип"/>
+	</objectType>
+</package>

@@ -1,0 +1,19 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="urn:test:cardinality"
+           targetNamespace="urn:test:cardinality"
+           elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:complexType name="Позиция">
+		<xs:sequence>
+			<xs:element name="Обязательный" type="xs:string"/>
+			<xs:element name="Необязательный" type="xs:string" minOccurs="0"/>
+			<xs:element name="Массив" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element name="ДоТрёх" type="xs:string" maxOccurs="3"/>
+			<xs:element name="Обнуляемый" type="xs:string" nillable="true" minOccurs="0"/>
+			<xs:element name="СУмолчанием" type="xs:string" default="нет"/>
+			<xs:element name="Фиксированный" type="xs:string" fixed="1"/>
+			<xs:element name="БезТипа"/>
+		</xs:sequence>
+		<xs:attribute name="Номер" type="xs:string"/>
+		<xs:attribute name="Признак" type="xs:boolean" default="false"/>
+	</xs:complexType>
+</xs:schema>

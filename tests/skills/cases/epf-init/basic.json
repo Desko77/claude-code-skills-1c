@@ -1,0 +1,29 @@
+{
+  "name": "Пустая внешняя обработка",
+  "params": {
+    "name": "ТестоваяОбработка"
+  },
+  "validatePath": "ТестоваяОбработка",
+  "expect": {
+    "files": [
+      "ТестоваяОбработка.xml"
+    ],
+    "preserves": [
+      {
+        "file": "ТестоваяОбработка.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      },
+      {
+        "file": "ТестоваяОбработка/Ext/ObjectModule.bsl",
+        "bom": true,
+        "eol": "crlf"
+      }
+    ]
+  }
+}

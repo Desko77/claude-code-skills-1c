@@ -1,0 +1,22 @@
+{
+  "name": "Числовой код и отсутствующее наименование",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "ВерсииРасширений",
+        "codeType": "Number",
+        "codeLength": 9,
+        "descriptionLength": 0
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/ВерсииРасширений" },
+  "expect": {
+    "stdoutContains": ["Стандартные реквизиты:", "Код", "Число(9)"],
+    "stdoutNotContains": ["Наименование", "Владелец", "Строка(9)"]
+  }
+}

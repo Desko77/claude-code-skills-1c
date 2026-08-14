@@ -1,0 +1,13 @@
+{
+  "name": "нарушен порядок верхнего уровня — платформа отвергнет пакет",
+  "caseFiles": [
+    "pkg-badorder/XDTOPackages/badorder.xml",
+    "pkg-badorder/XDTOPackages/badorder/Ext/Package.bin"
+  ],
+  "params": { "packagePath": "pkg-badorder/XDTOPackages/badorder" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": ["Нарушен порядок элементов верхнего уровня"]
+  },
+  "noSnapshot": "навык только читает — проверка через stdoutContains"
+}

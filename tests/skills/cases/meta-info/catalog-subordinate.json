@@ -1,0 +1,40 @@
+{
+  "name": "Подчинённый справочник — владелец и его обязательность",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Контрагенты"
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "БанковскиеСчета",
+        "owners": ["Catalog.Контрагенты"],
+        "subordinationUse": "ToFoldersAndItems",
+        "codeLength": 9,
+        "descriptionLength": 100
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/БанковскиеСчета" },
+  "expect": {
+    "stdoutContains": [
+      "Стандартные реквизиты:",
+      "Владелец",
+      "СправочникСсылка.Контрагенты",
+      "обязательный",
+      "Подчинение: группам и элементам",
+      "Код",
+      "Строка(9)",
+      "Наименование",
+      "Строка(100)"
+    ]
+  }
+}

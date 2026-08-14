@@ -1,0 +1,35 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:test:types" targetNamespace="urn:test:types">
+	<xs:simpleType name="СуммаТип">
+		<xs:restriction base="xs:decimal">
+			<xs:totalDigits value="18"/><xs:fractionDigits value="2"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="СчётТип">
+		<xs:restriction base="xs:string">
+			<xs:length value="20"/><xs:pattern value="[0-9]{20}"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="ВидДокумента">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Поручение"/><xs:enumeration value="Требование"/>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:complexType name="Платёж">
+		<xs:sequence>
+			<xs:element name="Строкой" type="xs:string"/>
+			<xs:element name="Целым" type="xs:integer"/>
+			<xs:element name="Дробным" type="xs:double"/>
+			<xs:element name="Датой" type="xs:dateTime"/>
+			<xs:element name="Флагом" type="xs:boolean"/>
+			<xs:element name="Двоичным" type="xs:base64Binary"/>
+			<xs:element name="Произвольным"/>
+			<xs:element name="Сумма" type="tns:СуммаТип"/>
+			<xs:element name="Счёт" type="tns:СчётТип"/>
+			<xs:element name="Вид" type="tns:ВидДокумента"/>
+			<xs:element name="Необязательное" type="xs:string" minOccurs="0"/>
+			<xs:element name="Коллекция" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+			<xs:element name="ДоТрёх" type="xs:string" maxOccurs="3"/>
+		</xs:sequence>
+		<xs:attribute name="Атрибутом" type="xs:string"/>
+	</xs:complexType>
+</xs:schema>

@@ -1,0 +1,31 @@
+{
+  "name": "Документ — Дата и Номер в блоке, а не в шапке",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Document",
+        "name": "АвансовыйОтчет",
+        "numberType": "String",
+        "numberLength": 11,
+        "numberPeriodicity": "Year",
+        "autonumbering": true
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Documents/АвансовыйОтчет" },
+  "expect": {
+    "stdoutContains": [
+      "Стандартные реквизиты:",
+      "Дата",
+      "обязательный",
+      "Номер",
+      "Строка(11)",
+      "по году",
+      "авто"
+    ],
+    "stdoutNotContains": ["Номер: Строка(11)"]
+  }
+}

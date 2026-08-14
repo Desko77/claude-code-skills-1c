@@ -1,0 +1,15 @@
+{
+  "name": "корректный пакет, собранный xdto-compile — ошибок нет",
+  "caseFiles": ["valid.xsd"],
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": { "-XsdPath": "{workDir}/valid.xsd", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "packagePath": "XDTOPackages/valid" },
+  "expect": {
+    "stdoutContains": ["Validation OK"]
+  },
+  "noSnapshot": "навык только читает — сравнивать нечего, проверка через stdoutContains"
+}

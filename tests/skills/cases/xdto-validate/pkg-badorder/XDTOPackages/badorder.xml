@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:v8="http://v8.1c.ru/8.1/data/core" version="2.17">
+	<XDTOPackage uuid="11111111-2222-3333-4444-555555555555">
+		<Properties>
+			<Name>badorder</Name>
+			<Synonym><v8:item><v8:lang>ru</v8:lang><v8:content>badorder</v8:content></v8:item></Synonym>
+			<Comment/>
+			<Namespace>urn:test:badorder</Namespace>
+		</Properties>
+	</XDTOPackage>
+</MetaDataObject>

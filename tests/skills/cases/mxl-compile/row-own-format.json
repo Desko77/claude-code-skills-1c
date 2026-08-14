@@ -1,0 +1,38 @@
+{
+  "name": "Формат строки: скрытие, высота и режимы применения стиля",
+  "input": {
+    "columns": 3,
+    "defaultWidth": 20,
+    "fonts": {
+      "default": { "face": "Arial", "size": 10 },
+      "bold": { "face": "Arial", "size": 10, "bold": true }
+    },
+    "styles": {
+      "фон": { "backColor": "#EBEBEB" },
+      "рамка": { "border": "Solid" },
+      "жирный": { "font": "bold" }
+    },
+    "areas": [
+      {
+        "name": "Тело",
+        "rows": [
+          { "height": 20, "hidden": true, "cells": [
+            { "col": 1, "text": "скрытая строка" }
+          ]},
+          { "rowStyle": "фон", "cells": [
+            { "col": 1, "text": "и строке, и ячейкам" }
+          ]},
+          { "rowStyle": { "style": "жирный", "apply": "row" }, "cells": [
+            { "col": 1, "text": "только строке" }
+          ]},
+          { "rowStyle": { "style": "рамка", "apply": "cells" }, "cells": [
+            { "col": 1, "text": "только ячейкам" }
+          ]}
+        ]
+      }
+    ]
+  },
+  "params": { "outputPath": "Template.xml" },
+  "validatePath": "Template.xml",
+  "expect": { "files": ["Template.xml"] }
+}

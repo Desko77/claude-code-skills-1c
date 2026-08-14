@@ -1,0 +1,17 @@
+{
+  "name": "OutputPath принимается и абсолютным",
+  "preRun": [
+    {
+      "script": "mxl-compile/scripts/mxl-compile",
+      "input": { "columns": 2, "areas": [{ "name": "Test", "rows": [{ "cells": [{ "col": 1, "text": "A" }, { "col": 2, "text": "B" }] }] }] },
+      "args": { "-JsonPath": "{inputFile}", "-OutputPath": "Template.xml" },
+      "cwd": "{workDir}"
+    }
+  ],
+  "params": { "templatePath": "Template.xml" },
+  "args_extra": ["-OutputPath", "{workDir}/back.json"],
+  "expect": {
+    "files": ["back.json"],
+    "stdoutContains": "[OK] Decompiled:"
+  }
+}

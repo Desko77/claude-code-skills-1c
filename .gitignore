@@ -53,3 +53,7 @@ debug/
 # OS
 Thumbs.db
 .DS_Store
+
+# Артефакты прогона тестов скилов
+tests/skills/.cache/
+tests/skills/.last-report.json

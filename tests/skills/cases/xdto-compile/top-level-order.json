@@ -1,0 +1,25 @@
+{
+  "name": "порядок верхнего уровня: import→property→valueType→objectType независимо от порядка в XSD",
+  "caseFiles": [
+    "other.xsd",
+    "top-level-order.xsd"
+  ],
+  "params": {
+    "xsdFile": "top-level-order.xsd"
+  },
+  "validatePath": "XDTOPackages/top_level_order",
+  "expect": {
+    "files": [
+      "XDTOPackages/top_level_order/Ext/Package.bin"
+    ]
+  },
+  "preRun": [
+    {
+      "script": "xdto-compile/scripts/xdto-compile",
+      "args": {
+        "-XsdPath": "{workDir}/other.xsd",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Ошибка: > первым элементом строки — слева нет ячейки",
+  "input": {
+    "columns": 3,
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [[">", "А"]]
+      }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "expectError": "Row shorthand: '>' has no cell to the left: area \"Шапка\", row 1, cell 1"
+}

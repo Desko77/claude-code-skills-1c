@@ -1,0 +1,28 @@
+{
+  "name": "Колоночные раскладки: своя ширина колонок у группы строк (id выводится из имени детерминированно, ожидаемый = UUIDv3 от \"узкая\")",
+  "input": {
+    "columns": 3,
+    "columnWidths": { "1-3": 20 },
+    "columnSets": {
+      "узкая": { "columns": 3, "columnWidths": { "1-3": 8 } }
+    },
+    "areas": [
+      { "name": "Шапка", "rows": [["Наименование", "Количество", "Сумма"]] },
+      { "name": "ТабличнаяЧасть", "columnSet": "узкая", "rows": [["{Товар}", "{Кол}", "{Сумма}"]] }
+    ]
+  },
+  "params": {
+    "outputPath": "Template.xml"
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"],
+    "fileContains": {
+      "file": "Template.xml",
+      "text": [
+        "<id>12320174-2b07-3806-9f7f-ec3834007fdb</id>",
+        "<columnsID>12320174-2b07-3806-9f7f-ec3834007fdb</columnsID>"
+      ]
+    }
+  }
+}

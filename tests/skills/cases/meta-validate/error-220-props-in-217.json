@@ -1,0 +1,12 @@
+{
+  "name": "Валидатор находит ошибку: свойства формата 2.18 и 2.20 в файле со штампом 2.17",
+  "setup": "fixture:catalog-220-props-in-217",
+  "params": { "objectPath": "Catalogs/Договоры.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "<LineNumberLength> появился в формате 2.20, а файл объявлен как 2.17",
+      "<TypeReductionMode> появился в формате 2.18, а файл объявлен как 2.17"
+    ]
+  }
+}

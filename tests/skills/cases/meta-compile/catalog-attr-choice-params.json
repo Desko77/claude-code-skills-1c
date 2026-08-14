@@ -1,0 +1,30 @@
+{
+  "name": "Реквизит: ChoiceParameterLinks + ChoiceParameters (ограничение выбора)",
+  "input": {
+    "type": "Catalog",
+    "name": "ТестВыбора",
+    "attributes": [
+      { "name": "Счет", "type": "CatalogRef.БанковскиеСчета",
+        "choiceParameterLinks": [ { "name": "Отбор.Владелец", "dataPath": "Ссылка", "valueChange": "Clear" } ] },
+      { "name": "Партнер", "type": "CatalogRef.Партнеры",
+        "choiceParameters": "Отбор.ЭтоГруппа=false" },
+      { "name": "ТипТТН", "type": "CatalogRef.ВидыТранспорта",
+        "choiceParameters": [ { "name": "Отбор.Тип", "type": "EnumRef.ТипыВЕТИС", "value": ["EmptyRef", "ТТН"] } ] },
+      { "name": "Валюта", "type": "CatalogRef.Валюты",
+        "choiceParameterLinks": "Отбор.Владелец=Ссылка" },
+      { "name": "ПустаяСсылка", "type": "String(10)",
+        "choiceParameters": [ { "name": "Отбор.ТипПоказателя", "value": { "emptyRef": true } } ] },
+      { "name": "ПустаяСсылкаВМассиве", "type": "String(10)",
+        "choiceParameters": [ { "name": "Отбор.Набор", "value": [ { "emptyRef": true }, "ТТН" ] } ] },
+      { "name": "СтрокаПохожаяНаСсылку", "type": "String(60)",
+        "choiceParameters": [ { "name": "Отбор.ТипДокумента", "value": "Документ.РеализацияТоваровУслуг" } ] },
+      { "name": "НастоящаяСсылка", "type": "CatalogRef.Номенклатура",
+        "fillValue": "Справочник.Номенклатура.ПустаяСсылка",
+        "choiceParameters": [ { "name": "Отбор.Вид", "value": "Перечисление.ТипыВЕТИС.ТТН" } ] }
+    ]
+  },
+  "validatePath": "Catalogs/ТестВыбора",
+  "expect": {
+    "files": ["Catalogs/ТестВыбора.xml"]
+  }
+}

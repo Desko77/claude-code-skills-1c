@@ -1,0 +1,11 @@
+{
+  "name": "Ошибка: -FormatVersion не число — это опечатка, а не старая версия",
+  "params": {
+    "name": "ОбработкаКривая"
+  },
+  "args_extra": [
+    "-FormatVersion",
+    "2,17"
+  ],
+  "expectError": "Malformed -FormatVersion '2,17'"
+}

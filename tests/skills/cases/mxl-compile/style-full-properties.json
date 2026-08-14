@@ -1,0 +1,67 @@
+{
+  "name": "Стиль: свойства формата платформенными именами, цвета, посторонние рамки",
+  "input": {
+    "columns": 4,
+    "defaultWidth": 20,
+    "fonts": {
+      "default": { "face": "Arial", "size": 10 },
+      "bold": { "face": "Arial", "size": 10, "bold": true }
+    },
+    "styles": {
+      "шапка": {
+        "font": "bold",
+        "backColor": "#EBEBEB",
+        "textColor": "style:FormTextColor",
+        "horizontalAlignment": "Center",
+        "verticalAlignment": "Center",
+        "textPlacement": "Wrap",
+        "protection": true
+      },
+      "рамка-по-сторонам": {
+        "leftBorder": "Dotted",
+        "topBorder": { "style": "Solid", "width": 2 },
+        "bottomBorder": { "style": "ThinDashed" },
+        "borderColor": "#C8C8C8"
+      },
+      "web-цвет": {
+        "backColor": "web:Gainsboro",
+        "textColor": "win:ButtonText"
+      },
+      "скрытая": {
+        "hidden": true,
+        "indent": 2,
+        "textOrientation": 900
+      },
+      "рамка-вокруг": {
+        "leftBorder": "Solid",
+        "topBorder": "Solid",
+        "rightBorder": "Solid",
+        "bottomBorder": "Solid"
+      }
+    },
+    "areas": [
+      {
+        "name": "Шапка",
+        "rows": [
+          { "cells": [
+            { "col": 1, "span": 4, "style": "шапка", "text": "Отчёт о движении" }
+          ]}
+        ]
+      },
+      {
+        "name": "Тело",
+        "rows": [
+          { "cells": [
+            { "col": 1, "style": "рамка-по-сторонам", "text": "Слева пунктир" },
+            { "col": 2, "style": "web-цвет", "text": "Цвет из палитры" },
+            { "col": 3, "style": "скрытая", "param": "Скрытое" },
+            { "col": 4, "style": "рамка-вокруг", "text": "Рамка свёрнута" }
+          ]}
+        ]
+      }
+    ]
+  },
+  "params": { "outputPath": "Template.xml" },
+  "validatePath": "Template.xml",
+  "expect": { "files": ["Template.xml"] }
+}

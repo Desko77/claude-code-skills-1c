@@ -1,0 +1,16 @@
+{
+  "name": "Формат 2.20 при режиме совместимости 8_3_24 → LineNumberLength 5 (дефолт из режима, не из формата)",
+  "setup": "empty-config-220-compat24",
+  "input": {
+    "type": "Catalog",
+    "name": "СоСтроками",
+    "tabularSections": {
+      "Строки": ["Значение: String(50)"],
+      "СтрокиДлинные": { "attributes": ["Значение: String(50)"], "lineNumberLength": 9 }
+    }
+  },
+  "validatePath": "Catalogs/СоСтроками",
+  "expect": {
+    "files": ["Catalogs/СоСтроками.xml"]
+  }
+}
