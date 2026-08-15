@@ -74,6 +74,11 @@ if marker not in t:
     print(f"В {src.name} нет раздела {marker}", file=sys.stderr)
     raise SystemExit(1)
 body = t[t.index(marker):].split("\n", 1)[1]
+# Раздел заканчивается на заголовке следующей версии. Без этой отсечки в заметки попадают
+# все предыдущие релизы; на 1.0.0 это не проявлялось - тот раздел лежал последним в файле.
+next_release = body.find("\n## ")
+if next_release != -1:
+    body = body[:next_release]
 res = unwrap(body)
 dst.write_text(res, encoding="utf-8")
 print(f"{src.name}: было строк {len(body.splitlines())}, стало {len(res.splitlines())} -> {dst}")
