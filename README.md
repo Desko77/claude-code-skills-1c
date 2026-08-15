@@ -431,6 +431,8 @@ BSL Language Server в Claude Code как LSP: диагностики, go to def
 | `1c-erf-spec.md` | Спецификация внешних отчетов |
 | `1c-role-spec.md` | Спецификация ролей |
 | `1c-subsystem-spec.md` | Спецификация подсистем |
+| `1c-support-state-spec.md` | Спецификация состояния поддержки (ParentConfigurations.bin) |
+| `1c-xdto-spec.md` | Спецификация пакетов XDTO |
 | `1c-spreadsheet-spec.md` | Спецификация табличных документов |
 | `1c-dcs-spec.md` | Спецификация СКД |
 | `1c-help-spec.md` | Спецификация справки |
