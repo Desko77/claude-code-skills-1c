@@ -165,8 +165,8 @@ def main():
     version = root.get("version", "")
     if not version:
         report_warn("1. Missing version attribute on MetaDataObject")
-    elif version not in ("2.17", "2.20", "2.21"):
-        report_warn(f"1. Unusual version '{version}' (expected 2.17, 2.20 or 2.21)")
+    elif version not in ("2.17", "2.18", "2.19", "2.20", "2.21"):
+        report_warn(f"1. Unusual version '{version}' (expected 2.17-2.21)")
 
     # Detect type
     child_elements = []

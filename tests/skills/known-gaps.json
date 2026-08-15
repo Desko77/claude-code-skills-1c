@@ -1,5 +1,5 @@
 {
-  "_note": "Кейсы, которые падают из-за незакрытой функциональности скриптов этого набора, а не из-за регресса. Раннер использует список как гейт: падение ИЗ списка ожидаемо, падение ВНЕ списка - регресс. Закрыл разрыв - вычеркни строку. Реестр собран 2026-08-14 при переносе тестов.",
+  "_note": "Кейсы, которые падают из-за незакрытой функциональности скриптов этого набора, а не из-за регресса. Раннер использует список как гейт: падение ИЗ списка ожидаемо, падение ВНЕ списка - регресс. Закрыл разрыв - вычеркни строку. Реестр собран 2026-08-14 при переносе тестов. ВАЖНО: реестр описывает прогон на PowerShell (раннер по умолчанию). Для --runtime python он неприменим: python-зеркала отстают шире реестра, и там гейт покажет массовый «регресс», которого на самом деле нет.",
   "cases": [
     "cases/cf-edit/add-bot",
     "cases/cf-edit/guard-deny",
@@ -127,8 +127,6 @@
     "cases/meta-validate/error-mdobjectref-type-form",
     "cases/meta-validate/error-reserved-attr",
     "cases/meta-validate/error-scalar-root-type",
-    "cases/meta-validate/valid-218-typereductionmode",
-    "cases/meta-validate/valid-219-version-accepted",
     "cases/meta-validate/valid-reftype-resolves",
     "cases/meta-validate/valid-sessionparameter-basic",
     "cases/meta-validate/warn-reftype-missing",

@@ -196,8 +196,8 @@ if ($root.NamespaceURI -ne $expectedNs) {
 $version = $root.GetAttribute("version")
 if (-not $version) {
 	Report-Warn "1. Missing version attribute on MetaDataObject"
-} elseif ($version -ne "2.17" -and $version -ne "2.20" -and $version -ne "2.21") {
-	Report-Warn "1. Unusual version '$version' (expected 2.17, 2.20 or 2.21)"
+} elseif ($version -notin @("2.17", "2.18", "2.19", "2.20", "2.21")) {
+	Report-Warn "1. Unusual version '$version' (expected 2.17-2.21)"
 }
 
 # Must have Configuration child

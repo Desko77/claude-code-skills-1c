@@ -2,9 +2,10 @@
 # cf-init v1.2 — Create empty 1C configuration scaffold
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Generates minimal XML source files for a 1C configuration."""
-import sys, os, argparse, uuid
+import sys, os, re, argparse, uuid
 
-FORMAT_VERSIONS = ("2.17", "2.18", "2.20", "2.21")
+# Известная лестница версий формата. Список не ограничивает ввод - см. main().
+FORMAT_VERSIONS = ("2.17", "2.18", "2.19", "2.20", "2.21")
 
 # Class identifiers of the seven contained interface objects.
 CLASS_IDS = (
@@ -90,10 +91,10 @@ def build_root_open(format_version, with_palette):
 
 
 def build_configuration(name, synonym, vendor, version, compat, root_open,
-                        uuid_cfg, panel_ids, mobile_funcs, v85):
+                        uuid_cfg, contained_ids, mobile_funcs, v85):
     out = ['<?xml version="1.0" encoding="UTF-8"?>', root_open,
            f'\t<Configuration uuid="{uuid_cfg}">', "\t\t<InternalInfo>"]
-    for class_id, object_id in zip(CLASS_IDS, panel_ids):
+    for class_id, object_id in zip(CLASS_IDS, contained_ids):
         out += ["\t\t\t<xr:ContainedObject>",
                 f"\t\t\t\t<xr:ClassId>{class_id}</xr:ClassId>",
                 f"\t\t\t\t<xr:ObjectId>{object_id}</xr:ObjectId>",
@@ -255,7 +256,7 @@ def main():
     parser.add_argument('-Version', dest='Version', default='')
     parser.add_argument('-Vendor', dest='Vendor', default='')
     parser.add_argument('-CompatibilityMode', dest='CompatibilityMode', default='Version8_3_24')
-    parser.add_argument('-FormatVersion', dest='FormatVersion', default='2.17', choices=FORMAT_VERSIONS)
+    parser.add_argument('-FormatVersion', dest='FormatVersion', default='2.17')
     args = parser.parse_args()
 
     name = args.Name
@@ -265,6 +266,17 @@ def main():
     format_version = args.FormatVersion
 
     # --- Format capabilities ---
+    # Версия формата не ограничивается закрытым списком: лестница версий продолжается, и
+    # неизвестная версия должна давать предупреждение, а не отказ. Признаки считаются
+    # числовым сравнением, поэтому промежуточная версия ведет себя предсказуемо.
+    if not re.fullmatch(r'\d+\.\d+', format_version):
+        print(f"FormatVersion must look like 2.17, got: {format_version}", file=sys.stderr)
+        sys.exit(1)
+    if format_version not in FORMAT_VERSIONS:
+        print(f"Warning: format version '{format_version}' is outside the known ladder "
+              f"({', '.join(FORMAT_VERSIONS)}). The header is written as asked and feature flags "
+              f"follow the numeric comparison, but the result is not covered by tests.",
+              file=sys.stderr)
     format_number = float(format_version)
     # TextToSpeech mobile functionality appeared in 8.3.25 (format 2.18).
     # On 2.17 the tag makes the platform reject the dump with an XDTO error.
@@ -290,8 +302,10 @@ def main():
     # --- Generate UUIDs ---
     uuid_cfg = new_uuid()
     uuid_lang = new_uuid()
-    # Seven interface objects: they are listed in InternalInfo of Configuration.xml
-    # and referenced back from Ext/ClientApplicationInterface.xml.
+    # Семь служебных объектов конфигурации перечислены в InternalInfo, и отдельно семь
+    # идентификаторов раскладки командного интерфейса. Наборы РАЗНЫЕ: в выгрузке платформы
+    # они не пересекаются, интерфейс связывает panel с panelDef, а не с InternalInfo.
+    contained_ids = [new_uuid() for _ in range(7)]
     panel_ids = [new_uuid() for _ in range(7)]
 
     mobile_funcs = list(MOBILE_FUNCS)
@@ -311,7 +325,7 @@ def main():
 
     write_utf8_bom(cfg_file, build_configuration(
         name, synonym, args.Vendor, args.Version, compat, root_open,
-        uuid_cfg, panel_ids, mobile_funcs, v85))
+        uuid_cfg, contained_ids, mobile_funcs, v85))
     write_utf8_bom(lang_file, build_language(root_open, uuid_lang))
     write_utf8_bom(iface_file, build_interface(panel_ids))
 

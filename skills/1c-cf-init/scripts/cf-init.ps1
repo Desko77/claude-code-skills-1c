@@ -8,7 +8,6 @@ param(
 	[string]$Version,
 	[string]$Vendor,
 	[string]$CompatibilityMode = "Version8_3_24",
-	[ValidateSet("2.17", "2.18", "2.20", "2.21")]
 	[string]$FormatVersion = "2.17"
 )
 
@@ -30,6 +29,17 @@ function Format-PropertyLine([string]$Tag, [string]$Value) {
 }
 
 # --- Format capabilities ---
+# Версия формата не ограничивается закрытым списком: лестница версий продолжается, и
+# неизвестная версия должна давать предупреждение, а не отказ. Признаки считаются
+# числовым сравнением, поэтому промежуточная версия ведет себя предсказуемо.
+if ($FormatVersion -notmatch '^\d+\.\d+$') {
+	Write-Error "FormatVersion must look like 2.17, got: $FormatVersion"
+	exit 1
+}
+$knownFormats = @("2.17", "2.18", "2.19", "2.20", "2.21")
+if ($FormatVersion -notin $knownFormats) {
+	[Console]::Error.WriteLine("Warning: format version '$FormatVersion' is outside the known ladder ($($knownFormats -join ', ')). The header is written as asked and feature flags follow the numeric comparison, but the result is not covered by tests.")
+}
 $formatNumber = [double]::Parse($FormatVersion, [System.Globalization.CultureInfo]::InvariantCulture)
 # TextToSpeech mobile functionality appeared in 8.3.25 (format 2.18).
 # On 2.17 the tag makes the platform reject the dump with an XDTO error.
@@ -56,8 +66,10 @@ if (Test-Path $cfgFile) {
 # --- Generate UUIDs ---
 $uuidCfg  = [guid]::NewGuid().ToString()
 $uuidLang = [guid]::NewGuid().ToString()
-# Seven interface objects: they are listed in InternalInfo of Configuration.xml
-# and referenced back from Ext/ClientApplicationInterface.xml.
+# Семь служебных объектов конфигурации перечислены в InternalInfo, и отдельно семь
+# идентификаторов раскладки командного интерфейса. Наборы РАЗНЫЕ: в выгрузке платформы
+# они не пересекаются, интерфейс связывает panel с panelDef, а не с InternalInfo.
+$containedIds = @(1..7 | ForEach-Object { [guid]::NewGuid().ToString() })
 $panelIds = @(1..7 | ForEach-Object { [guid]::NewGuid().ToString() })
 
 # --- Root element with namespaces ---
@@ -125,7 +137,7 @@ $cfg.Add("`t`t<InternalInfo>")
 for ($i = 0; $i -lt $containedClassIds.Count; $i++) {
 	$cfg.Add("`t`t`t<xr:ContainedObject>")
 	$cfg.Add("`t`t`t`t<xr:ClassId>$($containedClassIds[$i])</xr:ClassId>")
-	$cfg.Add("`t`t`t`t<xr:ObjectId>$($panelIds[$i])</xr:ObjectId>")
+	$cfg.Add("`t`t`t`t<xr:ObjectId>$($containedIds[$i])</xr:ObjectId>")
 	$cfg.Add("`t`t`t</xr:ContainedObject>")
 }
 $cfg.Add("`t`t</InternalInfo>")

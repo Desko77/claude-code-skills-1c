@@ -2660,9 +2660,11 @@ if os.path.isfile(config_xml_path):
                 raw = f.read()
             if raw.startswith("<?xml version='1.0' encoding='utf-8'?>"):
                 raw = raw.replace("<?xml version='1.0' encoding='utf-8'?>", '<?xml version="1.0" encoding="UTF-8"?>', 1)
-            # ElementTree пишет пустой элемент как "<tag />"; 1С пишет его без пробела, и лишний
-            # пробел превращает каждое пересохранение в расхождение по всему файлу.
-            raw = re.sub(r'<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', r'<\1\2/>', raw)
+            # Пустой элемент: ElementTree отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
+            # CDATA/комментария или значения атрибута ` />` может быть содержимым, поэтому
+            # ветками альтернации и возвращаются как есть.
+            raw = re.sub(r'(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>',
+                lambda m: '<' + m.group(1) + m.group(2) + '/>' if m.group(1) else m.group(0), raw)
             if not raw.endswith('\n'):
                 raw += '\n'
             write_utf8_bom(config_xml_path, raw)

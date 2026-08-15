@@ -18,6 +18,14 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Экранируются только три символа, ломающие разбор. Кавычки и апострофы платформа внутри
+# содержимого элемента не экранирует, и лишнее экранирование дало бы расхождение с первой
+# же выгрузкой Конфигуратора (зеркало esc_xml в python-порту).
+function ConvertTo-XmlText([string]$Text) {
+	if ([string]::IsNullOrEmpty($Text)) { return "" }
+	return $Text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;")
+}
+
 # --- Default NamePrefix ---
 if (-not $NamePrefix) {
 	$NamePrefix = "${Name}_"
@@ -112,14 +120,14 @@ $co7 = [guid]::NewGuid().ToString()
 # --- Synonym XML ---
 $synonymXml = ""
 if ($Synonym) {
-	$synonymXml = "`r`n`t`t`t`t<v8:item>`r`n`t`t`t`t`t<v8:lang>ru</v8:lang>`r`n`t`t`t`t`t<v8:content>$([System.Security.SecurityElement]::Escape($Synonym))</v8:content>`r`n`t`t`t`t</v8:item>`r`n`t`t`t"
+	$synonymXml = "`r`n`t`t`t`t<v8:item>`r`n`t`t`t`t`t<v8:lang>ru</v8:lang>`r`n`t`t`t`t`t<v8:content>$(ConvertTo-XmlText ($Synonym))</v8:content>`r`n`t`t`t`t</v8:item>`r`n`t`t`t"
 }
 
 # --- Optional properties ---
 # Незаполненное свойство платформа пишет самозакрывающимся тегом, а не пустой парой,
 # иначе первая же выгрузка из Конфигуратора даст расхождение на ровном месте.
-$vendorXml = if ($Vendor) { "<Vendor>$([System.Security.SecurityElement]::Escape($Vendor))</Vendor>" } else { "<Vendor/>" }
-$versionXml = if ($Version) { "<Version>$([System.Security.SecurityElement]::Escape($Version))</Version>" } else { "<Version/>" }
+$vendorXml = if ($Vendor) { "<Vendor>$(ConvertTo-XmlText ($Vendor))</Vendor>" } else { "<Vendor/>" }
+$versionXml = if ($Version) { "<Version>$(ConvertTo-XmlText ($Version))</Version>" } else { "<Version/>" }
 
 # --- Role name ---
 $roleName = "${NamePrefix}ОсновнаяРоль"
@@ -174,12 +182,12 @@ $cfgXml = @"
 		</InternalInfo>
 		<Properties>
 			<ObjectBelonging>Adopted</ObjectBelonging>
-			<Name>$([System.Security.SecurityElement]::Escape($Name))</Name>
+			<Name>$(ConvertTo-XmlText ($Name))</Name>
 			<Synonym>$synonymXml</Synonym>
 			<Comment/>
 			<ConfigurationExtensionPurpose>$Purpose</ConfigurationExtensionPurpose>
 			<KeepMappingToExtendedConfigurationObjectsByIDs>true</KeepMappingToExtendedConfigurationObjectsByIDs>
-			<NamePrefix>$([System.Security.SecurityElement]::Escape($NamePrefix))</NamePrefix>
+			<NamePrefix>$(ConvertTo-XmlText ($NamePrefix))</NamePrefix>
 			<ConfigurationExtensionCompatibilityMode>$CompatibilityMode</ConfigurationExtensionCompatibilityMode>
 			<DefaultRunMode>ManagedApplication</DefaultRunMode>
 			<UsePurposes>
@@ -225,7 +233,7 @@ $roleXml = @"
 <MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
 	<Role uuid="$uuidRole">
 		<Properties>
-			<Name>$([System.Security.SecurityElement]::Escape($roleName))</Name>
+			<Name>$(ConvertTo-XmlText ($roleName))</Name>
 			<Synonym/>
 			<Comment/>
 		</Properties>

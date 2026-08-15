@@ -3432,7 +3432,12 @@ if ($objType -eq "CommonForm") {
 	Ensure-ExtDir
 	$formXmlPath = Join-Path $extDir "Form.xml"
 	if (-not (Test-Path $formXmlPath)) {
-		$formNs = 'xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+		# Начиная с формата 2.21 (8.5) в шапке формы объявляется палитра - между lf и style.
+		$formPal = ''
+		if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) {
+			$formPal = ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
+		}
+		$formNs = 'xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"' + $formPal + ' xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
 		$formLines = @(
 			'<?xml version="1.0" encoding="UTF-8"?>'
 			"<Form $formNs version=`"$($script:formatVersion)`">"
@@ -3538,12 +3543,13 @@ if (Test-Path $configXmlPath) {
 			$configDoc.Save($writer)
 			$writer.Close()
 			$stream.Close()
-			# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
-			# превращает каждое пересохранение в расхождение по всему файлу.
+			# Пустой элемент: XmlWriter отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
+			# CDATA/комментария или значения атрибута ` />` может быть содержимым,
+			# поэтому они идут первыми ветками альтернации и возвращаются как есть.
 			$tightPath = $configXmlPath
 			$tightText = [System.IO.File]::ReadAllText($tightPath, [System.Text.Encoding]::UTF8)
 			$tightText = $tightText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
-			$tightText = [regex]::Replace($tightText, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
+			$tightText = [regex]::Replace($tightText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
 			[System.IO.File]::WriteAllText($tightPath, $tightText, (New-Object System.Text.UTF8Encoding($true)))
 
 			$regResult = "added"

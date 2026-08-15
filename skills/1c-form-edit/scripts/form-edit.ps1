@@ -1200,9 +1200,10 @@ if ($def.elementEvents -and $def.elementEvents.Count -gt 0) {
 $content = $xmlDoc.OuterXml
 # Ensure encoding declaration is uppercase UTF-8
 $content = $content -replace '^<\?xml version="1.0" encoding="utf-8"\?>', '<?xml version="1.0" encoding="UTF-8"?>'
-# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
-# превращает каждое пересохранение в расхождение по всему файлу.
-$content = [regex]::Replace($content, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
+# Пустой элемент: XmlWriter отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
+# CDATA/комментария или значения атрибута ` />` может быть содержимым,
+# поэтому они идут первыми ветками альтернации и возвращаются как есть.
+$content = [regex]::Replace($content, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
 
 $enc = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($resolvedFormPath, $content, $enc)

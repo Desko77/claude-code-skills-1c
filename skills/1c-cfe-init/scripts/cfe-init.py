@@ -6,7 +6,12 @@ import sys, os, argparse, uuid
 from xml.etree import ElementTree as ET
 
 def esc_xml(s):
-    return s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
+    """Экранируются только три символа, ломающие разбор.
+
+    Кавычки и апострофы платформа внутри содержимого элемента не экранирует, и лишнее
+    экранирование дало бы расхождение с первой же выгрузкой Конфигуратора.
+    """
+    return s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
 
 def new_uuid():
     return str(uuid.uuid4())

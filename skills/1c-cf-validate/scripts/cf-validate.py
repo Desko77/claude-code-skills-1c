@@ -231,8 +231,8 @@ def main():
     version = root.get('version', '')
     if not version:
         r.warn('1. Missing version attribute on MetaDataObject')
-    elif version not in ('2.17', '2.20', '2.21'):
-        r.warn(f"1. Unusual version '{version}' (expected 2.17, 2.20 or 2.21)")
+    elif version not in ('2.17', '2.18', '2.19', '2.20', '2.21'):
+        r.warn(f"1. Unusual version '{version}' (expected 2.17-2.21)")
 
     # Must have Configuration child
     cfg_node = None
