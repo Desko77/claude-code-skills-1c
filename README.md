@@ -251,120 +251,140 @@ BSL Language Server в Claude Code как LSP: диагностики, go to def
 Начать проще всего с `1c-config-router`: он сам определяет, каким скилом или workflow
 решать задачу.
 
-| Группа | Скил | Описание |
-|--------|------|----------|
-| маршрут | `1c-config-router` | Определяет нужный workflow или скил для задачи |
-| конфигурация | `1c-cf-init` | Создать пустую конфигурацию (scaffold XML), версии формата 2.17-2.21 |
-| конфигурация | `1c-cf-info` | Анализ структуры конфигурации |
-| конфигурация | `1c-cf-edit` | Изменить свойства конфигурации |
-| конфигурация | `1c-cf-validate` | Валидация конфигурации |
-| конфигурация | `1c-cf-add-object` | Workflow: добавить объект в конфигурацию |
-| конфигурация | `1c-cf-new-project` | Workflow: создать конфигурацию с нуля |
-| конфигурация | `1c-support-state` | Состояние поддержки в XML-выгрузке: чтение, editable/off-support/locked, возможность изменения |
-| метаданные | `1c-meta-compile` | Создать объект метаданных из JSON DSL (37 типов) |
-| метаданные | `1c-meta-decompile` | Декомпиляция объекта в JSON-заготовку формата meta-compile - черновик нового объекта по образцу |
-| метаданные | `1c-meta-edit` | Изменить реквизиты, ТЧ, свойства объекта |
-| метаданные | `1c-meta-info` | Анализ структуры объекта |
-| метаданные | `1c-meta-remove` | Удалить объект из конфигурации |
-| метаданные | `1c-meta-validate` | Валидация объекта метаданных |
-| формы | `1c-form-compile` | Создать форму из JSON DSL |
-| формы | `1c-form-decompile` | Разобрать Form.xml в JSON-черновик DSL |
-| формы | `1c-form-edit` | Добавить элементы, реквизиты, команды в форму |
-| формы | `1c-form-add` | Добавить форму к объекту конфигурации |
-| формы | `1c-form-info` | Анализ структуры формы |
-| формы | `1c-form-patterns` | Паттерны проектирования форм |
-| формы | `1c-form-remove` | Удалить форму |
-| формы | `1c-form-validate` | Валидация формы |
-| расширения | `1c-cfe-init` | Создать расширение конфигурации |
-| расширения | `1c-cfe-borrow` | Заимствовать объект из конфигурации |
-| расширения | `1c-cfe-patch-method` | Перехватить метод (Before/After/ModificationAndControl) |
-| расширения | `1c-cfe-diff` | Анализ расширения |
-| расширения | `1c-cfe-validate` | Валидация расширения |
-| расширения | `1c-cfe-full-cycle` | Workflow: полный цикл создания расширения |
-| обработки | `1c-epf-scaffold` | Создать пустую обработку |
-| обработки | `1c-epf-add-form` | Добавить форму к обработке |
-| обработки | `1c-epf-build` | Собрать EPF из XML-исходников |
-| обработки | `1c-epf-dump` | Разобрать EPF в XML-исходники |
-| обработки | `1c-epf-validate` | Валидация обработки |
-| обработки | `1c-epf-full-cycle` | Workflow: полный цикл создания обработки |
-| обработки | `1c-erf-init` | Создать пустой отчет |
-| обработки | `1c-erf-build` | Собрать ERF |
-| обработки | `1c-erf-dump` | Разобрать ERF |
-| обработки | `1c-erf-validate` | Валидация отчета |
-| XDTO | `1c-xdto-compile` | Создать пакет XDTO из XML-схемы (XSD) |
-| XDTO | `1c-xdto-decompile` | Выгрузить пакет XDTO обратно в XSD |
-| XDTO | `1c-xdto-edit` | Точечная правка типов и свойств пакета |
-| XDTO | `1c-xdto-info` | Структура пакета: типы, свойства, точки входа |
-| XDTO | `1c-xdto-validate` | Валидация пакета XDTO |
-| подсистемы | `1c-subsystem-compile` | Создать подсистему |
-| подсистемы | `1c-subsystem-edit` | Изменить состав подсистемы |
-| подсистемы | `1c-subsystem-info` | Анализ подсистемы |
-| подсистемы | `1c-subsystem-validate` | Валидация подсистемы |
-| подсистемы | `1c-interface-edit` | Настроить командный интерфейс |
-| подсистемы | `1c-interface-validate` | Валидация интерфейса |
-| макеты | `1c-mxl-compile` | Создать макет из JSON DSL |
-| макеты | `1c-mxl-decompile` | Разобрать макет в JSON |
-| макеты | `1c-mxl-info` | Анализ макета |
-| макеты | `1c-mxl-validate` | Валидация макета |
-| макеты | `1c-template-add` | Добавить макет к объекту |
-| макеты | `1c-template-remove` | Удалить макет |
-| роли | `1c-role-compile` | Создать роль из описания прав |
-| роли | `1c-role-info` | Анализ роли |
-| роли | `1c-role-validate` | Валидация роли |
-| СКД | `1c-skd-compile` | Создать схему компоновки данных |
-| СКД | `1c-skd-decompile` | Разобрать XML СКД в JSON-черновик DSL |
-| СКД | `1c-skd-edit` | Изменить существующую СКД |
-| СКД | `1c-skd-info` | Анализ СКД |
-| СКД | `1c-skd-validate` | Валидация СКД |
-| базы данных | `1c-db-list` | Управление реестром баз |
-| базы данных | `1c-db-create` | Создать информационную базу |
-| базы данных | `1c-db-dump-cf` | Выгрузить конфигурацию в CF |
-| базы данных | `1c-db-dump-dt` | Выгрузить всю ИБ в DT (полный бэкап) |
-| базы данных | `1c-db-dump-xml` | Выгрузить конфигурацию в XML |
-| базы данных | `1c-db-load-cf` | Загрузить конфигурацию из CF |
-| базы данных | `1c-db-load-dt` | Восстановить ИБ из DT (деструктивная) |
-| базы данных | `1c-db-load-xml` | Загрузить конфигурацию из XML |
-| базы данных | `1c-db-load-git` | Загрузить изменения из Git |
-| базы данных | `1c-db-update` | Обновить конфигурацию БД |
-| базы данных | `1c-db-run` | Запустить 1С:Предприятие |
-| веб | `1c-web-publish` | Публикация ИБ на веб-сервере (Apache/IIS) |
-| веб | `1c-web-unpublish` | Отмена публикации ИБ |
-| веб | `1c-web-info` | Информация о веб-публикациях |
-| веб | `1c-web-stop` | Остановка веб-сервера |
-| веб | `1c-web-test` | Тестирование 1С через веб-клиент (автоматизация браузера) |
-| БСП | `1c-bsp-registration` | Регистрация обработки в БСП |
-| БСП | `1c-bsp-command` | Добавить команду БСП |
-| БСП | `1c-ssl-patterns` | Паттерны подсистем БСП |
-| 1С 7.7 | `1c77-dev` | Разработка под 1С 7.7: .1s/.ert/.frm, 1Cv7.MD, gcomp, кодировка CP1251 |
-| обмены | `kd2-rules` | Правила обмена «Конвертация данных 2.0» через MCP-toolkit |
-| обмены | `kd31-rules` | Правила обмена «Конвертация данных 3.1» через MCP-toolkit |
-| обмены | `cleverence-mslx` | Mobile SMARTS (Клеверенс): .mslx-алгоритмы ТСД, online-вызов 1С |
-| утилиты | `ai-edt-tools` | Справочник инструментов AI-EDT (MCP-плагин для 1С:EDT): фасады, сценарии, грабли |
-| утилиты | `1c-naparnik` | Справочник инструментов 1С:Напарник (анализ кода, ИТС, документация) |
-| утилиты | `1c-mcp-toolkit` | Прямой HTTP API к живой запущенной базе 1С (запросы, BSL-код, метаданные, журнал) |
-| утилиты | `1c-platform-docs` | Поиск по документации API платформы |
-| утилиты | `1c-query-optimization` | Продвинутая оптимизация запросов |
-| утилиты | `zup-hr-api-reference` | Справочник API 1С:ЗУП 3.1: кадровый учет (физлица, стажи, договоры ГПХ, представления СКД) и расчет (средний заработок, начисления, пособия/СФР, взносы, отчетность) |
-| утилиты | `1c-help-manage` | Встроенная справка объектов 1С |
-| утилиты | `composing-1c-queries` | Руководство по языку запросов 1С |
-| утилиты | `1c-vanessa-steps` | Реестр 1569 шагов Vanessa Automation: поиск шага по смыслу и валидация сценария .feature перед прогоном |
-| утилиты | `v8unpack-cf` | Распаковка/сборка CF/CFE/EPF |
-| утилиты | `img-grid-analysis` | Анализ изображений для макетов |
-| утилиты | `md-to-docx` | Конвертация Markdown в DOCX |
-| утилиты | `docx-from-sample` | Новый DOCX в оформлении готового образца: стили, нумерация заголовков, таблицы, колонтитулы наследуются из файла-образца |
-| утилиты | `transcribe` | Транскрибация аудио (локально, faster-whisper + sherpa-onnx GPU) и видео (Gemini API). Установка через `scripts/setup.py` |
-| утилиты | `transcribe-audio-local` | Только аудио, только локально, self-contained - для передачи на другую машину без облака |
-| утилиты | `meeting-to-tasks` | Полный цикл «запись встречи -> список задач -> план разработки по SDD на каждую задачу» |
-| утилиты | `mermaid-diagrams` | Генерация диаграмм Mermaid |
-| утилиты | `mermaid-render` | Рендер Mermaid в PNG/SVG/PDF через локальный mmdc |
-| утилиты | `powershell-windows` | PowerShell на Windows |
-| утилиты | `lmstudio-api` | Справочник HTTP-API LM Studio: загрузка/выгрузка моделей, контекст, отключение reasoning, грабли протокола |
-| утилиты | `sync-fork` | Синхронизация git-форка с upstream без потери своих доработок |
-| утилиты | `skill-creator` | Создание, тестирование и оптимизация скилов (evals, grading, description loop) |
-| утилиты | `prompt-enhancer` | Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ |
-| утилиты | `dehumanize-ai-text` | Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления |
-| утилиты | `claude-env-setup` | Установка и обновление окружения агента: опись машины -> план -> установка выбранного; конфиги MCP правятся слиянием, чужое не затирается |
-| утилиты | `claude-md-bootstrap` | Генерация проектного CLAUDE.md - контекста проекта для AI-агента (IF-THEN правила, work-protocol, progressive disclosure) |
+<table>
+<thead><tr><th align="left">Скил</th><th align="left">Описание</th></tr></thead>
+<tbody>
+<tr><th colspan="2" align="left">Маршрутизатор</th></tr>
+<tr><td><code>1c-config-router</code></td><td>Определяет нужный workflow или скил для задачи</td></tr>
+<tr><th colspan="2" align="left">Конфигурация (cf-*, support-*)</th></tr>
+<tr><td><code>1c-cf-init</code></td><td>Создать пустую конфигурацию (scaffold XML), версии формата 2.17-2.21</td></tr>
+<tr><td><code>1c-cf-info</code></td><td>Анализ структуры конфигурации</td></tr>
+<tr><td><code>1c-cf-edit</code></td><td>Изменить свойства конфигурации</td></tr>
+<tr><td><code>1c-cf-validate</code></td><td>Валидация конфигурации</td></tr>
+<tr><td><code>1c-cf-add-object</code></td><td>Workflow: добавить объект в конфигурацию</td></tr>
+<tr><td><code>1c-cf-new-project</code></td><td>Workflow: создать конфигурацию с нуля</td></tr>
+<tr><td><code>1c-support-state</code></td><td>Состояние поддержки в XML-выгрузке: чтение, editable/off-support/locked, возможность изменения</td></tr>
+<tr><th colspan="2" align="left">Объекты метаданных (meta-*)</th></tr>
+<tr><td><code>1c-meta-compile</code></td><td>Создать объект метаданных из JSON DSL (37 типов)</td></tr>
+<tr><td><code>1c-meta-decompile</code></td><td>Декомпиляция объекта в JSON-заготовку формата meta-compile - черновик нового объекта по образцу</td></tr>
+<tr><td><code>1c-meta-edit</code></td><td>Изменить реквизиты, ТЧ, свойства объекта</td></tr>
+<tr><td><code>1c-meta-info</code></td><td>Анализ структуры объекта</td></tr>
+<tr><td><code>1c-meta-remove</code></td><td>Удалить объект из конфигурации</td></tr>
+<tr><td><code>1c-meta-validate</code></td><td>Валидация объекта метаданных</td></tr>
+<tr><th colspan="2" align="left">Формы (form-*)</th></tr>
+<tr><td><code>1c-form-compile</code></td><td>Создать форму из JSON DSL</td></tr>
+<tr><td><code>1c-form-decompile</code></td><td>Разобрать Form.xml в JSON-черновик DSL</td></tr>
+<tr><td><code>1c-form-edit</code></td><td>Добавить элементы, реквизиты, команды в форму</td></tr>
+<tr><td><code>1c-form-add</code></td><td>Добавить форму к объекту конфигурации</td></tr>
+<tr><td><code>1c-form-info</code></td><td>Анализ структуры формы</td></tr>
+<tr><td><code>1c-form-patterns</code></td><td>Паттерны проектирования форм</td></tr>
+<tr><td><code>1c-form-remove</code></td><td>Удалить форму</td></tr>
+<tr><td><code>1c-form-validate</code></td><td>Валидация формы</td></tr>
+<tr><th colspan="2" align="left">Расширения (cfe-*)</th></tr>
+<tr><td><code>1c-cfe-init</code></td><td>Создать расширение конфигурации</td></tr>
+<tr><td><code>1c-cfe-borrow</code></td><td>Заимствовать объект из конфигурации</td></tr>
+<tr><td><code>1c-cfe-patch-method</code></td><td>Перехватить метод (Before/After/ModificationAndControl)</td></tr>
+<tr><td><code>1c-cfe-diff</code></td><td>Анализ расширения</td></tr>
+<tr><td><code>1c-cfe-validate</code></td><td>Валидация расширения</td></tr>
+<tr><td><code>1c-cfe-full-cycle</code></td><td>Workflow: полный цикл создания расширения</td></tr>
+<tr><th colspan="2" align="left">Обработки и отчеты (epf-*, erf-*)</th></tr>
+<tr><td><code>1c-epf-scaffold</code></td><td>Создать пустую обработку</td></tr>
+<tr><td><code>1c-epf-add-form</code></td><td>Добавить форму к обработке</td></tr>
+<tr><td><code>1c-epf-build</code></td><td>Собрать EPF из XML-исходников</td></tr>
+<tr><td><code>1c-epf-dump</code></td><td>Разобрать EPF в XML-исходники</td></tr>
+<tr><td><code>1c-epf-validate</code></td><td>Валидация обработки</td></tr>
+<tr><td><code>1c-epf-full-cycle</code></td><td>Workflow: полный цикл создания обработки</td></tr>
+<tr><td><code>1c-erf-init</code></td><td>Создать пустой отчет</td></tr>
+<tr><td><code>1c-erf-build</code></td><td>Собрать ERF</td></tr>
+<tr><td><code>1c-erf-dump</code></td><td>Разобрать ERF</td></tr>
+<tr><td><code>1c-erf-validate</code></td><td>Валидация отчета</td></tr>
+<tr><th colspan="2" align="left">Пакеты XDTO (xdto-*)</th></tr>
+<tr><td><code>1c-xdto-compile</code></td><td>Создать пакет XDTO из XML-схемы (XSD)</td></tr>
+<tr><td><code>1c-xdto-decompile</code></td><td>Выгрузить пакет XDTO обратно в XSD</td></tr>
+<tr><td><code>1c-xdto-edit</code></td><td>Точечная правка типов и свойств пакета</td></tr>
+<tr><td><code>1c-xdto-info</code></td><td>Структура пакета: типы, свойства, точки входа</td></tr>
+<tr><td><code>1c-xdto-validate</code></td><td>Валидация пакета XDTO</td></tr>
+<tr><th colspan="2" align="left">Подсистемы и интерфейс</th></tr>
+<tr><td><code>1c-subsystem-compile</code></td><td>Создать подсистему</td></tr>
+<tr><td><code>1c-subsystem-edit</code></td><td>Изменить состав подсистемы</td></tr>
+<tr><td><code>1c-subsystem-info</code></td><td>Анализ подсистемы</td></tr>
+<tr><td><code>1c-subsystem-validate</code></td><td>Валидация подсистемы</td></tr>
+<tr><td><code>1c-interface-edit</code></td><td>Настроить командный интерфейс</td></tr>
+<tr><td><code>1c-interface-validate</code></td><td>Валидация интерфейса</td></tr>
+<tr><th colspan="2" align="left">Макеты (mxl-*, template-*)</th></tr>
+<tr><td><code>1c-mxl-compile</code></td><td>Создать макет из JSON DSL</td></tr>
+<tr><td><code>1c-mxl-decompile</code></td><td>Разобрать макет в JSON</td></tr>
+<tr><td><code>1c-mxl-info</code></td><td>Анализ макета</td></tr>
+<tr><td><code>1c-mxl-validate</code></td><td>Валидация макета</td></tr>
+<tr><td><code>1c-template-add</code></td><td>Добавить макет к объекту</td></tr>
+<tr><td><code>1c-template-remove</code></td><td>Удалить макет</td></tr>
+<tr><th colspan="2" align="left">Роли (role-*)</th></tr>
+<tr><td><code>1c-role-compile</code></td><td>Создать роль из описания прав</td></tr>
+<tr><td><code>1c-role-info</code></td><td>Анализ роли</td></tr>
+<tr><td><code>1c-role-validate</code></td><td>Валидация роли</td></tr>
+<tr><th colspan="2" align="left">СКД (skd-*)</th></tr>
+<tr><td><code>1c-skd-compile</code></td><td>Создать схему компоновки данных</td></tr>
+<tr><td><code>1c-skd-decompile</code></td><td>Разобрать XML СКД в JSON-черновик DSL</td></tr>
+<tr><td><code>1c-skd-edit</code></td><td>Изменить существующую СКД</td></tr>
+<tr><td><code>1c-skd-info</code></td><td>Анализ СКД</td></tr>
+<tr><td><code>1c-skd-validate</code></td><td>Валидация СКД</td></tr>
+<tr><th colspan="2" align="left">Базы данных (db-*)</th></tr>
+<tr><td><code>1c-db-list</code></td><td>Управление реестром баз</td></tr>
+<tr><td><code>1c-db-create</code></td><td>Создать информационную базу</td></tr>
+<tr><td><code>1c-db-dump-cf</code></td><td>Выгрузить конфигурацию в CF</td></tr>
+<tr><td><code>1c-db-dump-dt</code></td><td>Выгрузить всю ИБ в DT (полный бэкап)</td></tr>
+<tr><td><code>1c-db-dump-xml</code></td><td>Выгрузить конфигурацию в XML</td></tr>
+<tr><td><code>1c-db-load-cf</code></td><td>Загрузить конфигурацию из CF</td></tr>
+<tr><td><code>1c-db-load-dt</code></td><td>Восстановить ИБ из DT (деструктивная)</td></tr>
+<tr><td><code>1c-db-load-xml</code></td><td>Загрузить конфигурацию из XML</td></tr>
+<tr><td><code>1c-db-load-git</code></td><td>Загрузить изменения из Git</td></tr>
+<tr><td><code>1c-db-update</code></td><td>Обновить конфигурацию БД</td></tr>
+<tr><td><code>1c-db-run</code></td><td>Запустить 1С:Предприятие</td></tr>
+<tr><th colspan="2" align="left">Веб-публикация и тестирование (web-*)</th></tr>
+<tr><td><code>1c-web-publish</code></td><td>Публикация ИБ на веб-сервере (Apache/IIS)</td></tr>
+<tr><td><code>1c-web-unpublish</code></td><td>Отмена публикации ИБ</td></tr>
+<tr><td><code>1c-web-info</code></td><td>Информация о веб-публикациях</td></tr>
+<tr><td><code>1c-web-stop</code></td><td>Остановка веб-сервера</td></tr>
+<tr><td><code>1c-web-test</code></td><td>Тестирование 1С через веб-клиент (автоматизация браузера)</td></tr>
+<tr><th colspan="2" align="left">БСП</th></tr>
+<tr><td><code>1c-bsp-registration</code></td><td>Регистрация обработки в БСП</td></tr>
+<tr><td><code>1c-bsp-command</code></td><td>Добавить команду БСП</td></tr>
+<tr><td><code>1c-ssl-patterns</code></td><td>Паттерны подсистем БСП</td></tr>
+<tr><th colspan="2" align="left">Разработка 1С 7.7</th></tr>
+<tr><td><code>1c77-dev</code></td><td>Разработка под 1С 7.7: .1s/.ert/.frm, 1Cv7.MD, gcomp, кодировка CP1251</td></tr>
+<tr><th colspan="2" align="left">Конвертация данных и интеграции</th></tr>
+<tr><td><code>kd2-rules</code></td><td>Правила обмена «Конвертация данных 2.0» через MCP-toolkit</td></tr>
+<tr><td><code>kd31-rules</code></td><td>Правила обмена «Конвертация данных 3.1» через MCP-toolkit</td></tr>
+<tr><td><code>cleverence-mslx</code></td><td>Mobile SMARTS (Клеверенс): .mslx-алгоритмы ТСД, online-вызов 1С</td></tr>
+<tr><th colspan="2" align="left">Справочные и утилитарные</th></tr>
+<tr><td><code>ai-edt-tools</code></td><td>Справочник инструментов AI-EDT (MCP-плагин для 1С:EDT): фасады, сценарии, грабли</td></tr>
+<tr><td><code>1c-naparnik</code></td><td>Справочник инструментов 1С:Напарник (анализ кода, ИТС, документация)</td></tr>
+<tr><td><code>1c-mcp-toolkit</code></td><td>Прямой HTTP API к живой запущенной базе 1С (запросы, BSL-код, метаданные, журнал)</td></tr>
+<tr><td><code>1c-platform-docs</code></td><td>Поиск по документации API платформы</td></tr>
+<tr><td><code>1c-query-optimization</code></td><td>Продвинутая оптимизация запросов</td></tr>
+<tr><td><code>zup-hr-api-reference</code></td><td>Справочник API 1С:ЗУП 3.1: кадровый учет (физлица, стажи, договоры ГПХ, представления СКД) и расчет (средний заработок, начисления, пособия/СФР, взносы, отчетность)</td></tr>
+<tr><td><code>1c-help-manage</code></td><td>Встроенная справка объектов 1С</td></tr>
+<tr><td><code>composing-1c-queries</code></td><td>Руководство по языку запросов 1С</td></tr>
+<tr><td><code>1c-vanessa-steps</code></td><td>Реестр 1569 шагов Vanessa Automation: поиск шага по смыслу и валидация сценария .feature перед прогоном</td></tr>
+<tr><td><code>v8unpack-cf</code></td><td>Распаковка/сборка CF/CFE/EPF</td></tr>
+<tr><td><code>img-grid-analysis</code></td><td>Анализ изображений для макетов</td></tr>
+<tr><td><code>md-to-docx</code></td><td>Конвертация Markdown в DOCX</td></tr>
+<tr><td><code>docx-from-sample</code></td><td>Новый DOCX в оформлении готового образца: стили, нумерация заголовков, таблицы, колонтитулы наследуются из файла-образца</td></tr>
+<tr><td><code>transcribe</code></td><td>Транскрибация аудио (локально, faster-whisper + sherpa-onnx GPU) и видео (Gemini API). Установка через <code>scripts/setup.py</code></td></tr>
+<tr><td><code>transcribe-audio-local</code></td><td>Только аудио, только локально, self-contained - для передачи на другую машину без облака</td></tr>
+<tr><td><code>meeting-to-tasks</code></td><td>Полный цикл «запись встречи -&gt; список задач -&gt; план разработки по SDD на каждую задачу»</td></tr>
+<tr><td><code>mermaid-diagrams</code></td><td>Генерация диаграмм Mermaid</td></tr>
+<tr><td><code>mermaid-render</code></td><td>Рендер Mermaid в PNG/SVG/PDF через локальный mmdc</td></tr>
+<tr><td><code>powershell-windows</code></td><td>PowerShell на Windows</td></tr>
+<tr><td><code>lmstudio-api</code></td><td>Справочник HTTP-API LM Studio: загрузка/выгрузка моделей, контекст, отключение reasoning, грабли протокола</td></tr>
+<tr><td><code>sync-fork</code></td><td>Синхронизация git-форка с upstream без потери своих доработок</td></tr>
+<tr><td><code>skill-creator</code></td><td>Создание, тестирование и оптимизация скилов (evals, grading, description loop)</td></tr>
+<tr><td><code>prompt-enhancer</code></td><td>Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ</td></tr>
+<tr><td><code>dehumanize-ai-text</code></td><td>Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления</td></tr>
+<tr><td><code>claude-env-setup</code></td><td>Установка и обновление окружения агента: опись машины -&gt; план -&gt; установка выбранного; конфиги MCP правятся слиянием, чужое не затирается</td></tr>
+<tr><td><code>claude-md-bootstrap</code></td><td>Генерация проектного CLAUDE.md - контекста проекта для AI-агента (IF-THEN правила, work-protocol, progressive disclosure)</td></tr>
+</tbody>
+</table>
 
 ## Правила (35)
 
