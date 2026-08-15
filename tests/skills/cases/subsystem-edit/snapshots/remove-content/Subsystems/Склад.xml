@@ -9,16 +9,16 @@
 					<v8:content>Склад</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<IncludeHelpInContents>true</IncludeHelpInContents>
 			<IncludeInCommandInterface>true</IncludeInCommandInterface>
 			<UseOneCommand>false</UseOneCommand>
-			<Explanation />
-			<Picture />
+			<Explanation/>
+			<Picture/>
 			<Content>
 				<xr:Item xsi:type="xr:MDObjectRef">Catalog.Товары</xr:Item>
 			</Content>
 		</Properties>
-		<ChildObjects />
+		<ChildObjects/>
 	</Subsystem>
 </MetaDataObject>

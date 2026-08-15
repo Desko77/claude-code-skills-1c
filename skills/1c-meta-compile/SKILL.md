@@ -65,6 +65,7 @@ powershell.exe -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 
 - `reference/types-registers.md` — InformationRegister, AccumulationRegister, AccountingRegister, CalculationRegister, ChartOfAccounts, ChartOfCharacteristicTypes, ChartOfCalculationTypes
 - `reference/types-process.md` — BusinessProcess, Task, ExchangePlan, CommonModule, ScheduledJob, EventSubscription, DocumentJournal
 - `reference/types-web.md` — HTTPService, WebService
+- `reference/types-config.md` — CommonAttribute, CommonCommand, CommandGroup, CommonForm, CommonTemplate, CommonPicture, FilterCriterion, Sequence, DocumentNumerator, SessionParameter, SettingsStorage, FunctionalOption, FunctionalOptionsParameter, WSReference
 
 Эта инструкция и reference-файлы — полная документация для генерации. Не ищи примеры XML в выгрузках конфигураций.
 

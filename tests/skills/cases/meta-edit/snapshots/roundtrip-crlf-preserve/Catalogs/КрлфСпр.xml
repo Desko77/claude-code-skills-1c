@@ -31,14 +31,14 @@
 					<v8:content>КРЛФ спр</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<Hierarchical>false</Hierarchical>
 			<HierarchyType>HierarchyFoldersAndItems</HierarchyType>
 			<LimitLevelCount>false</LimitLevelCount>
 			<LevelCount>2</LevelCount>
 			<FoldersOnTop>true</FoldersOnTop>
 			<UseStandardCommands>true</UseStandardCommands>
-			<Owners />
+			<Owners/>
 			<SubordinationUse>ToItems</SubordinationUse>
 			<CodeLength>9</CodeLength>
 			<DescriptionLength>25</DescriptionLength>
@@ -48,7 +48,7 @@
 			<CheckUnique>false</CheckUnique>
 			<Autonumbering>true</Autonumbering>
 			<DefaultPresentation>AsDescription</DefaultPresentation>
-			<Characteristics />
+			<Characteristics/>
 			<PredefinedDataUpdate>Auto</PredefinedDataUpdate>
 			<EditType>InDialog</EditType>
 			<QuickChoice>false</QuickChoice>
@@ -60,26 +60,26 @@
 			<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>
 			<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>
 			<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>
-			<DefaultObjectForm />
-			<DefaultFolderForm />
-			<DefaultListForm />
-			<DefaultChoiceForm />
-			<DefaultFolderChoiceForm />
-			<AuxiliaryObjectForm />
-			<AuxiliaryFolderForm />
-			<AuxiliaryListForm />
-			<AuxiliaryChoiceForm />
-			<AuxiliaryFolderChoiceForm />
+			<DefaultObjectForm/>
+			<DefaultFolderForm/>
+			<DefaultListForm/>
+			<DefaultChoiceForm/>
+			<DefaultFolderChoiceForm/>
+			<AuxiliaryObjectForm/>
+			<AuxiliaryFolderForm/>
+			<AuxiliaryListForm/>
+			<AuxiliaryChoiceForm/>
+			<AuxiliaryFolderChoiceForm/>
 			<IncludeHelpInContents>false</IncludeHelpInContents>
-			<BasedOn />
-			<DataLockFields />
+			<BasedOn/>
+			<DataLockFields/>
 			<DataLockControlMode>Managed</DataLockControlMode>
 			<FullTextSearch>Use</FullTextSearch>
-			<ObjectPresentation />
-			<ExtendedObjectPresentation />
-			<ListPresentation />
-			<ExtendedListPresentation />
-			<Explanation />
+			<ObjectPresentation/>
+			<ExtendedObjectPresentation/>
+			<ListPresentation/>
+			<ExtendedListPresentation/>
+			<Explanation/>
 			<CreateOnInput>Use</CreateOnInput>
 			<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
 			<DataHistory>DontUse</DataHistory>
@@ -96,7 +96,7 @@
 							<v8:content>База</v8:content>
 						</v8:item>
 					</Synonym>
-					<Comment />
+					<Comment/>
 					<Type>
 						<v8:Type>xs:string</v8:Type>
 						<v8:StringQualifiers>
@@ -105,25 +105,25 @@
 						</v8:StringQualifiers>
 					</Type>
 					<PasswordMode>false</PasswordMode>
-					<Format />
-					<EditFormat />
-					<ToolTip />
+					<Format/>
+					<EditFormat/>
+					<ToolTip/>
 					<MarkNegatives>false</MarkNegatives>
-					<Mask />
+					<Mask/>
 					<MultiLine>false</MultiLine>
 					<ExtendedEdit>false</ExtendedEdit>
-					<MinValue xsi:nil="true" />
-					<MaxValue xsi:nil="true" />
+					<MinValue xsi:nil="true"/>
+					<MaxValue xsi:nil="true"/>
 					<FillFromFillingValue>false</FillFromFillingValue>
-					<FillValue xsi:type="xs:string" />
+					<FillValue xsi:type="xs:string"/>
 					<FillChecking>DontCheck</FillChecking>
 					<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>
-					<ChoiceParameterLinks />
-					<ChoiceParameters />
+					<ChoiceParameterLinks/>
+					<ChoiceParameters/>
 					<QuickChoice>Auto</QuickChoice>
 					<CreateOnInput>Auto</CreateOnInput>
-					<ChoiceForm />
-					<LinkByType />
+					<ChoiceForm/>
+					<LinkByType/>
 					<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
 					<Use>ForItem</Use>
 					<Indexing>DontIndex</Indexing>
@@ -140,30 +140,30 @@
 							<v8:content>Новый</v8:content>
 						</v8:item>
 					</Synonym>
-					<Comment />
+					<Comment/>
 					<Type>
 						<v8:Type>xs:boolean</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
-					<Format />
-					<EditFormat />
-					<ToolTip />
+					<Format/>
+					<EditFormat/>
+					<ToolTip/>
 					<MarkNegatives>false</MarkNegatives>
-					<Mask />
+					<Mask/>
 					<MultiLine>false</MultiLine>
 					<ExtendedEdit>false</ExtendedEdit>
-					<MinValue xsi:nil="true" />
-					<MaxValue xsi:nil="true" />
+					<MinValue xsi:nil="true"/>
+					<MaxValue xsi:nil="true"/>
 					<FillFromFillingValue>false</FillFromFillingValue>
 					<FillValue xsi:type="xs:boolean">false</FillValue>
 					<FillChecking>DontCheck</FillChecking>
 					<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>
-					<ChoiceParameterLinks />
-					<ChoiceParameters />
+					<ChoiceParameterLinks/>
+					<ChoiceParameters/>
 					<QuickChoice>Auto</QuickChoice>
 					<CreateOnInput>Auto</CreateOnInput>
-					<ChoiceForm />
-					<LinkByType />
+					<ChoiceForm/>
+					<LinkByType/>
 					<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
 					<Use>ForItem</Use>
 					<Indexing>DontIndex</Indexing>

@@ -26,7 +26,7 @@
 		<Properties>
 			<ObjectBelonging>Adopted</ObjectBelonging>
 			<Name>ЗаказКлиента</Name>
-			<Comment />
+			<Comment/>
 			<ExtendedConfigurationObject>UUID-012</ExtendedConfigurationObject>
 			<NumberLength>11</NumberLength>
 			<NumberAllowedLength>Variable</NumberAllowedLength>

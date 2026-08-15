@@ -1,7 +1,7 @@
 ---
 name: 1c-cf-init
 description: Создать пустую конфигурацию 1С (scaffold XML-исходников). Используй когда нужно начать новую конфигурацию с нуля
-argument-hint: <Name> [-Synonym <name>] [-OutputDir src]
+argument-hint: <Name> [-Synonym <name>] [-OutputDir src] [-FormatVersion 2.17]
 allowed-tools:
   - Bash
   - Read
@@ -10,7 +10,9 @@ allowed-tools:
 
 # /cf-init — Создание пустой конфигурации 1С
 
-Создаёт scaffold исходников пустой конфигурации 1С: `Configuration.xml`, `Languages/Русский.xml`.
+Создаёт scaffold исходников пустой конфигурации 1С: `Configuration.xml`, `Languages/Русский.xml`,
+`Ext/ClientApplicationInterface.xml` (раскладка командного интерфейса, на нее ссылается `InternalInfo`
+конфигурации).
 
 ## Параметры и команда
 
@@ -22,6 +24,22 @@ allowed-tools:
 | `Version` | Версия конфигурации |
 | `Vendor` | Поставщик |
 | `CompatibilityMode` | Режим совместимости (default: `Version8_3_24`) |
+| `FormatVersion` | Версия формата выгрузки: `2.17`, `2.18`, `2.20`, `2.21` (default: `2.17`) |
+
+## Версия формата
+
+Версия формата задает, какие теги платформа примет при загрузке. Ставить надо не «поновее», а под ту
+платформу, куда конфигурация будет грузиться.
+
+| Версия | Платформа | Что добавляет |
+|--------|-----------|---------------|
+| `2.17` | 8.3.24 и ниже | базовый набор |
+| `2.18` | 8.3.25 | мобильная функциональность `TextToSpeech` |
+| `2.20` | 8.3.27 | то же, что 2.18 |
+| `2.21` | 8.5 | пространство имен `pal`, свойства главного окна 8.5, формы `Auxiliary*` |
+
+Грабля: `TextToSpeech` на формате 2.17 ломает загрузку XDTO-ошибкой, поэтому на 2.17 тег не пишется
+вовсе. Обратное тоже верно - платформа 8.3.24 не примет выгрузку 2.21.
 
 ```powershell
 powershell.exe -NoProfile -File skills/1c-cf-init/scripts/cf-init.ps1 -Name "МояКонфигурация"
@@ -38,6 +56,9 @@ powershell.exe -NoProfile -File skills/1c-cf-init/scripts/cf-init.ps1 -Name "М�
 
 # Другой режим совместимости
 ... -Name TestCfg -CompatibilityMode Version8_3_27 -OutputDir test-tmp/cf3
+
+# Под платформу 8.5: формат 2.21 вместе с режимом совместимости
+... -Name TestCfg -FormatVersion 2.21 -CompatibilityMode Version8_3_27 -OutputDir test-tmp/cf4
 ```
 
 ## Верификация

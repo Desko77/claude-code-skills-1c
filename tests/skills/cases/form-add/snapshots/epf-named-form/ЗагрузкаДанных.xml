@@ -19,9 +19,9 @@
 					<v8:content>ЗагрузкаДанных</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<DefaultForm>ExternalDataProcessor.ЗагрузкаДанных.Form.ФормаНастроек</DefaultForm>
-			<AuxiliaryForm />
+			<AuxiliaryForm/>
 		</Properties>
 		<ChildObjects>
 			<Form>ФормаНастроек</Form>

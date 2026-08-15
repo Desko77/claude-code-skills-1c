@@ -2371,6 +2371,9 @@ if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
 	$text = $text.Substring(1)
 }
 $text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+# превращает каждое пересохранение в расхождение по всему файлу.
+$text = [regex]::Replace($text, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
 
 # Write with BOM
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)

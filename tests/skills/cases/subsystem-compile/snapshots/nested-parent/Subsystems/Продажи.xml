@@ -9,13 +9,13 @@
 					<v8:content>Продажи</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<IncludeHelpInContents>true</IncludeHelpInContents>
 			<IncludeInCommandInterface>true</IncludeInCommandInterface>
 			<UseOneCommand>false</UseOneCommand>
-			<Explanation />
-			<Picture />
-			<Content />
+			<Explanation/>
+			<Picture/>
+			<Content/>
 		</Properties>
 		<ChildObjects>
 			<Subsystem>Настройки</Subsystem>

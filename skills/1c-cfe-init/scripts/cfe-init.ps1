@@ -116,8 +116,10 @@ if ($Synonym) {
 }
 
 # --- Optional properties ---
-$vendorXml = if ($Vendor) { [System.Security.SecurityElement]::Escape($Vendor) } else { "" }
-$versionXml = if ($Version) { [System.Security.SecurityElement]::Escape($Version) } else { "" }
+# Незаполненное свойство платформа пишет самозакрывающимся тегом, а не пустой парой,
+# иначе первая же выгрузка из Конфигуратора даст расхождение на ровном месте.
+$vendorXml = if ($Vendor) { "<Vendor>$([System.Security.SecurityElement]::Escape($Vendor))</Vendor>" } else { "<Vendor/>" }
+$versionXml = if ($Version) { "<Version>$([System.Security.SecurityElement]::Escape($Version))</Version>" } else { "<Version/>" }
 
 # --- Role name ---
 $roleName = "${NamePrefix}ОсновнаяРоль"
@@ -185,8 +187,8 @@ $cfgXml = @"
 			</UsePurposes>
 			<ScriptVariant>Russian</ScriptVariant>
 			<DefaultRoles>$defaultRolesXml</DefaultRoles>
-			<Vendor>$vendorXml</Vendor>
-			<Version>$versionXml</Version>
+			$vendorXml
+			$versionXml
 			<DefaultLanguage>Language.Русский</DefaultLanguage>
 			<BriefInformation/>
 			<DetailedInformation/>

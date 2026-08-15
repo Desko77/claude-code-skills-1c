@@ -1116,6 +1116,9 @@ if os.path.exists(config_xml):
             else:
                 new_elem.tail = child_objects.text
             data = etree.tostring(cfg_doc, xml_declaration=True, encoding="UTF-8")
+            # ElementTree пишет пустой элемент как "<tag />"; 1С пишет его без пробела, и лишний
+            # пробел превращает каждое пересохранение в расхождение по всему файлу.
+            data = re.sub(rb'<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', rb'<\1\2/>', data)
             # lxml пишет декларацию в ОДИНАРНЫХ кавычках, платформа и PS-порт — в двойных.
             data = data.replace(b"<?xml version='1.0' encoding='UTF-8'?>",
                                 b'<?xml version="1.0" encoding="UTF-8"?>')

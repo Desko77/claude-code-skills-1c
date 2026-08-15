@@ -40,7 +40,7 @@
 					<v8:content>Тест</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<ConfigurationExtensionPurpose>Customization</ConfigurationExtensionPurpose>
 			<KeepMappingToExtendedConfigurationObjectsByIDs>true</KeepMappingToExtendedConfigurationObjectsByIDs>
 			<NamePrefix>Тест_</NamePrefix>
@@ -53,14 +53,14 @@
 			<DefaultRoles>
 				<xr:Item xsi:type="xr:MDObjectRef">Role.Тест_ОсновнаяРоль</xr:Item>
 			</DefaultRoles>
-			<Vendor></Vendor>
-			<Version></Version>
+			<Vendor/>
+			<Version/>
 			<DefaultLanguage>Language.Русский</DefaultLanguage>
-			<BriefInformation />
-			<DetailedInformation />
-			<Copyright />
-			<VendorInformationAddress />
-			<ConfigurationInformationAddress />
+			<BriefInformation/>
+			<DetailedInformation/>
+			<Copyright/>
+			<VendorInformationAddress/>
+			<ConfigurationInformationAddress/>
 			<InterfaceCompatibilityMode>TaxiEnableVersion8_2</InterfaceCompatibilityMode>
 		</Properties>
 		<ChildObjects>

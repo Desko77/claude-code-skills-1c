@@ -620,7 +620,9 @@ def main():
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    content = '\n'.join(lines) + '\n'
+    # Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+    # дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+    content = '\n'.join(lines)
     write_utf8_bom(out_path, content)
 
     # --- 9. Summary ---

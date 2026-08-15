@@ -51,8 +51,8 @@
 			</UsePurposes>
 			<ScriptVariant>Russian</ScriptVariant>
 			<DefaultRoles></DefaultRoles>
-			<Vendor></Vendor>
-			<Version></Version>
+			<Vendor/>
+			<Version/>
 			<DefaultLanguage>Language.Русский</DefaultLanguage>
 			<BriefInformation/>
 			<DetailedInformation/>

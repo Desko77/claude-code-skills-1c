@@ -39,8 +39,8 @@
 					<v8:content>TestConfig</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
-			<NamePrefix />
+			<Comment/>
+			<NamePrefix/>
 			<ConfigurationExtensionCompatibilityMode>Version8_3_24</ConfigurationExtensionCompatibilityMode>
 			<DefaultRunMode>ManagedApplication</DefaultRunMode>
 			<UsePurposes>
@@ -50,31 +50,31 @@
 			<DefaultRoles>
 			<xr:Item xsi:type="xr:MDObjectRef">Role.ПолныеПрава</xr:Item>
 			</DefaultRoles>
-			<Vendor></Vendor>
-			<Version></Version>
-			<UpdateCatalogAddress />
+			<Vendor/>
+			<Version/>
+			<UpdateCatalogAddress/>
 			<IncludeHelpInContents>false</IncludeHelpInContents>
 			<UseManagedFormInOrdinaryApplication>false</UseManagedFormInOrdinaryApplication>
 			<UseOrdinaryFormInManagedApplication>false</UseOrdinaryFormInManagedApplication>
-			<AdditionalFullTextSearchDictionaries />
-			<CommonSettingsStorage />
-			<ReportsUserSettingsStorage />
-			<ReportsVariantsStorage />
-			<FormDataSettingsStorage />
-			<DynamicListsUserSettingsStorage />
-			<URLExternalDataStorage />
-			<Content />
-			<DefaultReportForm />
-			<DefaultReportVariantForm />
-			<DefaultReportSettingsForm />
-			<DefaultReportAppearanceTemplate />
-			<DefaultDynamicListSettingsForm />
-			<DefaultSearchForm />
-			<DefaultDataHistoryChangeHistoryForm />
-			<DefaultDataHistoryVersionDataForm />
-			<DefaultDataHistoryVersionDifferencesForm />
-			<DefaultCollaborationSystemUsersChoiceForm />
-			<RequiredMobileApplicationPermissions />
+			<AdditionalFullTextSearchDictionaries/>
+			<CommonSettingsStorage/>
+			<ReportsUserSettingsStorage/>
+			<ReportsVariantsStorage/>
+			<FormDataSettingsStorage/>
+			<DynamicListsUserSettingsStorage/>
+			<URLExternalDataStorage/>
+			<Content/>
+			<DefaultReportForm/>
+			<DefaultReportVariantForm/>
+			<DefaultReportSettingsForm/>
+			<DefaultReportAppearanceTemplate/>
+			<DefaultDynamicListSettingsForm/>
+			<DefaultSearchForm/>
+			<DefaultDataHistoryChangeHistoryForm/>
+			<DefaultDataHistoryVersionDataForm/>
+			<DefaultDataHistoryVersionDifferencesForm/>
+			<DefaultCollaborationSystemUsersChoiceForm/>
+			<RequiredMobileApplicationPermissions/>
 			<UsedMobileApplicationFunctionalities>
 				<app:functionality>
 					<app:functionality>Biometrics</app:functionality>
@@ -225,18 +225,18 @@
 					<app:use>false</app:use>
 				</app:functionality>
 			</UsedMobileApplicationFunctionalities>
-			<StandaloneConfigurationRestrictionRoles />
-			<MobileApplicationURLs />
-			<AllowedIncomingShareRequestTypes />
+			<StandaloneConfigurationRestrictionRoles/>
+			<MobileApplicationURLs/>
+			<AllowedIncomingShareRequestTypes/>
 			<MainClientApplicationWindowMode>Normal</MainClientApplicationWindowMode>
-			<DefaultInterface />
-			<DefaultStyle />
+			<DefaultInterface/>
+			<DefaultStyle/>
 			<DefaultLanguage>Language.Русский</DefaultLanguage>
-			<BriefInformation />
-			<DetailedInformation />
-			<Copyright />
-			<VendorInformationAddress />
-			<ConfigurationInformationAddress />
+			<BriefInformation/>
+			<DetailedInformation/>
+			<Copyright/>
+			<VendorInformationAddress/>
+			<ConfigurationInformationAddress/>
 			<DataLockControlMode>Managed</DataLockControlMode>
 			<ObjectAutonumerationMode>NotAutoFree</ObjectAutonumerationMode>
 			<ModalityUseMode>DontUse</ModalityUseMode>
@@ -244,7 +244,7 @@
 			<InterfaceCompatibilityMode>TaxiEnableVersion8_2</InterfaceCompatibilityMode>
 			<DatabaseTablespacesUseMode>DontUse</DatabaseTablespacesUseMode>
 			<CompatibilityMode>Version8_3_24</CompatibilityMode>
-			<DefaultConstantsForm />
+			<DefaultConstantsForm/>
 		</Properties>
 		<ChildObjects>
 			<Language>Русский</Language>

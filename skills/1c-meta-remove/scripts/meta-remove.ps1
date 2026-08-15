@@ -17,6 +17,30 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# --- XML save in the form the platform writes ---
+
+function Save-XmlDocumentTight {
+	param([System.Xml.XmlDocument]$Document, [string]$Path)
+	$settings = New-Object System.Xml.XmlWriterSettings
+	$settings.Encoding = New-Object System.Text.UTF8Encoding($true)
+	$settings.Indent = $false
+	$settings.NewLineHandling = [System.Xml.NewLineHandling]::None
+
+	$mem = New-Object System.IO.MemoryStream
+	$writer = [System.Xml.XmlWriter]::Create($mem, $settings)
+	$Document.Save($writer)
+	$writer.Flush(); $writer.Close()
+	$text = [System.Text.Encoding]::UTF8.GetString($mem.ToArray())
+	$mem.Close()
+
+	if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
+	$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+	# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+	# превращает каждое пересохранение в расхождение по всему файлу.
+	$text = [regex]::Replace($text, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
+	[System.IO.File]::WriteAllText($Path, $text, (New-Object System.Text.UTF8Encoding($true)))
+}
+
 # --- Type → plural directory mapping ---
 
 $typePluralMap = @{
@@ -358,10 +382,7 @@ if (-not $cfgNode) {
 
 	# Save Configuration.xml
 	if ($actions -gt 0 -and -not $DryRun) {
-		$enc = New-Object System.Text.UTF8Encoding $true
-		$sw = New-Object System.IO.StreamWriter($configXml, $false, $enc)
-		$xmlDoc.Save($sw)
-		$sw.Close()
+		Save-XmlDocumentTight -Document $xmlDoc -Path $configXml
 		Write-Host "[OK]    Configuration.xml saved"
 	}
 }
@@ -424,10 +445,7 @@ function Remove-FromSubsystems {
 		}
 
 		if ($modified -and -not $DryRun) {
-			$enc = New-Object System.Text.UTF8Encoding $true
-			$sw = New-Object System.IO.StreamWriter($xmlFile.FullName, $false, $enc)
-			$ssDoc.Save($sw)
-			$sw.Close()
+			Save-XmlDocumentTight -Document $ssDoc -Path $xmlFile.FullName
 		}
 
 		# Recurse into child subsystems

@@ -23,72 +23,72 @@
 					<v8:content>Статусы</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<UseStandardCommands>false</UseStandardCommands>
 			<StandardAttributes>
 				<xr:StandardAttribute name="Order">
-					<xr:LinkByType />
+					<xr:LinkByType/>
 					<xr:FillChecking>DontCheck</xr:FillChecking>
 					<xr:MultiLine>false</xr:MultiLine>
 					<xr:FillFromFillingValue>false</xr:FillFromFillingValue>
 					<xr:CreateOnInput>Auto</xr:CreateOnInput>
-					<xr:MaxValue xsi:nil="true" />
-					<xr:ToolTip />
+					<xr:MaxValue xsi:nil="true"/>
+					<xr:ToolTip/>
 					<xr:ExtendedEdit>false</xr:ExtendedEdit>
-					<xr:Format />
-					<xr:ChoiceForm />
+					<xr:Format/>
+					<xr:ChoiceForm/>
 					<xr:QuickChoice>Auto</xr:QuickChoice>
 					<xr:ChoiceHistoryOnInput>Auto</xr:ChoiceHistoryOnInput>
-					<xr:EditFormat />
+					<xr:EditFormat/>
 					<xr:PasswordMode>false</xr:PasswordMode>
 					<xr:DataHistory>Use</xr:DataHistory>
 					<xr:MarkNegatives>false</xr:MarkNegatives>
-					<xr:MinValue xsi:nil="true" />
-					<xr:Synonym />
-					<xr:Comment />
+					<xr:MinValue xsi:nil="true"/>
+					<xr:Synonym/>
+					<xr:Comment/>
 					<xr:FullTextSearch>Use</xr:FullTextSearch>
-					<xr:ChoiceParameterLinks />
-					<xr:FillValue xsi:nil="true" />
-					<xr:Mask />
-					<xr:ChoiceParameters />
+					<xr:ChoiceParameterLinks/>
+					<xr:FillValue xsi:nil="true"/>
+					<xr:Mask/>
+					<xr:ChoiceParameters/>
 				</xr:StandardAttribute>
 				<xr:StandardAttribute name="Ref">
-					<xr:LinkByType />
+					<xr:LinkByType/>
 					<xr:FillChecking>DontCheck</xr:FillChecking>
 					<xr:MultiLine>false</xr:MultiLine>
 					<xr:FillFromFillingValue>false</xr:FillFromFillingValue>
 					<xr:CreateOnInput>Auto</xr:CreateOnInput>
-					<xr:MaxValue xsi:nil="true" />
-					<xr:ToolTip />
+					<xr:MaxValue xsi:nil="true"/>
+					<xr:ToolTip/>
 					<xr:ExtendedEdit>false</xr:ExtendedEdit>
-					<xr:Format />
-					<xr:ChoiceForm />
+					<xr:Format/>
+					<xr:ChoiceForm/>
 					<xr:QuickChoice>Auto</xr:QuickChoice>
 					<xr:ChoiceHistoryOnInput>Auto</xr:ChoiceHistoryOnInput>
-					<xr:EditFormat />
+					<xr:EditFormat/>
 					<xr:PasswordMode>false</xr:PasswordMode>
 					<xr:DataHistory>Use</xr:DataHistory>
 					<xr:MarkNegatives>false</xr:MarkNegatives>
-					<xr:MinValue xsi:nil="true" />
-					<xr:Synonym />
-					<xr:Comment />
+					<xr:MinValue xsi:nil="true"/>
+					<xr:Synonym/>
+					<xr:Comment/>
 					<xr:FullTextSearch>Use</xr:FullTextSearch>
-					<xr:ChoiceParameterLinks />
-					<xr:FillValue xsi:nil="true" />
-					<xr:Mask />
-					<xr:ChoiceParameters />
+					<xr:ChoiceParameterLinks/>
+					<xr:FillValue xsi:nil="true"/>
+					<xr:Mask/>
+					<xr:ChoiceParameters/>
 				</xr:StandardAttribute>
 			</StandardAttributes>
-			<Characteristics />
+			<Characteristics/>
 			<QuickChoice>true</QuickChoice>
 			<ChoiceMode>BothWays</ChoiceMode>
-			<DefaultListForm />
-			<DefaultChoiceForm />
-			<AuxiliaryListForm />
-			<AuxiliaryChoiceForm />
-			<ListPresentation />
-			<ExtendedListPresentation />
-			<Explanation />
+			<DefaultListForm/>
+			<DefaultChoiceForm/>
+			<AuxiliaryListForm/>
+			<AuxiliaryChoiceForm/>
+			<ListPresentation/>
+			<ExtendedListPresentation/>
+			<Explanation/>
 			<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
 		</Properties>
 		<ChildObjects>
@@ -101,7 +101,7 @@
 							<v8:content>Новый</v8:content>
 						</v8:item>
 					</Synonym>
-					<Comment />
+					<Comment/>
 				</Properties>
 			</EnumValue>
 			<EnumValue uuid="UUID-009">
@@ -113,7 +113,7 @@
 							<v8:content>Вработе</v8:content>
 						</v8:item>
 					</Synonym>
-					<Comment />
+					<Comment/>
 				</Properties>
 			</EnumValue>
 			<EnumValue uuid="UUID-010">
@@ -125,7 +125,7 @@
 							<v8:content>Закрыт</v8:content>
 						</v8:item>
 					</Synonym>
-					<Comment />
+					<Comment/>
 				</Properties>
 			</EnumValue>
 		</ChildObjects>

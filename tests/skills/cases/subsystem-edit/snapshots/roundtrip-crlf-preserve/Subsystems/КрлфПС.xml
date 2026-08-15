@@ -9,17 +9,17 @@
 					<v8:content>КРЛФ ПС</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<IncludeHelpInContents>true</IncludeHelpInContents>
 			<IncludeInCommandInterface>true</IncludeInCommandInterface>
 			<UseOneCommand>false</UseOneCommand>
-			<Explanation />
-			<Picture />
+			<Explanation/>
+			<Picture/>
 			<Content>
 				<xr:Item xsi:type="xr:MDObjectRef">CommonModule.М</xr:Item>
 				<xr:Item xsi:type="xr:MDObjectRef">CommonModule.Второй</xr:Item>
 			</Content>
 		</Properties>
-		<ChildObjects />
+		<ChildObjects/>
 	</Subsystem>
 </MetaDataObject>

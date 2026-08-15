@@ -720,7 +720,9 @@ X '</document>'
 
 $enc = New-Object System.Text.UTF8Encoding($true)
 $resolvedPath = if ([System.IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { Join-Path (Get-Location) $OutputPath }
-[System.IO.File]::WriteAllText($resolvedPath, $xml.ToString(), $enc)
+# Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+# дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+[System.IO.File]::WriteAllText($resolvedPath, $xml.ToString().TrimEnd("`r", "`n"), $enc)
 
 # --- 9. Summary ---
 

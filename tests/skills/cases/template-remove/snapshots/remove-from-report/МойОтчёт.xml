@@ -19,15 +19,15 @@
 					<v8:content>МойОтчёт</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
-			<DefaultForm />
-			<AuxiliaryForm />
-			<MainDataCompositionSchema />
-			<DefaultSettingsForm />
-			<AuxiliarySettingsForm />
-			<DefaultVariantForm />
-			<VariantsStorage />
-			<SettingsStorage />
+			<Comment/>
+			<DefaultForm/>
+			<AuxiliaryForm/>
+			<MainDataCompositionSchema/>
+			<DefaultSettingsForm/>
+			<AuxiliarySettingsForm/>
+			<DefaultVariantForm/>
+			<VariantsStorage/>
+			<SettingsStorage/>
 		</Properties>
 		<ChildObjects>
 		</ChildObjects>

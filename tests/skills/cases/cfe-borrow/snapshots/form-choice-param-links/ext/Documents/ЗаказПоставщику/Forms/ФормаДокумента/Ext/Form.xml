@@ -12,12 +12,12 @@
 	</AutoCommandBar>
 	<ChildItems>
 		<InputField name="Партнер" id="1">
-			<ContextMenu name="ПартнерКонтекстноеМеню" id="2" />
-			<ExtendedTooltip name="ПартнерРасширеннаяПодсказка" id="3" />
+			<ContextMenu name="ПартнерКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="ПартнерРасширеннаяПодсказка" id="3"/>
 		</InputField>
 		<InputField name="КонтактноеЛицо" id="4">
-			<ContextMenu name="КонтактноеЛицоКонтекстноеМеню" id="5" />
-			<ExtendedTooltip name="КонтактноеЛицоРасширеннаяПодсказка" id="6" />
+			<ContextMenu name="КонтактноеЛицоКонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="КонтактноеЛицоРасширеннаяПодсказка" id="6"/>
 		</InputField>
 	</ChildItems>
 	<Attributes/>
@@ -34,12 +34,12 @@
 		</AutoCommandBar>
 		<ChildItems>
 			<InputField name="Партнер" id="1">
-				<ContextMenu name="ПартнерКонтекстноеМеню" id="2" />
-				<ExtendedTooltip name="ПартнерРасширеннаяПодсказка" id="3" />
+				<ContextMenu name="ПартнерКонтекстноеМеню" id="2"/>
+				<ExtendedTooltip name="ПартнерРасширеннаяПодсказка" id="3"/>
 			</InputField>
 			<InputField name="КонтактноеЛицо" id="4">
-				<ContextMenu name="КонтактноеЛицоКонтекстноеМеню" id="5" />
-				<ExtendedTooltip name="КонтактноеЛицоРасширеннаяПодсказка" id="6" />
+				<ContextMenu name="КонтактноеЛицоКонтекстноеМеню" id="5"/>
+				<ExtendedTooltip name="КонтактноеЛицоРасширеннаяПодсказка" id="6"/>
 			</InputField>
 		</ChildItems>
 		<Attributes/>

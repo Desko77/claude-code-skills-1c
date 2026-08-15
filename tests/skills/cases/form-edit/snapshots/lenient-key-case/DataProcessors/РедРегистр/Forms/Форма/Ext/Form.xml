@@ -6,7 +6,7 @@
 	<Events>
 		<Event name="OnCreateAtServer">ПриСозданииНаСервере</Event>
 	</Events>
-	<ChildItems />
+	<ChildItems/>
 	<Attributes>
 		<Attribute name="Объект" id="1">
 			<Type>

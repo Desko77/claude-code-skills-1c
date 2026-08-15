@@ -19,13 +19,13 @@
 					<v8:content>Запрет ручного ввода</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<UseStandardCommands>false</UseStandardCommands>
 			<DefaultForm>DataProcessor.ЗапретРучногоВвода.Form.Форма</DefaultForm>
-			<AuxiliaryForm />
+			<AuxiliaryForm/>
 			<IncludeHelpInContents>false</IncludeHelpInContents>
-			<ExtendedPresentation />
-			<Explanation />
+			<ExtendedPresentation/>
+			<Explanation/>
 		</Properties>
 		<ChildObjects>
 			<Form>Форма</Form>

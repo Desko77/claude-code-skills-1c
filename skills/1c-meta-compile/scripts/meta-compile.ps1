@@ -28,7 +28,9 @@ if ($def -is [array] -or ($null -ne $def -and $def.GetType().BaseType.Name -eq '
 	$idx = 0
 	foreach ($item in $def) {
 		$idx++
-		$tmpJson = Join-Path ([System.IO.Path]::GetTempPath()) "meta-compile-batch-$idx.json"
+		# Имя временного файла уникально по процессу: два одновременных пакетных
+		# запуска иначе пишут в один и тот же файл и портят друг другу вход.
+		$tmpJson = Join-Path ([System.IO.Path]::GetTempPath()) "meta-compile-batch-$PID-$idx-$([guid]::NewGuid().ToString('N')).json"
 		try {
 			$item | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 $tmpJson
 			$proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -File `"$PSCommandPath`" -JsonPath `"$tmpJson`" -OutputDir `"$OutputDir`"" -NoNewWindow -Wait -PassThru
@@ -77,6 +79,20 @@ $script:objectTypeSynonyms = @{
 	"HTTPСервис"              = "HTTPService"
 	"ВебСервис"               = "WebService"
 	"ОпределяемыйТип"         = "DefinedType"
+	"ОбщийРеквизит"           = "CommonAttribute"
+	"ОбщаяКоманда"            = "CommonCommand"
+	"ГруппаКоманд"            = "CommandGroup"
+	"ОбщаяФорма"              = "CommonForm"
+	"ОбщийМакет"              = "CommonTemplate"
+	"ОбщаяКартинка"           = "CommonPicture"
+	"КритерийОтбора"          = "FilterCriterion"
+	"Последовательность"      = "Sequence"
+	"НумераторДокументов"     = "DocumentNumerator"
+	"ПараметрСеанса"          = "SessionParameter"
+	"ХранилищеНастроек"       = "SettingsStorage"
+	"ФункциональнаяОпция"     = "FunctionalOption"
+	"ПараметрФункциональныхОпций" = "FunctionalOptionsParameter"
+	"WSСсылка"                = "WSReference"
 }
 
 # Enum property value synonyms — model often gets these slightly wrong
@@ -184,7 +200,10 @@ $validTypes = @("Catalog","Document","Enum","Constant","InformationRegister","Ac
 	"AccountingRegister","CalculationRegister","ChartOfAccounts","ChartOfCharacteristicTypes",
 	"ChartOfCalculationTypes","BusinessProcess","Task","ExchangePlan","DocumentJournal",
 	"Report","DataProcessor","CommonModule","ScheduledJob","EventSubscription",
-	"HTTPService","WebService","DefinedType")
+	"HTTPService","WebService","DefinedType",
+	"CommonAttribute","CommonCommand","CommandGroup","CommonForm","CommonTemplate",
+	"CommonPicture","FilterCriterion","Sequence","DocumentNumerator","SessionParameter",
+	"SettingsStorage","FunctionalOption","FunctionalOptionsParameter","WSReference")
 if ($objType -notin $validTypes) {
 	Write-Error "Unsupported type: $objType. Valid: $($validTypes -join ', ')"
 	exit 1
@@ -310,15 +329,52 @@ function Resolve-TypeStr {
 	return $typeStr
 }
 
+# --- 4a. Metadata path normalization ---
+
+# Путь к метаданным приходит по-русски или по-английски вперемешку:
+# "Документ.Реализация.Реквизит.Склад" и "Document.Реализация.Attribute.Склад" - одно и то же.
+# Переводятся только четные сегменты (вид объекта), имена остаются как написаны.
+$script:mdKindSynonyms = @{
+	"Реквизит"                = "Attribute"
+	"ТабличнаяЧасть"          = "TabularSection"
+	"Измерение"               = "Dimension"
+	"Ресурс"                  = "Resource"
+	"Графа"                   = "Column"
+	"ЗначениеПеречисления"    = "EnumValue"
+	"Форма"                   = "Form"
+	"Макет"                   = "Template"
+	"Команда"                 = "Command"
+	"ПризнакУчета"            = "AccountingFlag"
+	"ПризнакУчетаСубконто"    = "ExtDimensionAccountingFlag"
+	"РеквизитАдресации"       = "AddressingAttribute"
+}
+foreach ($kindKey in $script:objectTypeSynonyms.Keys) {
+	$script:mdKindSynonyms[$kindKey] = $script:objectTypeSynonyms[$kindKey]
+}
+
+function Resolve-MDPath {
+	param([string]$path)
+	if (-not $path) { return $path }
+	$parts = $path.Split('.')
+	for ($idx = 0; $idx -lt $parts.Count; $idx += 2) {
+		$syn = $script:mdKindSynonyms[$parts[$idx]]
+		if ($syn) { $parts[$idx] = $syn }
+	}
+	return ($parts -join '.')
+}
+
+# $CfgPrefix - ссылочный тип пишется как cfg:CatalogRef.X вместо локального d5p1:.
+# Платформа использует обе формы: у реквизитов объектов - d5p1, у параметров сеанса,
+# общих реквизитов, критериев отбора и команд - cfg. Форма задается вызывающим.
 function Emit-TypeContent {
-	param([string]$indent, [string]$typeStr)
+	param([string]$indent, [string]$typeStr, [switch]$CfgPrefix)
 	if (-not $typeStr) { return }
 
 	# Composite type: "Type1 + Type2 + Type3"
 	if ($typeStr.Contains(' + ')) {
 		$parts = $typeStr -split '\s*\+\s*'
 		foreach ($part in $parts) {
-			Emit-TypeContent $indent $part.Trim()
+			Emit-TypeContent $indent $part.Trim() -CfgPrefix:$CfgPrefix
 		}
 		return
 	}
@@ -398,7 +454,11 @@ function Emit-TypeContent {
 
 	# Reference types — use local xmlns declaration for 1C compatibility
 	if ($typeStr -match '^(CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef)\.(.+)$') {
-		X "$indent<v8:Type xmlns:d5p1=`"http://v8.1c.ru/8.1/data/enterprise/current-config`">d5p1:$typeStr</v8:Type>"
+		if ($CfgPrefix) {
+			X "$indent<v8:Type>cfg:$typeStr</v8:Type>"
+		} else {
+			X "$indent<v8:Type xmlns:d5p1=`"http://v8.1c.ru/8.1/data/enterprise/current-config`">d5p1:$typeStr</v8:Type>"
+		}
 		return
 	}
 
@@ -654,6 +714,21 @@ $script:generatedTypes = @{
 	"DataProcessor" = @(
 		@{ prefix = "DataProcessorObject";  category = "Object" }
 		@{ prefix = "DataProcessorManager"; category = "Manager" }
+	)
+	"SettingsStorage" = @(
+		@{ prefix = "SettingsStorageManager"; category = "Manager" }
+	)
+	"Sequence" = @(
+		@{ prefix = "SequenceRecord";    category = "Record" }
+		@{ prefix = "SequenceManager";   category = "Manager" }
+		@{ prefix = "SequenceRecordSet"; category = "RecordSet" }
+	)
+	"FilterCriterion" = @(
+		@{ prefix = "FilterCriterionManager"; category = "Manager" }
+		@{ prefix = "FilterCriterionList";    category = "List" }
+	)
+	"WSReference" = @(
+		@{ prefix = "WSReferenceManager"; category = "Manager" }
 	)
 }
 
@@ -2564,6 +2639,339 @@ function Emit-AddressingAttribute {
 	X "$indent</AddressingAttribute>"
 }
 
+# --- 13h. Wave 7: конфигурационные объекты без собственных данных ---
+
+# Комментарий объекта: у большинства типов он пустой, но там, где задан, пишется как есть.
+function Emit-Comment {
+	param([string]$indent)
+	if ($comment) {
+		X "$indent<Comment>$(Esc-Xml $comment)</Comment>"
+	} else {
+		X "$indent<Comment/>"
+	}
+}
+
+# Голова свойств, одинаковая у всех типов: имя, синоним, комментарий.
+function Emit-CommonHead {
+	param([string]$indent)
+	X "$indent<Name>$(Esc-Xml $objName)</Name>"
+	Emit-MLText $indent "Synonym" $synonym
+	Emit-Comment $indent
+}
+
+# Список ссылок на метаданные: <xr:Item xsi:type="xr:MDObjectRef">Document.X</xr:Item>
+function Emit-MDRefList {
+	param([string]$indent, [string]$tag, $items)
+	$refs = @(@($items) | Where-Object { $_ })
+	if ($refs.Count -eq 0) {
+		X "$indent<$tag/>"
+		return
+	}
+	X "$indent<$tag>"
+	foreach ($ref in $refs) {
+		X "$indent`t<xr:Item xsi:type=`"xr:MDObjectRef`">$(Resolve-MDPath "$ref")</xr:Item>"
+	}
+	X "$indent</$tag>"
+}
+
+function Emit-SessionParameterProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	if ($def.valueType) {
+		X "$i<Type>"
+		Emit-TypeContent "$i`t" "$($def.valueType)" -CfgPrefix
+		X "$i</Type>"
+	} else {
+		X "$i<Type/>"
+	}
+}
+
+function Emit-SettingsStorageProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	X "$i<DefaultSaveForm/>"
+	X "$i<DefaultLoadForm/>"
+	X "$i<AuxiliarySaveForm/>"
+	X "$i<AuxiliaryLoadForm/>"
+}
+
+function Emit-CommonPictureProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	$forChoice = if ($def.availabilityForChoice -eq $true) { "true" } else { "false" }
+	$forAppearance = if ($def.availabilityForAppearance -eq $true) { "true" } else { "false" }
+	X "$i<AvailabilityForChoice>$forChoice</AvailabilityForChoice>"
+	X "$i<AvailabilityForAppearance>$forAppearance</AvailabilityForAppearance>"
+}
+
+function Emit-CommonTemplateProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	$tmplType = if ($def.templateType) { "$($def.templateType)" } else { "SpreadsheetDocument" }
+	X "$i<TemplateType>$tmplType</TemplateType>"
+}
+
+function Emit-DocumentNumeratorProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	$numType = Get-EnumProp "NumberType" "numberType" "String"
+	$numLen  = if ($null -ne $def.numberLength) { "$($def.numberLength)" } else { "9" }
+	$numAllowed = Get-EnumProp "NumberAllowedLength" "numberAllowedLength" "Variable"
+	$numPeriod  = if ($def.numberPeriodicity) { "$($def.numberPeriodicity)" } else { "Year" }
+	$checkUnique = if ($def.checkUnique -eq $false) { "false" } else { "true" }
+	X "$i<NumberType>$numType</NumberType>"
+	X "$i<NumberLength>$numLen</NumberLength>"
+	X "$i<NumberAllowedLength>$numAllowed</NumberAllowedLength>"
+	X "$i<NumberPeriodicity>$numPeriod</NumberPeriodicity>"
+	X "$i<CheckUnique>$checkUnique</CheckUnique>"
+}
+
+function Emit-WSReferenceProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	$url = if ($def.locationURL) { "$($def.locationURL)" } else { "" }
+	if ($url) { X "$i<LocationURL>$(Esc-Xml $url)</LocationURL>" } else { X "$i<LocationURL/>" }
+}
+
+function Emit-FunctionalOptionProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	if ($def.location) {
+		X "$i<Location>$(Resolve-MDPath "$($def.location)")</Location>"
+	} else {
+		X "$i<Location/>"
+	}
+	$privileged = if ($def.privilegedGetMode -eq $false) { "false" } else { "true" }
+	X "$i<PrivilegedGetMode>$privileged</PrivilegedGetMode>"
+	# Состав функциональной опции - это xr:Object, а не xr:Item, как у остальных списков
+	$content = @(@($def.content) | Where-Object { $_ })
+	if ($content.Count -gt 0) {
+		X "$i<Content>"
+		foreach ($c in $content) {
+			X "$i`t<xr:Object>$(Resolve-MDPath "$c")</xr:Object>"
+		}
+		X "$i</Content>"
+	} else {
+		X "$i<Content/>"
+	}
+}
+
+function Emit-FunctionalOptionsParameterProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	Emit-MDRefList $i "Use" $def.use
+}
+
+function Emit-FilterCriterionProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	if ($def.valueType) {
+		X "$i<Type>"
+		Emit-TypeContent "$i`t" "$($def.valueType)" -CfgPrefix
+		X "$i</Type>"
+	} else {
+		X "$i<Type/>"
+	}
+	$useStdCmd = if ($def.useStandardCommands -eq $false) { "false" } else { "true" }
+	X "$i<UseStandardCommands>$useStdCmd</UseStandardCommands>"
+	Emit-MDRefList $i "Content" $def.content
+	X "$i<DefaultForm/>"
+	X "$i<AuxiliaryForm/>"
+	X "$i<ListPresentation/>"
+	X "$i<ExtendedListPresentation/>"
+	X "$i<Explanation/>"
+}
+
+function Emit-SequenceProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	$moveBoundary = if ($def.moveBoundaryOnPosting) { "$($def.moveBoundaryOnPosting)" } else { "DontMove" }
+	X "$i<MoveBoundaryOnPosting>$moveBoundary</MoveBoundaryOnPosting>"
+	Emit-MDRefList $i "Documents" $def.documents
+	Emit-MDRefList $i "RegisterRecords" $def.registerRecords
+	$lockMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
+	X "$i<DataLockControlMode>$lockMode</DataLockControlMode>"
+}
+
+# Измерение последовательности: тип плюс карты соответствия документам и движениям.
+function Emit-SequenceDimension {
+	param([string]$indent, $dim)
+	$i = $indent
+	$dimName = "$($dim.name)"
+	$dimSynonym = if ($dim.synonym) { "$($dim.synonym)" } else { Split-CamelCase $dimName }
+	X "$i<Dimension uuid=`"$(New-Guid-String)`">"
+	X "$i`t<Properties>"
+	X "$i`t`t<Name>$(Esc-Xml $dimName)</Name>"
+	Emit-MLText "$i`t`t" "Synonym" $dimSynonym
+	X "$i`t`t<Comment/>"
+	if ($dim.type) {
+		X "$i`t`t<Type>"
+		Emit-TypeContent "$i`t`t`t" "$($dim.type)" -CfgPrefix
+		X "$i`t`t</Type>"
+	} else {
+		X "$i`t`t<Type/>"
+	}
+	Emit-MDRefList "$i`t`t" "DocumentMap" $dim.documentMap
+	Emit-MDRefList "$i`t`t" "RegisterRecordsMap" $dim.registerRecordsMap
+	X "$i`t</Properties>"
+	X "$i</Dimension>"
+}
+
+function Emit-CommonAttributeProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	if ($def.valueType) {
+		X "$i<Type>"
+		Emit-TypeContent "$i`t" "$($def.valueType)" -CfgPrefix
+		X "$i</Type>"
+	} else {
+		X "$i<Type/>"
+	}
+	X "$i<PasswordMode>false</PasswordMode>"
+	X "$i<Format/>"
+	X "$i<EditFormat/>"
+	X "$i<ToolTip/>"
+	X "$i<MarkNegatives>false</MarkNegatives>"
+	X "$i<Mask/>"
+	X "$i<MultiLine>false</MultiLine>"
+	X "$i<ExtendedEdit>false</ExtendedEdit>"
+	X "$i<MinValue xsi:nil=`"true`"/>"
+	X "$i<MaxValue xsi:nil=`"true`"/>"
+	X "$i<FillFromFillingValue>false</FillFromFillingValue>"
+	X "$i<FillValue xsi:nil=`"true`"/>"
+	X "$i<FillChecking>DontCheck</FillChecking>"
+	X "$i<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>"
+	X "$i<ChoiceParameterLinks/>"
+	X "$i<ChoiceParameters/>"
+	X "$i<QuickChoice>Auto</QuickChoice>"
+	X "$i<CreateOnInput>Auto</CreateOnInput>"
+	X "$i<ChoiceForm/>"
+	X "$i<LinkByType/>"
+	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
+
+	# Состав: строка "Документ.X" либо объект { metadata, use }
+	$content = @(@($def.content) | Where-Object { $_ })
+	if ($content.Count -gt 0) {
+		X "$i<Content>"
+		foreach ($c in $content) {
+			$mdRef = if ($c -is [string]) { "$c" } else { "$($c.metadata)" }
+			$mdUse = if ($c -isnot [string] -and $c.use) { "$($c.use)" } else { "Use" }
+			X "$i`t<xr:Item>"
+			X "$i`t`t<xr:Metadata>$(Resolve-MDPath $mdRef)</xr:Metadata>"
+			X "$i`t`t<xr:Use>$mdUse</xr:Use>"
+			X "$i`t`t<xr:ConditionalSeparation/>"
+			X "$i`t</xr:Item>"
+		}
+		X "$i</Content>"
+	} else {
+		X "$i<Content/>"
+	}
+
+	$autoUse = if ($def.autoUse) { "$($def.autoUse)" } else { "DontUse" }
+	X "$i<AutoUse>$autoUse</AutoUse>"
+	X "$i<DataSeparation>DontUse</DataSeparation>"
+	X "$i<SeparatedDataUse>Independently</SeparatedDataUse>"
+	X "$i<DataSeparationValue/>"
+	X "$i<DataSeparationUse/>"
+	X "$i<ConditionalSeparation/>"
+	X "$i<UsersSeparation>DontUse</UsersSeparation>"
+	X "$i<AuthenticationSeparation>DontUse</AuthenticationSeparation>"
+	X "$i<ConfigurationExtensionsSeparation>DontUse</ConfigurationExtensionsSeparation>"
+	$indexing = Get-EnumProp "Indexing" "indexing" "DontIndex"
+	X "$i<Indexing>$indexing</Indexing>"
+	$fts = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
+	X "$i<FullTextSearch>$fts</FullTextSearch>"
+	$dataHistory = if ($def.dataHistory) { "$($def.dataHistory)" } else { "Use" }
+	X "$i<DataHistory>$dataHistory</DataHistory>"
+}
+
+# Картинка команды или группы: либо ссылка на общую картинку, либо пустой тег.
+function Emit-PictureRef {
+	param([string]$indent, $picture)
+	if (-not $picture) {
+		X "$indent<Picture/>"
+		return
+	}
+	$src = if ($picture -is [string]) { "$picture" } else { "$($picture.src)" }
+	if (-not $src) {
+		X "$indent<Picture/>"
+		return
+	}
+	$transparent = if ($picture -isnot [string] -and $picture.loadTransparent -eq $true) { "true" } else { "false" }
+	X "$indent<Picture>"
+	X "$indent`t<xr:Ref>$(Resolve-MDPath $src)</xr:Ref>"
+	X "$indent`t<xr:LoadTransparent>$transparent</xr:LoadTransparent>"
+	X "$indent</Picture>"
+}
+
+function Emit-CommandGroupProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	$repr = if ($def.representation) { "$($def.representation)" } else { "Auto" }
+	X "$i<Representation>$repr</Representation>"
+	X "$i<ToolTip/>"
+	Emit-PictureRef $i $def.picture
+	$category = if ($def.category) { "$($def.category)" } else { "FormCommandBar" }
+	X "$i<Category>$category</Category>"
+}
+
+function Emit-CommonCommandProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	if ($def.group) { X "$i<Group>$($def.group)</Group>" } else { X "$i<Group/>" }
+	$repr = if ($def.representation) { "$($def.representation)" } else { "Auto" }
+	X "$i<Representation>$repr</Representation>"
+	X "$i<ToolTip/>"
+	Emit-PictureRef $i $def.picture
+	X "$i<Shortcut/>"
+	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
+	if ($def.commandParameterType) {
+		X "$i<CommandParameterType>"
+		Emit-TypeContent "$i`t" "$($def.commandParameterType)" -CfgPrefix
+		X "$i</CommandParameterType>"
+	} else {
+		X "$i<CommandParameterType/>"
+	}
+	$paramMode = if ($def.parameterUseMode) { "$($def.parameterUseMode)" } else { "Single" }
+	X "$i<ParameterUseMode>$paramMode</ParameterUseMode>"
+	$modifies = if ($def.modifiesData -eq $true) { "true" } else { "false" }
+	X "$i<ModifiesData>$modifies</ModifiesData>"
+	X "$i<OnMainServerUnavalableBehavior>Auto</OnMainServerUnavalableBehavior>"
+}
+
+function Emit-CommonFormProperties {
+	param([string]$indent)
+	$i = $indent
+	Emit-CommonHead $i
+	$formType = if ($def.formType) { "$($def.formType)" } else { "Managed" }
+	X "$i<FormType>$formType</FormType>"
+	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
+	$purposes = @(@($def.usePurposes) | Where-Object { $_ })
+	if ($purposes.Count -eq 0) { $purposes = @("PlatformApplication") }
+	X "$i<UsePurposes>"
+	foreach ($p in $purposes) {
+		X "$i`t<v8:Value xsi:type=`"app:ApplicationUsePurpose`">$p</v8:Value>"
+	}
+	X "$i</UsePurposes>"
+	$useStdCmd = if ($def.useStandardCommands -eq $true) { "true" } else { "false" }
+	X "$i<UseStandardCommands>$useStdCmd</UseStandardCommands>"
+	X "$i<ExtendedPresentation/>"
+	X "$i<Explanation/>"
+}
+
 # --- 14. Namespaces ---
 
 $script:xmlnsDecl = 'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
@@ -2626,6 +3034,20 @@ switch ($objType) {
 	"Task"                       { Emit-TaskProperties "`t`t`t" }
 	"HTTPService"                { Emit-HTTPServiceProperties "`t`t`t" }
 	"WebService"                 { Emit-WebServiceProperties "`t`t`t" }
+	"SessionParameter"           { Emit-SessionParameterProperties "`t`t`t" }
+	"SettingsStorage"            { Emit-SettingsStorageProperties "`t`t`t" }
+	"CommonPicture"              { Emit-CommonPictureProperties "`t`t`t" }
+	"CommonTemplate"             { Emit-CommonTemplateProperties "`t`t`t" }
+	"DocumentNumerator"          { Emit-DocumentNumeratorProperties "`t`t`t" }
+	"WSReference"                { Emit-WSReferenceProperties "`t`t`t" }
+	"FunctionalOption"           { Emit-FunctionalOptionProperties "`t`t`t" }
+	"FunctionalOptionsParameter" { Emit-FunctionalOptionsParameterProperties "`t`t`t" }
+	"FilterCriterion"            { Emit-FilterCriterionProperties "`t`t`t" }
+	"Sequence"                   { Emit-SequenceProperties "`t`t`t" }
+	"CommonAttribute"            { Emit-CommonAttributeProperties "`t`t`t" }
+	"CommandGroup"               { Emit-CommandGroupProperties "`t`t`t" }
+	"CommonCommand"              { Emit-CommonCommandProperties "`t`t`t" }
+	"CommonForm"                 { Emit-CommonFormProperties "`t`t`t" }
 }
 
 X "`t`t</Properties>"
@@ -2830,12 +3252,34 @@ if ($objType -eq "WebService") {
 	}
 }
 
+# --- Sequence: dimensions ---
+if ($objType -eq "Sequence") {
+	$seqDims = @(@($def.dimensions) | Where-Object { $_ })
+	if ($seqDims.Count -gt 0) {
+		$hasChildren = $true
+		X "`t`t<ChildObjects>"
+		foreach ($sd in $seqDims) {
+			Emit-SequenceDimension "`t`t`t" $sd
+		}
+		X "`t`t</ChildObjects>"
+	} else {
+		X "`t`t<ChildObjects/>"
+	}
+}
+
+# --- SettingsStorage, FilterCriterion: контейнер форм, пока пустой ---
+if ($objType -in @("SettingsStorage","FilterCriterion")) {
+	X "`t`t<ChildObjects/>"
+}
+
 # --- CommonModule: no ChildObjects ---
 
 X "`t</$objType>"
 X "</MetaDataObject>"
 
-$metadataXml = $script:xml.ToString()
+# Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+# дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+$metadataXml = $script:xml.ToString().TrimEnd("`r", "`n")
 
 # --- 16. Write files ---
 
@@ -2864,6 +3308,20 @@ $script:typePluralMap = @{
 	"HTTPService"               = "HTTPServices"
 	"WebService"                = "WebServices"
 	"DefinedType"               = "DefinedTypes"
+	"CommonAttribute"           = "CommonAttributes"
+	"CommonCommand"             = "CommonCommands"
+	"CommandGroup"              = "CommandGroups"
+	"CommonForm"                = "CommonForms"
+	"CommonTemplate"            = "CommonTemplates"
+	"CommonPicture"             = "CommonPictures"
+	"FilterCriterion"           = "FilterCriteria"
+	"Sequence"                  = "Sequences"
+	"DocumentNumerator"         = "DocumentNumerators"
+	"SessionParameter"          = "SessionParameters"
+	"SettingsStorage"           = "SettingsStorages"
+	"FunctionalOption"          = "FunctionalOptions"
+	"FunctionalOptionsParameter"= "FunctionalOptionsParameters"
+	"WSReference"               = "WSReferences"
 }
 
 $typePlural = $script:typePluralMap[$objType]
@@ -2873,7 +3331,10 @@ $typeDir = Join-Path $OutputDir $typePlural
 $mainXmlPath = Join-Path $typeDir "$objName.xml"
 
 # Types that don't have subdirectory structure (no Ext/, no modules)
-$typesNoSubDir = @("DefinedType","ScheduledJob","EventSubscription")
+$typesNoSubDir = @("DefinedType","ScheduledJob","EventSubscription",
+	"CommonAttribute","CommandGroup","CommonTemplate","CommonPicture",
+	"FilterCriterion","Sequence","DocumentNumerator","SessionParameter",
+	"SettingsStorage","FunctionalOption","FunctionalOptionsParameter","WSReference")
 
 # Object subdirectory: {OutputDir}/{TypePlural}/{Name}/Ext/
 $objSubDir = Join-Path $typeDir $objName
@@ -2952,6 +3413,46 @@ if ($objType -in $typesWithModule) {
 		Ensure-ExtDir
 		[System.IO.File]::WriteAllText($modulePath, "", $enc)
 		$modulesCreated += $modulePath
+	}
+}
+
+# CommonCommand: модуль команды
+if ($objType -eq "CommonCommand") {
+	$cmdModulePath = Join-Path $extDir "CommandModule.bsl"
+	if (-not (Test-Path $cmdModulePath)) {
+		Ensure-ExtDir
+		[System.IO.File]::WriteAllText($cmdModulePath, "", $enc)
+		$modulesCreated += $cmdModulePath
+	}
+}
+
+# CommonForm: заготовка управляемой формы и ее модуль.
+# Пространства имен у формы свои - это не тот же набор, что у объектов метаданных.
+if ($objType -eq "CommonForm") {
+	Ensure-ExtDir
+	$formXmlPath = Join-Path $extDir "Form.xml"
+	if (-not (Test-Path $formXmlPath)) {
+		$formNs = 'xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+		$formLines = @(
+			'<?xml version="1.0" encoding="UTF-8"?>'
+			"<Form $formNs version=`"$($script:formatVersion)`">"
+			"`t<AutoCommandBar name=`"ФормаКоманднаяПанель`" id=`"-1`">"
+			"`t`t<Autofill>true</Autofill>"
+			"`t</AutoCommandBar>"
+			"`t<ChildItems/>"
+			"</Form>"
+		)
+		[System.IO.File]::WriteAllText($formXmlPath, ($formLines -join "`r`n"), $enc)
+		$modulesCreated += $formXmlPath
+	}
+	$formModuleDir = Join-Path $extDir "Form"
+	if (-not (Test-Path $formModuleDir)) {
+		New-Item -ItemType Directory -Path $formModuleDir -Force | Out-Null
+	}
+	$formModulePath = Join-Path $formModuleDir "Module.bsl"
+	if (-not (Test-Path $formModulePath)) {
+		[System.IO.File]::WriteAllText($formModulePath, "", $enc)
+		$modulesCreated += $formModulePath
 	}
 }
 
@@ -3037,6 +3538,13 @@ if (Test-Path $configXmlPath) {
 			$configDoc.Save($writer)
 			$writer.Close()
 			$stream.Close()
+			# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+			# превращает каждое пересохранение в расхождение по всему файлу.
+			$tightPath = $configXmlPath
+			$tightText = [System.IO.File]::ReadAllText($tightPath, [System.Text.Encoding]::UTF8)
+			$tightText = $tightText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+			$tightText = [regex]::Replace($tightText, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
+			[System.IO.File]::WriteAllText($tightPath, $tightText, (New-Object System.Text.UTF8Encoding($true)))
 
 			$regResult = "added"
 		}

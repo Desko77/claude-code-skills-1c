@@ -24,6 +24,9 @@ TYPE_MAP = {
 def save_xml_with_bom(tree, path):
     """Save XML tree to file with UTF-8 BOM."""
     xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
+    # ElementTree пишет пустой элемент как "<tag />"; 1С пишет его без пробела, и лишний
+    # пробел превращает каждое пересохранение в расхождение по всему файлу.
+    xml_bytes = re.sub(rb'<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', rb'<\1\2/>', xml_bytes)
     xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
     if not xml_bytes.endswith(b"\n"):
         xml_bytes += b"\n"

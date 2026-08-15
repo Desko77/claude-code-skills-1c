@@ -53,8 +53,8 @@
 			<DefaultRoles>
 				<xr:Item xsi:type="xr:MDObjectRef">Role.Дополнение_ОсновнаяРоль</xr:Item>
 			</DefaultRoles>
-			<Vendor></Vendor>
-			<Version></Version>
+			<Vendor/>
+			<Version/>
 			<DefaultLanguage>Language.Русский</DefaultLanguage>
 			<BriefInformation/>
 			<DetailedInformation/>

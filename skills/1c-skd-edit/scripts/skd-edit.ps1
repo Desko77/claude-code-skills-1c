@@ -2948,6 +2948,9 @@ switch ($Operation) {
 
 $content = $xmlDoc.OuterXml
 $content = $content -replace '(?<=<\?xml[^?]*encoding=")utf-8(?=")', 'UTF-8'
+# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+# превращает каждое пересохранение в расхождение по всему файлу.
+$content = [regex]::Replace($content, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
 $enc = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($resolvedPath, $content, $enc)
 

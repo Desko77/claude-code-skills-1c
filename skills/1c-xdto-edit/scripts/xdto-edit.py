@@ -327,6 +327,9 @@ def invoke_sibling(script, argv, what):
 
 def save_xml(doc, path):
     raw = etree.tostring(doc, xml_declaration=True, encoding="UTF-8")
+    # ElementTree пишет пустой элемент как "<tag />"; 1С пишет его без пробела, и лишний
+    # пробел превращает каждое пересохранение в расхождение по всему файлу.
+    raw = re.sub(rb'<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', rb'<\1\2/>', raw)
     # lxml пишет декларацию в ОДИНАРНЫХ кавычках, платформа и PS-порт — в двойных.
     raw = raw.replace(b"<?xml version='1.0' encoding='UTF-8'?>",
                       b'<?xml version="1.0" encoding="UTF-8"?>')
@@ -644,8 +647,10 @@ else:
         old_namespace = schema.get("targetNamespace")
         schema = apply_model_operation(schema)
 
+        schema_bytes = etree.tostring(schema, xml_declaration=True, encoding="UTF-8")
+        schema_bytes = re.sub(rb'<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', rb'<\1\2/>', schema_bytes)
         with open(xsd_path, "wb") as f:
-            f.write(etree.tostring(schema, xml_declaration=True, encoding="UTF-8"))
+            f.write(schema_bytes)
         invoke_sibling(COMPILE, ["-XsdPath", xsd_path, "-OutputDir", config_root,
                                  "-Name", pkg_name, "-Force"], "xdto-compile")
 

@@ -527,7 +527,8 @@ def main():
     lines.append('    </Role>')
     lines.append('</MetaDataObject>')
 
-    metadata_xml = '\n'.join(lines) + '\n'
+    # Платформа не оставляет перевод строки после закрывающего тега.
+    metadata_xml = '\n'.join(lines)
 
     # --- 5. Emit Rights XML (Roles/Name/Ext/Rights.xml) ---
     lines = []

@@ -2078,6 +2078,9 @@ def set_complex_property(property_name, values):
 def save_xml(tree, path):
     """Save XML tree with BOM and proper encoding declaration."""
     xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
+    # ElementTree пишет пустой элемент как "<tag />"; 1С пишет его без пробела, и лишний
+    # пробел превращает каждое пересохранение в расхождение по всему файлу.
+    xml_bytes = re.sub(rb'<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', rb'<\1\2/>', xml_bytes)
     # Fix XML declaration quotes
     xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
     # Fix d5p1 namespace declarations stripped by lxml (it treats them as unused

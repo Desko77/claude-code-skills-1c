@@ -14,7 +14,7 @@
 		<Button name="Выполнить" id="1">
 			<CommandName>Form.Command.Выполнить</CommandName>
 			<DefaultButton>true</DefaultButton>
-			<ExtendedTooltip name="ВыполнитьРасширеннаяПодсказка" id="2" />
+			<ExtendedTooltip name="ВыполнитьРасширеннаяПодсказка" id="2"/>
 		</Button>
 	</ChildItems>
 	<Attributes>

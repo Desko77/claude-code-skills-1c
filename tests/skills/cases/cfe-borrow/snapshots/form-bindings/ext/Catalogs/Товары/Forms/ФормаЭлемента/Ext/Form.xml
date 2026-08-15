@@ -13,16 +13,16 @@
 	<ChildItems>
 		<InputField name="Артикул" id="1">
 			<DataPath>Объект.Артикул</DataPath>
-			<ContextMenu name="АртикулКонтекстноеМеню" id="2" />
-			<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="3" />
+			<ContextMenu name="АртикулКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="3"/>
 		</InputField>
 		<InputField name="Метки" id="4">
-			<ContextMenu name="МеткиКонтекстноеМеню" id="5" />
-			<ExtendedTooltip name="МеткиРасширеннаяПодсказка" id="6" />
+			<ContextMenu name="МеткиКонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="МеткиРасширеннаяПодсказка" id="6"/>
 		</InputField>
 		<InputField name="Подвал" id="7">
-			<ContextMenu name="ПодвалКонтекстноеМеню" id="8" />
-			<ExtendedTooltip name="ПодвалРасширеннаяПодсказка" id="9" />
+			<ContextMenu name="ПодвалКонтекстноеМеню" id="8"/>
+			<ExtendedTooltip name="ПодвалРасширеннаяПодсказка" id="9"/>
 		</InputField>
 	</ChildItems>
 	<Attributes>
@@ -46,16 +46,16 @@
 		<ChildItems>
 			<InputField name="Артикул" id="1">
 				<DataPath>Объект.Артикул</DataPath>
-				<ContextMenu name="АртикулКонтекстноеМеню" id="2" />
-				<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="3" />
+				<ContextMenu name="АртикулКонтекстноеМеню" id="2"/>
+				<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="3"/>
 			</InputField>
 			<InputField name="Метки" id="4">
-				<ContextMenu name="МеткиКонтекстноеМеню" id="5" />
-				<ExtendedTooltip name="МеткиРасширеннаяПодсказка" id="6" />
+				<ContextMenu name="МеткиКонтекстноеМеню" id="5"/>
+				<ExtendedTooltip name="МеткиРасширеннаяПодсказка" id="6"/>
 			</InputField>
 			<InputField name="Подвал" id="7">
-				<ContextMenu name="ПодвалКонтекстноеМеню" id="8" />
-				<ExtendedTooltip name="ПодвалРасширеннаяПодсказка" id="9" />
+				<ContextMenu name="ПодвалКонтекстноеМеню" id="8"/>
+				<ExtendedTooltip name="ПодвалРасширеннаяПодсказка" id="9"/>
 			</InputField>
 		</ChildItems>
 		<Attributes>

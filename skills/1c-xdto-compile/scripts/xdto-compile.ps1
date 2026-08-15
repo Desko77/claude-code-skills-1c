@@ -1036,6 +1036,9 @@ if (Test-Path $configXmlPath) {
 			$memStream.Close()
 			if ($cfgText.Length -gt 0 -and $cfgText[0] -eq [char]0xFEFF) { $cfgText = $cfgText.Substring(1) }
 			$cfgText = $cfgText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+			# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+			# превращает каждое пересохранение в расхождение по всему файлу.
+			$cfgText = [regex]::Replace($cfgText, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
 			# Пустой элемент: XmlWriter отдаёт `<a />`, Конфигуратор пишет `<a/>`. Внутри
 			# CDATA/комментария ` />` может быть содержимым (там `>` не экранируется),
 			# поэтому они идут первыми ветками альтернации и возвращаются как есть.

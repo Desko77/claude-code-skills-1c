@@ -2474,7 +2474,9 @@ if obj_type == 'WebService':
 X(f'\t</{obj_type}>')
 X('</MetaDataObject>')
 
-metadata_xml = '\n'.join(lines) + '\n'
+# Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+# дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+metadata_xml = '\n'.join(lines)
 
 # ---------------------------------------------------------------------------
 # 16. Write files
@@ -2658,6 +2660,9 @@ if os.path.isfile(config_xml_path):
                 raw = f.read()
             if raw.startswith("<?xml version='1.0' encoding='utf-8'?>"):
                 raw = raw.replace("<?xml version='1.0' encoding='utf-8'?>", '<?xml version="1.0" encoding="UTF-8"?>', 1)
+            # ElementTree пишет пустой элемент как "<tag />"; 1С пишет его без пробела, и лишний
+            # пробел превращает каждое пересохранение в расхождение по всему файлу.
+            raw = re.sub(r'<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', r'<\1\2/>', raw)
             if not raw.endswith('\n'):
                 raw += '\n'
             write_utf8_bom(config_xml_path, raw)

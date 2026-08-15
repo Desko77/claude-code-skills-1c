@@ -19,9 +19,9 @@
 					<v8:content>МояОбработка</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment />
+			<Comment/>
 			<DefaultForm>ExternalDataProcessor.МояОбработка.Form.ФормаОсновная</DefaultForm>
-			<AuxiliaryForm />
+			<AuxiliaryForm/>
 		</Properties>
 		<ChildObjects>
 			<Form>Форма1</Form>

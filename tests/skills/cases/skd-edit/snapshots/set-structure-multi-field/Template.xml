@@ -63,10 +63,10 @@
 					</dcsset:item>
 				</dcsset:groupItems>
 				<dcsset:order>
-					<dcsset:item xsi:type="dcsset:OrderItemAuto" />
+					<dcsset:item xsi:type="dcsset:OrderItemAuto"/>
 				</dcsset:order>
 				<dcsset:selection>
-					<dcsset:item xsi:type="dcsset:SelectedItemAuto" />
+					<dcsset:item xsi:type="dcsset:SelectedItemAuto"/>
 				</dcsset:selection>
 			</dcsset:item>
 			<dcsset:selection>

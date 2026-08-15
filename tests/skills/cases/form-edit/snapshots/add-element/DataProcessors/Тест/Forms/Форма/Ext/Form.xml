@@ -19,8 +19,8 @@
 					<v8:content>Поле 1</v8:content>
 				</v8:item>
 			</Title>
-			<ContextMenu name="Поле1КонтекстноеМеню" id="2" />
-			<ExtendedTooltip name="Поле1РасширеннаяПодсказка" id="3" />
+			<ContextMenu name="Поле1КонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="Поле1РасширеннаяПодсказка" id="3"/>
 		</InputField>
 		<InputField name="Поле2" id="4">
 			<DataPath>Поле2</DataPath>
@@ -30,8 +30,8 @@
 					<v8:content>Поле 2</v8:content>
 				</v8:item>
 			</Title>
-			<ContextMenu name="Поле2КонтекстноеМеню" id="5" />
-			<ExtendedTooltip name="Поле2РасширеннаяПодсказка" id="6" />
+			<ContextMenu name="Поле2КонтекстноеМеню" id="5"/>
+			<ExtendedTooltip name="Поле2РасширеннаяПодсказка" id="6"/>
 		</InputField>
 	</ChildItems>
 	<Attributes>

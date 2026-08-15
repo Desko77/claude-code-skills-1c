@@ -661,7 +661,9 @@ if (-not (Test-Path $extDir)) {
 }
 
 $enc = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($metadataPath, $metadataXml, $enc)
+# Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+# дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+[System.IO.File]::WriteAllText($metadataPath, $metadataXml.TrimEnd("`r", "`n"), $enc)
 [System.IO.File]::WriteAllText($rightsPath, $rightsXml, $enc)
 
 # --- 12. Register in Configuration.xml ---
@@ -723,6 +725,12 @@ if (Test-Path $configXmlPath) {
 			$configDoc.Save($writer)
 			$writer.Close()
 			$stream.Close()
+			# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+			# превращает каждое пересохранение в расхождение по всему файлу.
+			$tightPath = $configXmlPath
+			$tightText = [System.IO.File]::ReadAllText($tightPath, [System.Text.Encoding]::UTF8)
+			$tightText = [regex]::Replace($tightText, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
+			[System.IO.File]::WriteAllText($tightPath, $tightText, (New-Object System.Text.UTF8Encoding($true)))
 
 			$regResult = "added"
 		}

@@ -19,8 +19,8 @@
 					<v8:content>Существующее поле</v8:content>
 				</v8:item>
 			</Title>
-			<ContextMenu name="Поле1КонтекстноеМеню" id="2" />
-			<ExtendedTooltip name="Поле1РасширеннаяПодсказка" id="3" />
+			<ContextMenu name="Поле1КонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="Поле1РасширеннаяПодсказка" id="3"/>
 		</InputField>
 		<UsualGroup name="ГруппаНовая" id="4">
 			<Title>
@@ -30,7 +30,7 @@
 				</v8:item>
 			</Title>
 			<Group>Horizontal</Group>
-			<ExtendedTooltip name="ГруппаНоваяРасширеннаяПодсказка" id="5" />
+			<ExtendedTooltip name="ГруппаНоваяРасширеннаяПодсказка" id="5"/>
 			<ChildItems>
 				<InputField name="Поле2" id="6">
 					<DataPath>Поле2</DataPath>
@@ -40,8 +40,8 @@
 							<v8:content>Поле 2</v8:content>
 						</v8:item>
 					</Title>
-					<ContextMenu name="Поле2КонтекстноеМеню" id="7" />
-					<ExtendedTooltip name="Поле2РасширеннаяПодсказка" id="8" />
+					<ContextMenu name="Поле2КонтекстноеМеню" id="7"/>
+					<ExtendedTooltip name="Поле2РасширеннаяПодсказка" id="8"/>
 				</InputField>
 				<InputField name="Поле3" id="9">
 					<DataPath>Поле3</DataPath>
@@ -51,8 +51,8 @@
 							<v8:content>Поле 3</v8:content>
 						</v8:item>
 					</Title>
-					<ContextMenu name="Поле3КонтекстноеМеню" id="10" />
-					<ExtendedTooltip name="Поле3РасширеннаяПодсказка" id="11" />
+					<ContextMenu name="Поле3КонтекстноеМеню" id="10"/>
+					<ExtendedTooltip name="Поле3РасширеннаяПодсказка" id="11"/>
 				</InputField>
 			</ChildItems>
 		</UsualGroup>

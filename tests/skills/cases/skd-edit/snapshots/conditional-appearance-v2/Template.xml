@@ -44,7 +44,7 @@
 			</dcsset:selection>
 			<dcsset:conditionalAppearance>
 				<dcsset:item>
-					<dcsset:selection />
+					<dcsset:selection/>
 					<dcsset:filter>
 						<dcsset:item xsi:type="dcsset:FilterItemComparison">
 							<dcsset:left xsi:type="dcscor:Field">ПараметрыДанных.ПорядокОкругления</dcsset:left>
@@ -65,7 +65,7 @@
 					</dcsset:appearance>
 				</dcsset:item>
 				<dcsset:item>
-					<dcsset:selection />
+					<dcsset:selection/>
 					<dcsset:filter>
 						<dcsset:item xsi:type="dcsset:FilterItemGroup">
 							<dcsset:groupType>OrGroup</dcsset:groupType>
@@ -96,10 +96,10 @@
 			</dcsset:conditionalAppearance>
 			<dcsset:item xsi:type="dcsset:StructureItemGroup">
 				<dcsset:order>
-					<dcsset:item xsi:type="dcsset:OrderItemAuto" />
+					<dcsset:item xsi:type="dcsset:OrderItemAuto"/>
 				</dcsset:order>
 				<dcsset:selection>
-					<dcsset:item xsi:type="dcsset:SelectedItemAuto" />
+					<dcsset:item xsi:type="dcsset:SelectedItemAuto"/>
 				</dcsset:selection>
 			</dcsset:item>
 		</dcsset:settings>

@@ -99,7 +99,7 @@ def write_child_subsystem_stub(child_path, child_name, format_version):
     lines.append('\t\t<ChildObjects/>')
     lines.append('\t</Subsystem>')
     lines.append('</MetaDataObject>')
-    write_utf8_bom(child_path, '\n'.join(lines) + '\n')
+    write_utf8_bom(child_path, '\n'.join(lines))
 
 
 def main():
@@ -343,7 +343,8 @@ def main():
     target_xml = os.path.join(subs_dir, f'{obj_name}.xml')
 
     # Write XML
-    xml_content = '\n'.join(lines) + '\n'
+    # Платформа не оставляет перевод строки после закрывающего тега.
+    xml_content = '\n'.join(lines)
     write_utf8_bom(target_xml, xml_content)
     print(f"[OK] Created: {target_xml}")
 

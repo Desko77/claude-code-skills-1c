@@ -105,7 +105,7 @@ function Write-ChildSubsystemStub([string]$childPath, [string]$childName, [strin
 	[void]$sb.AppendLine("`t`t<ChildObjects/>")
 	[void]$sb.AppendLine("`t</Subsystem>")
 	[void]$sb.AppendLine('</MetaDataObject>')
-	[System.IO.File]::WriteAllText($childPath, $sb.ToString(), $utf8Bom)
+	[System.IO.File]::WriteAllText($childPath, $sb.ToString().TrimEnd("`r", "`n"), $utf8Bom)
 }
 
 # --- 3. Content type normalization (plural→singular, Russian→English) ---
@@ -403,7 +403,9 @@ if (-not (Test-Path $subsDir)) {
 $targetXml = Join-Path $subsDir "$objName.xml"
 
 # Write XML
-$xmlContent = $script:xml.ToString()
+# Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+# дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+$xmlContent = $script:xml.ToString().TrimEnd("`r", "`n")
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($targetXml, $xmlContent, $utf8Bom)
 Write-Host "[OK] Created: $targetXml"
@@ -519,6 +521,9 @@ if ($parentXmlPath -and (Test-Path $parentXmlPath)) {
 			$text = [System.Text.Encoding]::UTF8.GetString($bytes)
 			if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
 			$text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+			# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+			# превращает каждое пересохранение в расхождение по всему файлу.
+			$text = [regex]::Replace($text, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
 			[System.IO.File]::WriteAllText($parentXmlPath, $text, $utf8Bom)
 
 			Write-Host "[OK] Registered in: $parentXmlPath"

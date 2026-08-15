@@ -296,6 +296,9 @@ function Edit-Metadata([string]$field, [string]$newValue) {
 	$memStream.Close()
 	if ($mdText.Length -gt 0 -and $mdText[0] -eq [char]0xFEFF) { $mdText = $mdText.Substring(1) }
 	$mdText = $mdText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+	# .NET пишет пустой элемент как "<Tag />"; 1С пишет его без пробела, и лишний пробел
+	# превращает каждое пересохранение в расхождение по всему файлу.
+	$mdText = [regex]::Replace($mdText, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
 	# Пустой элемент: XmlWriter отдаёт `<a />`, Конфигуратор пишет `<a/>`. Внутри
 	# CDATA/комментария ` />` может быть содержимым (там `>` не экранируется),
 	# поэтому они идут первыми ветками альтернации и возвращаются как есть.
@@ -341,6 +344,7 @@ function Rename-Package([string]$newName) {
 			$mem.Close()
 			if ($cfgText.Length -gt 0 -and $cfgText[0] -eq [char]0xFEFF) { $cfgText = $cfgText.Substring(1) }
 			$cfgText = $cfgText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
+			$cfgText = [regex]::Replace($cfgText, '<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', '<$1$2/>')
 			# Пустой элемент: XmlWriter отдаёт `<a />`, Конфигуратор пишет `<a/>`. Внутри
 			# CDATA/комментария ` />` может быть содержимым (там `>` не экранируется),
 			# поэтому они идут первыми ветками альтернации и возвращаются как есть.

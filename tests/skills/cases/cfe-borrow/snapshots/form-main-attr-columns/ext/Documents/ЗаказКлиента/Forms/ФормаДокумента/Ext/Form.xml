@@ -13,25 +13,25 @@
 	<ChildItems>
 		<InputField name="Комментарий" id="1">
 			<DataPath>Объект.Комментарий</DataPath>
-			<ContextMenu name="КомментарийКонтекстноеМеню" id="2" />
-			<ExtendedTooltip name="КомментарийРасширеннаяПодсказка" id="3" />
+			<ContextMenu name="КомментарийКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="КомментарийРасширеннаяПодсказка" id="3"/>
 		</InputField>
 		<Table name="Товары" id="4">
 			<DataPath>Объект.Товары</DataPath>
-			<ContextMenu name="ТоварыКонтекстноеМеню" id="5" />
-			<AutoCommandBar name="ТоварыКоманднаяПанель" id="6" />
-			<SearchStringAddition name="ТоварыСтрокаПоиска" id="7" />
-			<ViewStatusAddition name="ТоварыСостояниеПросмотра" id="8" />
-			<SearchControlAddition name="ТоварыУправлениеПоиском" id="9" />
+			<ContextMenu name="ТоварыКонтекстноеМеню" id="5"/>
+			<AutoCommandBar name="ТоварыКоманднаяПанель" id="6"/>
+			<SearchStringAddition name="ТоварыСтрокаПоиска" id="7"/>
+			<ViewStatusAddition name="ТоварыСостояниеПросмотра" id="8"/>
+			<SearchControlAddition name="ТоварыУправлениеПоиском" id="9"/>
 			<ChildItems>
 				<InputField name="Номенклатура" id="10">
 					<DataPath>Объект.Товары.Номенклатура</DataPath>
-					<ContextMenu name="НоменклатураКонтекстноеМеню" id="11" />
-					<ExtendedTooltip name="НоменклатураРасширеннаяПодсказка" id="12" />
+					<ContextMenu name="НоменклатураКонтекстноеМеню" id="11"/>
+					<ExtendedTooltip name="НоменклатураРасширеннаяПодсказка" id="12"/>
 				</InputField>
 				<LabelDecoration name="Артикул" id="13">
-					<ContextMenu name="АртикулКонтекстноеМеню" id="14" />
-					<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="15" />
+					<ContextMenu name="АртикулКонтекстноеМеню" id="14"/>
+					<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="15"/>
 				</LabelDecoration>
 			</ChildItems>
 		</Table>
@@ -57,25 +57,25 @@
 		<ChildItems>
 			<InputField name="Комментарий" id="1">
 				<DataPath>Объект.Комментарий</DataPath>
-				<ContextMenu name="КомментарийКонтекстноеМеню" id="2" />
-				<ExtendedTooltip name="КомментарийРасширеннаяПодсказка" id="3" />
+				<ContextMenu name="КомментарийКонтекстноеМеню" id="2"/>
+				<ExtendedTooltip name="КомментарийРасширеннаяПодсказка" id="3"/>
 			</InputField>
 			<Table name="Товары" id="4">
 				<DataPath>Объект.Товары</DataPath>
-				<ContextMenu name="ТоварыКонтекстноеМеню" id="5" />
-				<AutoCommandBar name="ТоварыКоманднаяПанель" id="6" />
-				<SearchStringAddition name="ТоварыСтрокаПоиска" id="7" />
-				<ViewStatusAddition name="ТоварыСостояниеПросмотра" id="8" />
-				<SearchControlAddition name="ТоварыУправлениеПоиском" id="9" />
+				<ContextMenu name="ТоварыКонтекстноеМеню" id="5"/>
+				<AutoCommandBar name="ТоварыКоманднаяПанель" id="6"/>
+				<SearchStringAddition name="ТоварыСтрокаПоиска" id="7"/>
+				<ViewStatusAddition name="ТоварыСостояниеПросмотра" id="8"/>
+				<SearchControlAddition name="ТоварыУправлениеПоиском" id="9"/>
 				<ChildItems>
 					<InputField name="Номенклатура" id="10">
 						<DataPath>Объект.Товары.Номенклатура</DataPath>
-						<ContextMenu name="НоменклатураКонтекстноеМеню" id="11" />
-						<ExtendedTooltip name="НоменклатураРасширеннаяПодсказка" id="12" />
+						<ContextMenu name="НоменклатураКонтекстноеМеню" id="11"/>
+						<ExtendedTooltip name="НоменклатураРасширеннаяПодсказка" id="12"/>
 					</InputField>
 					<LabelDecoration name="Артикул" id="13">
-						<ContextMenu name="АртикулКонтекстноеМеню" id="14" />
-						<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="15" />
+						<ContextMenu name="АртикулКонтекстноеМеню" id="14"/>
+						<ExtendedTooltip name="АртикулРасширеннаяПодсказка" id="15"/>
 					</LabelDecoration>
 				</ChildItems>
 			</Table>
