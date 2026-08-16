@@ -340,9 +340,24 @@
 						</v8:DateQualifiers>
 					</Type>
 					<PasswordMode>false</PasswordMode>
-					<Format>ДФ=dd.MM.yyyy</Format>
-					<EditFormat>ДФ=dd.MM.yyyy</EditFormat>
-					<ToolTip>Дата документа</ToolTip>
+					<Format>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>ДФ=dd.MM.yyyy</v8:content>
+						</v8:item>
+					</Format>
+					<EditFormat>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>ДФ=dd.MM.yyyy</v8:content>
+						</v8:item>
+					</EditFormat>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Дата документа</v8:content>
+						</v8:item>
+					</ToolTip>
 					<MarkNegatives>false</MarkNegatives>
 					<Mask/>
 					<MultiLine>false</MultiLine>
@@ -390,15 +405,30 @@
 					<MinValue xsi:nil="true"/>
 					<MaxValue xsi:nil="true"/>
 					<FillFromFillingValue>false</FillFromFillingValue>
-					<FillValue xsi:nil="true">EmptyRef</FillValue>
+					<FillValue xsi:type="xr:DesignTimeRef">Catalog.Спр.EmptyRef</FillValue>
 					<FillChecking>DontCheck</FillChecking>
 					<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>
-					<ChoiceParameterLinks>Отбор.Владелец=Ссылка</ChoiceParameterLinks>
-					<ChoiceParameters> </ChoiceParameters>
+					<ChoiceParameterLinks>
+						<xr:Link>
+							<xr:Name>Отбор.Владелец</xr:Name>
+							<xr:DataPath xsi:type="xs:string">Catalog.Спр.Attribute.Дата</xr:DataPath>
+						</xr:Link>
+					</ChoiceParameterLinks>
+					<ChoiceParameters>
+						<app:item name="Отбор.ПометкаУдаления">
+							<app:value xsi:type="xs:boolean">false</app:value>
+						</app:item>
+						<app:item name="Отбор.Ссылка">
+							<app:value xsi:type="xr:DesignTimeRef">Catalog.Спр.EmptyRef</app:value>
+						</app:item>
+					</ChoiceParameters>
 					<QuickChoice>Auto</QuickChoice>
 					<CreateOnInput>Auto</CreateOnInput>
 					<ChoiceForm>Catalog.Спр.Form.ФормаВыбора</ChoiceForm>
-					<LinkByType>@{dataPath=Ссылка; linkItem=0}</LinkByType>
+					<LinkByType>
+						<xr:DataPath>Catalog.Спр.Attribute.Дата</xr:DataPath>
+						<xr:LinkItem>1</xr:LinkItem>
+					</LinkByType>
 					<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
 					<Use>ForItem</Use>
 					<Indexing>DontIndex</Indexing>
@@ -432,8 +462,8 @@
 					<Mask/>
 					<MultiLine>false</MultiLine>
 					<ExtendedEdit>false</ExtendedEdit>
-					<MinValue xsi:nil="true">0</MinValue>
-					<MaxValue xsi:nil="true">1000000</MaxValue>
+					<MinValue xsi:type="xs:decimal">0</MinValue>
+					<MaxValue xsi:type="xs:decimal">1000000</MaxValue>
 					<FillFromFillingValue>false</FillFromFillingValue>
 					<FillValue xsi:type="xs:decimal">0</FillValue>
 					<FillChecking>DontCheck</FillChecking>

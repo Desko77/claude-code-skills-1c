@@ -17,6 +17,8 @@ from lxml import etree
 
 MD_NS = "http://v8.1c.ru/8.3/MDClasses"
 XR_NS = "http://v8.1c.ru/8.3/xcf/readable"
+# Ядро управляемого приложения: в нем лежат элементы параметров выбора.
+APP_NS = "http://v8.1c.ru/8.2/managed-application/core"
 V8_NS = "http://v8.1c.ru/8.1/data/core"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 XS_NS = "http://www.w3.org/2001/XMLSchema"
@@ -415,6 +417,164 @@ def build_fill_value_xml(indent, type_str):
     return f'{indent}<FillValue xsi:nil="true"/>'
 
 
+REF_KIND_BY_TYPE = {
+    "CatalogRef": "Catalog",
+    "DocumentRef": "Document",
+    "EnumRef": "Enum",
+    "ChartOfAccountsRef": "ChartOfAccounts",
+    "ChartOfCharacteristicTypesRef": "ChartOfCharacteristicTypes",
+    "ChartOfCalculationTypesRef": "ChartOfCalculationTypes",
+    "ExchangePlanRef": "ExchangePlan",
+    "BusinessProcessRef": "BusinessProcess",
+    "TaskRef": "Task",
+}
+
+STRUCTURAL_MLTEXT = ("Format", "EditFormat", "ToolTip")
+STRUCTURAL_TYPED = ("MinValue", "MaxValue", "FillValue")
+STRUCTURAL_PROPS = STRUCTURAL_MLTEXT + STRUCTURAL_TYPED + (
+    "LinkByType", "ChoiceParameters", "ChoiceParameterLinks")
+
+
+def attribute_type_string(props_el):
+    """Тип реквизита строкой (CatalogRef.Спр и подобное) - нужен, чтобы развернуть EmptyRef."""
+    for child in props_el:
+        if localname(child) != "Type":
+            continue
+        for gc in child:
+            if localname(gc) in ("Type", "TypeSet") and gc.text:
+                return gc.text.split(":")[-1].strip()
+    return ""
+
+
+def resolve_design_time_ref(text, type_str):
+    """Ссылка времени разработки. Краткое EmptyRef разворачивается по типу реквизита:
+    CatalogRef.Спр -> Catalog.Спр.EmptyRef."""
+    if re.match(r"^[A-Za-z]\w*\.[^.\s]+\.\w+$", text):
+        return text
+    if text in ("EmptyRef", "ПустаяСсылка") and type_str:
+        parts = type_str.split(".", 1)
+        kind = REF_KIND_BY_TYPE.get(parts[0])
+        if kind and len(parts) == 2:
+            return kind + "." + parts[1] + ".EmptyRef"
+    return ""
+
+
+def build_typed_value_xml(indent, tag, value, type_str=""):
+    """Значение с явным типом. Пустое пишется как xsi:nil БЕЗ содержимого: текст внутри
+    такого элемента платформа не принимает - "Ошибка преобразования данных XML"."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return f'{indent}<{tag} xsi:nil="true"/>'
+    if isinstance(value, bool):
+        return f'{indent}<{tag} xsi:type="xs:boolean">{"true" if value else "false"}</{tag}>'
+    if isinstance(value, (int, float)):
+        return f'{indent}<{tag} xsi:type="xs:decimal">{value}</{tag}>'
+    text = ps_str(value)
+    ref = resolve_design_time_ref(text, type_str)
+    if ref:
+        return f'{indent}<{tag} xsi:type="xr:DesignTimeRef">{esc_xml(ref)}</{tag}>'
+    if re.match(r"^-?\d+(\.\d+)?$", text):
+        return f'{indent}<{tag} xsi:type="xs:decimal">{text}</{tag}>'
+    if re.match(r"^\d{4}-\d{2}-\d{2}T", text):
+        return f'{indent}<{tag} xsi:type="xs:dateTime">{text}</{tag}>'
+    return f'{indent}<{tag} xsi:type="xs:string">{esc_xml(text)}</{tag}>'
+
+
+def build_choice_parameter_links_xml(indent, value):
+    """Связи параметров выбора. Запись задается как "ИмяПараметра=ПутьКПолю" либо объектом
+    # ValueChange не пишется намеренно: это перечисление LinkedValueChangeMode, и платформа
+    # не принимает его пустым на ВХОДЕ, хотя сама пишет пустым при выгрузке. Замерено на 8.5.
+    { name, dataPath }."""
+    items = value if isinstance(value, list) else ([value] if value else [])
+    if not items:
+        return f"{indent}<ChoiceParameterLinks/>"
+    lines = [f"{indent}<ChoiceParameterLinks>"]
+    for item in items:
+        if isinstance(item, dict):
+            name = ps_str(lookup_ci(item, "name") or "")
+            path = ps_str(lookup_ci(item, "dataPath") or lookup_ci(item, "field") or "")
+        else:
+            text = ps_str(item)
+            name, _, path = text.partition("=")
+            name, path = name.strip(), path.strip()
+        lines.append(f"{indent}\t<xr:Link>")
+        lines.append(f"{indent}\t\t<xr:Name>{esc_xml(name)}</xr:Name>")
+        lines.append(f'{indent}\t\t<xr:DataPath xsi:type="xs:string">{esc_xml(path)}</xr:DataPath>')
+        lines.append(f"{indent}\t</xr:Link>")
+    lines.append(f"{indent}</ChoiceParameterLinks>")
+    return "\n".join(lines)
+
+
+def build_structural_xml(indent, prop_name, value, type_str=""):
+    """Разметка структурного свойства по его имени."""
+    if prop_name in STRUCTURAL_MLTEXT:
+        return build_mltext_xml(indent, prop_name, ps_str(value) if value is not None else "")
+    if prop_name in STRUCTURAL_TYPED:
+        return build_typed_value_xml(indent, prop_name, value, type_str)
+    if prop_name == "LinkByType":
+        return build_link_by_type_xml(indent, value)
+    if prop_name == "ChoiceParameterLinks":
+        return build_choice_parameter_links_xml(indent, value)
+    return build_choice_parameters_xml(indent, value)
+
+
+def build_link_by_type_xml(indent, value):
+    """Связь по типу. Замерено на 8.5: дочерние элементы обязаны нести префикс xr - без него
+    платформа молча отбрасывает содержимое; путь должен быть полным (<Тип>.<Имя>.Attribute.<Имя>),
+    краткая форма отвергается как неверный путь к полю."""
+    data_path = ""
+    link_item = 0
+    if isinstance(value, dict):
+        data_path = ps_str(lookup_ci(value, "dataPath") or "")
+        raw_item = lookup_ci(value, "linkItem")
+        if raw_item is not None and str(raw_item) != "":
+            try:
+                link_item = int(str(raw_item))
+            except ValueError:
+                link_item = 0
+    elif value:
+        data_path = ps_str(value)
+    if not data_path:
+        return f"{indent}<LinkByType/>"
+    return "\n".join([
+        f"{indent}<LinkByType>",
+        f"{indent}\t<xr:DataPath>{esc_xml(data_path)}</xr:DataPath>",
+        f"{indent}\t<xr:LinkItem>{link_item}</xr:LinkItem>",
+        f"{indent}</LinkByType>",
+    ])
+
+
+def choice_parameter_value(value):
+    """Тип значения параметра выбора. Замерено на 8.5: булево - xs:boolean, ссылка времени
+    разработки вида Catalog.Имя.EmptyRef - xr:DesignTimeRef, остальное - xs:string."""
+    if isinstance(value, bool):
+        return "xs:boolean", "true" if value else "false"
+    text = ps_str(value)
+    if re.match(r"^[A-Za-z]\w*\.[^.\s]+\.\w+$", text):
+        return "xr:DesignTimeRef", text
+    return "xs:string", text
+
+
+def build_choice_parameters_xml(indent, value):
+    """Параметры выбора. Пустой список дает самозакрывающийся тег - так его пишет платформа."""
+    items = value if isinstance(value, list) else ([value] if value else [])
+    if not items:
+        return f"{indent}<ChoiceParameters/>"
+    lines = [f"{indent}<ChoiceParameters>"]
+    for item in items:
+        if isinstance(item, dict):
+            name = ps_str(lookup_ci(item, "name") or "")
+            raw = lookup_ci(item, "value")
+        else:
+            name = ps_str(item)
+            raw = ""
+        vtype, vtext = choice_parameter_value(raw)
+        lines.append(f'{indent}\t<app:item name="{esc_xml(name)}">')
+        lines.append(f'{indent}\t\t<app:value xsi:type="{vtype}">{esc_xml(vtext)}</app:value>')
+        lines.append(f"{indent}\t</app:item>")
+    lines.append(f"{indent}</ChoiceParameters>")
+    return "\n".join(lines)
+
+
 def build_mltext_xml(indent, tag, text):
     if not text:
         return f"{indent}<{tag}/>"
@@ -442,7 +602,8 @@ def import_fragment(xml_string):
         f' xmlns:v8="{V8_NS}"'
         f' xmlns:xr="{XR_NS}"'
         f' xmlns:cfg="{CFG_NS}"'
-        f' xmlns:xs="{XS_NS}">'
+        f' xmlns:xs="{XS_NS}"'
+        f' xmlns:app="{APP_NS}">'
         f"{xml_string}</_W>"
     )
     parser = etree.XMLParser(remove_blank_text=False)
@@ -1925,6 +2086,28 @@ def modify_child_elements(modify_def, child_type):
                     remove_node_with_whitespace(syn_el)
                 info(f"Changed synonym of {xml_tag} '{elem_name}': {change_value}")
                 modify_count += 1
+
+            elif change_prop in STRUCTURAL_PROPS:
+                struct_el = None
+                for gc in props_el:
+                    if localname(gc) == change_prop:
+                        struct_el = gc
+                        break
+                if struct_el is None:
+                    warn(f"{xml_tag} '{elem_name}': property '{change_prop}' not found")
+                else:
+                    struct_indent = get_child_indent(props_el)
+                    struct_xml = build_structural_xml(
+                        struct_indent, change_prop, change_value,
+                        attribute_type_string(props_el))
+                    struct_nodes = import_fragment(struct_xml)
+                    if struct_nodes:
+                        struct_idx = list(props_el).index(struct_el)
+                        struct_nodes[0].tail = struct_el.tail
+                        props_el.insert(struct_idx + 1, struct_nodes[0])
+                        remove_node_with_whitespace(struct_el)
+                    info(f"Modified {xml_tag} '{elem_name}'.{change_prop}")
+                    modify_count += 1
 
             else:
                 # Scalar property change (Indexing, FillChecking, Use, etc.)

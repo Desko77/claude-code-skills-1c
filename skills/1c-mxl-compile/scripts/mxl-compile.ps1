@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 # --- 1. Load and validate JSON ---
 
 if (-not (Test-Path $JsonPath)) {
-	Write-Error "File not found: $JsonPath"
+	[Console]::Error.WriteLine("File not found: $JsonPath")
 	exit 1
 }
 
@@ -22,11 +22,11 @@ $json = Get-Content -Raw -Encoding UTF8 $JsonPath
 $def = $json | ConvertFrom-Json
 
 if (-not $def.columns) {
-	Write-Error "Required field 'columns' is missing"
+	[Console]::Error.WriteLine("Required field 'columns' is missing")
 	exit 1
 }
 if (-not $def.areas) {
-	Write-Error "Required field 'areas' is missing"
+	[Console]::Error.WriteLine("Required field 'areas' is missing")
 	exit 1
 }
 
@@ -466,6 +466,25 @@ foreach ($area in $def.areas) {
 		if ($row.cells -and $row.cells.Count -gt 0) {
 			$rowHasContent = $true
 
+			# Явные номера колонок проверяются до раскладки: дальше по коду они уже приводятся
+			# к числу, и отличить "0" от отсутствующего значения будет нельзя.
+			$cellNo = 0
+			$withCol = 0
+			foreach ($cell in $row.cells) {
+				$cellNo++
+				if ($null -eq $cell.col -or "$($cell.col)" -eq "") { continue }
+				$withCol++
+				$colNum = 0
+				if (-not [int]::TryParse("$($cell.col)", [ref]$colNum) -or $colNum -lt 1 -or $colNum -gt $totalColumns) {
+					[Console]::Error.WriteLine("Invalid 'col' value `"$($cell.col)`": area `"$areaName`", row $($localRow + 1), cell $cellNo")
+					exit 1
+				}
+			}
+			if ($withCol -gt 0 -and $withCol -lt $row.cells.Count) {
+				[Console]::Error.WriteLine("Cell without 'col' mixed with positioned cells: area `"$areaName`", row $($localRow + 1)")
+				exit 1
+			}
+
 			# Ячейка без col занимает ближайшую свободную колонку слева направо. Раньше такой
 			# ячейке доставался номер 0 (пустое свойство приводилось к нулю), и в файл уходил
 			# индекс -1 сразу для всех - колонки не различались.
@@ -485,6 +504,10 @@ foreach ($area in $def.areas) {
 				# Свободным должен быть ВЕСЬ диапазон объединения: иначе ячейка с span
 				# начиналась в свободной колонке и накрывала занятую соседнюю.
 				while (@($cursor..($cursor + $sp - 1)) | Where-Object { $claimed[$_] }) { $cursor++ }
+				if (($cursor + $sp - 1) -gt $totalColumns) {
+					[Console]::Error.WriteLine("Row exceeds 'columns' ($totalColumns): area `"$areaName`", row $($localRow + 1)")
+					exit 1
+				}
 				$cell | Add-Member -NotePropertyName col -NotePropertyValue $cursor -Force
 				for ($c = $cursor; $c -lt ($cursor + $sp); $c++) { $claimed[$c] = $true }
 				$cursor += $sp

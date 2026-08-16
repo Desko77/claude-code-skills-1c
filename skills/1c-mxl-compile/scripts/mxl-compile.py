@@ -482,6 +482,25 @@ def main():
             if row.get('cells') and len(row['cells']) > 0:
                 row_has_content = True
 
+                # Явные номера колонок проверяются до раскладки: дальше по коду они уже
+                # приводятся к числу, и отличить "0" от отсутствующего значения будет нельзя.
+                with_col = 0
+                for cell_no, cell in enumerate(row["cells"], 1):
+                    raw = cell.get("col")
+                    if raw is None or str(raw) == "":
+                        continue
+                    with_col += 1
+                    try:
+                        col_num = int(str(raw))
+                    except ValueError:
+                        col_num = 0
+                    if col_num < 1 or col_num > total_columns:
+                        print(f'Invalid \'col\' value "{raw}": area "{area_name}", row {local_row + 1}, cell {cell_no}', file=sys.stderr)
+                        sys.exit(1)
+                if 0 < with_col < len(row["cells"]):
+                    print(f'Cell without \'col\' mixed with positioned cells: area "{area_name}", row {local_row + 1}', file=sys.stderr)
+                    sys.exit(1)
+
                 # Ячейка без col занимает ближайшую свободную колонку слева направо. Раньше
                 # такой ячейке доставался номер 0 (пустое свойство приводилось к нулю), и в
                 # файл уходил индекс -1 сразу для всех - колонки не различались.
@@ -501,6 +520,9 @@ def main():
                     # начиналась в свободной колонке и накрывала занятую соседнюю.
                     while any(claimed.get(c) for c in range(cursor, cursor + sp)):
                         cursor += 1
+                    if cursor + sp - 1 > total_columns:
+                        print(f'Row exceeds \'columns\' ({total_columns}): area "{area_name}", row {local_row + 1}', file=sys.stderr)
+                        sys.exit(1)
                     cell['col'] = cursor
                     for c in range(cursor, cursor + sp):
                         claimed[c] = True

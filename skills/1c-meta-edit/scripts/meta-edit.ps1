@@ -455,6 +455,178 @@ function Build-FillValueXml {
 	return "$indent<FillValue xsi:nil=`"true`"/>"
 }
 
+$script:refKindByType = @{
+	"CatalogRef"                    = "Catalog"
+	"DocumentRef"                   = "Document"
+	"EnumRef"                       = "Enum"
+	"ChartOfAccountsRef"            = "ChartOfAccounts"
+	"ChartOfCharacteristicTypesRef" = "ChartOfCharacteristicTypes"
+	"ChartOfCalculationTypesRef"    = "ChartOfCalculationTypes"
+	"ExchangePlanRef"               = "ExchangePlan"
+	"BusinessProcessRef"            = "BusinessProcess"
+	"TaskRef"                       = "Task"
+}
+
+$script:structuralMLText = @("Format", "EditFormat", "ToolTip")
+$script:structuralTyped  = @("MinValue", "MaxValue", "FillValue")
+$script:structuralProps  = $script:structuralMLText + $script:structuralTyped + @("LinkByType", "ChoiceParameters", "ChoiceParameterLinks")
+
+function Get-AttributeTypeString($propsEl) {
+	# Тип реквизита строкой (CatalogRef.Спр и подобное) - нужен, чтобы развернуть EmptyRef.
+	foreach ($child in $propsEl.ChildNodes) {
+		if ($child.NodeType -ne 'Element' -or $child.LocalName -ne 'Type') { continue }
+		foreach ($gc in $child.ChildNodes) {
+			if ($gc.NodeType -eq 'Element' -and ($gc.LocalName -eq 'Type' -or $gc.LocalName -eq 'TypeSet') -and $gc.InnerText) {
+				return ($gc.InnerText -split ':')[-1].Trim()
+			}
+		}
+	}
+	return ""
+}
+
+function Resolve-DesignTimeRef {
+	param([string]$text, [string]$typeStr)
+	# Краткое EmptyRef разворачивается по типу реквизита: CatalogRef.Спр -> Catalog.Спр.EmptyRef.
+	if ($text -match '^[A-Za-z]\w*\.[^.\s]+\.\w+$') { return $text }
+	if (($text -eq "EmptyRef" -or $text -eq "ПустаяСсылка") -and $typeStr) {
+		$parts = $typeStr -split '\.', 2
+		if ($parts.Count -eq 2 -and $script:refKindByType.ContainsKey($parts[0])) {
+			return "$($script:refKindByType[$parts[0]]).$($parts[1]).EmptyRef"
+		}
+	}
+	return ""
+}
+
+function Build-TypedValueXml {
+	param([string]$indent, [string]$tag, $value, [string]$typeStr)
+	# Пустое пишется как xsi:nil БЕЗ содержимого: текст внутри такого элемента платформа не
+	# принимает - "Ошибка преобразования данных XML".
+	if ($null -eq $value -or ($value -is [string] -and -not $value.Trim())) {
+		return "$indent<$tag xsi:nil=`"true`"/>"
+	}
+	if ($value -is [bool]) {
+		$b = if ($value) { "true" } else { "false" }
+		return "$indent<$tag xsi:type=`"xs:boolean`">$b</$tag>"
+	}
+	if ($value -is [int] -or $value -is [long] -or $value -is [double] -or $value -is [decimal]) {
+		return "$indent<$tag xsi:type=`"xs:decimal`">$value</$tag>"
+	}
+	$text = "$value"
+	$ref = Resolve-DesignTimeRef $text $typeStr
+	if ($ref) { return "$indent<$tag xsi:type=`"xr:DesignTimeRef`">$(Esc-Xml $ref)</$tag>" }
+	if ($text -match '^-?\d+(\.\d+)?$') { return "$indent<$tag xsi:type=`"xs:decimal`">$text</$tag>" }
+	if ($text -match '^\d{4}-\d{2}-\d{2}T') { return "$indent<$tag xsi:type=`"xs:dateTime`">$text</$tag>" }
+	return "$indent<$tag xsi:type=`"xs:string`">$(Esc-Xml $text)</$tag>"
+}
+
+function Build-ChoiceParameterLinksXml {
+	param([string]$indent, $value)
+	# ValueChange не пишется намеренно: это перечисление LinkedValueChangeMode, и платформа
+	# не принимает его пустым на ВХОДЕ, хотя сама пишет пустым при выгрузке. Замерено на 8.5.
+	# Запись задается как "ИмяПараметра=ПутьКПолю" либо объектом { name; dataPath }.
+	$items = @()
+	if ($value -is [array]) { $items = $value } elseif ($null -ne $value) { $items = @($value) }
+	if ($items.Count -eq 0) { return "$indent<ChoiceParameterLinks/>" }
+	$lines = @("$indent<ChoiceParameterLinks>")
+	foreach ($item in $items) {
+		$name = ""
+		$path = ""
+		if ($item -is [string]) {
+			$parts = $item -split '=', 2
+			$name = $parts[0].Trim()
+			if ($parts.Count -gt 1) { $path = $parts[1].Trim() }
+		} else {
+			if ($null -ne $item.name) { $name = "$($item.name)" }
+			if ($null -ne $item.dataPath) { $path = "$($item.dataPath)" } elseif ($null -ne $item.field) { $path = "$($item.field)" }
+		}
+		$lines += "$indent`t<xr:Link>"
+		$lines += "$indent`t`t<xr:Name>$(Esc-Xml $name)</xr:Name>"
+		$lines += "$indent`t`t<xr:DataPath xsi:type=`"xs:string`">$(Esc-Xml $path)</xr:DataPath>"
+		$lines += "$indent`t</xr:Link>"
+	}
+	$lines += "$indent</ChoiceParameterLinks>"
+	return ($lines -join "`r`n")
+}
+
+function Build-StructuralXml {
+	param([string]$indent, [string]$propName, $value, [string]$typeStr)
+	if ($script:structuralMLText -contains $propName) {
+		$text = if ($null -eq $value) { "" } else { "$value" }
+		return Build-MLTextXml $indent $propName $text
+	}
+	if ($script:structuralTyped -contains $propName) {
+		return Build-TypedValueXml $indent $propName $value $typeStr
+	}
+	if ($propName -eq "LinkByType") { return Build-LinkByTypeXml $indent $value }
+	if ($propName -eq "ChoiceParameterLinks") { return Build-ChoiceParameterLinksXml $indent $value }
+	return Build-ChoiceParametersXml $indent $value
+}
+
+function Build-LinkByTypeXml {
+	param([string]$indent, $value)
+	# Замерено на 8.5: дочерние элементы обязаны нести префикс xr - без него платформа молча
+	# отбрасывает содержимое; путь должен быть полным (<Тип>.<Имя>.Attribute.<Имя>), краткая
+	# форма отвергается при загрузке как неверный путь к полю.
+	$dataPath = ""
+	$linkItem = 0
+	if ($value -is [string]) {
+		$dataPath = $value
+	} elseif ($null -ne $value) {
+		if ($null -ne $value.dataPath) { $dataPath = "$($value.dataPath)" }
+		$li = $value.linkItem
+		if ($null -ne $li -and "$li" -ne "") {
+			$parsed = 0
+			if ([int]::TryParse("$li", [ref]$parsed)) { $linkItem = $parsed }
+		}
+	}
+	if (-not $dataPath) { return "$indent<LinkByType/>" }
+	return @(
+		"$indent<LinkByType>",
+		"$indent`t<xr:DataPath>$(Esc-Xml $dataPath)</xr:DataPath>",
+		"$indent`t<xr:LinkItem>$linkItem</xr:LinkItem>",
+		"$indent</LinkByType>"
+	) -join "`r`n"
+}
+
+function Get-ChoiceParameterValue {
+	param($value)
+	# Замерено на 8.5: булево - xs:boolean, ссылка времени разработки вида Catalog.Имя.EmptyRef -
+	# xr:DesignTimeRef, остальное - xs:string.
+	if ($value -is [bool]) {
+		return @{ type = "xs:boolean"; text = $(if ($value) { "true" } else { "false" }) }
+	}
+	$text = "$value"
+	if ($text -match '^[A-Za-z]\w*\.[^.\s]+\.\w+$') {
+		return @{ type = "xr:DesignTimeRef"; text = $text }
+	}
+	return @{ type = "xs:string"; text = $text }
+}
+
+function Build-ChoiceParametersXml {
+	param([string]$indent, $value)
+	# Пустой список дает самозакрывающийся тег - так его пишет платформа.
+	$items = @()
+	if ($value -is [array]) { $items = $value } elseif ($null -ne $value) { $items = @($value) }
+	if ($items.Count -eq 0) { return "$indent<ChoiceParameters/>" }
+	$lines = @("$indent<ChoiceParameters>")
+	foreach ($item in $items) {
+		$name = ""
+		$raw = ""
+		if ($item -is [string]) {
+			$name = $item
+		} else {
+			if ($null -ne $item.name) { $name = "$($item.name)" }
+			$raw = $item.value
+		}
+		$v = Get-ChoiceParameterValue $raw
+		$lines += "$indent`t<app:item name=`"$(Esc-Xml $name)`">"
+		$lines += "$indent`t`t<app:value xsi:type=`"$($v.type)`">$(Esc-Xml $v.text)</app:value>"
+		$lines += "$indent`t</app:item>"
+	}
+	$lines += "$indent</ChoiceParameters>"
+	return ($lines -join "`r`n")
+}
+
 function Build-MLTextXml {
 	param([string]$indent, [string]$tag, [string]$text)
 	if (-not $text) {
@@ -486,7 +658,8 @@ function Import-Fragment([string]$xmlString) {
     xmlns:v8="http://v8.1c.ru/8.1/data/core"
     xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"
     xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"
-    xmlns:xs="http://www.w3.org/2001/XMLSchema">$xmlString</_W>
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:app="http://v8.1c.ru/8.2/managed-application/core">$xmlString</_W>
 "@
 	$frag = New-Object System.Xml.XmlDocument
 	$frag.PreserveWhitespace = $true
@@ -2094,6 +2267,34 @@ function Modify-ChildElements($modifyDef, [string]$childType) {
 					}
 					Info "Changed synonym of $xmlTag '$elemName': $changeValue"
 					$script:modifyCount++
+				}
+				{ $script:structuralProps -contains $_ } {
+					$structEl = $null
+					foreach ($gc in $propsEl.ChildNodes) {
+						if ($gc.NodeType -eq 'Element' -and $gc.LocalName -eq $changeProp) {
+							$structEl = $gc; break
+						}
+					}
+					if (-not $structEl) {
+						Warn "$xmlTag '$elemName': property '$changeProp' not found"
+					} else {
+						$structIndent = Get-ChildIndent $propsEl
+						$structXml = Build-StructuralXml $structIndent $changeProp $changeValue (Get-AttributeTypeString $propsEl)
+						$structNodes = Import-Fragment $structXml
+						if ($structNodes.Count -gt 0) {
+							# Отступ перед узлом надо сохранить: удаление старого уносит с собой
+							# предшествующий пробельный узел, и новый прилипал к соседу.
+							$structWs = $structEl.PreviousSibling
+							$imported = $propsEl.OwnerDocument.ImportNode($structNodes[0], $true)
+							$propsEl.InsertAfter($imported, $structEl) | Out-Null
+							if ($structWs -and ($structWs.NodeType -eq 'Whitespace' -or $structWs.NodeType -eq 'SignificantWhitespace')) {
+								$propsEl.InsertBefore($structWs.CloneNode($true), $imported) | Out-Null
+							}
+							Remove-NodeWithWhitespace $structEl
+						}
+						Info "Modified $xmlTag '$elemName'.$changeProp"
+						$script:modifyCount++
+					}
 				}
 				default {
 					# Scalar property change (Indexing, FillChecking, Use, etc.)

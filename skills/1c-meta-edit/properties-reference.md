@@ -52,3 +52,35 @@
 -Operation set-registerRecords -Value "AccumulationRegister.Продажи ;; AccumulationRegister.ОстаткиТоваров"
 -Operation set-inputByString -Value "StandardAttribute.Description ;; StandardAttribute.Code"
 ```
+
+## Структурные свойства реквизита
+
+Семь свойств реквизита хранятся не текстом, а вложенной разметкой. Задаются через
+`modify.attributes`; навык сам собирает нужную форму. Формы замерены на платформе 8.5.1
+круговым прогоном исходники -> база -> выгрузка.
+
+| Свойство | Что писать в DSL | Во что превращается |
+|----------|------------------|---------------------|
+| Format, EditFormat, ToolTip | строка | локализуемая строка (`v8:item` / `v8:lang` / `v8:content`) |
+| MinValue, MaxValue | число | `xsi:type="xs:decimal"` |
+| FillValue | число, строка, `EmptyRef` | `xs:decimal` / `xs:string` / `xr:DesignTimeRef` |
+| LinkByType | `{ dataPath, linkItem }` | `xr:DataPath` + `xr:LinkItem` |
+| ChoiceParameters | `[{ name, value }]` | `app:item` + `app:value` с типом значения |
+| ChoiceParameterLinks | `["Параметр=ПутьКПолю"]` | `xr:Link` с `xr:Name` и `xr:DataPath` |
+
+```json
+{"modify": {"attributes": {"Контрагент": {
+  "ToolTip": "Контрагент документа",
+  "FillValue": "EmptyRef",
+  "LinkByType": {"dataPath": "Catalog.Заказы.Attribute.Вид", "linkItem": 1},
+  "ChoiceParameters": [{"name": "Отбор.ПометкаУдаления", "value": false}],
+  "ChoiceParameterLinks": ["Отбор.Владелец=Catalog.Заказы.Attribute.Организация"]
+}}}}
+```
+
+**Путь к полю пишется полностью** - `<Тип>.<Имя>.Attribute.<Имя>`. Это касается `LinkByType`
+и `ChoiceParameterLinks`: краткую форму (`Ссылка`, `Вид`) платформа отвергает при загрузке
+сообщением «Неверный путь к полю», и конфигурация не собирается.
+
+`FillValue` понимает краткое `EmptyRef` - навык разворачивает его по типу реквизита
+(`CatalogRef.Контрагенты` -> `Catalog.Контрагенты.EmptyRef`).

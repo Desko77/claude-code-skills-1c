@@ -647,6 +647,53 @@ Ext/                               # Расширение конфигураци
 </xr:LinkByType>
 ```
 
+У реквизита объекта сам тег идёт без префикса, а вот **дочерние элементы префикс `xr` несут
+обязательно**:
+
+```xml
+<LinkByType>
+    <xr:DataPath>Catalog.Значения.Attribute.Вид</xr:DataPath>
+    <xr:LinkItem>1</xr:LinkItem>
+</LinkByType>
+```
+
+Замерено на 8.5.1: без префикса платформа принимает файл, но **молча выбрасывает содержимое** —
+в выгрузке остаётся пустой `<LinkByType/>`. Путь пишется полностью (`<Тип>.<Имя>.Attribute.<Имя>`);
+краткие формы (`Вид`, `Ссылка.Вид`, `Объект.Вид`) отвергаются при загрузке сообщением
+«Неверный путь к полю».
+
+### 5.4.1. ChoiceParameters и ChoiceParameterLinks
+
+Параметры выбора живут в пространстве `app` (ядро управляемого приложения), связи параметров —
+в `xr`:
+
+```xml
+<ChoiceParameters>
+    <app:item name="Отбор.ПометкаУдаления">
+        <app:value xsi:type="xs:boolean">false</app:value>
+    </app:item>
+    <app:item name="Отбор.Ссылка">
+        <app:value xsi:type="xr:DesignTimeRef">Catalog.Спр.EmptyRef</app:value>
+    </app:item>
+</ChoiceParameters>
+
+<ChoiceParameterLinks>
+    <xr:Link>
+        <xr:Name>Отбор.Владелец</xr:Name>
+        <xr:DataPath xsi:type="xs:string">Catalog.Спр.Attribute.Дата</xr:DataPath>
+    </xr:Link>
+</ChoiceParameterLinks>
+```
+
+Тип значения: `xs:boolean` для булева, `xr:DesignTimeRef` для ссылки времени разработки,
+`xs:string` для остального. Путь в `ChoiceParameterLinks` платформа проверяет так же строго,
+как в `LinkByType`.
+
+Выгрузка добавляет в связь третий элемент `<xr:ValueChange xsi:nil="true"/>`, но **на входе
+пустым его принимать отказывается**: это перечисление `LinkedValueChangeMode`, и загрузка падает
+с «Ошибка XDTO ... при чтении свойства: ValueChange». Писать его не нужно — платформа проставит
+сама.
+
 ### 5.5. FillValue — значение заполнения
 
 ```xml
@@ -663,6 +710,11 @@ Ext/                               # Расширение конфигураци
 <xr:FillValue xsi:type="xr:DesignTimeRef">Catalog.Номенклатура.EmptyRef</xr:FillValue>
 <xr:FillValue xsi:type="xr:DesignTimeRef">Enum.ВидыОпераций.EnumValue.Продажа</xr:FillValue>
 ```
+
+`xsi:nil="true"` означает пустое значение и **обязан быть пустым тегом**. Замерено на 8.5.1:
+текст внутри такого элемента (`<FillValue xsi:nil="true">EmptyRef</FillValue>`) валит загрузку
+сообщением «Ошибка преобразования данных XML». То же правило действует для `MinValue` и
+`MaxValue` — либо пустой `xsi:nil`, либо значение с явным `xsi:type`.
 
 ---
 
