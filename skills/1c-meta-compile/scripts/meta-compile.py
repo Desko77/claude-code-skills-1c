@@ -26,6 +26,10 @@ def new_uuid():
     return str(uuid.uuid4())
 
 def write_utf8_bom(path, content):
+    # Исходники 1С хранятся в CRLF: этого ждет Конфигуратор, и это закреплено в .gitattributes.
+    # Сборка идет через '\n'.join, поэтому концы строк разворачиваются здесь, на записи.
+    # Нормализация идемпотентна - смешанный текст тоже приходит к одному виду.
+    content = content.replace('\r\n', '\n').replace('\n', '\r\n')
     with open(path, 'w', encoding='utf-8-sig', newline='') as f:
         f.write(content)
 
@@ -136,7 +140,7 @@ class LenientDict(dict):
 
 
 def lenient(data):
-    """JSON может быть объектом или массивом объектов - оборачиваем и то, и другое."""
+    """JSON бывает объектом и массивом объектов - оборачиваем и то, и другое."""
     if isinstance(data, list):
         return [LenientDict(x) if isinstance(x, dict) else x for x in data]
     return LenientDict(data) if isinstance(data, dict) else data

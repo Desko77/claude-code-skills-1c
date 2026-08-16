@@ -1132,6 +1132,13 @@ if os.path.exists(config_xml):
             data = data.replace(b"\r\n", b"\n").replace(b"\n", src_eol)
             if had_bom:
                 data = b"\xef\xbb\xbf" + data
+            # Концы строк: XML-разбор нормализует CRLF в LF при чтении, поэтому разворачиваем обратно -
+            # исходники 1С хранятся в CRLF. Хвостового перевода платформа не пишет, замерено на выгрузках.
+            # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
+            # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
+            # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
+            if os.path.exists(config_xml) and b'\r\n' in open(config_xml, 'rb').read(65536):
+                data = data.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
             with open(config_xml, "wb") as f:
                 f.write(data)
             reg_result = "added"

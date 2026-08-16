@@ -37,9 +37,14 @@ def save_xml_with_bom(tree, path):
     # альтернации и возвращаются как есть.
     xml_bytes = re.sub(rb'(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|(?<=\S) />',
                     lambda m: b'/>' if m.group(0) == b' />' else m.group(0), xml_bytes)
-    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
-    if not xml_bytes.endswith(b"\n"):
-        xml_bytes += b"\n"
+    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="UTF-8"?>')
+    # Концы строк: XML-разбор нормализует CRLF в LF при чтении, поэтому разворачиваем обратно -
+    # исходники 1С хранятся в CRLF. Хвостового перевода платформа не пишет, замерено на выгрузках.
+    # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
+    # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
+    # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
+    if os.path.exists(path) and b'\r\n' in open(path, 'rb').read(65536):
+        xml_bytes = xml_bytes.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)

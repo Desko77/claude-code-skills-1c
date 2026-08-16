@@ -9,6 +9,62 @@ import sys
 import uuid
 
 
+class LenientDict(dict):
+    """Словарь, нечувствительный к регистру ключей - как PSObject в PowerShell.
+
+    Нужен для прощающего ввода: DSL принимает и `operation`, и `Operation`. Вложенные словари
+    оборачиваются тоже, иначе леность теряется на первом же уровне вложенности.
+    """
+
+    def __init__(self, data=None):
+        super().__init__()
+        for k, v in (data or {}).items():
+            self[k] = v
+
+    @staticmethod
+    def _wrap(v):
+        if isinstance(v, dict):
+            return LenientDict(v)
+        if isinstance(v, list):
+            return [LenientDict(x) if isinstance(x, dict) else x for x in v]
+        return v
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, self._wrap(value))
+
+    def _actual_key(self, key):
+        if super().__contains__(key):
+            return key
+        if isinstance(key, str):
+            low = key.lower()
+            for k in super().keys():
+                if isinstance(k, str) and k.lower() == low:
+                    return k
+        return None
+
+    def __getitem__(self, key):
+        k = self._actual_key(key)
+        if k is None:
+            raise KeyError(key)
+        return super().__getitem__(k)
+
+    def __contains__(self, key):
+        return self._actual_key(key) is not None
+
+    def get(self, key, default=None):
+        k = self._actual_key(key)
+        return super().__getitem__(k) if k is not None else default
+
+
+def lenient(data):
+    """JSON бывает объектом и массивом объектов - оборачиваем и то, и другое."""
+    if isinstance(data, list):
+        return [LenientDict(x) if isinstance(x, dict) else x for x in data]
+    return LenientDict(data) if isinstance(data, dict) else data
+
+
+
+
 def esc_xml(s):
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
@@ -53,6 +109,10 @@ def new_uuid():
 
 
 def write_utf8_bom(path, content):
+    # Исходники 1С хранятся в CRLF: этого ждет Конфигуратор, и это закреплено в .gitattributes.
+    # Сборка идет через '\n'.join, поэтому концы строк разворачиваются здесь, на записи.
+    # Нормализация идемпотентна - смешанный текст тоже приходит к одному виду.
+    content = content.replace('\r\n', '\n').replace('\n', '\r\n')
     with open(path, 'w', encoding='utf-8-sig', newline='') as f:
         f.write(content)
 
@@ -1001,7 +1061,7 @@ def load_user_styles(base_dir, output_path=None):
     for p in search_paths:
         if os.path.isfile(p):
             with open(p, 'r', encoding='utf-8-sig') as f:
-                user_styles = json.load(f)
+                user_styles = lenient(json.load(f))
             for name, overrides in user_styles.items():
                 base = dict(AREA_STYLE_PRESETS.get(name, AREA_STYLE_PRESETS['data']))
                 base.update(overrides)
@@ -1925,7 +1985,7 @@ def main():
     else:
         json_text = args.Value
 
-    defn = json.loads(json_text)
+    defn = lenient(json.loads(json_text))
 
     if not defn.get('dataSets') or len(defn['dataSets']) == 0:
         print("JSON must have at least one entry in 'dataSets'", file=sys.stderr)

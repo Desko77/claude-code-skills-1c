@@ -2097,7 +2097,7 @@ def save_xml(tree, path):
     xml_bytes = re.sub(rb'(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|(?<=\S) />',
                     lambda m: b'/>' if m.group(0) == b' />' else m.group(0), xml_bytes)
     # Fix XML declaration quotes
-    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="utf-8"?>')
+    xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml version="1.0" encoding="UTF-8"?>')
     # Fix d5p1 namespace declarations stripped by lxml (it treats them as unused
     # because d5p1: appears only in text content, not in element/attribute names)
     xml_bytes = re.sub(
@@ -2105,8 +2105,13 @@ def save_xml(tree, path):
         b'\\1 xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config"\\2',
         xml_bytes
     )
-    if not xml_bytes.endswith(b"\n"):
-        xml_bytes += b"\n"
+    # Концы строк: XML-разбор нормализует CRLF в LF при чтении, поэтому разворачиваем обратно -
+    # исходники 1С хранятся в CRLF. Хвостового перевода платформа не пишет, замерено на выгрузках.
+    # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
+    # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
+    # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
+    if os.path.exists(path) and b'\r\n' in open(path, 'rb').read(65536):
+        xml_bytes = xml_bytes.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)

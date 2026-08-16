@@ -346,6 +346,13 @@ def save_xml(doc, path):
     except OSError:
         pass
     raw = raw.replace(b"\r\n", b"\n").replace(b"\n", src_eol)
+    # Концы строк: XML-разбор нормализует CRLF в LF при чтении, поэтому разворачиваем обратно -
+    # исходники 1С хранятся в CRLF. Хвостового перевода платформа не пишет, замерено на выгрузках.
+    # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
+    # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
+    # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
+    if os.path.exists(path) and b'\r\n' in open(path, 'rb').read(65536):
+        raw = raw.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf" + raw)
 
@@ -652,6 +659,13 @@ else:
         schema_bytes = etree.tostring(schema, xml_declaration=True, encoding="UTF-8")
         schema_bytes = re.sub(rb'(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>',
                 lambda m: b'<' + m.group(1) + m.group(2) + b'/>' if m.group(1) else m.group(0), schema_bytes)
+        # Концы строк: XML-разбор нормализует CRLF в LF при чтении, поэтому разворачиваем обратно -
+        # исходники 1С хранятся в CRLF. Хвостового перевода платформа не пишет, замерено на выгрузках.
+        # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
+        # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
+        # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
+        if os.path.exists(xsd_path) and b'\r\n' in open(xsd_path, 'rb').read(65536):
+            schema_bytes = schema_bytes.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
         with open(xsd_path, "wb") as f:
             f.write(schema_bytes)
         invoke_sibling(COMPILE, ["-XsdPath", xsd_path, "-OutputDir", config_root,

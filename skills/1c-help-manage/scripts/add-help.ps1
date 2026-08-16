@@ -129,6 +129,9 @@ if (Test-Path $formsDir) {
 				# поэтому они идут первыми ветками альтернации и возвращаются как есть.
 				$tightPath = $formMeta.FullName
 				$tightText = [System.IO.File]::ReadAllText($tightPath, [System.Text.Encoding]::UTF8)
+				# Платформа пишет UTF-8 заглавными, а XmlDocument.Save - строчными: без этого
+				# навык менял шапку чужого файла и давал лишнее расхождение со сверкой.
+				$tightText = $tightText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 				$tightText = [regex]::Replace($tightText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
 				[System.IO.File]::WriteAllText($tightPath, $tightText, (New-Object System.Text.UTF8Encoding($true)))
 

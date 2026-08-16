@@ -1268,6 +1268,10 @@ def new_uuid():
 
 
 def write_utf8_bom(path, content):
+    # Исходники 1С хранятся в CRLF: этого ждет Конфигуратор, и это закреплено в .gitattributes.
+    # Сборка идет через '\n'.join, поэтому концы строк разворачиваются здесь, на записи.
+    # Нормализация идемпотентна - смешанный текст тоже приходит к одному виду.
+    content = content.replace('\r\n', '\n').replace('\n', '\r\n')
     with open(path, 'w', encoding='utf-8-sig', newline='') as f:
         f.write(content)
 
