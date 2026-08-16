@@ -208,6 +208,12 @@ if ($objType -notin $validTypes) {
 	Write-Error "Unsupported type: $objType. Valid: $($validTypes -join ', ')"
 	exit 1
 }
+# Регистр имени типа приводится к каноническому. Сравнение выше регистронезависимо, поэтому
+# "catalog" его проходит - и раньше уходило в XML как <catalog>. Платформа на таком теге не
+# ругается, а МОЛЧА выбрасывает объект: "не является подчиненным для объекта Configuration",
+# код возврата 0, объекта в базе нет. Замерено на 8.3.27.
+$canonicalType = $validTypes | Where-Object { $_ -ieq $objType } | Select-Object -First 1
+if ($canonicalType) { $objType = $canonicalType }
 
 if (-not $def.name) {
 	Write-Error "JSON must have 'name' field"
@@ -231,16 +237,28 @@ function Esc-Xml {
 }
 
 function Emit-MLText {
-	param([string]$indent, [string]$tag, [string]$text)
+	param([string]$indent, [string]$tag, $text)
 	if (-not $text) {
 		X "$indent<$tag/>"
 		return
 	}
+	# Значение бывает строкой (тогда это русский вариант) и объектом { ru = "..."; en = "..." }.
+	# Раньше параметр был [string], объект приводился к "@{ru=...; en=...}" и уезжал в XML целиком.
+	$mlItems = @()
+	if ($text -is [string]) {
+		$mlItems += @{ lang = "ru"; content = $text }
+	} else {
+		foreach ($mlProp in $text.PSObject.Properties) {
+			$mlItems += @{ lang = $mlProp.Name; content = "$($mlProp.Value)" }
+		}
+	}
 	X "$indent<$tag>"
-	X "$indent`t<v8:item>"
-	X "$indent`t`t<v8:lang>ru</v8:lang>"
-	X "$indent`t`t<v8:content>$(Esc-Xml $text)</v8:content>"
-	X "$indent`t</v8:item>"
+	foreach ($mlItem in $mlItems) {
+		X "$indent`t<v8:item>"
+		X "$indent`t`t<v8:lang>$($mlItem.lang)</v8:lang>"
+		X "$indent`t`t<v8:content>$(Esc-Xml $mlItem.content)</v8:content>"
+		X "$indent`t</v8:item>"
+	}
 	X "$indent</$tag>"
 }
 
@@ -264,7 +282,7 @@ function Split-CamelCase {
 }
 
 # Auto-synonym
-$synonym = if ($def.synonym) { "$($def.synonym)" } else { Split-CamelCase $objName }
+$synonym = if ($def.synonym) { $def.synonym } else { Split-CamelCase $objName }
 $comment = if ($def.comment) { "$($def.comment)" } else { "" }
 
 # --- 4. Type system ---
@@ -556,7 +574,7 @@ function Parse-AttributeShorthand {
 	return @{
 		name    = $name
 		type    = Build-TypeStr $val
-		synonym = if ($val.synonym) { "$($val.synonym)" } else { Split-CamelCase $name }
+		synonym = if ($val.synonym) { $val.synonym } else { Split-CamelCase $name }
 		comment = if ($val.comment) { "$($val.comment)" } else { "" }
 		flags   = @(if ($val.flags) { $val.flags } else { @() })
 		fillChecking = if ($val.fillChecking) { "$($val.fillChecking)" } else { "" }
@@ -580,7 +598,7 @@ function Parse-EnumValueShorthand {
 	$name = "$($val.name)"
 	return @{
 		name    = $name
-		synonym = if ($val.synonym) { "$($val.synonym)" } else { Split-CamelCase $name }
+		synonym = if ($val.synonym) { $val.synonym } else { Split-CamelCase $name }
 		comment = if ($val.comment) { "$($val.comment)" } else { "" }
 	}
 }
@@ -928,7 +946,7 @@ function Emit-Attribute {
 # --- 9. TabularSection emitter ---
 
 function Emit-TabularSection {
-	param([string]$indent, [string]$tsName, $columns, [string]$objectType, [string]$objectName)
+	param([string]$indent, [string]$tsName, $columns, [string]$objectType, [string]$objectName, $options)
 	$uuid = New-Guid-String
 	X "$indent<TabularSection uuid=`"$uuid`">"
 
@@ -947,7 +965,7 @@ function Emit-TabularSection {
 	X "$indent`t`t</xr:GeneratedType>"
 	X "$indent`t</InternalInfo>"
 
-	$tsSynonym = Split-CamelCase $tsName
+	$tsSynonym = if ($options -and $options.synonym) { $options.synonym } else { Split-CamelCase $tsName }
 
 	X "$indent`t<Properties>"
 	X "$indent`t`t<Name>$(Esc-Xml $tsName)</Name>"
@@ -2389,7 +2407,7 @@ function Emit-Column {
 		$synonym = Split-CamelCase $name
 	} else {
 		$name = "$($colDef.name)"
-		$synonym = if ($colDef.synonym) { "$($colDef.synonym)" } else { Split-CamelCase $name }
+		$synonym = if ($colDef.synonym) { $colDef.synonym } else { Split-CamelCase $name }
 		if ($colDef.indexing) { $indexing = "$($colDef.indexing)" }
 		if ($colDef.references) { $references = @($colDef.references) }
 	}
@@ -2487,7 +2505,9 @@ function Emit-URLTemplate {
 	$tmplSynonym = Split-CamelCase $tmplName
 
 	$template = ""
-	$methods = @{}
+	# Порядок объявления значим (для операции это ее сигнатура), поэтому упорядоченный словарь:
+	# обычная хеш-таблица PowerShell отдает ключи в произвольном порядке.
+	$methods = [ordered]@{}
 
 	if ($tmplDef -is [string]) {
 		$template = "$tmplDef"
@@ -2541,7 +2561,9 @@ function Emit-Operation {
 	$nillable = "false"
 	$transactioned = "false"
 	$handler = $opName
-	$params = @{}
+	# Порядок объявления значим (для операции это ее сигнатура), поэтому упорядоченный словарь:
+	# обычная хеш-таблица PowerShell отдает ключи в произвольном порядке.
+	$params = [ordered]@{}
 
 	if ($opDef -is [string]) {
 		$returnType = "$opDef"
@@ -3079,6 +3101,7 @@ if ($objType -in $typesWithAttrTS) {
 		}
 	}
 	$tsSections = [ordered]@{}
+	$tsOptions = @{}
 	if ($def.tabularSections) {
 		# Normalize array format: [{name:"X", attributes:[...]}, ...] → {"X": [...]}
 		if ($def.tabularSections -is [array] -or $def.tabularSections.GetType().Name -eq "Object[]") {
@@ -3089,7 +3112,21 @@ if ($objType -in $typesWithAttrTS) {
 			}
 		} else {
 			$def.tabularSections.PSObject.Properties | ForEach-Object {
-				$tsSections[$_.Name] = @($_.Value)
+				# Значение бывает списком колонок и объектом { synonym, attributes, ... }.
+				# Объект раньше уходил в разбор колонки целиком: выходил один безымянный
+				# реквизит, а объявленные колонки терялись молча.
+				$tsVal = $_.Value
+				if ($tsVal -is [array] -or $tsVal -is [string]) {
+					$tsSections[$_.Name] = @($tsVal)
+				} else {
+					$tsSections[$_.Name] = @(@($tsVal.attributes) | Where-Object { $_ })
+					$tsOptions[$_.Name] = $tsVal
+					foreach ($tsKey in $tsVal.PSObject.Properties.Name) {
+						if ($tsKey -notin @("attributes", "synonym", "comment")) {
+							[Console]::Error.WriteLine("Warning: tabular section '$($_.Name)': property '$tsKey' is not supported and was ignored.")
+						}
+					}
+				}
 			}
 		}
 	}
@@ -3124,7 +3161,7 @@ if ($objType -in $typesWithAttrTS) {
 		}
 		foreach ($tsName in $tsSections.Keys) {
 			$columns = $tsSections[$tsName]
-			Emit-TabularSection "`t`t`t" $tsName $columns $objType $objName
+			Emit-TabularSection "`t`t`t" $tsName $columns $objType $objName $tsOptions[$tsName]
 		}
 		foreach ($af in $acctFlags) {
 			$afName = if ($af.name) { $af.name } else { "$af" }
@@ -3225,7 +3262,9 @@ if ($objType -eq "DocumentJournal") {
 
 # --- HTTPService: URLTemplates ---
 if ($objType -eq "HTTPService") {
-	$urlTemplates = @{}
+	# Порядок объявления значим (для операции это ее сигнатура), поэтому упорядоченный словарь:
+	# обычная хеш-таблица PowerShell отдает ключи в произвольном порядке.
+	$urlTemplates = [ordered]@{}
 	if ($def.urlTemplates) {
 		$def.urlTemplates.PSObject.Properties | ForEach-Object {
 			$urlTemplates[$_.Name] = $_.Value
@@ -3245,7 +3284,9 @@ if ($objType -eq "HTTPService") {
 
 # --- WebService: Operations ---
 if ($objType -eq "WebService") {
-	$operations = @{}
+	# Порядок объявления значим (для операции это ее сигнатура), поэтому упорядоченный словарь:
+	# обычная хеш-таблица PowerShell отдает ключи в произвольном порядке.
+	$operations = [ordered]@{}
 	if ($def.operations) {
 		$def.operations.PSObject.Properties | ForEach-Object {
 			$operations[$_.Name] = $_.Value

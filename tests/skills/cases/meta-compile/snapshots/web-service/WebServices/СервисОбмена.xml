@@ -34,20 +34,6 @@
 				<ChildObjects>
 					<Parameter uuid="UUID-003">
 						<Properties>
-							<Name>ДатаНачала</Name>
-							<Synonym>
-								<v8:item>
-									<v8:lang>ru</v8:lang>
-									<v8:content>Дата начала</v8:content>
-								</v8:item>
-							</Synonym>
-							<XDTOValueType>xs:dateTime</XDTOValueType>
-							<Nillable>true</Nillable>
-							<TransferDirection>In</TransferDirection>
-						</Properties>
-					</Parameter>
-					<Parameter uuid="UUID-004">
-						<Properties>
 							<Name>ИдентификаторЗапроса</Name>
 							<Synonym>
 								<v8:item>
@@ -56,6 +42,20 @@
 								</v8:item>
 							</Synonym>
 							<XDTOValueType>xs:string</XDTOValueType>
+							<Nillable>true</Nillable>
+							<TransferDirection>In</TransferDirection>
+						</Properties>
+					</Parameter>
+					<Parameter uuid="UUID-004">
+						<Properties>
+							<Name>ДатаНачала</Name>
+							<Synonym>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Дата начала</v8:content>
+								</v8:item>
+							</Synonym>
+							<XDTOValueType>xs:dateTime</XDTOValueType>
 							<Nillable>true</Nillable>
 							<TransferDirection>In</TransferDirection>
 						</Properties>
@@ -80,20 +80,6 @@
 				<ChildObjects>
 					<Parameter uuid="UUID-006">
 						<Properties>
-							<Name>Ошибка</Name>
-							<Synonym>
-								<v8:item>
-									<v8:lang>ru</v8:lang>
-									<v8:content>Ошибка</v8:content>
-								</v8:item>
-							</Synonym>
-							<XDTOValueType>xs:string</XDTOValueType>
-							<Nillable>false</Nillable>
-							<TransferDirection>Out</TransferDirection>
-						</Properties>
-					</Parameter>
-					<Parameter uuid="UUID-007">
-						<Properties>
 							<Name>Сообщение</Name>
 							<Synonym>
 								<v8:item>
@@ -104,6 +90,20 @@
 							<XDTOValueType>{http://example.com/exchange}MessageExchange</XDTOValueType>
 							<Nillable>false</Nillable>
 							<TransferDirection>In</TransferDirection>
+						</Properties>
+					</Parameter>
+					<Parameter uuid="UUID-007">
+						<Properties>
+							<Name>Ошибка</Name>
+							<Synonym>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Ошибка</v8:content>
+								</v8:item>
+							</Synonym>
+							<XDTOValueType>xs:string</XDTOValueType>
+							<Nillable>false</Nillable>
+							<TransferDirection>Out</TransferDirection>
 						</Properties>
 					</Parameter>
 				</ChildObjects>

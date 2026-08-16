@@ -139,10 +139,23 @@ valid_enum_values = {
 }
 
 
+def lookup_ci(table, key):
+    """Поиск по словарю без учета регистра - хеш-таблица PowerShell ведет себя так же."""
+    if key in table:
+        return table[key]
+    low = str(key).lower()
+    for k, v in table.items():
+        if str(k).lower() == low:
+            return v
+    return None
+
+
 def normalize_enum_value(prop_name, value):
-    # 1. Check alias dictionary — silent auto-correct
-    if value in enum_value_aliases:
-        return enum_value_aliases[value]
+    # 1. Check alias dictionary - silent auto-correct. Поиск без учета регистра: хеш-таблица
+    # PowerShell находит "обороты" по ключу "Обороты", словарь python - нет.
+    alias = lookup_ci(enum_value_aliases, value)
+    if alias is not None:
+        return alias
     # 2. Case-insensitive match against valid values — silent
     valid = valid_enum_values.get(prop_name)
     if valid:

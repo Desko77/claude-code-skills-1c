@@ -42,11 +42,18 @@ def emit_mltext(indent, tag, text):
     if not text:
         X(f'{indent}<{tag}/>')
         return
+    # Значение бывает строкой (тогда это русский вариант) и словарем { 'ru': ..., 'en': ... }.
+    # Раньше словарь приводился к строке и уезжал в XML как есть, вместо перевода.
+    if isinstance(text, dict):
+        ml_items = [(str(lang), str(content)) for lang, content in text.items()]
+    else:
+        ml_items = [('ru', str(text))]
     X(f'{indent}<{tag}>')
-    X(f'{indent}\t<v8:item>')
-    X(f'{indent}\t\t<v8:lang>ru</v8:lang>')
-    X(f'{indent}\t\t<v8:content>{esc_xml(text)}</v8:content>')
-    X(f'{indent}\t</v8:item>')
+    for lang, content in ml_items:
+        X(f'{indent}\t<v8:item>')
+        X(f'{indent}\t\t<v8:lang>{lang}</v8:lang>')
+        X(f'{indent}\t\t<v8:content>{esc_xml(content)}</v8:content>')
+        X(f'{indent}\t</v8:item>')
     X(f'{indent}</{tag}>')
 
 # ---------------------------------------------------------------------------
@@ -81,7 +88,61 @@ if not os.path.isfile(json_path):
 with open(json_path, 'r', encoding='utf-8-sig') as f:
     json_text = f.read()
 
-defn = json.loads(json_text)
+class LenientDict(dict):
+    """Словарь, нечувствительный к регистру ключей - как PSObject в PowerShell.
+
+    Нужен для прощающего ввода: DSL принимает и `codeLength`, и `CodeLength`. Вложенные словари
+    оборачиваются тоже, иначе леность теряется на первом же уровне вложенности.
+    """
+
+    def __init__(self, data=None):
+        super().__init__()
+        for k, v in (data or {}).items():
+            self[k] = v
+
+    @staticmethod
+    def _wrap(v):
+        if isinstance(v, dict):
+            return LenientDict(v)
+        if isinstance(v, list):
+            return [LenientDict(x) if isinstance(x, dict) else x for x in v]
+        return v
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, self._wrap(value))
+
+    def _actual_key(self, key):
+        if super().__contains__(key):
+            return key
+        if isinstance(key, str):
+            low = key.lower()
+            for k in super().keys():
+                if isinstance(k, str) and k.lower() == low:
+                    return k
+        return None
+
+    def __getitem__(self, key):
+        k = self._actual_key(key)
+        if k is None:
+            raise KeyError(key)
+        return super().__getitem__(k)
+
+    def __contains__(self, key):
+        return self._actual_key(key) is not None
+
+    def get(self, key, default=None):
+        k = self._actual_key(key)
+        return super().__getitem__(k) if k is not None else default
+
+
+def lenient(data):
+    """JSON может быть объектом или массивом объектов - оборачиваем и то, и другое."""
+    if isinstance(data, list):
+        return [LenientDict(x) if isinstance(x, dict) else x for x in data]
+    return LenientDict(data) if isinstance(data, dict) else data
+
+
+defn = lenient(json.loads(json_text))
 
 # --- Batch mode: JSON array of objects ---
 if isinstance(defn, list):
@@ -137,6 +198,20 @@ object_type_synonyms = {
     'HTTPСервис': 'HTTPService',
     'ВебСервис': 'WebService',
     'ОпределяемыйТип': 'DefinedType',
+    'ОбщийРеквизит': 'CommonAttribute',
+    'ОбщаяФорма': 'CommonForm',
+    'ОбщаяКоманда': 'CommonCommand',
+    'ГруппаКоманд': 'CommandGroup',
+    'ОбщийМакет': 'CommonTemplate',
+    'ОбщаяКартинка': 'CommonPicture',
+    'КритерийОтбора': 'FilterCriterion',
+    'Последовательность': 'Sequence',
+    'НумераторДокументов': 'DocumentNumerator',
+    'ПараметрСеанса': 'SessionParameter',
+    'ХранилищеНастроек': 'SettingsStorage',
+    'ФункциональнаяОпция': 'FunctionalOption',
+    'ПараметрФункциональныхОпций': 'FunctionalOptionsParameter',
+    'WSСсылка': 'WSReference',
 }
 
 # Enum property value synonyms — model often gets these slightly wrong
@@ -202,9 +277,11 @@ valid_enum_values = {
 }
 
 def normalize_enum_value(prop_name, value):
-    # 1. Check alias dictionary — silent auto-correct
-    if value in enum_value_aliases:
-        return enum_value_aliases[value]
+    # 1. Check alias dictionary - silent auto-correct. Поиск без учета регистра: хеш-таблица
+    # PowerShell находит "обороты" по ключу "Обороты", словарь python - нет.
+    alias = lookup_ci(enum_value_aliases, value)
+    if alias is not None:
+        return alias
     # 2. Case-insensitive match against valid values — silent
     valid = valid_enum_values.get(prop_name)
     if valid:
@@ -222,13 +299,115 @@ def get_enum_prop(prop_name, field_name, default):
     raw = str(val) if val else default
     return normalize_enum_value(prop_name, raw)
 
+
+
+# Виды вложенных сущностей: русское имя -> английское. Дополняется синонимами типов объектов,
+# чтобы путь вида "Документ.Заказ.Реквизит.Сумма" приводился к английскому целиком.
+md_kind_synonyms = {
+    'Реквизит': 'Attribute',
+    'ТабличнаяЧасть': 'TabularSection',
+    'Измерение': 'Dimension',
+    'Ресурс': 'Resource',
+    'Графа': 'Column',
+    'ЗначениеПеречисления': 'EnumValue',
+    'Форма': 'Form',
+    'Макет': 'Template',
+    'Команда': 'Command',
+    'ПризнакУчета': 'AccountingFlag',
+    'ПризнакУчетаСубконто': 'ExtDimensionAccountingFlag',
+    'РеквизитАдресации': 'AddressingAttribute',
+}
+md_kind_synonyms.update(object_type_synonyms)
+
+
+def as_array(value):
+    """Аналог @(...) в PowerShell: строка становится ОДНИМ элементом, а не списком символов.
+
+    Через list() строковое значение рассыпалось посимвольно - например источник подписки
+    "CatalogObject.Товары" выпускался как двадцать типов d5p1:C, d5p1:a, d5p1:t...
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [v for v in value if v is not None]
+    return [value]
+
+
+def resolve_md_path(path):
+    """Приводит путь к метаданным к английским именам: русские идут на нечетных позициях."""
+    if not path:
+        return path
+    parts = str(path).split('.')
+    for idx in range(0, len(parts), 2):
+        # Поиск без учета регистра: хеш-таблица PowerShell находит "документ" по ключу "Документ",
+        # словарь python - нет, и русский вид сущности оставался непереведенным.
+        syn = lookup_ci(md_kind_synonyms, parts[idx])
+        if syn:
+            parts[idx] = syn
+    return '.'.join(parts)
+
+
+def emit_comment(indent):
+    if comment:
+        X(f'{indent}<Comment>{esc_xml(comment)}</Comment>')
+    else:
+        X(f'{indent}<Comment/>')
+
+
+def emit_common_head(indent):
+    """Голова свойств, одинаковая у всех типов: имя, синоним, комментарий."""
+    X(f'{indent}<Name>{esc_xml(obj_name)}</Name>')
+    emit_mltext(indent, 'Synonym', synonym)
+    emit_comment(indent)
+
+
+def emit_md_ref_list(indent, tag, items):
+    """Список ссылок: <xr:Item xsi:type="xr:MDObjectRef">Document.X</xr:Item>"""
+    refs = [r for r in (items if isinstance(items, list) else ([items] if items else [])) if r]
+    if not refs:
+        X(f'{indent}<{tag}/>')
+        return
+    X(f'{indent}<{tag}>')
+    for ref in refs:
+        X(f'{indent}\t<xr:Item xsi:type="xr:MDObjectRef">{resolve_md_path(str(ref))}</xr:Item>')
+    X(f'{indent}</{tag}>')
+
+
+def emit_picture_ref(indent, picture):
+    """Картинка команды или группы: либо ссылка на общую картинку, либо пустой тег."""
+    if not picture:
+        X(f'{indent}<Picture/>')
+        return
+    src = picture if isinstance(picture, str) else picture.get('src')
+    if not src:
+        X(f'{indent}<Picture/>')
+        return
+    transparent = 'true' if (not isinstance(picture, str) and picture.get('loadTransparent') is True) else 'false'
+    X(f'{indent}<Picture>')
+    X(f'{indent}\t<xr:Ref>{resolve_md_path(str(src))}</xr:Ref>')
+    X(f'{indent}\t<xr:LoadTransparent>{transparent}</xr:LoadTransparent>')
+    X(f'{indent}</Picture>')
+
+
 if not defn.get('type'):
     print("JSON must have 'type' field", file=sys.stderr)
     sys.exit(1)
 
+def lookup_ci(table, key):
+    """Поиск по словарю без учета регистра - хеш-таблица PowerShell ведет себя так же."""
+    if key in table:
+        return table[key]
+    low = str(key).lower()
+    for k, v in table.items():
+        if str(k).lower() == low:
+            return v
+    return None
+
+
 obj_type = str(defn['type'])
-if obj_type in object_type_synonyms:
-    obj_type = object_type_synonyms[obj_type]
+_syn = lookup_ci(object_type_synonyms, obj_type)
+if _syn:
+    obj_type = _syn
 
 valid_types = [
     'Catalog', 'Document', 'Enum', 'Constant', 'InformationRegister',
@@ -237,10 +416,20 @@ valid_types = [
     'BusinessProcess', 'Task', 'ExchangePlan', 'DocumentJournal',
     'Report', 'DataProcessor', 'CommonModule', 'ScheduledJob',
     'EventSubscription', 'HTTPService', 'WebService', 'DefinedType',
+    'CommonAttribute', 'CommonCommand', 'CommandGroup', 'CommonForm', 'CommonTemplate',
+    'CommonPicture', 'FilterCriterion', 'Sequence', 'DocumentNumerator',
+    'SessionParameter', 'SettingsStorage', 'FunctionalOption',
+    'FunctionalOptionsParameter', 'WSReference',
 ]
-if obj_type not in valid_types:
+# Сравнение регистронезависимое, как оператор -in в PowerShell, но имя типа затем приводится
+# к каноническому виду. Иначе "catalog" уходит в XML тегом <catalog>, а платформа на таком теге
+# не ругается - она МОЛЧА выбрасывает объект: "не является подчиненным для объекта
+# Configuration", код возврата 0, объекта в базе нет. Замерено на 8.3.27.
+_canonical = next((v for v in valid_types if v.lower() == obj_type.lower()), None)
+if _canonical is None:
     print(f"Unsupported type: {obj_type}. Valid: {', '.join(valid_types)}", file=sys.stderr)
     sys.exit(1)
+obj_type = _canonical
 
 if not defn.get('name'):
     print("JSON must have 'name' field", file=sys.stderr)
@@ -249,7 +438,7 @@ if not defn.get('name'):
 obj_name = str(defn['name'])
 
 # Auto-synonym
-synonym = str(defn['synonym']) if defn.get('synonym') else split_camel_case(obj_name)
+synonym = defn['synonym'] if defn.get('synonym') else split_camel_case(obj_name)
 comment = str(defn['comment']) if defn.get('comment') else ''
 
 # ---------------------------------------------------------------------------
@@ -314,14 +503,14 @@ def resolve_type_str(type_str):
         return resolved
     return type_str
 
-def emit_type_content(indent, type_str):
+def emit_type_content(indent, type_str, cfg_prefix=False):
     if not type_str:
         return
     # Composite type: "Type1 + Type2 + Type3"
     if ' + ' in type_str:
         parts = [p.strip() for p in type_str.split('+')]
         for part in parts:
-            emit_type_content(indent, part)
+            emit_type_content(indent, part, cfg_prefix)
         return
     type_str = resolve_type_str(type_str)
     # Boolean
@@ -388,7 +577,10 @@ def emit_type_content(indent, type_str):
     # Reference types — use local xmlns declaration for 1C compatibility
     m = re.match(r'^(CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef)\.(.+)$', type_str)
     if m:
-        X(f'{indent}<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:{type_str}</v8:Type>')
+        if cfg_prefix:
+            X(f'{indent}<v8:Type>cfg:{type_str}</v8:Type>')
+        else:
+            X(f'{indent}<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:{type_str}</v8:Type>')
         return
     # Fallback
     X(f'{indent}<v8:Type>{type_str}</v8:Type>')
@@ -459,7 +651,7 @@ def parse_attribute_shorthand(val):
     return {
         'name': name,
         'type': build_type_str(val),
-        'synonym': str(val['synonym']) if val.get('synonym') else split_camel_case(name),
+        'synonym': val['synonym'] if val.get('synonym') else split_camel_case(name),
         'comment': str(val['comment']) if val.get('comment') else '',
         'flags': list(val.get('flags', [])),
         'fillChecking': str(val['fillChecking']) if val.get('fillChecking') else '',
@@ -477,7 +669,7 @@ def parse_enum_value_shorthand(val):
     name = str(val.get('name', ''))
     return {
         'name': name,
-        'synonym': str(val['synonym']) if val.get('synonym') else split_camel_case(name),
+        'synonym': val['synonym'] if val.get('synonym') else split_camel_case(name),
         'comment': str(val['comment']) if val.get('comment') else '',
     }
 
@@ -601,6 +793,21 @@ generated_types = {
     ],
     'DefinedType': [
         {'prefix': 'DefinedType', 'category': 'DefinedType'},
+    ],
+    'FilterCriterion': [
+        {'prefix': 'FilterCriterionManager', 'category': 'Manager'},
+        {'prefix': 'FilterCriterionList', 'category': 'List'},
+    ],
+    'Sequence': [
+        {'prefix': 'SequenceRecord', 'category': 'Record'},
+        {'prefix': 'SequenceManager', 'category': 'Manager'},
+        {'prefix': 'SequenceRecordSet', 'category': 'RecordSet'},
+    ],
+    'SettingsStorage': [
+        {'prefix': 'SettingsStorageManager', 'category': 'Manager'},
+    ],
+    'WSReference': [
+        {'prefix': 'WSReferenceManager', 'category': 'Manager'},
     ],
     'DocumentJournal': [
         {'prefix': 'DocumentJournalSelection', 'category': 'Selection'},
@@ -799,7 +1006,7 @@ def emit_attribute(indent, parsed, context):
 # 9. TabularSection emitter
 # ---------------------------------------------------------------------------
 
-def emit_tabular_section(indent, ts_name, columns, object_type, object_name):
+def emit_tabular_section(indent, ts_name, columns, object_type, object_name, options=None):
     uid = new_uuid()
     X(f'{indent}<TabularSection uuid="{uid}">')
     type_prefix = f'{object_type}TabularSection'
@@ -814,7 +1021,7 @@ def emit_tabular_section(indent, ts_name, columns, object_type, object_name):
     X(f'{indent}\t\t\t<xr:ValueId>{new_uuid()}</xr:ValueId>')
     X(f'{indent}\t\t</xr:GeneratedType>')
     X(f'{indent}\t</InternalInfo>')
-    ts_synonym = split_camel_case(ts_name)
+    ts_synonym = options['synonym'] if (options and options.get('synonym')) else split_camel_case(ts_name)
     X(f'{indent}\t<Properties>')
     X(f'{indent}\t\t<Name>{esc_xml(ts_name)}</Name>')
     emit_mltext(f'{indent}\t\t', 'Synonym', ts_synonym)
@@ -1121,8 +1328,10 @@ def emit_document_properties(indent):
                 dot_idx = rr_str.index('.')
                 rr_prefix = rr_str[:dot_idx]
                 rr_suffix = rr_str[dot_idx + 1:]
-                if rr_prefix in object_type_synonyms:
-                    rr_prefix = object_type_synonyms[rr_prefix]
+                # Поиск без учета регистра - хеш-таблица PowerShell ведет себя так же.
+                _p = lookup_ci(object_type_synonyms, rr_prefix)
+                if _p:
+                    rr_prefix = _p
                 reg_records.append(f'{rr_prefix}.{rr_suffix}')
             else:
                 reg_records.append(rr_str)
@@ -1271,13 +1480,276 @@ def emit_accumulation_register_properties(indent):
 
 # --- 13a. DefinedType, CommonModule, ScheduledJob, EventSubscription ---
 
+def emit_session_parameter_properties(indent):
+    i = indent
+    emit_common_head(i)
+    if defn.get('valueType'):
+        X(f'{i}<Type>')
+        emit_type_content(f'{i}\t', str(defn['valueType']), cfg_prefix=True)
+        X(f'{i}</Type>')
+    else:
+        X(f'{i}<Type/>')
+
+
+def emit_settings_storage_properties(indent):
+    i = indent
+    emit_common_head(i)
+    X(f'{i}<DefaultSaveForm/>')
+    X(f'{i}<DefaultLoadForm/>')
+    X(f'{i}<AuxiliarySaveForm/>')
+    X(f'{i}<AuxiliaryLoadForm/>')
+
+
+def emit_common_picture_properties(indent):
+    i = indent
+    emit_common_head(i)
+    for_choice = 'true' if defn.get('availabilityForChoice') is True else 'false'
+    for_appearance = 'true' if defn.get('availabilityForAppearance') is True else 'false'
+    X(f'{i}<AvailabilityForChoice>{for_choice}</AvailabilityForChoice>')
+    X(f'{i}<AvailabilityForAppearance>{for_appearance}</AvailabilityForAppearance>')
+
+
+def emit_common_template_properties(indent):
+    i = indent
+    emit_common_head(i)
+    tmpl_type = str(defn['templateType']) if defn.get('templateType') else 'SpreadsheetDocument'
+    X(f'{i}<TemplateType>{tmpl_type}</TemplateType>')
+
+
+def emit_document_numerator_properties(indent):
+    i = indent
+    emit_common_head(i)
+    num_type = get_enum_prop('NumberType', 'numberType', 'String')
+    num_len = str(defn['numberLength']) if defn.get('numberLength') is not None else '9'
+    num_allowed = get_enum_prop('NumberAllowedLength', 'numberAllowedLength', 'Variable')
+    num_period = str(defn['numberPeriodicity']) if defn.get('numberPeriodicity') else 'Year'
+    check_unique = 'false' if defn.get('checkUnique') is False else 'true'
+    X(f'{i}<NumberType>{num_type}</NumberType>')
+    X(f'{i}<NumberLength>{num_len}</NumberLength>')
+    X(f'{i}<NumberAllowedLength>{num_allowed}</NumberAllowedLength>')
+    X(f'{i}<NumberPeriodicity>{num_period}</NumberPeriodicity>')
+    X(f'{i}<CheckUnique>{check_unique}</CheckUnique>')
+
+
+def emit_ws_reference_properties(indent):
+    i = indent
+    emit_common_head(i)
+    url = str(defn['locationURL']) if defn.get('locationURL') else ''
+    if url:
+        X(f'{i}<LocationURL>{esc_xml(url)}</LocationURL>')
+    else:
+        X(f'{i}<LocationURL/>')
+
+
+def emit_functional_option_properties(indent):
+    i = indent
+    emit_common_head(i)
+    if defn.get('location'):
+        X(f'{i}<Location>{resolve_md_path(str(defn["location"]))}</Location>')
+    else:
+        X(f'{i}<Location/>')
+    privileged = 'false' if defn.get('privilegedGetMode') is False else 'true'
+    X(f'{i}<PrivilegedGetMode>{privileged}</PrivilegedGetMode>')
+    # Состав функциональной опции - это xr:Object, а не xr:Item, как у остальных списков
+    raw = defn.get('content')
+    content = [c for c in (raw if isinstance(raw, list) else ([raw] if raw else [])) if c]
+    if content:
+        X(f'{i}<Content>')
+        for c in content:
+            X(f'{i}\t<xr:Object>{resolve_md_path(str(c))}</xr:Object>')
+        X(f'{i}</Content>')
+    else:
+        X(f'{i}<Content/>')
+
+
+def emit_functional_options_parameter_properties(indent):
+    i = indent
+    emit_common_head(i)
+    emit_md_ref_list(i, 'Use', defn.get('use'))
+
+
+def emit_filter_criterion_properties(indent):
+    i = indent
+    emit_common_head(i)
+    if defn.get('valueType'):
+        X(f'{i}<Type>')
+        emit_type_content(f'{i}\t', str(defn['valueType']), cfg_prefix=True)
+        X(f'{i}</Type>')
+    else:
+        X(f'{i}<Type/>')
+    use_std_cmd = 'false' if defn.get('useStandardCommands') is False else 'true'
+    X(f'{i}<UseStandardCommands>{use_std_cmd}</UseStandardCommands>')
+    emit_md_ref_list(i, 'Content', defn.get('content'))
+    X(f'{i}<DefaultForm/>')
+    X(f'{i}<AuxiliaryForm/>')
+    X(f'{i}<ListPresentation/>')
+    X(f'{i}<ExtendedListPresentation/>')
+    X(f'{i}<Explanation/>')
+
+
+def emit_sequence_properties(indent):
+    i = indent
+    emit_common_head(i)
+    move_boundary = str(defn['moveBoundaryOnPosting']) if defn.get('moveBoundaryOnPosting') else 'DontMove'
+    X(f'{i}<MoveBoundaryOnPosting>{move_boundary}</MoveBoundaryOnPosting>')
+    emit_md_ref_list(i, 'Documents', defn.get('documents'))
+    emit_md_ref_list(i, 'RegisterRecords', defn.get('registerRecords'))
+    lock_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
+    X(f'{i}<DataLockControlMode>{lock_mode}</DataLockControlMode>')
+
+
+def emit_sequence_dimension(indent, dim):
+    """Измерение последовательности: тип плюс карты соответствия документам и движениям."""
+    i = indent
+    dim_name = str(dim.get('name', ''))
+    dim_synonym = str(dim['synonym']) if dim.get('synonym') else split_camel_case(dim_name)
+    X(f'{i}<Dimension uuid="{new_uuid()}">')
+    X(f'{i}\t<Properties>')
+    X(f'{i}\t\t<Name>{esc_xml(dim_name)}</Name>')
+    emit_mltext(f'{i}\t\t', 'Synonym', dim_synonym)
+    X(f'{i}\t\t<Comment/>')
+    if dim.get('type'):
+        X(f'{i}\t\t<Type>')
+        emit_type_content(f'{i}\t\t\t', str(dim['type']), cfg_prefix=True)
+        X(f'{i}\t\t</Type>')
+    else:
+        X(f'{i}\t\t<Type/>')
+    emit_md_ref_list(f'{i}\t\t', 'DocumentMap', dim.get('documentMap'))
+    emit_md_ref_list(f'{i}\t\t', 'RegisterRecordsMap', dim.get('registerRecordsMap'))
+    X(f'{i}\t</Properties>')
+    X(f'{i}</Dimension>')
+
+
+def emit_common_attribute_properties(indent):
+    i = indent
+    emit_common_head(i)
+    if defn.get('valueType'):
+        X(f'{i}<Type>')
+        emit_type_content(f'{i}\t', str(defn['valueType']), cfg_prefix=True)
+        X(f'{i}</Type>')
+    else:
+        X(f'{i}<Type/>')
+    X(f'{i}<PasswordMode>false</PasswordMode>')
+    X(f'{i}<Format/>')
+    X(f'{i}<EditFormat/>')
+    X(f'{i}<ToolTip/>')
+    X(f'{i}<MarkNegatives>false</MarkNegatives>')
+    X(f'{i}<Mask/>')
+    X(f'{i}<MultiLine>false</MultiLine>')
+    X(f'{i}<ExtendedEdit>false</ExtendedEdit>')
+    X(f'{i}<MinValue xsi:nil="true"/>')
+    X(f'{i}<MaxValue xsi:nil="true"/>')
+    X(f'{i}<FillFromFillingValue>false</FillFromFillingValue>')
+    X(f'{i}<FillValue xsi:nil="true"/>')
+    X(f'{i}<FillChecking>DontCheck</FillChecking>')
+    X(f'{i}<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>')
+    X(f'{i}<ChoiceParameterLinks/>')
+    X(f'{i}<ChoiceParameters/>')
+    X(f'{i}<QuickChoice>Auto</QuickChoice>')
+    X(f'{i}<CreateOnInput>Auto</CreateOnInput>')
+    X(f'{i}<ChoiceForm/>')
+    X(f'{i}<LinkByType/>')
+    X(f'{i}<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
+
+    # Состав: строка "Документ.X" либо объект { metadata, use }
+    raw = defn.get('content')
+    content = [c for c in (raw if isinstance(raw, list) else ([raw] if raw else [])) if c]
+    if content:
+        X(f'{i}<Content>')
+        for c in content:
+            md_ref = c if isinstance(c, str) else str(c.get('metadata', ''))
+            md_use = str(c['use']) if (not isinstance(c, str) and c.get('use')) else 'Use'
+            X(f'{i}\t<xr:Item>')
+            X(f'{i}\t\t<xr:Metadata>{resolve_md_path(str(md_ref))}</xr:Metadata>')
+            X(f'{i}\t\t<xr:Use>{md_use}</xr:Use>')
+            X(f'{i}\t\t<xr:ConditionalSeparation/>')
+            X(f'{i}\t</xr:Item>')
+        X(f'{i}</Content>')
+    else:
+        X(f'{i}<Content/>')
+
+    auto_use = str(defn['autoUse']) if defn.get('autoUse') else 'DontUse'
+    X(f'{i}<AutoUse>{auto_use}</AutoUse>')
+    X(f'{i}<DataSeparation>DontUse</DataSeparation>')
+    X(f'{i}<SeparatedDataUse>Independently</SeparatedDataUse>')
+    X(f'{i}<DataSeparationValue/>')
+    X(f'{i}<DataSeparationUse/>')
+    X(f'{i}<ConditionalSeparation/>')
+    X(f'{i}<UsersSeparation>DontUse</UsersSeparation>')
+    X(f'{i}<AuthenticationSeparation>DontUse</AuthenticationSeparation>')
+    X(f'{i}<ConfigurationExtensionsSeparation>DontUse</ConfigurationExtensionsSeparation>')
+    indexing = get_enum_prop('Indexing', 'indexing', 'DontIndex')
+    X(f'{i}<Indexing>{indexing}</Indexing>')
+    fts = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
+    X(f'{i}<FullTextSearch>{fts}</FullTextSearch>')
+    data_history = str(defn['dataHistory']) if defn.get('dataHistory') else 'Use'
+    X(f'{i}<DataHistory>{data_history}</DataHistory>')
+
+
+def emit_command_group_properties(indent):
+    i = indent
+    emit_common_head(i)
+    repr_ = str(defn['representation']) if defn.get('representation') else 'Auto'
+    X(f'{i}<Representation>{repr_}</Representation>')
+    X(f'{i}<ToolTip/>')
+    emit_picture_ref(i, defn.get('picture'))
+    category = str(defn['category']) if defn.get('category') else 'FormCommandBar'
+    X(f'{i}<Category>{category}</Category>')
+
+
+def emit_common_command_properties(indent):
+    i = indent
+    emit_common_head(i)
+    if defn.get('group'):
+        X(f'{i}<Group>{defn["group"]}</Group>')
+    else:
+        X(f'{i}<Group/>')
+    repr_ = str(defn['representation']) if defn.get('representation') else 'Auto'
+    X(f'{i}<Representation>{repr_}</Representation>')
+    X(f'{i}<ToolTip/>')
+    emit_picture_ref(i, defn.get('picture'))
+    X(f'{i}<Shortcut/>')
+    X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
+    if defn.get('commandParameterType'):
+        X(f'{i}<CommandParameterType>')
+        emit_type_content(f'{i}\t', str(defn['commandParameterType']), cfg_prefix=True)
+        X(f'{i}</CommandParameterType>')
+    else:
+        X(f'{i}<CommandParameterType/>')
+    param_mode = str(defn['parameterUseMode']) if defn.get('parameterUseMode') else 'Single'
+    X(f'{i}<ParameterUseMode>{param_mode}</ParameterUseMode>')
+    modifies = 'true' if defn.get('modifiesData') is True else 'false'
+    X(f'{i}<ModifiesData>{modifies}</ModifiesData>')
+    X(f'{i}<OnMainServerUnavalableBehavior>Auto</OnMainServerUnavalableBehavior>')
+
+
+def emit_common_form_properties(indent):
+    i = indent
+    emit_common_head(i)
+    form_type = str(defn['formType']) if defn.get('formType') else 'Managed'
+    X(f'{i}<FormType>{form_type}</FormType>')
+    X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
+    raw = defn.get('usePurposes')
+    purposes = [p for p in (raw if isinstance(raw, list) else ([raw] if raw else [])) if p]
+    if not purposes:
+        purposes = ['PlatformApplication']
+    X(f'{i}<UsePurposes>')
+    for p in purposes:
+        X(f'{i}\t<v8:Value xsi:type="app:ApplicationUsePurpose">{p}</v8:Value>')
+    X(f'{i}</UsePurposes>')
+    use_std_cmd = 'true' if defn.get('useStandardCommands') is True else 'false'
+    X(f'{i}<UseStandardCommands>{use_std_cmd}</UseStandardCommands>')
+    X(f'{i}<ExtendedPresentation/>')
+    X(f'{i}<Explanation/>')
+
+
 def emit_defined_type_properties(indent):
     i = indent
     X(f'{i}<Name>{esc_xml(obj_name)}</Name>')
     emit_mltext(i, 'Synonym', synonym)
     X(f'{i}<Comment/>')
     # Accept both valueType and valueTypes
-    value_types = list(defn.get('valueTypes', []))
+    value_types = as_array(defn.get('valueTypes'))
     if not value_types and defn.get('valueType'):
         vt_raw = defn['valueType']
         value_types = list(vt_raw) if isinstance(vt_raw, list) else [vt_raw]
@@ -1373,7 +1845,7 @@ def emit_event_subscription_properties(indent):
     X(f'{i}<Name>{esc_xml(obj_name)}</Name>')
     emit_mltext(i, 'Synonym', synonym)
     X(f'{i}<Comment/>')
-    sources = list(defn.get('source', []))
+    sources = as_array(defn.get('source'))
     if sources:
         X(f'{i}<Source>')
         for src in sources:
@@ -1530,7 +2002,7 @@ def emit_chart_of_characteristic_types_properties(indent):
         X(f'{i}<CharacteristicExtValues>{char_ext_values}</CharacteristicExtValues>')
     else:
         X(f'{i}<CharacteristicExtValues/>')
-    value_types = list(defn.get('valueTypes', []))
+    value_types = as_array(defn.get('valueTypes'))
     if value_types:
         X(f'{i}<Type>')
         for vt in value_types:
@@ -1615,7 +2087,7 @@ def emit_document_journal_properties(indent):
     else:
         X(f'{i}<AuxiliaryForm/>')
     X(f'{i}<UseStandardCommands>true</UseStandardCommands>')
-    reg_docs = list(defn.get('registeredDocuments', []))
+    reg_docs = as_array(defn.get('registeredDocuments'))
     if reg_docs:
         X(f'{i}<RegisteredDocuments>')
         for rd in reg_docs:
@@ -1624,8 +2096,10 @@ def emit_document_journal_properties(indent):
                 dot_idx = rd_str.index('.')
                 rd_prefix = rd_str[:dot_idx]
                 rd_suffix = rd_str[dot_idx + 1:]
-                if rd_prefix in object_type_synonyms:
-                    rd_prefix = object_type_synonyms[rd_prefix]
+                # Поиск без учета регистра - хеш-таблица PowerShell ведет себя так же.
+                _p = lookup_ci(object_type_synonyms, rd_prefix)
+                if _p:
+                    rd_prefix = _p
                 rd_str = f'{rd_prefix}.{rd_suffix}'
             X(f'{i}\t<xr:Item xsi:type="xr:MDObjectRef">{rd_str}</xr:Item>')
         X(f'{i}</RegisteredDocuments>')
@@ -1764,7 +2238,7 @@ def emit_chart_of_calculation_types_properties(indent):
     X(f'{i}<DefaultPresentation>AsDescription</DefaultPresentation>')
     dependence = get_enum_prop('DependenceOnCalculationTypes', 'dependenceOnCalculationTypes', 'DontUse')
     X(f'{i}<DependenceOnCalculationTypes>{dependence}</DependenceOnCalculationTypes>')
-    base_types = list(defn.get('baseCalculationTypes', []))
+    base_types = as_array(defn.get('baseCalculationTypes'))
     if base_types:
         X(f'{i}<BaseCalculationTypes>')
         for bt in base_types:
@@ -1993,7 +2467,10 @@ def emit_web_service_properties(indent):
     X(f'{i}<Comment/>')
     namespace = str(defn['namespace']) if defn.get('namespace') else ''
     X(f'{i}<Namespace>{esc_xml(namespace)}</Namespace>')
-    xdto_packages = str(defn['xdtoPackages']) if defn.get('xdtoPackages') else ''
+    # Массив пакетов уходит в XML одной строкой через пробел: PowerShell склеивает массив
+    # при интерполяции, python на str(list) отдал бы repr со скобками и кавычками.
+    _xp = defn.get('xdtoPackages')
+    xdto_packages = ' '.join(str(x) for x in _xp) if isinstance(_xp, list) else (str(_xp) if _xp else '')
     if xdto_packages:
         X(f'{i}<XDTOPackages>{xdto_packages}</XDTOPackages>')
     else:
@@ -2017,7 +2494,7 @@ def emit_column(indent, col_def):
         col_synonym = split_camel_case(name)
     else:
         name = str(col_def.get('name', ''))
-        col_synonym = str(col_def['synonym']) if col_def.get('synonym') else split_camel_case(name)
+        col_synonym = col_def['synonym'] if col_def.get('synonym') else split_camel_case(name)
         if col_def.get('indexing'):
             indexing = str(col_def['indexing'])
         if col_def.get('references'):
@@ -2120,7 +2597,9 @@ def emit_url_template(indent, tmpl_name, tmpl_def):
     X(f'{indent}\t</Properties>')
     if methods:
         X(f'{indent}\t<ChildObjects>')
-        for method_name, http_method in sorted(methods.items()):
+        # Порядок берется из JSON, а не по алфавиту: PowerShell-порт идет по свойствам в
+        # порядке объявления, и Sort-Object в нем не встречается ни разу.
+        for method_name, http_method in methods.items():
             method_uuid = new_uuid()
             method_synonym = split_camel_case(method_name)
             handler = f'{tmpl_name}{method_name}'
@@ -2171,7 +2650,9 @@ def emit_operation(indent, op_name, op_def):
     X(f'{indent}\t</Properties>')
     if params:
         X(f'{indent}\t<ChildObjects>')
-        for param_name, param_def in sorted(params.items()):
+        # Порядок берется из JSON, а не по алфавиту: PowerShell-порт идет по свойствам в
+        # порядке объявления, и Sort-Object в нем не встречается ни разу.
+        for param_name, param_def in params.items():
             param_uuid = new_uuid()
             param_synonym = split_camel_case(param_name)
             param_type = 'xs:string'
@@ -2288,6 +2769,20 @@ property_emitters = {
     'InformationRegister': emit_information_register_properties,
     'AccumulationRegister': emit_accumulation_register_properties,
     'DefinedType': emit_defined_type_properties,
+    'CommonAttribute': emit_common_attribute_properties,
+    'CommonForm': emit_common_form_properties,
+    'CommonCommand': emit_common_command_properties,
+    'CommandGroup': emit_command_group_properties,
+    'CommonTemplate': emit_common_template_properties,
+    'CommonPicture': emit_common_picture_properties,
+    'FilterCriterion': emit_filter_criterion_properties,
+    'Sequence': emit_sequence_properties,
+    'DocumentNumerator': emit_document_numerator_properties,
+    'SessionParameter': emit_session_parameter_properties,
+    'SettingsStorage': emit_settings_storage_properties,
+    'FunctionalOption': emit_functional_option_properties,
+    'FunctionalOptionsParameter': emit_functional_options_parameter_properties,
+    'WSReference': emit_ws_reference_properties,
     'CommonModule': emit_common_module_properties,
     'ScheduledJob': emit_scheduled_job_properties,
     'EventSubscription': emit_event_subscription_properties,
@@ -2334,6 +2829,7 @@ if obj_type in types_with_attr_ts:
         for a in _as_list(defn['attributes']):
             attrs.append(parse_attribute_shorthand(a))
     ts_sections = {}
+    ts_options = {}
     ts_order = []
     if defn.get('tabularSections'):
         ts_data = defn['tabularSections']
@@ -2345,7 +2841,18 @@ if obj_type in types_with_attr_ts:
                 ts_order.append(ts_name)
         else:
             for k, v in ts_data.items():
-                ts_sections[k] = _as_list(v)
+                # Значение бывает списком колонок и объектом { synonym, attributes, ... }.
+                # Объект раньше уходил в разбор колонки целиком: выходил один безымянный
+                # реквизит, а объявленные колонки терялись молча.
+                if isinstance(v, dict) and 'attributes' in v:
+                    ts_sections[k] = _as_list(v.get('attributes'))
+                    ts_options[k] = v
+                    for ts_key in v.keys():
+                        if ts_key not in ('attributes', 'synonym', 'comment'):
+                            print(f"Warning: tabular section '{k}': property '{ts_key}' is not "
+                                  f"supported and was ignored.", file=sys.stderr)
+                else:
+                    ts_sections[k] = _as_list(v)
                 ts_order.append(k)
     # ChartOfAccounts: AccountingFlags + ExtDimensionAccountingFlags
     acct_flags = []
@@ -2377,7 +2884,7 @@ if obj_type in types_with_attr_ts:
             emit_attribute('\t\t\t', a, context)
         for ts_name in ts_order:
             columns = ts_sections[ts_name]
-            emit_tabular_section('\t\t\t', ts_name, columns, obj_type, obj_name)
+            emit_tabular_section('\t\t\t', ts_name, columns, obj_type, obj_name, ts_options.get(ts_name))
         for af in acct_flags:
             af_name = af['name'] if isinstance(af, dict) else str(af)
             emit_accounting_flag('\t\t\t', af_name)
@@ -2439,7 +2946,7 @@ if obj_type in ('InformationRegister', 'AccumulationRegister', 'AccountingRegist
 
 # --- DocumentJournal: columns ---
 if obj_type == 'DocumentJournal':
-    columns = list(defn.get('columns', []))
+    columns = as_array(defn.get('columns'))
     if columns:
         has_children = True
         X('\t\t<ChildObjects>')
@@ -2460,7 +2967,9 @@ if obj_type == 'HTTPService':
     if url_templates:
         has_children = True
         X('\t\t<ChildObjects>')
-        for tmpl_name in sorted(url_tmpl_order):
+        # Порядок берется из JSON, а не по алфавиту: PowerShell-порт идет по свойствам в
+        # порядке объявления, и Sort-Object в нем не встречается ни разу.
+        for tmpl_name in url_tmpl_order:
             emit_url_template('\t\t\t', tmpl_name, url_templates[tmpl_name])
         X('\t\t</ChildObjects>')
     else:
@@ -2477,11 +2986,30 @@ if obj_type == 'WebService':
     if operations:
         has_children = True
         X('\t\t<ChildObjects>')
-        for op_name in sorted(op_order):
+        # Порядок берется из JSON, а не по алфавиту: PowerShell-порт идет по свойствам в
+        # порядке объявления, и Sort-Object в нем не встречается ни разу.
+        for op_name in op_order:
             emit_operation('\t\t\t', op_name, operations[op_name])
         X('\t\t</ChildObjects>')
     else:
         X('\t\t<ChildObjects/>')
+
+# --- Sequence: dimensions ---
+if obj_type == 'Sequence':
+    raw_dims = defn.get('dimensions')
+    seq_dims = [d for d in (raw_dims if isinstance(raw_dims, list) else ([raw_dims] if raw_dims else [])) if d]
+    if seq_dims:
+        has_children = True
+        X('\t\t<ChildObjects>')
+        for sd in seq_dims:
+            emit_sequence_dimension('\t\t\t', sd)
+        X('\t\t</ChildObjects>')
+    else:
+        X('\t\t<ChildObjects/>')
+
+# --- SettingsStorage, FilterCriterion: контейнер форм, пока пустой ---
+if obj_type in ('SettingsStorage', 'FilterCriterion'):
+    X('\t\t<ChildObjects/>')
 
 # --- CommonModule: no ChildObjects ---
 
@@ -2520,6 +3048,20 @@ type_plural_map = {
     'HTTPService': 'HTTPServices',
     'WebService': 'WebServices',
     'DefinedType': 'DefinedTypes',
+    'CommonAttribute': 'CommonAttributes',
+    'CommonForm': 'CommonForms',
+    'CommonCommand': 'CommonCommands',
+    'CommandGroup': 'CommandGroups',
+    'CommonTemplate': 'CommonTemplates',
+    'CommonPicture': 'CommonPictures',
+    'FilterCriterion': 'FilterCriteria',
+    'Sequence': 'Sequences',
+    'DocumentNumerator': 'DocumentNumerators',
+    'SessionParameter': 'SessionParameters',
+    'SettingsStorage': 'SettingsStorages',
+    'FunctionalOption': 'FunctionalOptions',
+    'FunctionalOptionsParameter': 'FunctionalOptionsParameters',
+    'WSReference': 'WSReferences',
 }
 
 type_plural = type_plural_map[obj_type]
@@ -2529,7 +3071,12 @@ type_dir = os.path.join(output_dir, type_plural)
 main_xml_path = os.path.join(type_dir, f'{obj_name}.xml')
 
 # Types that don't have subdirectory structure
-types_no_sub_dir = ['DefinedType', 'ScheduledJob', 'EventSubscription']
+types_no_sub_dir = [
+    'DefinedType', 'ScheduledJob', 'EventSubscription',
+    'CommonAttribute', 'CommandGroup', 'CommonTemplate', 'CommonPicture',
+    'FilterCriterion', 'Sequence', 'DocumentNumerator', 'SessionParameter',
+    'SettingsStorage', 'FunctionalOption', 'FunctionalOptionsParameter', 'WSReference',
+]
 
 obj_sub_dir = os.path.join(type_dir, obj_name)
 ext_dir = os.path.join(obj_sub_dir, 'Ext')
@@ -2593,6 +3140,60 @@ if obj_type in types_with_module:
         write_utf8_bom(module_path, '')
         modules_created.append(module_path)
 
+# CommonForm: заготовка управляемой формы и ее модуль.
+# Пространства имен у формы свои - это не тот же набор, что у объектов метаданных.
+if obj_type == 'CommonForm':
+    ensure_ext_dir()
+    form_xml_path = os.path.join(ext_dir, 'Form.xml')
+    if not os.path.isfile(form_xml_path):
+        # Начиная с формата 2.21 (8.5) в шапке формы объявляется палитра - между lf и style.
+        form_pal = ''
+        if float(format_version) >= 2.21:
+            form_pal = ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
+        form_ns = (
+            'xmlns="http://v8.1c.ru/8.3/xcf/logform" '
+            'xmlns:app="http://v8.1c.ru/8.2/managed-application/core" '
+            'xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" '
+            'xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" '
+            'xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" '
+            'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" '
+            'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform'
+            '"' + form_pal + ' xmlns:style="http://v8.1c.ru/8.1/data/ui/style" '
+            'xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" '
+            'xmlns:v8="http://v8.1c.ru/8.1/data/core" '
+            'xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" '
+            'xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" '
+            'xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" '
+            'xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" '
+            'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+        )
+        form_lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            f'<Form {form_ns} version="{format_version}">',
+            '\t<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">',
+            '\t\t<Autofill>true</Autofill>',
+            '\t</AutoCommandBar>',
+            '\t<ChildItems/>',
+            '</Form>',
+        ]
+        write_utf8_bom(form_xml_path, '\r\n'.join(form_lines))
+        modules_created.append(form_xml_path)
+    form_module_dir = os.path.join(ext_dir, 'Form')
+    os.makedirs(form_module_dir, exist_ok=True)
+    form_module_path = os.path.join(form_module_dir, 'Module.bsl')
+    if not os.path.isfile(form_module_path):
+        write_utf8_bom(form_module_path, '')
+        modules_created.append(form_module_path)
+
+# CommonCommand: модуль команды
+if obj_type == 'CommonCommand':
+    cmd_module_path = os.path.join(ext_dir, 'CommandModule.bsl')
+    if not os.path.isfile(cmd_module_path):
+        ensure_ext_dir()
+        write_utf8_bom(cmd_module_path, '')
+        modules_created.append(cmd_module_path)
+
 # Special files
 if obj_type == 'ExchangePlan':
     content_path = os.path.join(ext_dir, 'Content.xml')
@@ -2624,67 +3225,47 @@ if os.path.isfile(config_xml_path):
     with open(config_xml_path, 'r', encoding='utf-8-sig') as f:
         config_content = f.read()
 
-    ns = 'http://v8.1c.ru/8.3/MDClasses'
-    ET.register_namespace('', ns)
-    # Parse all namespaces used in the file
-    # Use iterparse to collect namespace prefixes
-    namespaces_in_file = {}
-    for evt, elem in ET.iterparse(config_xml_path, events=['start-ns']):
-        prefix, uri = elem
-        if prefix:
-            namespaces_in_file[prefix] = uri
-            ET.register_namespace(prefix, uri)
+    # Вставка ТЕКСТОМ, а не перезаписью дерева: ElementTree объявляет только те пространства
+    # имен, которые встретились в дереве, и вычищает из шапки Configuration.xml остальные
+    # двенадцать из шестнадцати. Текстовая правка не трогает ничего, кроме одной строки.
+    child_open = re.search(r'<ChildObjects\s*(/?)>', config_content)
+    if child_open is None:
+        reg_result = 'no-childobj'
+    else:
+        self_closing = child_open.group(1) == '/'
+        if self_closing:
+            block_start = block_end = child_open.end()
+            block = ''
+        else:
+            close = config_content.find('</ChildObjects>', child_open.end())
+            if close < 0:
+                close = child_open.end()
+            block_start, block_end = child_open.end(), close
+            block = config_content[block_start:block_end]
 
-    tree = ET.parse(config_xml_path)
-    root = tree.getroot()
-
-    child_objects = root.find(f'{{{ns}}}Configuration/{{{ns}}}ChildObjects')
-    if child_objects is None:
-        # Try direct path
-        config_elem = root.find(f'{{{ns}}}Configuration')
-        if config_elem is not None:
-            child_objects = config_elem.find(f'{{{ns}}}ChildObjects')
-
-    if child_objects is not None:
-        existing = child_objects.findall(f'{{{ns}}}{child_tag}')
-        already_exists = False
-        for e in existing:
-            if (e.text or '').strip() == obj_name:
-                already_exists = True
-                break
-
-        if already_exists:
+        entry = f'<{child_tag}>{esc_xml(obj_name)}</{child_tag}>'
+        if entry in block:
             reg_result = 'already'
         else:
-            new_elem = ET.SubElement(child_objects, f'{{{ns}}}{child_tag}')
-            new_elem.text = obj_name
+            same_type = [m for m in re.finditer(r'<' + re.escape(child_tag) + r'>[^<]*</' + re.escape(child_tag) + r'>', block)]
+            if same_type:
+                # После последнего объекта того же типа - порядок типов в ChildObjects значим.
+                at = same_type[-1].end()
+                new_block = block[:at] + '\n\t\t\t' + entry + block[at:]
+            elif block.strip():
+                new_block = block.rstrip() + '\n\t\t\t' + entry + '\n\t\t'
+            else:
+                new_block = '\n\t\t\t' + entry + '\n\t\t'
 
-            if existing:
-                # Insert after last existing element of same type
-                last_elem = existing[-1]
-                all_children = list(child_objects)
-                idx = all_children.index(last_elem)
-                child_objects.remove(new_elem)
-                child_objects.insert(idx + 1, new_elem)
+            if self_closing:
+                config_content = (config_content[:child_open.start()] + '<ChildObjects>'
+                                  + new_block + '</ChildObjects>' + config_content[child_open.end():])
+            else:
+                config_content = config_content[:block_start] + new_block + config_content[block_end:]
 
-            # Write back preserving BOM
-            tree.write(config_xml_path, encoding='utf-8', xml_declaration=True)
-            # Re-read to add BOM, fix declaration quotes, ensure trailing newline
-            with open(config_xml_path, 'r', encoding='utf-8') as f:
-                raw = f.read()
-            if raw.startswith("<?xml version='1.0' encoding='utf-8'?>"):
-                raw = raw.replace("<?xml version='1.0' encoding='utf-8'?>", '<?xml version="1.0" encoding="UTF-8"?>', 1)
-            # Пустой элемент: ElementTree отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
-            # CDATA/комментария или значения атрибута ` />` может быть содержимым, поэтому
-            # ветками альтернации и возвращаются как есть.
-            raw = re.sub(r'(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>',
-                lambda m: '<' + m.group(1) + m.group(2) + '/>' if m.group(1) else m.group(0), raw)
-            if not raw.endswith('\n'):
-                raw += '\n'
-            write_utf8_bom(config_xml_path, raw)
+            # Хвостовой перевод строки НЕ добавляется: платформа его не пишет, и ps1-порт тоже.
+            write_utf8_bom(config_xml_path, config_content)
             reg_result = 'added'
-    else:
-        reg_result = 'no-childobj'
 else:
     reg_result = 'no-config'
 

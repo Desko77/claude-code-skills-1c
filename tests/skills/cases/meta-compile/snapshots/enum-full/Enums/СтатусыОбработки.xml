@@ -98,7 +98,11 @@
 					<Synonym>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>@{ru=Новый; en=New}</v8:content>
+							<v8:content>Новый</v8:content>
+						</v8:item>
+						<v8:item>
+							<v8:lang>en</v8:lang>
+							<v8:content>New</v8:content>
 						</v8:item>
 					</Synonym>
 					<Comment/>

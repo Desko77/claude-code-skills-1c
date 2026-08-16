@@ -28,7 +28,11 @@
 			<Synonym>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>@{ru=Контрагенты; en=Counterparties}</v8:content>
+					<v8:content>Контрагенты</v8:content>
+				</v8:item>
+				<v8:item>
+					<v8:lang>en</v8:lang>
+					<v8:content>Counterparties</v8:content>
 				</v8:item>
 			</Synonym>
 			<Comment/>
@@ -329,7 +333,11 @@
 					<Synonym>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>@{ru=ИНН; en=TIN}</v8:content>
+							<v8:content>ИНН</v8:content>
+						</v8:item>
+						<v8:item>
+							<v8:lang>en</v8:lang>
+							<v8:content>TIN</v8:content>
 						</v8:item>
 					</Synonym>
 					<Comment/>

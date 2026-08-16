@@ -247,7 +247,7 @@
 		<ChildObjects>
 			<Language>Русский</Language>
 			<Catalog>Контрагенты</Catalog>
-			<catalog>Валюты</catalog>
+			<Catalog>Валюты</Catalog>
 			<AccumulationRegister>ПродажиОбороты</AccumulationRegister>
 		</ChildObjects>
 	</Configuration>
