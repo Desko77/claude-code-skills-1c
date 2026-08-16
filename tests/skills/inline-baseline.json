@@ -1,0 +1,737 @@
+{
+  "_note": "Храповик общих реализаций: сколько различающихся вариантов тела допустимо у семьи сегодня. Число не должно расти. Уменьшили разброс - обновите линию: node tests/skills/check-inline-drift.mjs --update",
+  "families": {
+    "ps1:Build-MLTextXml": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Build-ValueTypeXml": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Button": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Calendar": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Emit-Check": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-CommonFlags": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Companion": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Emit-Element": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Events": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Group": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Input": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Label": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Emit-LabelField": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Emit-MLText": {
+      "skills": 4,
+      "variants": 3
+    },
+    "ps1:Emit-Page": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Pages": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Parameters": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-PictureDecoration": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-PictureField": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Emit-Popup": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-SingleType": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Table": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Title": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-Type": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Emit-ValueType": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Esc-Xml": {
+      "skills": 8,
+      "variants": 1
+    },
+    "ps1:Get-ElementName": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Get-FormatVersionRank": {
+      "skills": 6,
+      "variants": 1
+    },
+    "ps1:Get-HandlerName": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Get-ObjectType": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Get-OurHttpd": {
+      "skills": 3,
+      "variants": 2
+    },
+    "ps1:Is-NestedObject": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:New-Guid-String": {
+      "skills": 5,
+      "variants": 1
+    },
+    "ps1:New-Id": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Normalize-EnumValue": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Out-Line": {
+      "skills": 6,
+      "variants": 1
+    },
+    "ps1:Parse-AttributeShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-CalcShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-DataParamShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-EnumValueShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-FieldShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-FilterShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-ParamShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-StructureShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Parse-TotalShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Report-Error": {
+      "skills": 9,
+      "variants": 2
+    },
+    "ps1:Report-OK": {
+      "skills": 9,
+      "variants": 2
+    },
+    "ps1:Report-Warn": {
+      "skills": 9,
+      "variants": 2
+    },
+    "ps1:Resolve-QueryValue": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Resolve-TypeStr": {
+      "skills": 6,
+      "variants": 3
+    },
+    "ps1:Show-Overview": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Split-CamelCase": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Test-FormatVersionKnown": {
+      "skills": 6,
+      "variants": 1
+    },
+    "py:_format_version_rank": {
+      "skills": 6,
+      "variants": 1
+    },
+    "py:_parse_xml": {
+      "skills": 5,
+      "variants": 2
+    },
+    "py:_setup_cuda_dll_path": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:_sg_find_v8project": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:_sg_get_edit_mode": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:_sg_is_external_root": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:_sg_root_uuid": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:add": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:assert_edit_allowed": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:assign_speaker": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:build_mltext_xml": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:build_value_type_xml": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:check": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:check_gpu": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:check_requirements": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:check_venv": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:ci_parse_args": {
+      "skills": 6,
+      "variants": 1
+    },
+    "py:create_silent_wav": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:create_venv": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:detect_format_version": {
+      "skills": 11,
+      "variants": 2
+    },
+    "py:diarize": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:die": {
+      "skills": 3,
+      "variants": 2
+    },
+    "py:download_file": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:download_models": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:emit_button": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_calendar": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_check": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_common_flags": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_companion": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_element": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_events": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_group": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_input": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_label": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_label_field": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_mltext": {
+      "skills": 6,
+      "variants": 4
+    },
+    "py:emit_page": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_pages": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_parameters": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_picture_decoration": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_picture_field": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_popup": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_single_type": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_table": {
+      "skills": 3,
+      "variants": 3
+    },
+    "py:emit_title": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_type": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:emit_value_type": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:error": {
+      "skills": 5,
+      "variants": 1
+    },
+    "py:esc": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:esc_text": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:esc_xml": {
+      "skills": 14,
+      "variants": 5
+    },
+    "py:expand_self_closing": {
+      "skills": 3,
+      "variants": 2
+    },
+    "py:extract_segmentation_archive": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:ffmpeg_to_wav16k": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:finalize": {
+      "skills": 6,
+      "variants": 6
+    },
+    "py:find_all": {
+      "skills": 3,
+      "variants": 3
+    },
+    "py:find_duplicates": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:format_ts": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:format_type": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:format_version_known": {
+      "skills": 6,
+      "variants": 1
+    },
+    "py:get_all_httpd": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:get_child_indent": {
+      "skills": 7,
+      "variants": 5
+    },
+    "py:get_element_name": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:get_handler_name": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:get_ml_text": {
+      "skills": 5,
+      "variants": 5
+    },
+    "py:get_object_type": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:get_our_httpd": {
+      "skills": 3,
+      "variants": 1
+    },
+    "py:import_fragment": {
+      "skills": 5,
+      "variants": 5
+    },
+    "py:inner_text": {
+      "skills": 3,
+      "variants": 2
+    },
+    "py:insert_before_closing": {
+      "skills": 4,
+      "variants": 2
+    },
+    "py:insert_before_element": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:insert_before_ref": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:install_sherpa": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:install_sherpa_gpu": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:install_whisper": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:is_nested_object": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:local_name": {
+      "skills": 5,
+      "variants": 1
+    },
+    "py:localname": {
+      "skills": 9,
+      "variants": 1
+    },
+    "py:merge_with_speakers": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:ml_text": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:new_uuid": {
+      "skills": 13,
+      "variants": 1
+    },
+    "py:normalize_content_ref": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:normalize_enum_value": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:ok": {
+      "skills": 5,
+      "variants": 1
+    },
+    "py:orchestrate": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:out_line": {
+      "skills": 4,
+      "variants": 2
+    },
+    "py:parse": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_attribute_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_calc_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_data_param_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_enum_value_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_field_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_filter_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_param_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_structure_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_total_shorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:parse_value_list": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:pip_install": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:progress": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:remove_node_with_whitespace": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:remove_with_indent": {
+      "skills": 3,
+      "variants": 2
+    },
+    "py:report_error": {
+      "skills": 6,
+      "variants": 5
+    },
+    "py:report_ok": {
+      "skills": 6,
+      "variants": 5
+    },
+    "py:report_warn": {
+      "skills": 6,
+      "variants": 5
+    },
+    "py:resolve_query_value": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:resolve_type_str": {
+      "skills": 6,
+      "variants": 5
+    },
+    "py:resolve_v8path": {
+      "skills": 12,
+      "variants": 2
+    },
+    "py:run": {
+      "skills": 3,
+      "variants": 2
+    },
+    "py:run_transcribe_test": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:save_xml": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:save_xml_bom": {
+      "skills": 5,
+      "variants": 1
+    },
+    "py:save_xml_with_bom": {
+      "skills": 6,
+      "variants": 1
+    },
+    "py:setup_nvidia_dll_path": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:show_overview": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:smooth_word_speakers": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:spawn_sherpa_diarize": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:spawn_worker": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:split_camel_case": {
+      "skills": 3,
+      "variants": 3
+    },
+    "py:step": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:text": {
+      "skills": 4,
+      "variants": 1
+    },
+    "py:text_of": {
+      "skills": 5,
+      "variants": 4
+    },
+    "py:validate": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:warn": {
+      "skills": 11,
+      "variants": 4
+    },
+    "py:worker_transcribe": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:write_basic_md": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:write_child_subsystem_stub": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:write_plain": {
+      "skills": 2,
+      "variants": 1
+    },
+    "py:write_speakers_md": {
+      "skills": 2,
+      "variants": 2
+    },
+    "py:write_text_with_bom": {
+      "skills": 4,
+      "variants": 1
+    },
+    "py:write_utf8_bom": {
+      "skills": 11,
+      "variants": 2
+    }
+  }
+}

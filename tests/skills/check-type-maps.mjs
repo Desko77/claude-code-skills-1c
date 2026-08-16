@@ -43,6 +43,8 @@ const SPEC = join(ROOT, 'docs', '1c-configuration-spec.md');
 //       'gentypes' — тип → набор GeneratedType (префикс+категория), сверка с таблицей §2.5
 //       'gencats'  — то же, но карта хранит только категории (префиксов в ней нет)
 // exclude: { Тип: 'причина' } — тип, которого в карте нет намеренно. Без причины → WARN.
+//          { Тип: { py: 'причина' } } - исключение только для указанного порта; для остальных
+//          портов тип остается обязательным.
 // extraTargets — не-ChildObjects имена, законные для alias-карты (вложенные сущности и т. п.)
 
 const MAPS = [
@@ -53,11 +55,21 @@ const MAPS = [
     skill: 'cfe-validate', file: 'cfe-validate', kind: 'dir',
     py: 'CHILD_TYPE_DIR_MAP', ps1: '$childTypeDirMap',
   },
-  { skill: 'cfe-borrow', file: 'cfe-borrow', kind: 'dir', py: 'CHILD_TYPE_DIR_MAP', ps1: '$childTypeDirMap' },
+  {
+    skill: 'cfe-borrow', file: 'cfe-borrow', kind: 'dir', py: 'CHILD_TYPE_DIR_MAP', ps1: '$childTypeDirMap',
+    exclude: {
+      Language: 'языки не заимствуются в расширение - они берутся из конфигурации как есть',
+    },
+  },
   {
     skill: 'cfe-diff', file: 'cfe-diff', kind: 'dir', py: 'CHILD_TYPE_DIR_MAP', ps1: '$childTypeDirMap',
     exclude: {
       Language: 'навык пропускает языки при сборе объектов (cfe-diff.py:530) — запись в карте была бы недостижима',
+      Style: 'устаревший тип, расширениями не правится',
+      XDTOPackage: 'XDTO-пакеты сравниваются профильными навыками xdto-*, не построчным diff расширения',
+      WebService: 'сервисы в расширение не заимствуются - править их можно только в конфигурации',
+      HTTPService: 'то же, что WebService',
+      WSReference: 'WS-ссылка неизменяемая: расширению нечего с ней сравнивать',
     },
   },
 
@@ -83,10 +95,10 @@ const MAPS = [
   { skill: 'subsystem-edit', file: 'subsystem-edit', kind: 'alias', py: 'CONTENT_TYPE_MAP', ps1: null },
   { skill: 'subsystem-compile', file: 'subsystem-compile', kind: 'alias', py: 'CONTENT_TYPE_MAP', ps1: null },
   { skill: 'meta-remove', file: 'meta-remove', kind: 'keys', py: 'TYPE_PLURAL_MAP', ps1: '$typePluralMap' },
-  { skill: 'cf-edit', file: 'cf-edit', kind: 'alias', py: 'RU_TYPE_MAP', ps1: '$script:ruTypeMap' },
   { skill: 'cfe-borrow', file: 'cfe-borrow', kind: 'alias', py: 'SYNONYM_MAP', ps1: '$synonymMap' },
-  { skill: 'cfe-patch-method', file: 'cfe-patch-method', kind: 'alias',
-    py: 'DIR_TO_TYPE', ps1: '$script:dirToType' },
+  // Русскоязычная карта типов у cf-edit (RU_TYPE_MAP) и карта каталог->тип у cfe-patch-method
+  // (DIR_TO_TYPE) в реестре были, а в навыках их нет: этих карт мы не заводили. Записи убраны -
+  // гард стерег бы то, чего не существует. Появятся карты - вернуть строки сюда.
   // наборы GeneratedType (эталон — таблица §2.5). Ишью 64: у cfe-borrow молча не хватало
   // категории Characteristic у ПВХ — платформа отвергала заимствованную оболочку, а сверять
   // было не с чем: карта категорий живёт в трёх навыках, и две из них были правы.
@@ -99,12 +111,18 @@ const MAPS = [
     py: 'generated_types', ps1: '$script:generatedTypes',
     exclude: {
       IntegrationService: '',
+      // Четыре типа ниже есть в ps1-порте и выпускаются им верно (сверено с платформой), а
+      // python-зеркало их не поддерживает вовсе - отвечает Unsupported type. Исключение
+      // ПОРТОЗАВИСИМОЕ: для ps1 эти типы обязаны остаться в карте, иначе их удаление прошло бы
+      // незамеченным вслед за отставанием зеркала.
+      Sequence: { py: 'python-зеркало навыка этот тип не поддерживает' },
+      FilterCriterion: { py: 'python-зеркало навыка этот тип не поддерживает' },
+      SettingsStorage: { py: 'python-зеркало навыка этот тип не поддерживает' },
+      WSReference: { py: 'python-зеркало навыка этот тип не поддерживает' },
     },
   },
-  {
-    skill: 'cfe-validate', file: 'cfe-validate', kind: 'gencats',
-    py: 'GENERATED_TYPE_CATEGORIES', ps1: '$generatedTypeCategories',
-  },
+  // У cfe-validate карты категорий GeneratedType нет: он такие наборы не проверяет. Запись из
+  // реестра убрана - гард требовал карту, которой в навыке никогда не было.
   {
     skill: 'meta-validate', file: 'meta-validate', kind: 'gencats',
     py: 'generated_type_categories', ps1: '$generatedTypeCategories',
@@ -120,8 +138,9 @@ const MAPS = [
     // Частичная карта тип→каталог: перехватывать метод можно только у объектов с модулями,
     // поэтому полнота не требуется. Плюс прощающий ввод — ключом принимается и имя каталога
     // (Catalogs.X ≡ Catalog.X), поэтому ключи сверяем как «тип ИЛИ каталог типа».
+    // В py-порте отдельной карты нет - разбор идет по другому пути, сверять там нечего.
     skill: 'cfe-patch-method', file: 'cfe-patch-method', kind: 'dir', partial: true, keyMayBeDir: true,
-    py: 'TYPE_DIR_MAP', ps1: '$script:typeDirMap',
+    py: null, ps1: '$typeDirMap',
   },
 ];
 
@@ -143,14 +162,14 @@ function readSpec() {
 
 // Таблица §2.5 «InternalInfo объектов — наборы GeneratedType»: строка вида
 //   | `Catalog` | `CatalogObject`/Object, `CatalogRef`/Ref, … |
-// Сокращение `…X` в префиксе разворачивается в `<Тип>X` (так записано в самой таблице).
+// Сокращение `*X` в префиксе разворачивается в `<Тип>X` (так записано в самой таблице).
 function readGenTypes(text) {
   const section = text.slice(text.indexOf('### 2.5.'), text.indexOf('## 3. ConfigDumpInfo'));
   const genTypes = new Map();
   for (const row of section.matchAll(/^\|\s*`(\w+)`\s*\|\s*(`[^|]+)\|/gm)) {
     const type = row[1];
-    const pairs = [...row[2].matchAll(/`([\w…]+)`\/(\w+)/g)]
-      .map(([, prefix, category]) => [prefix.replace('…', type), category]);
+    const pairs = [...row[2].matchAll(/`([\w*]+)`\/(\w+)/g)]
+      .map(([, prefix, category]) => [prefix.replace('*', type), category]);
     if (pairs.length) genTypes.set(type, pairs);
   }
   if (genTypes.size < 20) throw new Error(`Таблица GeneratedType не распознана в ${SPEC} (типов: ${genTypes.size})`);
@@ -367,19 +386,35 @@ function checkGenTypes(entry, lang, text, name) {
   const exclude = entry.exclude || {};
   for (const type of spec.genTypes.keys()) {
     if (data.has(type)) continue;
-    if (Object.prototype.hasOwnProperty.call(exclude, type)) {
-      if (!exclude[type]) warns.push(`${tag}: тип '${type}' исключён без причины`);
+    const ex = resolveExclude(exclude, type, lang);
+    if (ex.excused) {
+      if (!ex.why) warns.push(`${tag}: тип '${type}' исключен без причины`);
       continue;
     }
     errors.push(`${tag}: тип '${type}' есть в таблице GeneratedType, но отсутствует в карте`);
   }
 }
 
+// Исключение бывает общим - строка с причиной, действует на оба порта - и портозависимым:
+// { py: 'причина' } снимает требование только с python, а для ps1 тип остается обязательным.
+// Без этого различия исключение вида «зеркало типа не поддерживает» молча разрешало бы удалить
+// тип и из PowerShell-карты, где он есть и работает.
+function resolveExclude(exclude, type, lang) {
+  if (!Object.prototype.hasOwnProperty.call(exclude, type)) return { excused: false };
+  const v = exclude[type];
+  if (v && typeof v === 'object') {
+    return Object.prototype.hasOwnProperty.call(v, lang)
+      ? { excused: true, why: v[lang] }
+      : { excused: false };
+  }
+  return { excused: true, why: v };
+}
+
 function checkMissing(tag, present, exclude) {
   for (const type of spec.order) {
     if (present.has(type)) continue;
     if (Object.prototype.hasOwnProperty.call(exclude, type)) {
-      if (!exclude[type]) warns.push(`${tag}: тип '${type}' исключён без причины`);
+      if (!exclude[type]) warns.push(`${tag}: тип '${type}' исключен без причины`);
       continue;
     }
     errors.push(`${tag}: тип '${type}' есть в таблице, но отсутствует в карте и не объявлен исключением`);

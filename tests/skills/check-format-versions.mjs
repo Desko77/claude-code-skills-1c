@@ -12,8 +12,10 @@
 // Держит три инварианта:
 //   1. Границы диапазона одинаковы во всех навыках-потребителях и на обоих портах.
 //   2. Дефолт -FormatVersion у *-init лежит внутри диапазона.
-//   3. Верхняя граница = последняя ЗАМЕРЕННАЯ ступень лестницы: добавили платформу в спеку и
-//      забыли поднять код (или наоборот) — падаем здесь, а не на чужой выгрузке.
+//   3. Верхняя граница = последняя ступень лестницы: добавили ступень в спеку и забыли поднять код
+//      (или наоборот) - падаем здесь, а не на чужой выгрузке. Замеренность верхней ступени при этом
+//      не требуется: версию мы поддерживаем по описанию возможностей раньше, чем достаем выгрузку
+//      с нее (так вошли 2.18 и 2.21). Незамеренный верх - предупреждение, а не отказ.
 //
 // Запуск: node tests/skills/check-format-versions.mjs [--list]
 // Выход 1 при ERROR.
@@ -47,8 +49,14 @@ const RANGE_CONSUMERS = [
   { skill: 'form-validate', file: 'form-validate' },
   { skill: 'meta-validate', file: 'meta-validate' },
   { skill: 'cf-init', file: 'cf-init', hasDefault: true },
-  { skill: 'epf-init', file: 'init', hasDefault: true },
-  { skill: 'erf-init', file: 'init', hasDefault: true },
+];
+
+// Навыки без параметра -FormatVersion: версия зашита прямо в шаблон заголовка. Диапазон они не
+// объявляют, но и выпускать файл вне диапазона не должны - поэтому проверяется зашитое значение.
+// Заодно ловится случай, когда шаблонов в скрипте несколько и они разъехались между собой.
+const FIXED_VERSION_EMITTERS = [
+  { skill: 'epf-init', file: 'init' },
+  { skill: 'erf-init', file: 'init' },
 ];
 
 const errors = [];
@@ -65,13 +73,15 @@ function rank(ver) {
 
 // ─── Эталон: лестница из спецификации ───────────────────────────────────────
 // Строки вида: | 8.3.24 | `2.17` | да |
+// Платформа может быть неизвестна - тогда в столбце стоит `?`. Версию мы поддерживаем, а привязки
+// к релизу нет; выдумывать ее в спеке нельзя, поэтому ступень остается с явным пробелом в данных.
 function parseLadder(text) {
   const rows = [];
   const section = text.split(/^### 7\.1\./m)[1];
   if (!section) return rows;
   const body = section.split(/^###? /m)[0];
   for (const line of body.split('\n')) {
-    const m = /^\|\s*([\d.]+)\s*\|\s*`?(\d+\.\d+)`?\s*\|\s*([^|]+?)\s*\|/.exec(line);
+    const m = /^\|\s*([\d.]+|\?)\s*\|\s*`?(\d+\.\d+)`?\s*\|\s*([^|]+?)\s*\|/.exec(line);
     if (m) rows.push({ platform: m[1], version: m[2], measured: m[3].trim() });
   }
   return rows;
@@ -187,12 +197,55 @@ for (const f of found) {
   }
 }
 
+// ─── Инвариант 2б: зашитые в шаблон версии внутри диапазона ─────────────────
+const fixed = [];
+for (const c of FIXED_VERSION_EMITTERS) {
+  for (const [port, ext] of [['ps1', '.ps1'], ['py', '.py']]) {
+    const path = join(skillDir(c.skill), 'scripts', c.file + ext);
+    const text = read(path);
+    if (text === null) {
+      errors.push(`${c.skill} (${port}): файл не найден: ${path}`);
+      continue;
+    }
+    // Корневой элемент выгрузки, а не объявление XML: у второго version="1.0".
+    const versions = [...text.matchAll(/xmlns[^>]*\sversion="(\d+\.\d+)"/g)].map((m) => m[1]);
+    if (versions.length === 0) {
+      errors.push(`${c.skill} (${port}): в шаблонах не найден version корневого элемента`);
+      continue;
+    }
+    const distinct = [...new Set(versions)];
+    if (distinct.length > 1) {
+      errors.push(
+        `${c.skill} (${port}): шаблоны выпускают разные версии формата (${distinct.join(', ')}) - ` +
+          `объект и его части окажутся в разных версиях`,
+      );
+    }
+    for (const v of distinct) {
+      if (rank(v) < rank(codeMin) || rank(v) > rank(codeMax)) {
+        errors.push(
+          `${c.skill} (${port}): шаблон выпускает version="${v}" вне проверенного диапазона ${codeMin}-${codeMax}`,
+        );
+      }
+    }
+    fixed.push({ skill: c.skill, port, versions: distinct });
+  }
+}
+
 // ─── Инвариант 3: границы сходятся с лестницей ──────────────────────────────
-if (codeMax && lastMeasured && codeMax !== lastMeasured.version) {
+const lastStep = ladder.length ? ladder[ladder.length - 1] : null;
+if (codeMax && lastStep && codeMax !== lastStep.version) {
   errors.push(
-    `Верхняя граница в коде (${codeMax}) не совпадает с последней замеренной ступенью лестницы ` +
-      `(${lastMeasured.version}, платформа ${lastMeasured.platform}). Либо в спеку добавили платформу ` +
+    `Верхняя граница в коде (${codeMax}) не совпадает с последней ступенью лестницы ` +
+      `(${lastStep.version}, платформа ${lastStep.platform}). Либо в спеку добавили ступень ` +
       `и забыли поднять диапазон в навыках, либо наоборот.`,
+  );
+}
+// Верх диапазона держится на описании возможностей, а не на живой выгрузке. Это рабочее состояние,
+// но знать о нем надо: цена ошибки в незамеренной версии выше.
+if (codeMax && lastStep && lastStep.measured.toLowerCase() === 'нет') {
+  console.log(
+    `WARN: верхняя ступень ${lastStep.version} не замерена на выгрузке платформы. ` +
+      `Поддержка держится на описании возможностей.`,
   );
 }
 if (codeMin && ladder.length && !ladder.some((r) => r.version === codeMin)) {
@@ -208,6 +261,10 @@ if (listMode) {
   console.log('\nПроверенный диапазон в навыках:');
   for (const f of found) {
     console.log(`  ${f.skill.padEnd(14)} ${f.port.padEnd(4)} ${f.min}-${f.max}${f.def ? `  default=${f.def}` : ''}`);
+  }
+  console.log('\nЗашитые в шаблон версии:');
+  for (const f of fixed) {
+    console.log(`  ${f.skill.padEnd(14)} ${f.port.padEnd(4)} ${f.versions.join(', ')}`);
   }
   console.log('');
 }
