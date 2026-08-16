@@ -449,7 +449,9 @@ def attribute_type_string(props_el):
 def resolve_design_time_ref(text, type_str):
     """Ссылка времени разработки. Краткое EmptyRef разворачивается по типу реквизита:
     CatalogRef.Спр -> Catalog.Спр.EmptyRef."""
-    if re.match(r"^[A-Za-z]\w*\.[^.\s]+\.\w+$", text):
+    # Ссылка бывает из трех частей (Catalog.Спр.EmptyRef) и из четырех
+    # (Enum.ВидыОпераций.EnumValue.Продажа).
+    if re.match(r"^[A-Za-z]\w*\.[^.\s]+\.\w+(\.[^.\s]+)?$", text):
         return text
     if text in ("EmptyRef", "ПустаяСсылка") and type_str:
         parts = type_str.split(".", 1)
@@ -472,10 +474,19 @@ def build_typed_value_xml(indent, tag, value, type_str=""):
     ref = resolve_design_time_ref(text, type_str)
     if ref:
         return f'{indent}<{tag} xsi:type="xr:DesignTimeRef">{esc_xml(ref)}</{tag}>'
-    if re.match(r"^-?\d+(\.\d+)?$", text):
-        return f'{indent}<{tag} xsi:type="xs:decimal">{text}</{tag}>'
-    if re.match(r"^\d{4}-\d{2}-\d{2}T", text):
-        return f'{indent}<{tag} xsi:type="xs:dateTime">{text}</{tag}>'
+    # Тип значения определяет ТИП РЕКВИЗИТА, а не вид написания: у строкового
+    # реквизита "001" обязано остаться строкой. Когда тип неизвестен (свойство
+    # создается заново), остается только форма написания.
+    looks_number = re.match(r"^-?\d+(\.\d+)?$", text) is not None
+    looks_date = re.match(r"^\d{4}-\d{2}-\d{2}T", text) is not None
+    if type_str == "decimal" or (not type_str and looks_number):
+        if looks_number:
+            return f'{indent}<{tag} xsi:type="xs:decimal">{text}</{tag}>'
+    if type_str == "dateTime" or (not type_str and looks_date):
+        if looks_date:
+            return f'{indent}<{tag} xsi:type="xs:dateTime">{text}</{tag}>'
+    if type_str == "boolean" and text in ("true", "false"):
+        return f'{indent}<{tag} xsi:type="xs:boolean">{text}</{tag}>'
     return f'{indent}<{tag} xsi:type="xs:string">{esc_xml(text)}</{tag}>'
 
 
@@ -560,7 +571,7 @@ def choice_parameter_value(value):
     if isinstance(value, bool):
         return "xs:boolean", "true" if value else "false"
     text = ps_str(value)
-    if re.match(r"^[A-Za-z]\w*\.[^.\s]+\.\w+$", text):
+    if re.match(r"^[A-Za-z]\w*\.[^.\s]+\.\w+(\.[^.\s]+)?$", text):
         return "xr:DesignTimeRef", text
     return "xs:string", text
 

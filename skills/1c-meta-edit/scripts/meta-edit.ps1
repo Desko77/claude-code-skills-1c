@@ -487,7 +487,9 @@ function Get-AttributeTypeString($propsEl) {
 function Resolve-DesignTimeRef {
 	param([string]$text, [string]$typeStr)
 	# Краткое EmptyRef разворачивается по типу реквизита: CatalogRef.Спр -> Catalog.Спр.EmptyRef.
-	if ($text -match '^[A-Za-z]\w*\.[^.\s]+\.\w+$') { return $text }
+	# Ссылка бывает из трех частей (Catalog.Спр.EmptyRef) и из четырех
+	# (Enum.ВидыОпераций.EnumValue.Продажа).
+	if ($text -match '^[A-Za-z]\w*\.[^.\s]+\.\w+(\.[^.\s]+)?$') { return $text }
 	if (($text -eq "EmptyRef" -or $text -eq "ПустаяСсылка") -and $typeStr) {
 		$parts = $typeStr -split '\.', 2
 		if ($parts.Count -eq 2 -and $script:refKindByType.ContainsKey($parts[0])) {
@@ -514,8 +516,20 @@ function Build-TypedValueXml {
 	$text = "$value"
 	$ref = Resolve-DesignTimeRef $text $typeStr
 	if ($ref) { return "$indent<$tag xsi:type=`"xr:DesignTimeRef`">$(Esc-Xml $ref)</$tag>" }
-	if ($text -match '^-?\d+(\.\d+)?$') { return "$indent<$tag xsi:type=`"xs:decimal`">$text</$tag>" }
-	if ($text -match '^\d{4}-\d{2}-\d{2}T') { return "$indent<$tag xsi:type=`"xs:dateTime`">$text</$tag>" }
+	# Тип значения определяет ТИП РЕКВИЗИТА, а не вид написания: у строкового
+	# реквизита "001" обязано остаться строкой. Когда тип неизвестен (свойство
+	# создается заново), остается только форма написания.
+	$looksNumber = $text -match '^-?\d+(\.\d+)?$'
+	$looksDate = $text -match '^\d{4}-\d{2}-\d{2}T'
+	if ($looksNumber -and ($typeStr -eq 'decimal' -or -not $typeStr)) {
+		return "$indent<$tag xsi:type=`"xs:decimal`">$text</$tag>"
+	}
+	if ($looksDate -and ($typeStr -eq 'dateTime' -or -not $typeStr)) {
+		return "$indent<$tag xsi:type=`"xs:dateTime`">$text</$tag>"
+	}
+	if ($typeStr -eq 'boolean' -and ($text -eq 'true' -or $text -eq 'false')) {
+		return "$indent<$tag xsi:type=`"xs:boolean`">$text</$tag>"
+	}
 	return "$indent<$tag xsi:type=`"xs:string`">$(Esc-Xml $text)</$tag>"
 }
 
@@ -605,7 +619,7 @@ function Get-ChoiceParameterValue {
 		return @{ type = "xs:boolean"; text = $(if ($value) { "true" } else { "false" }) }
 	}
 	$text = "$value"
-	if ($text -match '^[A-Za-z]\w*\.[^.\s]+\.\w+$') {
+	if ($text -match '^[A-Za-z]\w*\.[^.\s]+\.\w+(\.[^.\s]+)?$') {
 		return @{ type = "xr:DesignTimeRef"; text = $text }
 	}
 	return @{ type = "xs:string"; text = $text }
