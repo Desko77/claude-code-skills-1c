@@ -144,13 +144,13 @@ def insert_before_closing(container, new_el, child_indent):
     children = list(container)
     if len(children) == 0:
         parent_indent = child_indent[:-1] if len(child_indent) > 0 else ""
-        container.text = "\r\n" + child_indent
-        new_el.tail = "\r\n" + parent_indent
+        container.text = "\n" + child_indent
+        new_el.tail = "\n" + parent_indent
         container.append(new_el)
     else:
         last = children[-1]
         new_el.tail = last.tail
-        last.tail = "\r\n" + child_indent
+        last.tail = "\n" + child_indent
         container.append(new_el)
 
 
@@ -160,10 +160,10 @@ def insert_before_ref(container, new_el, ref_el, child_indent):
     prev = ref_el.getprevious()
     if prev is not None:
         new_el.tail = prev.tail
-        prev.tail = "\r\n" + child_indent
+        prev.tail = "\n" + child_indent
     else:
         new_el.tail = container.text
-        container.text = "\r\n" + child_indent
+        container.text = "\n" + child_indent
     container.insert(idx, new_el)
 
 
@@ -181,7 +181,7 @@ def remove_with_indent(el):
 
 def expand_self_closing(container, parent_indent):
     if len(container) == 0 and not (container.text and container.text.strip()):
-        container.text = "\r\n" + parent_indent
+        container.text = "\n" + parent_indent
 
 
 def import_fragment(xml_string):
@@ -344,11 +344,11 @@ def main():
                     lang_el.text = "ru"
                     content_el = etree.SubElement(item_el, f"{{{V8_NS}}}content")
                     content_el.text = prop_value
-                    prop_el.text = "\r\n" + indent + "\t"
-                    item_el.text = "\r\n" + indent + "\t\t"
-                    lang_el.tail = "\r\n" + indent + "\t\t"
-                    content_el.tail = "\r\n" + indent + "\t"
-                    item_el.tail = "\r\n" + indent
+                    prop_el.text = "\n" + indent + "\t"
+                    item_el.text = "\n" + indent + "\t\t"
+                    lang_el.tail = "\n" + indent + "\t\t"
+                    content_el.tail = "\n" + indent + "\t"
+                    item_el.tail = "\n" + indent
             elif prop_name in SCALAR_PROPS or prop_name in REF_PROPS:
                 for ch in list(prop_el):
                     prop_el.remove(ch)
@@ -565,7 +565,7 @@ def main():
         props_indent = get_child_indent(props_el)
         role_indent = props_indent + "\t"
 
-        roles_el.text = "\r\n" + props_indent
+        roles_el.text = "\n" + props_indent
 
         for item in items:
             role_name = item

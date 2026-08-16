@@ -316,13 +316,13 @@ def insert_before_closing(container, new_el, child_indent):
     children = list(container)
     if len(children) == 0:
         parent_indent = child_indent[:-1] if len(child_indent) > 0 else ""
-        container.text = "\r\n" + child_indent
-        new_el.tail = "\r\n" + parent_indent
+        container.text = "\n" + child_indent
+        new_el.tail = "\n" + parent_indent
         container.append(new_el)
     else:
         last = children[-1]
         new_el.tail = last.tail
-        last.tail = "\r\n" + child_indent
+        last.tail = "\n" + child_indent
         container.append(new_el)
 
 
@@ -331,16 +331,16 @@ def insert_before_ref(container, new_el, ref_el, child_indent):
     prev = ref_el.getprevious()
     if prev is not None:
         new_el.tail = prev.tail
-        prev.tail = "\r\n" + child_indent
+        prev.tail = "\n" + child_indent
     else:
         new_el.tail = container.text
-        container.text = "\r\n" + child_indent
+        container.text = "\n" + child_indent
     container.insert(idx, new_el)
 
 
 def expand_self_closing(container, parent_indent):
     if len(container) == 0 and not (container.text and container.text.strip()):
-        container.text = "\r\n" + parent_indent
+        container.text = "\n" + parent_indent
 
 
 def save_xml_bom(tree, path):

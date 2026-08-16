@@ -463,7 +463,7 @@ def insert_before_element(container, new_node, ref_node, child_indent):
     if ref_node is not None:
         # Insert before ref_node
         idx = list(container).index(ref_node)
-        new_node.tail = "\r\n" + child_indent
+        new_node.tail = "\n" + child_indent
         container.insert(idx, new_node)
     else:
         # Append: insert before closing tag
@@ -473,13 +473,13 @@ def insert_before_element(container, new_node, ref_node, child_indent):
             # The last element's tail is the whitespace before </Container>
             # We set new_node.tail to what last.tail was (newline + parent indent)
             new_node.tail = last.tail
-            last.tail = "\r\n" + child_indent
+            last.tail = "\n" + child_indent
             container.append(new_node)
         else:
             # Container is empty (possibly self-closing)
             parent_indent = child_indent[:-1] if len(child_indent) > 0 else ""
-            container.text = "\r\n" + child_indent
-            new_node.tail = "\r\n" + parent_indent
+            container.text = "\n" + child_indent
+            new_node.tail = "\n" + parent_indent
             container.append(new_node)
 
 
@@ -543,14 +543,14 @@ def ensure_child_objects_open():
         if not has_elements:
             # It's empty - add whitespace for proper formatting
             indent = get_child_indent(obj_element)
-            child_objects_el.text = "\r\n" + indent
+            child_objects_el.text = "\n" + indent
         return
 
     # No ChildObjects at all - create one after Properties
     indent = get_child_indent(obj_element)
 
     co_el = etree.Element(f"{{{md_ns}}}ChildObjects")
-    co_el.text = "\r\n" + indent
+    co_el.text = "\n" + indent
 
     # Find where to insert: after Properties
     ref_node = None
@@ -566,7 +566,7 @@ def ensure_child_objects_open():
     if ref_node is not None:
         # Insert before ref_node
         idx = list(obj_element).index(ref_node)
-        co_el.tail = "\r\n" + indent
+        co_el.tail = "\n" + indent
         obj_element.insert(idx, co_el)
     else:
         # Append
@@ -574,12 +574,12 @@ def ensure_child_objects_open():
         if len(children) > 0:
             last = children[-1]
             co_el.tail = last.tail
-            last.tail = "\r\n" + indent
+            last.tail = "\n" + indent
             obj_element.append(co_el)
         else:
             parent_indent = indent[:-1] if len(indent) > 0 else ""
-            obj_element.text = "\r\n" + indent
-            co_el.tail = "\r\n" + parent_indent
+            obj_element.text = "\n" + indent
+            co_el.tail = "\n" + parent_indent
             obj_element.append(co_el)
 
     child_objects_el = co_el
@@ -1750,7 +1750,7 @@ def modify_child_elements(modify_def, child_type):
                     has_ts_child_elements = any(True for _ in ts_child_obj_el)
                     if not has_ts_child_elements:
                         ts_co_indent = get_child_indent(el)
-                        ts_child_obj_el.text = "\r\n" + ts_co_indent
+                        ts_child_obj_el.text = "\n" + ts_co_indent
                     attr_defs = change_value if isinstance(change_value, list) else [change_value]
                     for attr_def in attr_defs:
                         parsed = parse_attribute_shorthand(attr_def)
@@ -1991,7 +1991,7 @@ def add_complex_property_item(property_name, values):
 
     # If self-closing / empty, add closing whitespace
     if is_empty and not (prop_el.text and prop_el.text.strip()):
-        prop_el.text = "\r\n" + indent
+        prop_el.text = "\n" + indent
 
     for val in values:
         if val in existing:
@@ -2064,7 +2064,7 @@ def set_complex_property(property_name, values):
         return
 
     # Add closing whitespace
-    prop_el.text = "\r\n" + indent
+    prop_el.text = "\n" + indent
 
     # Add each value
     for val in values:

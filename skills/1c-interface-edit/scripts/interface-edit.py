@@ -68,13 +68,13 @@ def insert_before_closing(container, new_el, child_indent):
     children = list(container)
     if len(children) == 0:
         parent_indent = child_indent[:-1] if len(child_indent) > 0 else ""
-        container.text = "\r\n" + child_indent
-        new_el.tail = "\r\n" + parent_indent
+        container.text = "\n" + child_indent
+        new_el.tail = "\n" + parent_indent
         container.append(new_el)
     else:
         last = children[-1]
         new_el.tail = last.tail
-        last.tail = "\r\n" + child_indent
+        last.tail = "\n" + child_indent
         container.append(new_el)
 
 
@@ -279,12 +279,12 @@ def main():
                 break
 
         root_indent = get_child_indent(root)
-        new_section.text = "\r\n" + root_indent
+        new_section.text = "\n" + root_indent
 
         if ref_node is not None:
             # Insert before ref_node
             idx = list(root).index(ref_node)
-            new_section.tail = "\r\n" + root_indent
+            new_section.tail = "\n" + root_indent
             root.insert(idx, new_section)
         else:
             insert_before_closing(root, new_section, root_indent)
