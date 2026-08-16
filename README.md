@@ -5,6 +5,7 @@
 
 [![Лицензия MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Релиз](https://img.shields.io/github/v/release/Desko77/claude-code-skills-1c)](https://github.com/Desko77/claude-code-skills-1c/releases)
+[![Тесты](https://github.com/Desko77/claude-code-skills-1c/actions/workflows/tests.yml/badge.svg)](https://github.com/Desko77/claude-code-skills-1c/actions/workflows/tests.yml)
 
 Скилы дают агенту готовые операции над исходниками: собрать объект метаданных, форму, роль, схему
 компоновки, расширение, внешнюю обработку - и разобрать их обратно. Правила задают, как он это
@@ -482,8 +483,9 @@ node tests/skills/runner.mjs --update-snapshots    # перегенериров�
 node tests/skills/runner.mjs --runtime python      # прогнать python-версии скриптов
 ```
 
-Прогон идет в CI на каждый push и pull request (, windows-latest -
-раннеру нужен PowerShell). Интеграционные тесты в CI не гоняются: им нужна установленная платформа 1С.
+Прогон идет в CI на каждый push и pull request - [.github/workflows/tests.yml](.github/workflows/tests.yml),
+раннер windows-latest, потому что скриптам нужен PowerShell. Интеграционные тесты в CI не гоняются:
+им нужна установленная платформа 1С.
 
 Требуется Node.js 18+. Текущее состояние: **482 зеленых из 761**, 46 пропущено по условиям среды.
 Остальные 233 - реестр незакрытой функциональности `tests/skills/known-gaps.json`: скрипт не знает
