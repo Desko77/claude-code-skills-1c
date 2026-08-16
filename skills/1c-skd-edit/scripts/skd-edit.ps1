@@ -1815,8 +1815,16 @@ switch ($Operation) {
 				foreach ($kv in $kvPairs) {
 					$key = $kv.Groups[1].Value
 					$value = $kv.Groups[2].Value
+					# "_" и "null" - принятые в наборе обозначения пустого значения: их так же читает
+					# компилятор схемы. В узел кладется пустая строка, а не текст самого обозначения.
+					if ($key -eq "value" -and ($value -eq "_" -or $value -eq "null")) { $value = "" }
 
-					$existing = $paramEl.SelectSingleNode($key)
+					# Документ лежит в пространстве имен схемы, и XPath без префикса в него не попадает:
+					# SelectSingleNode всегда возвращал null, поэтому вместо правки узла дописывался второй.
+					$existing = $null
+					foreach ($child in $paramEl.ChildNodes) {
+						if ($child.NodeType -eq 'Element' -and $child.LocalName -eq $key) { $existing = $child; break }
+					}
 					if ($existing) {
 						$existing.InnerText = $value
 						Write-Host "[OK] Parameter `"$paramName`": $key updated to $value"

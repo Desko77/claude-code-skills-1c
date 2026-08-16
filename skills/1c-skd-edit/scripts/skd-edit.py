@@ -1568,6 +1568,10 @@ elif operation == "modify-parameter":
         if simple_rest:
             for m in re.finditer(r'(\w+)=(\S+)', simple_rest):
                 key, value = m.group(1), m.group(2)
+                # "_" и "null" - принятые в наборе обозначения пустого значения: их так же читает
+                # компилятор схемы. В узел кладется пустая строка, а не текст самого обозначения.
+                if key == 'value' and value in ('_', 'null'):
+                    value = ''
                 existing = next((ch for ch in param_el if isinstance(ch.tag, str) and local_name(ch) == key), None)
                 if existing is not None:
                     existing.text = value
@@ -2479,6 +2483,12 @@ xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml
 # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
 # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
 _orig = open(resolved_path, 'rb').read() if os.path.exists(resolved_path) else b''
+# Пустая пара <a></a> при разборе неотличима от <a/>: lxml теряет различие, и повторная
+# правка уже правленного файла схлопывает тег. Пары из ИСХОДНОГО файла восстанавливаются -
+# тот же принцип, что с концами строк ниже: правка не меняет форму записи чужих узлов.
+for _tag, _attrs in set(re.findall(rb'<([\w:.-]+)((?:\s[^<>]*?)?)></\1>', _orig)):
+    xml_bytes = xml_bytes.replace(b'<' + _tag + _attrs + b'/>',
+                                  b'<' + _tag + _attrs + b'></' + _tag + b'>')
 if b'\r\n' in _orig:
     xml_bytes = xml_bytes.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
 # Хвостовой перевод исходного файла тоже сохраняется: универсального правила нет,

@@ -30,8 +30,7 @@
 				<v8:AllowedLength>Variable</v8:AllowedLength>
 			</v8:StringQualifiers>
 		</valueType>
-		<value xsi:type="xs:string">ABC</value>
-		<value>_</value>
+		<value xsi:type="xs:string"></value>
 	</parameter>
 	<parameter>
 		<name>ПарДата</name>
@@ -41,24 +40,21 @@
 				<v8:DateFractions>Date</v8:DateFractions>
 			</v8:DateQualifiers>
 		</valueType>
-		<value xsi:type="xs:dateTime">2025-01-15T00:00:00</value>
-		<value>null</value>
+		<value xsi:type="xs:dateTime"></value>
 	</parameter>
 	<parameter>
 		<name>ПарЧисло</name>
 		<valueType>
 			<v8:Type>decimal</v8:Type>
 		</valueType>
-		<value xsi:type="xs:decimal">42</value>
-		<value>_</value>
+		<value xsi:type="xs:decimal"></value>
 	</parameter>
 	<parameter>
 		<name>ПарСсылка</name>
 		<valueType>
 			<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Номенклатура</v8:Type>
 		</valueType>
-		<value xsi:type="dcscor:DesignTimeValue">Справочник.Номенклатура.НашаОрганизация</value>
-		<value>null</value>
+		<value xsi:type="dcscor:DesignTimeValue"></value>
 	</parameter>
 	<settingsVariant>
 		<dcsset:name>Основной</dcsset:name>

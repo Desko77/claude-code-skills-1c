@@ -56,6 +56,14 @@ class LenientDict(dict):
         return super().__getitem__(k) if k is not None else default
 
 
+def ps_str(value):
+    """Приведение к строке по правилам PowerShell: массив склеивается через пробел.
+    В python str(list) дал бы repr вида "['A', 'B']" - он и уезжал в XML."""
+    if isinstance(value, (list, tuple)):
+        return ' '.join(str(x) for x in value)
+    return str(value)
+
+
 def lenient(data):
     """JSON бывает объектом и массивом объектов - оборачиваем и то, и другое."""
     if isinstance(data, list):
@@ -185,6 +193,8 @@ def resolve_type_str(type_str):
 def emit_value_type(lines, type_str, indent):
     if not type_str:
         return
+    # В PowerShell параметр объявлен как [string], и массив склеивается уже на границе вызова.
+    type_str = ps_str(type_str)
 
     # Resolve synonyms first
     type_str = resolve_type_str(type_str)
@@ -551,7 +561,7 @@ def emit_field(lines, field_def, indent):
             'dataPath': str(field_def.get('dataPath', '')) or str(field_def.get('field', '')),
             'field': str(field_def.get('field', '')) or str(field_def.get('dataPath', '')),
             'title': field_def['title'] if field_def.get('title') else '',
-            'type': resolve_type_str(str(field_def['type'])) if field_def.get('type') else '',
+            'type': resolve_type_str(ps_str(field_def['type'])) if field_def.get('type') else '',
             'roles': [],
             'restrict': [],
             'appearance': {},
@@ -750,7 +760,7 @@ def emit_calc_fields(lines, defn):
             if cf.get('title'):
                 title = cf['title']
             if cf.get('type'):
-                type_str = resolve_type_str(str(cf['type']))
+                type_str = resolve_type_str(ps_str(cf['type']))
 
             restrict_val = cf.get('restrict') if cf.get('restrict') is not None else cf.get('useRestriction')
             if restrict_val:
@@ -965,7 +975,7 @@ def emit_parameters(lines, defn):
         else:
             parsed = {
                 'name': str(p.get('name', '')),
-                'type': resolve_type_str(str(p['type'])) if p.get('type') else '',
+                'type': resolve_type_str(ps_str(p['type'])) if p.get('type') else '',
                 'value': p.get('value'),
                 'autoDates': False,
             }
@@ -1930,7 +1940,7 @@ def emit_settings_variants(lines, defn):
                         has_meaningful_value = True
                 elif ap.get('value') is not None and str(ap.get('value')) != '':
                     item['value'] = ap['value']
-                    item['valueType'] = str(ap.get('type') or '')
+                    item['valueType'] = ps_str(ap.get('type') or '')
                     has_meaningful_value = True
                 else:
                     item['nilValue'] = True

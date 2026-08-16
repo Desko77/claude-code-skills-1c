@@ -25,8 +25,7 @@
 		<valueType>
 			<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Организации</v8:Type>
 		</valueType>
-		<value xsi:type="xs:string">Справочник.Организации.X</value>
-		<value>Справочник.Организации.X,</value>
+		<value xsi:type="xs:string">Справочник.Организации.X,</value>
 	</parameter>
 	<settingsVariant>
 		<dcsset:name>Основной</dcsset:name>

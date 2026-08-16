@@ -31,12 +31,12 @@
 			</valueType>
 			<appearance>
 				<dcscor:item xsi:type="dcsset:SettingsParameterValue">
-					<dcscor:parameter>РастягиватьПоГоризонтали</dcscor:parameter>
-					<dcscor:value xsi:type="xs:string">true</dcscor:value>
-				</dcscor:item>
-				<dcscor:item xsi:type="dcsset:SettingsParameterValue">
 					<dcscor:parameter>МинимальнаяШирина</dcscor:parameter>
 					<dcscor:value xsi:type="xs:string">100</dcscor:value>
+				</dcscor:item>
+				<dcscor:item xsi:type="dcsset:SettingsParameterValue">
+					<dcscor:parameter>РастягиватьПоГоризонтали</dcscor:parameter>
+					<dcscor:value xsi:type="xs:string">true</dcscor:value>
 				</dcscor:item>
 			</appearance>
 		</field>
