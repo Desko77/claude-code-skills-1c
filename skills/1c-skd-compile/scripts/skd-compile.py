@@ -56,12 +56,26 @@ class LenientDict(dict):
         return super().__getitem__(k) if k is not None else default
 
 
-def ps_str(value):
-    """Приведение к строке по правилам PowerShell: массив склеивается через пробел.
-    В python str(list) дал бы repr вида "['A', 'B']" - он и уезжал в XML."""
-    if isinstance(value, (list, tuple)):
-        return ' '.join(str(x) for x in value)
+def _ps_scalar(value):
+    if isinstance(value, bool):
+        return 'True' if value else 'False'
+    if value is None:
+        return ''
     return str(value)
+
+
+def ps_str(value):
+    """Приведение к строке по правилам PowerShell.
+
+    Замерено на pwsh 7: одиночный объект в "$x" дает @{k=v; k2=v2}, а массив склеивает через
+    пробел результаты ToString() элементов - и у разобранного из JSON объекта ToString() пуст.
+    В python str() дал бы repr списка, он и уезжал в XML.
+    """
+    if isinstance(value, (list, tuple)):
+        return ' '.join('' if isinstance(x, dict) else _ps_scalar(x) for x in value)
+    if isinstance(value, dict):
+        return '@{' + '; '.join(k + '=' + _ps_scalar(v) for k, v in value.items()) + '}'
+    return _ps_scalar(value)
 
 
 def lenient(data):

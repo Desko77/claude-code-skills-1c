@@ -58,6 +58,7 @@ Options:
   --json <path>           Write JSON report to <path>
   --concurrency <N>       Number of parallel workers (default: cpu count)
   --with-validation       Run platform validation (1cv8 design checks) after compile
+  --keep-work             Не удалять рабочие каталоги (для разбора расхождений)
   -v, --verbose           Verbose output
   -h, --help, /?          Show this help and exit
 `);
@@ -72,6 +73,7 @@ function parseArgs(argv) {
     if (a === '--update-snapshots') { args.updateSnapshots = true; continue; }
     if (a === '--runtime' && rest[i + 1]) { args.runtime = rest[++i]; continue; }
     if (a === '--json' && rest[i + 1]) { args.jsonReport = rest[++i]; continue; }
+    if (a === '--keep-work') { process.env.SKILL_TEST_KEEP_WORK = '1'; continue; }
     if (a === '--verbose' || a === '-v') { args.verbose = true; continue; }
     if (a === '--concurrency' && rest[i + 1]) { args.concurrency = parseInt(rest[++i], 10) || 1; continue; }
     if (a === '--with-validation') { args.withValidation = true; continue; }
@@ -294,6 +296,12 @@ function createWorkspace(fixturePath, readOnly) {
 
 function cleanupWorkspace(ws) {
   if (ws.readOnly) return;
+  // --keep-work оставляет рабочий каталог на диске. Нужен, когда снапшот и вывод расходятся
+  // в незначащем на вид месте: сравнивать надо файлы целиком, а не обрезанную строку отчета.
+  if (process.env.SKILL_TEST_KEEP_WORK) {
+    console.log(`  рабочий каталог оставлен: ${ws.path}`);
+    return;
+  }
   // On Windows, file handles from db-update (1cv8) may linger briefly after the
   // process exits — rmSync then throws EBUSY. Retry a few times, then swallow:
   // a leaked tmp dir is preferable to crashing the entire runner.

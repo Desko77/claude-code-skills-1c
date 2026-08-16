@@ -54,6 +54,28 @@ warn_count = 0
 # ============================================================
 
 
+def _ps_scalar(value):
+    if isinstance(value, bool):
+        return 'True' if value else 'False'
+    if value is None:
+        return ''
+    return str(value)
+
+
+def ps_str(value):
+    """Приведение к строке по правилам PowerShell.
+
+    Замерено на pwsh 7: одиночный объект в "$x" дает @{k=v; k2=v2}, а массив склеивает через
+    пробел результаты ToString() элементов - и у разобранного из JSON объекта ToString() пуст.
+    В python str() дал бы repr списка, он и уезжал в XML.
+    """
+    if isinstance(value, (list, tuple)):
+        return ' '.join('' if isinstance(x, dict) else _ps_scalar(x) for x in value)
+    if isinstance(value, dict):
+        return '@{' + '; '.join(k + '=' + _ps_scalar(v) for k, v in value.items()) + '}'
+    return _ps_scalar(value)
+
+
 def info(msg):
     print(f"[INFO] {msg}")
 
@@ -1691,12 +1713,12 @@ def modify_properties(props_def):
             if isinstance(prop_value, list):
                 values_list = [str(v) for v in prop_value]
             else:
-                values_list = [v.strip() for v in str(prop_value).split(";;") if v.strip()]
+                values_list = [v.strip() for v in ps_str(prop_value).split(";;") if v.strip()]
             set_complex_property(prop_name, values_list)
             continue
 
         # Handle boolean values
-        value_str = str(prop_value)
+        value_str = ps_str(prop_value)
         if isinstance(prop_value, bool):
             value_str = "true" if prop_value else "false"
 
@@ -1806,7 +1828,7 @@ def modify_child_elements(modify_def, child_type):
                         break
                 if name_el is not None:
                     old_name = (name_el.text or "").strip()
-                    new_name = str(change_value)
+                    new_name = ps_str(change_value)
                     name_el.text = new_name
 
                     # Update Synonym if it was auto-generated
@@ -1846,7 +1868,7 @@ def modify_child_elements(modify_def, child_type):
                     if localname(gc) == "Type":
                         type_el = gc
                         break
-                new_type_str = str(change_value)
+                new_type_str = ps_str(change_value)
                 type_indent = get_child_indent(props_el)
                 new_type_xml = build_value_type_xml(type_indent, new_type_str)
                 new_type_nodes = import_fragment(new_type_xml)
@@ -1894,7 +1916,7 @@ def modify_child_elements(modify_def, child_type):
                         syn_el = gc
                         break
                 syn_indent = get_child_indent(props_el)
-                new_syn_xml = build_mltext_xml(syn_indent, "Synonym", str(change_value))
+                new_syn_xml = build_mltext_xml(syn_indent, "Synonym", ps_str(change_value))
                 new_syn_nodes = import_fragment(new_syn_xml)
                 if syn_el is not None and new_syn_nodes:
                     syn_idx = list(props_el).index(syn_el)
@@ -1912,7 +1934,7 @@ def modify_child_elements(modify_def, child_type):
                         scalar_el = gc
                         break
                 if scalar_el is not None:
-                    value_str = str(change_value)
+                    value_str = ps_str(change_value)
                     if isinstance(change_value, bool):
                         value_str = "true" if change_value else "false"
                     else:

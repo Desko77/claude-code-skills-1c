@@ -56,6 +56,14 @@ class LenientDict(dict):
         return super().__getitem__(k) if k is not None else default
 
 
+def ps_str(value):
+    """Приведение к строке по правилам PowerShell: массив склеивается через пробел.
+    В python str(list) дал бы repr вида "['A', 'B']" - он и уезжал в XML."""
+    if isinstance(value, (list, tuple)):
+        return ' '.join(str(x) for x in value)
+    return str(value)
+
+
 def lenient(data):
     """JSON бывает объектом и массивом объектов - оборачиваем и то, и другое."""
     if isinstance(data, list):
@@ -235,6 +243,10 @@ def main():
 
     # --- 5. Style resolver ---
     def resolve_style(style_name, fill_type):
+        # В PowerShell параметр объявлен как [string]: встроенный объект стиля превращается
+        # в текст @{...}, такого имени в наборе стилей нет, и стиль молча игнорируется.
+        # Здесь то же самое - иначе объект уходит в поиск по словарю и разбор падает.
+        style_name = ps_str(style_name) if style_name else style_name
         font_idx = font_map.get('default', 0)
         lb = -1; tb = -1; rb = -1; bb = -1
         ha = ''; va = ''; nf = ''
@@ -455,6 +467,28 @@ def main():
 
             if row.get('cells') and len(row['cells']) > 0:
                 row_has_content = True
+
+                # Ячейка без col занимает ближайшую свободную колонку слева направо. Раньше
+                # такой ячейке доставался номер 0 (пустое свойство приводилось к нулю), и в
+                # файл уходил индекс -1 сразу для всех - колонки не различались.
+                claimed = dict(rowspan_occupied)
+                for cell in row['cells']:
+                    if cell.get('col'):
+                        cs = int(cell['col'])
+                        sp = int(cell.get('span', 1))
+                        for c in range(cs, cs + sp):
+                            claimed[c] = True
+                cursor = 1
+                for cell in row['cells']:
+                    if cell.get('col'):
+                        continue
+                    sp = int(cell.get('span', 1))
+                    while claimed.get(cursor):
+                        cursor += 1
+                    cell['col'] = cursor
+                    for c in range(cursor, cursor + sp):
+                        claimed[c] = True
+                    cursor += sp
 
                 # Build set of occupied columns (1-based)
                 occupied_cols = dict(rowspan_occupied)
