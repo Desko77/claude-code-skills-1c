@@ -380,7 +380,7 @@ BSL Language Server в Claude Code как LSP: диагностики, go to def
 <tr><td><code>sync-fork</code></td><td>Синхронизация git-форка с upstream без потери своих доработок</td></tr>
 <tr><td><code>skill-creator</code></td><td>Создание, тестирование и оптимизация скилов (evals, grading, description loop)</td></tr>
 <tr><td><code>prompt-enhancer</code></td><td>Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ</td></tr>
-<tr><td><code>dehumanize-ai-text</code></td><td>Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления</td></tr>
+<tr><td><code>humanize-ai-text</code></td><td>Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления</td></tr>
 <tr><td><code>claude-env-setup</code></td><td>Установка и обновление окружения агента: опись машины -&gt; план -&gt; установка выбранного; конфиги MCP правятся слиянием, чужое не затирается</td></tr>
 <tr><td><code>claude-md-bootstrap</code></td><td>Генерация проектного CLAUDE.md - контекста проекта для AI-агента (IF-THEN правила, work-protocol, progressive disclosure)</td></tr>
 </tbody>
