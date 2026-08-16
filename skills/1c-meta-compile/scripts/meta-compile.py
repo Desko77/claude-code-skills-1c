@@ -1647,7 +1647,16 @@ def emit_chart_of_accounts_properties(indent):
         X(f'{i}<ExtDimensionTypes>{ext_dim_types}</ExtDimensionTypes>')
     else:
         X(f'{i}<ExtDimensionTypes/>')
-    max_ext_dim = str(defn['maxExtDimensionCount']) if defn.get('maxExtDimensionCount') is not None else '3'
+    # Счетчик субконто по умолчанию зависит от того, задан ли план видов характеристик. Без него
+    # ненулевой счетчик дает объект, который платформа не грузит: "У плана счетов с количеством
+    # субконто не равным 0 должен быть установлен план видов характеристик".
+    default_max_ext_dim = '3' if ext_dim_types else '0'
+    max_ext_dim = (str(defn['maxExtDimensionCount'])
+                   if defn.get('maxExtDimensionCount') is not None else default_max_ext_dim)
+    if not ext_dim_types and max_ext_dim != '0':
+        print(f"Warning: MaxExtDimensionCount={max_ext_dim} without extDimensionTypes - the platform "
+              f"will refuse to load this chart of accounts. Set extDimensionTypes to a "
+              f"ChartOfCharacteristicTypes reference or leave the count at 0.", file=sys.stderr)
     X(f'{i}<MaxExtDimensionCount>{max_ext_dim}</MaxExtDimensionCount>')
     code_mask = str(defn['codeMask']) if defn.get('codeMask') else ''
     if code_mask:

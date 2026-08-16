@@ -1,0 +1,12 @@
+{
+  "name": "План счетов без субконто: счетчик обнуляется, иначе платформа не грузит объект",
+  "input": {
+    "type": "ChartOfAccounts",
+    "name": "Простой",
+    "codeLength": 8
+  },
+  "validatePath": "ChartsOfAccounts/Простой",
+  "expect": {
+    "files": ["ChartsOfAccounts/Простой.xml"]
+  }
+}

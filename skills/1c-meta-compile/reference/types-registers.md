@@ -125,7 +125,7 @@
 | Поле JSON | Умолчание | XML элемент |
 |-----------|----------|-------------|
 | `extDimensionTypes` | `""` | ExtDimensionTypes (ссылка на ПВХ) |
-| `maxExtDimensionCount` | `3` | MaxExtDimensionCount |
+| `maxExtDimensionCount` | `3` с ПВХ, иначе `0` | MaxExtDimensionCount |
 | `codeMask` | `""` | CodeMask |
 | `codeLength` | `8` | CodeLength |
 | `descriptionLength` | `120` | DescriptionLength |
@@ -137,6 +137,11 @@
 | `extDimensionAccountingFlags` | `[]` | → ExtDimensionAccountingFlag (Boolean-тип, массив имён) |
 | `attributes` | `[]` | → Attribute |
 | `tabularSections` | `{}` | → TabularSection |
+
+**Субконто идут парой.** Ненулевой `maxExtDimensionCount` без `extDimensionTypes` дает объект,
+который платформа отказывается грузить: "У плана счетов с количеством субконто не равным 0 должен
+быть установлен план видов характеристик". Поэтому без ссылки на ПВХ счетчик по умолчанию 0, а если
+выставить его руками - навык предупредит. План счетов без субконто законен, это просто другой план.
 
 ```json
 {

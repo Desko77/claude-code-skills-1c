@@ -359,6 +359,32 @@ def convert_commands(source_dir: Path, target_dir: Path, dry_run: bool) -> list[
     return results
 
 
+def convert_docs(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]:
+    """Copy docs directory as-is.
+
+    Спецификации переносятся, потому что навыки на них ССЫЛАЮТСЯ: комментарии скриптов и SKILL.md
+    отправляют читателя в docs/1c-configuration-spec.md за лестницей версий формата и наборами
+    GeneratedType. Без переноса эти ссылки в cursor-репозитории вели в пустоту.
+    """
+    results = []
+    if not source_dir.is_dir():
+        return ["  SKIP: no docs/ directory"]
+
+    if not dry_run:
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    for item in sorted(source_dir.rglob("*")):
+        if not item.is_file():
+            continue
+        rel = item.relative_to(source_dir)
+        if not dry_run:
+            (target_dir / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target_dir / rel)
+        results.append(f"  {'[DRY] ' if dry_run else ''}doc: {rel.as_posix()}")
+
+    return results
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -436,9 +462,20 @@ def main():
         if "SKIP" not in msg:
             cmd_count += 1
 
+    # Copy docs
+    print("\n=== Docs ===")
+    doc_count = 0
+    for msg in convert_docs(source / "docs", target / "docs", dry_run):
+        if "SKIP" in msg:
+            print(msg)
+        else:
+            doc_count += 1
+    print(f"  {'[DRY] ' if dry_run else ''}перенесено файлов: {doc_count}")
+
     # Summary
     prefix = "[DRY RUN] " if dry_run else ""
-    print(f"\n{prefix}Done: {rules_count} rules, {skills_count} skills, {cmd_count} commands")
+    print(f"\n{prefix}Done: {rules_count} rules, {skills_count} skills, {cmd_count} commands, "
+          f"{doc_count} docs")
 
 
 if __name__ == "__main__":

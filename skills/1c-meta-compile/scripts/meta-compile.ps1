@@ -1947,7 +1947,14 @@ function Emit-ChartOfAccountsProperties {
 	if ($extDimTypes) { X "$i<ExtDimensionTypes>$extDimTypes</ExtDimensionTypes>" }
 	else { X "$i<ExtDimensionTypes/>" }
 
-	$maxExtDim = if ($null -ne $def.maxExtDimensionCount) { "$($def.maxExtDimensionCount)" } else { "3" }
+	# Счетчик субконто по умолчанию зависит от того, задан ли план видов характеристик. Без него
+	# ненулевой счетчик дает объект, который платформа не грузит: "У плана счетов с количеством
+	# субконто не равным 0 должен быть установлен план видов характеристик".
+	$defaultMaxExtDim = if ($extDimTypes) { "3" } else { "0" }
+	$maxExtDim = if ($null -ne $def.maxExtDimensionCount) { "$($def.maxExtDimensionCount)" } else { $defaultMaxExtDim }
+	if (-not $extDimTypes -and $maxExtDim -ne "0") {
+		[Console]::Error.WriteLine("Warning: MaxExtDimensionCount=$maxExtDim without extDimensionTypes - the platform will refuse to load this chart of accounts. Set extDimensionTypes to a ChartOfCharacteristicTypes reference or leave the count at 0.")
+	}
 	X "$i<MaxExtDimensionCount>$maxExtDim</MaxExtDimensionCount>"
 
 	$codeMask = if ($def.codeMask) { "$($def.codeMask)" } else { "" }
