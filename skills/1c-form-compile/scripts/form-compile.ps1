@@ -2650,7 +2650,7 @@ if (-not $formTitle -and $def.properties -and $def.properties.title) {
 	$formTitle = $def.properties.title
 }
 if ($formTitle) {
-	Emit-MLText -tag "Title" -text "$formTitle" -indent "`t"
+	Emit-MLText -tag "Title" -text $formTitle -indent "`t"
 }
 
 # 12b. Properties (skip 'title' — handled above as multilingual)

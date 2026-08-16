@@ -497,7 +497,9 @@ def main():
                     if cell.get('col'):
                         continue
                     sp = int(cell.get('span', 1))
-                    while claimed.get(cursor):
+                    # Свободным должен быть ВЕСЬ диапазон объединения: иначе ячейка с span
+                    # начиналась в свободной колонке и накрывала занятую соседнюю.
+                    while any(claimed.get(c) for c in range(cursor, cursor + sp)):
                         cursor += 1
                     cell['col'] = cursor
                     for c in range(cursor, cursor + sp):

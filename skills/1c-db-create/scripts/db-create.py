@@ -94,7 +94,14 @@ def main():
         # экранирует внутренние, и до платформы доезжает искаженный аргумент. PowerShell
         # передает строку как есть, поэтому строка собирается здесь тем же образом.
         if os.name == 'nt':
-            command = subprocess.list2cmdline([v8path]) + ' ' + ' '.join(arguments)
+            # Токен подключения уже несет свои кавычки (File="путь") - платформа разбирает
+            # его сама, и перекавычивание его ломает. Остальные значения кавычим по правилам
+            # Windows, иначе путь шаблона или журнала с пробелом разъедется на два аргумента.
+            parts = [subprocess.list2cmdline([v8path])]
+            for a in arguments:
+                ready = a.startswith('File="') or a.startswith('Srvr="')
+                parts.append(a if ready else subprocess.list2cmdline([a]))
+            command = ' '.join(parts)
         else:
             command = [v8path] + arguments
         # Вывод платформы не перехватывается: PowerShell запускает процесс с общей консолью,

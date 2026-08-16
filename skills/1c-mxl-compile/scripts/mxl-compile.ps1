@@ -482,7 +482,9 @@ foreach ($area in $def.areas) {
 			foreach ($cell in $row.cells) {
 				if ($cell.col) { continue }
 				$sp = if ($cell.span) { [int]$cell.span } else { 1 }
-				while ($claimed[$cursor]) { $cursor++ }
+				# Свободным должен быть ВЕСЬ диапазон объединения: иначе ячейка с span
+				# начиналась в свободной колонке и накрывала занятую соседнюю.
+				while (@($cursor..($cursor + $sp - 1)) | Where-Object { $claimed[$_] }) { $cursor++ }
 				$cell | Add-Member -NotePropertyName col -NotePropertyValue $cursor -Force
 				for ($c = $cursor; $c -lt ($cursor + $sp); $c++) { $claimed[$c] = $true }
 				$cursor += $sp
