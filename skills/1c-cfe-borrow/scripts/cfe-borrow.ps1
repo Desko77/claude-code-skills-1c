@@ -1177,7 +1177,7 @@ function Resolve-SourceAttributes {
 	}
 
 	# Extract extra Properties for main object enrichment (Hierarchical, CodeLength, etc.)
-	$extraProps = @{}
+	$extraProps = [ordered]@{}
 	$propsNode = $srcEl.SelectSingleNode("md:Properties", $srcNs)
 	if ($propsNode) {
 		$propsToExtract = @("Hierarchical","FoldersOnTop","CodeLength","DescriptionLength","CodeType","CodeAllowedLength",

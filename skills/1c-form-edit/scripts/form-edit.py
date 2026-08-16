@@ -370,11 +370,18 @@ def emit_single_type(type_str, indent):
 
 
 def emit_mltext(tag, text, indent):
+    # Значение бывает строкой (тогда это русский вариант) и словарем { 'ru': ..., 'en': ... }.
+    # Раньше словарь приводился к строке и уезжал в XML как есть, вместо перевода.
+    if isinstance(text, dict):
+        ml_items = [(str(lang), str(content)) for lang, content in text.items()]
+    else:
+        ml_items = [('ru', str(text))]
     X(f"{indent}<{tag}>")
-    X(f"{indent}\t<v8:item>")
-    X(f"{indent}\t\t<v8:lang>ru</v8:lang>")
-    X(f"{indent}\t\t<v8:content>{esc_xml(text)}</v8:content>")
-    X(f"{indent}\t</v8:item>")
+    for lang, content in ml_items:
+        X(f"{indent}	<v8:item>")
+        X(f"{indent}		<v8:lang>{lang}</v8:lang>")
+        X(f"{indent}		<v8:content>{esc_xml(content)}</v8:content>")
+        X(f"{indent}	</v8:item>")
     X(f"{indent}</{tag}>")
 
 

@@ -213,6 +213,26 @@
       "skills": 6,
       "variants": 1
     },
+    "py:__contains__": {
+      "skills": 10,
+      "variants": 1
+    },
+    "py:__getitem__": {
+      "skills": 10,
+      "variants": 1
+    },
+    "py:__setitem__": {
+      "skills": 10,
+      "variants": 1
+    },
+    "py:_actual_key": {
+      "skills": 10,
+      "variants": 1
+    },
+    "py:_canon_op": {
+      "skills": 3,
+      "variants": 1
+    },
     "py:_format_version_rank": {
       "skills": 6,
       "variants": 1
@@ -220,6 +240,10 @@
     "py:_parse_xml": {
       "skills": 5,
       "variants": 2
+    },
+    "py:_ps_scalar": {
+      "skills": 3,
+      "variants": 1
     },
     "py:_setup_cuda_dll_path": {
       "skills": 2,
@@ -239,6 +263,10 @@
     },
     "py:_sg_root_uuid": {
       "skills": 2,
+      "variants": 1
+    },
+    "py:_wrap": {
+      "skills": 10,
       "variants": 1
     },
     "py:add": {
@@ -355,7 +383,7 @@
     },
     "py:emit_mltext": {
       "skills": 6,
-      "variants": 4
+      "variants": 5
     },
     "py:emit_page": {
       "skills": 2,
@@ -453,6 +481,10 @@
       "skills": 6,
       "variants": 1
     },
+    "py:get": {
+      "skills": 10,
+      "variants": 1
+    },
     "py:get_all_httpd": {
       "skills": 2,
       "variants": 1
@@ -517,12 +549,20 @@
       "skills": 2,
       "variants": 2
     },
+    "py:lenient": {
+      "skills": 10,
+      "variants": 1
+    },
     "py:local_name": {
       "skills": 5,
       "variants": 1
     },
     "py:localname": {
       "skills": 9,
+      "variants": 1
+    },
+    "py:lookup_ci": {
+      "skills": 2,
       "variants": 1
     },
     "py:merge_with_speakers": {
@@ -607,6 +647,10 @@
     },
     "py:progress": {
       "skills": 2,
+      "variants": 1
+    },
+    "py:ps_str": {
+      "skills": 3,
       "variants": 1
     },
     "py:remove_node_with_whitespace": {

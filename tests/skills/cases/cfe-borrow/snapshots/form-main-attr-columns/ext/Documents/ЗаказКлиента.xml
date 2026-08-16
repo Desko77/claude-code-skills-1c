@@ -28,9 +28,9 @@
 			<Name>ЗаказКлиента</Name>
 			<Comment/>
 			<ExtendedConfigurationObject>UUID-012</ExtendedConfigurationObject>
+			<NumberType>String</NumberType>
 			<NumberLength>11</NumberLength>
 			<NumberAllowedLength>Variable</NumberAllowedLength>
-			<NumberType>String</NumberType>
 			<NumberPeriodicity>Year</NumberPeriodicity>
 		</Properties>
 		<ChildObjects>

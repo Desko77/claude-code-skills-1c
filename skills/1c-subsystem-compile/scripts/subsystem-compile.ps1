@@ -68,16 +68,28 @@ function Split-CamelCase([string]$name) {
 	return $result
 }
 
-function Emit-MLText([string]$indent, [string]$tag, [string]$text) {
+function Emit-MLText([string]$indent, [string]$tag, $text) {
 	if (-not $text) {
 		X "$indent<$tag/>"
 		return
 	}
+	# Значение бывает строкой (тогда это русский вариант) и объектом { ru = "..."; en = "..." }.
+	# Раньше параметр был [string], объект приводился к "@{ru=...; en=...}" и уезжал в XML целиком.
+	$mlItems = @()
+	if ($text -is [string]) {
+		$mlItems += @{ lang = "ru"; content = $text }
+	} else {
+		foreach ($mlProp in $text.PSObject.Properties) {
+			$mlItems += @{ lang = $mlProp.Name; content = "$($mlProp.Value)" }
+		}
+	}
 	X "$indent<$tag>"
-	X "$indent`t<v8:item>"
-	X "$indent`t`t<v8:lang>ru</v8:lang>"
-	X "$indent`t`t<v8:content>$(Esc-Xml $text)</v8:content>"
-	X "$indent`t</v8:item>"
+	foreach ($mlItem in $mlItems) {
+		X "$indent`t<v8:item>"
+		X "$indent`t`t<v8:lang>$($mlItem.lang)</v8:lang>"
+		X "$indent`t`t<v8:content>$(Esc-Xml $mlItem.content)</v8:content>"
+		X "$indent`t</v8:item>"
+	}
 	X "$indent</$tag>"
 }
 
