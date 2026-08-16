@@ -2,8 +2,8 @@
   "script": "form-decompile/scripts/form-decompile",
   "setup": "empty-config",
   "args": [
-    { "flag": "-FormPath", "from": "workPath", "field": "formPath" },
-    { "flag": "-OutputPath", "from": "workPath", "field": "outputPath" }
+    { "flag": "-InputFile", "from": "workPath", "field": "formPath" },
+    { "flag": "-OutputFile", "from": "workPath", "field": "outputPath" }
   ],
   "snapshot": {
     "root": "workDir",

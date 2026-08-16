@@ -59,14 +59,14 @@
 			<Action>ВыполнитьОбработка</Action>
 			<Shortcut>Ctrl+Enter</Shortcut>
 			<Picture>
-				<xr:Ref>@{src=StdPicture.ExecuteTask; transparentPixel=}</xr:Ref>
+				<xr:Ref>StdPicture.ExecuteTask</xr:Ref>
 				<xr:LoadTransparent>true</xr:LoadTransparent>
 			</Picture>
 		</Command>
 		<Command name="БезЗаголовка" id="14">
 			<Action>БезЗаголовкаОбработка</Action>
 			<Picture>
-				<xr:Ref>@{src=StdPicture.Refresh}</xr:Ref>
+				<xr:Ref>StdPicture.Refresh</xr:Ref>
 				<xr:LoadTransparent>true</xr:LoadTransparent>
 			</Picture>
 			<Representation>Picture</Representation>

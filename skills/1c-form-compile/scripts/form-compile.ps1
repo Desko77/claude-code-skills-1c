@@ -1518,13 +1518,35 @@ function Esc-Xml {
 
 # --- 4. Multilang helper ---
 
+function Resolve-PictureRef {
+	param($picture)
+	# Картинка задается именем или объектом { src = "..."; transparentPixel = ... }.
+	# Раньше объект приводился к тексту и в файл уезжало "@{src=...}" вместо имени.
+	if ($null -eq $picture) { return "" }
+	if ($picture -is [string]) { return $picture }
+	if ($picture.src) { return "$($picture.src)" }
+	return "$picture"
+}
+
 function Emit-MLText {
-	param([string]$tag, [string]$text, [string]$indent)
+	param([string]$tag, $text, [string]$indent)
+	# Значение бывает строкой (тогда это русский вариант) и объектом { ru = "..."; en = "..." }.
+	# Раньше параметр был [string], объект приводился к "@{ru=...; en=...}" и уезжал в XML целиком.
+	$mlItems = @()
+	if ($text -is [string]) {
+		$mlItems += @{ lang = "ru"; content = $text }
+	} else {
+		foreach ($mlProp in $text.PSObject.Properties) {
+			$mlItems += @{ lang = $mlProp.Name; content = "$($mlProp.Value)" }
+		}
+	}
 	X "$indent<$tag>"
-	X "$indent`t<v8:item>"
-	X "$indent`t`t<v8:lang>ru</v8:lang>"
-	X "$indent`t`t<v8:content>$(Esc-Xml $text)</v8:content>"
-	X "$indent`t</v8:item>"
+	foreach ($mlItem in $mlItems) {
+		X "$indent`t<v8:item>"
+		X "$indent`t`t<v8:lang>$($mlItem.lang)</v8:lang>"
+		X "$indent`t`t<v8:content>$(Esc-Xml $mlItem.content)</v8:content>"
+		X "$indent`t</v8:item>"
+	}
 	X "$indent</$tag>"
 }
 
@@ -1916,7 +1938,7 @@ function Emit-CommonFlags {
 function Emit-Title {
 	param($el, [string]$name, [string]$indent)
 	if ($el.title) {
-		Emit-MLText -tag "Title" -text "$($el.title)" -indent $indent
+		Emit-MLText -tag "Title" -text $el.title -indent $indent
 	}
 }
 
@@ -2274,7 +2296,7 @@ function Emit-Button {
 	# Picture
 	if ($el.picture) {
 		X "$inner<Picture>"
-		X "$inner`t<xr:Ref>$($el.picture)</xr:Ref>"
+		X "$inner`t<xr:Ref>$(Resolve-PictureRef $el.picture)</xr:Ref>"
 		X "$inner`t<xr:LoadTransparent>true</xr:LoadTransparent>"
 		X "$inner</Picture>"
 	}
@@ -2305,7 +2327,7 @@ function Emit-PictureDecoration {
 	Emit-CommonFlags -el $el -indent $inner
 
 	if ($el.picture -or $el.src) {
-		$ref = if ($el.src) { "$($el.src)" } else { "$($el.picture)" }
+		$ref = if ($el.src) { Resolve-PictureRef $el.src } else { Resolve-PictureRef $el.picture }
 		X "$inner<Picture>"
 		X "$inner`t<xr:Ref>$ref</xr:Ref>"
 		X "$inner`t<xr:LoadTransparent>true</xr:LoadTransparent>"
@@ -2401,7 +2423,7 @@ function Emit-Popup {
 
 	if ($el.picture) {
 		X "$inner<Picture>"
-		X "$inner`t<xr:Ref>$($el.picture)</xr:Ref>"
+		X "$inner`t<xr:Ref>$(Resolve-PictureRef $el.picture)</xr:Ref>"
 		X "$inner`t<xr:LoadTransparent>true</xr:LoadTransparent>"
 		X "$inner</Picture>"
 	}
@@ -2438,7 +2460,7 @@ function Emit-Attributes {
 		$inner = "$indent`t`t"
 
 		if ($attr.title) {
-			Emit-MLText -tag "Title" -text "$($attr.title)" -indent $inner
+			Emit-MLText -tag "Title" -text $attr.title -indent $inner
 		}
 
 		# Type
@@ -2465,7 +2487,7 @@ function Emit-Attributes {
 				$colId = New-Id
 				X "$inner`t<Column name=`"$($col.name)`" id=`"$colId`">"
 				if ($col.title) {
-					Emit-MLText -tag "Title" -text "$($col.title)" -indent "$inner`t`t"
+					Emit-MLText -tag "Title" -text $col.title -indent "$inner`t`t"
 				}
 				Emit-Type -typeStr "$($col.type)" -indent "$inner`t`t"
 				X "$inner`t</Column>"
@@ -2527,7 +2549,7 @@ function Emit-Commands {
 		$inner = "$indent`t`t"
 
 		if ($cmd.title) {
-			Emit-MLText -tag "Title" -text "$($cmd.title)" -indent $inner
+			Emit-MLText -tag "Title" -text $cmd.title -indent $inner
 		}
 
 		if ($cmd.action) {
@@ -2540,7 +2562,7 @@ function Emit-Commands {
 
 		if ($cmd.picture) {
 			X "$inner<Picture>"
-			X "$inner`t<xr:Ref>$($cmd.picture)</xr:Ref>"
+			X "$inner`t<xr:Ref>$(Resolve-PictureRef $cmd.picture)</xr:Ref>"
 			X "$inner`t<xr:LoadTransparent>true</xr:LoadTransparent>"
 			X "$inner</Picture>"
 		}
@@ -2605,7 +2627,7 @@ function Emit-Properties {
 
 # Title
 if ($def.title) {
-	Emit-MLText -tag "Title" -text "$($def.title)" -indent "`t"
+	Emit-MLText -tag "Title" -text $def.title -indent "`t"
 }
 
 # Header

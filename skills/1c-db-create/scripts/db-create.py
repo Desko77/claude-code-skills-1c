@@ -89,11 +89,18 @@ def main():
 
         # --- Execute ---
         print(f"Running: 1cv8.exe {' '.join(arguments)}")
-        result = subprocess.run(
-            [v8path] + arguments,
-            capture_output=True,
-            text=True,
-        )
+        # Токены платформы уже содержат кавычки: File="путь с пробелом". Список в subprocess
+        # на Windows пересобирает такой токен целиком - обрамляет его своими кавычками и
+        # экранирует внутренние, и до платформы доезжает искаженный аргумент. PowerShell
+        # передает строку как есть, поэтому строка собирается здесь тем же образом.
+        if os.name == 'nt':
+            command = subprocess.list2cmdline([v8path]) + ' ' + ' '.join(arguments)
+        else:
+            command = [v8path] + arguments
+        # Вывод платформы не перехватывается: PowerShell запускает процесс с общей консолью,
+        # и его сообщения попадают в вывод навыка. Перехват их прятал, а нужен только код
+        # возврата - подробности навык и так печатает из файла журнала ниже.
+        result = subprocess.run(command)
         exit_code = result.returncode
 
         # --- Result ---

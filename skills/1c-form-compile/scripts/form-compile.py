@@ -1307,15 +1307,33 @@ def esc_xml(s):
     return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
 
+def resolve_picture_ref(picture):
+    """Ссылка на картинку: имя строкой либо объект { 'src': ..., 'transparentPixel': ... }.
+
+    Раньше объект приводился к тексту целиком и имя картинки терялось.
+    """
+    if picture is None:
+        return ''
+    if isinstance(picture, dict):
+        return str(picture.get('src', ''))
+    return str(picture)
+
 def emit_mltext(lines, indent, tag, text):
     if not text:
         lines.append(f"{indent}<{tag}/>")
         return
+    # Значение бывает строкой (тогда это русский вариант) и словарем { 'ru': ..., 'en': ... }.
+    # Раньше словарь приводился к строке и уезжал в XML как есть, вместо перевода.
+    if isinstance(text, dict):
+        ml_items = [(str(lang), str(content)) for lang, content in text.items()]
+    else:
+        ml_items = [('ru', str(text))]
     lines.append(f"{indent}<{tag}>")
-    lines.append(f"{indent}\t<v8:item>")
-    lines.append(f"{indent}\t\t<v8:lang>ru</v8:lang>")
-    lines.append(f"{indent}\t\t<v8:content>{esc_xml(text)}</v8:content>")
-    lines.append(f"{indent}\t</v8:item>")
+    for lang, content in ml_items:
+        lines.append(f"{indent}\t<v8:item>")
+        lines.append(f"{indent}\t\t<v8:lang>{lang}</v8:lang>")
+        lines.append(f"{indent}\t\t<v8:content>{esc_xml(content)}</v8:content>")
+        lines.append(f"{indent}\t</v8:item>")
     lines.append(f"{indent}</{tag}>")
 
 
@@ -1476,7 +1494,7 @@ def emit_common_flags(lines, el, indent):
 
 def emit_title(lines, el, name, indent):
     if el.get('title'):
-        emit_mltext(lines, indent, 'Title', str(el['title']))
+        emit_mltext(lines, indent, 'Title', el['title'])
 
 
 # --- Type emitter ---
@@ -2043,7 +2061,7 @@ def emit_button(lines, el, name, eid, indent):
     # Picture
     if el.get('picture'):
         lines.append(f'{inner}<Picture>')
-        lines.append(f'{inner}\t<xr:Ref>{el["picture"]}</xr:Ref>')
+        lines.append(f'{inner}\t<xr:Ref>{resolve_picture_ref(el["picture"])}</xr:Ref>')
         lines.append(f'{inner}\t<xr:LoadTransparent>true</xr:LoadTransparent>')
         lines.append(f'{inner}</Picture>')
 
@@ -2069,7 +2087,7 @@ def emit_picture_decoration(lines, el, name, eid, indent):
     emit_common_flags(lines, el, inner)
 
     if el.get('picture') or el.get('src'):
-        ref = str(el.get('src') or el.get('picture'))
+        ref = resolve_picture_ref(el.get('src') or el.get('picture'))
         lines.append(f'{inner}<Picture>')
         lines.append(f'{inner}\t<xr:Ref>{ref}</xr:Ref>')
         lines.append(f'{inner}\t<xr:LoadTransparent>true</xr:LoadTransparent>')
@@ -2162,7 +2180,7 @@ def emit_popup(lines, el, name, eid, indent):
 
     if el.get('picture'):
         lines.append(f'{inner}<Picture>')
-        lines.append(f'{inner}\t<xr:Ref>{el["picture"]}</xr:Ref>')
+        lines.append(f'{inner}\t<xr:Ref>{resolve_picture_ref(el["picture"])}</xr:Ref>')
         lines.append(f'{inner}\t<xr:LoadTransparent>true</xr:LoadTransparent>')
         lines.append(f'{inner}</Picture>')
 
@@ -2194,7 +2212,7 @@ def emit_attributes(lines, attrs, indent):
         inner = f'{indent}\t\t'
 
         if attr.get('title'):
-            emit_mltext(lines, inner, 'Title', str(attr['title']))
+            emit_mltext(lines, inner, 'Title', attr['title'])
 
         # Type
         if attr.get('type'):
@@ -2216,7 +2234,7 @@ def emit_attributes(lines, attrs, indent):
                 col_id = new_id()
                 lines.append(f'{inner}\t<Column name="{col["name"]}" id="{col_id}">')
                 if col.get('title'):
-                    emit_mltext(lines, f'{inner}\t\t', 'Title', str(col['title']))
+                    emit_mltext(lines, f'{inner}\t\t', 'Title', col['title'])
                 emit_type(lines, str(col.get('type', '')), f'{inner}\t\t')
                 lines.append(f'{inner}\t</Column>')
             lines.append(f'{inner}</Columns>')
@@ -2271,7 +2289,7 @@ def emit_commands(lines, cmds, indent):
         inner = f'{indent}\t\t'
 
         if cmd.get('title'):
-            emit_mltext(lines, inner, 'Title', str(cmd['title']))
+            emit_mltext(lines, inner, 'Title', cmd['title'])
 
         if cmd.get('action'):
             lines.append(f'{inner}<Action>{cmd["action"]}</Action>')
@@ -2281,7 +2299,7 @@ def emit_commands(lines, cmds, indent):
 
         if cmd.get('picture'):
             lines.append(f'{inner}<Picture>')
-            lines.append(f'{inner}\t<xr:Ref>{cmd["picture"]}</xr:Ref>')
+            lines.append(f'{inner}\t<xr:Ref>{resolve_picture_ref(cmd["picture"])}</xr:Ref>')
             lines.append(f'{inner}\t<xr:LoadTransparent>true</xr:LoadTransparent>')
             lines.append(f'{inner}</Picture>')
 
@@ -2605,7 +2623,7 @@ def main():
     if not form_title and defn.get('properties') and defn['properties'].get('title'):
         form_title = defn['properties']['title']
     if form_title:
-        emit_mltext(lines, '\t', 'Title', str(form_title))
+        emit_mltext(lines, '\t', 'Title', form_title)
 
     # Properties (skip 'title' — handled above)
     if defn.get('properties'):

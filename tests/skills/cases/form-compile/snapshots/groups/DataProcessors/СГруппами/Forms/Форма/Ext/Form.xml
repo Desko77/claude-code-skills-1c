@@ -65,7 +65,11 @@
 			<Title>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>@{ru=Подвал; en=Footer}</v8:content>
+					<v8:content>Подвал</v8:content>
+				</v8:item>
+				<v8:item>
+					<v8:lang>en</v8:lang>
+					<v8:content>Footer</v8:content>
 				</v8:item>
 			</Title>
 			<Group>Vertical</Group>
