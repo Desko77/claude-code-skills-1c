@@ -636,8 +636,7 @@ def main():
 
     lines.append('</Rights>')
 
-    # Хвостовой перевод строки платформа не пишет - замерено на 8.3.24, 8.3.27, 8.5.1.
-    rights_xml = '\n'.join(lines)
+    rights_xml = '\n'.join(lines) + '\n'
 
     # --- 6. Write output files ---
     out_dir = args.OutputDir
