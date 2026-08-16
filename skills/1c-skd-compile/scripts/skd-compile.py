@@ -96,11 +96,18 @@ def emit_mltext(lines, indent, tag, text):
     if not text:
         lines.append(f"{indent}<{tag}/>")
         return
+    # Значение бывает строкой (тогда это русский вариант) и словарем { 'ru': ..., 'en': ... }.
+    # Раньше словарь приводился к строке и уезжал в XML как есть, вместо перевода.
+    if isinstance(text, dict):
+        ml_items = [(str(lang), str(content)) for lang, content in text.items()]
+    else:
+        ml_items = [('ru', str(text))]
     lines.append(f'{indent}<{tag} xsi:type="v8:LocalStringType">')
-    lines.append(f"{indent}\t<v8:item>")
-    lines.append(f"{indent}\t\t<v8:lang>ru</v8:lang>")
-    lines.append(f"{indent}\t\t<v8:content>{esc_xml(text)}</v8:content>")
-    lines.append(f"{indent}\t</v8:item>")
+    for lang, content in ml_items:
+        lines.append(f"{indent}\t<v8:item>")
+        lines.append(f"{indent}\t\t<v8:lang>{lang}</v8:lang>")
+        lines.append(f"{indent}\t\t<v8:content>{esc_xml(content)}</v8:content>")
+        lines.append(f"{indent}\t</v8:item>")
     lines.append(f"{indent}</{tag}>")
 
 
@@ -543,7 +550,7 @@ def emit_field(lines, field_def, indent):
         f = {
             'dataPath': str(field_def.get('dataPath', '')) or str(field_def.get('field', '')),
             'field': str(field_def.get('field', '')) or str(field_def.get('dataPath', '')),
-            'title': str(field_def.get('title', '')) if field_def.get('title') else '',
+            'title': field_def['title'] if field_def.get('title') else '',
             'type': resolve_type_str(str(field_def['type'])) if field_def.get('type') else '',
             'roles': [],
             'restrict': [],
@@ -741,7 +748,7 @@ def emit_calc_fields(lines, defn):
             data_path = str(cf.get('dataPath') or cf.get('field') or cf.get('name') or '')
             expression = str(cf.get('expression', ''))
             if cf.get('title'):
-                title = str(cf['title'])
+                title = cf['title']
             if cf.get('type'):
                 type_str = resolve_type_str(str(cf['type']))
 
@@ -866,11 +873,11 @@ def emit_single_param(lines, p, parsed):
     # a synonym — 1C UI labels a parameter's caption "Представление").
     title = ''
     if parsed.get('title'):
-        title = str(parsed['title'])
+        title = parsed['title']
     elif p is not None and not isinstance(p, str) and p.get('title'):
-        title = str(p['title'])
+        title = p['title']
     elif p is not None and not isinstance(p, str) and p.get('presentation'):
-        title = str(p['presentation'])
+        title = p['presentation']
     if title:
         emit_mltext(lines, '\t\t', 'title', title)
 
@@ -1867,13 +1874,8 @@ def emit_settings_variants(lines, defn):
         lines.append('\t<settingsVariant>')
         lines.append(f'\t\t<dcsset:name>{esc_xml(str(v["name"]))}</dcsset:name>')
 
-        pres = str(v.get('presentation', '')) or str(v.get('title', '')) or str(v['name'])
-        lines.append('\t\t<dcsset:presentation xsi:type="v8:LocalStringType">')
-        lines.append('\t\t\t<v8:item>')
-        lines.append('\t\t\t\t<v8:lang>ru</v8:lang>')
-        lines.append(f'\t\t\t\t<v8:content>{esc_xml(pres)}</v8:content>')
-        lines.append('\t\t\t</v8:item>')
-        lines.append('\t\t</dcsset:presentation>')
+        pres = v.get('presentation') or v.get('title') or str(v['name'])
+        emit_mltext(lines, '		', 'dcsset:presentation', pres)
 
         lines.append('\t\t<dcsset:settings xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows">')
 

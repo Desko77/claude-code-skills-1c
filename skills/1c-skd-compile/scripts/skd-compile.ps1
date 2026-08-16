@@ -80,12 +80,24 @@ function Resolve-QueryValue {
 }
 
 function Emit-MLText {
-	param([string]$tag, [string]$text, [string]$indent)
+	param([string]$tag, $text, [string]$indent)
+	# Значение бывает строкой (тогда это русский вариант) и объектом { ru = "..."; en = "..." }.
+	# Раньше параметр был [string], объект приводился к "@{ru=...; en=...}" и уезжал в XML целиком.
+	$mlItems = @()
+	if ($text -is [string]) {
+		$mlItems += @{ lang = "ru"; content = $text }
+	} else {
+		foreach ($mlProp in $text.PSObject.Properties) {
+			$mlItems += @{ lang = $mlProp.Name; content = "$($mlProp.Value)" }
+		}
+	}
 	X "$indent<$tag xsi:type=`"v8:LocalStringType`">"
-	X "$indent`t<v8:item>"
-	X "$indent`t`t<v8:lang>ru</v8:lang>"
-	X "$indent`t`t<v8:content>$(Esc-Xml $text)</v8:content>"
-	X "$indent`t</v8:item>"
+	foreach ($mlItem in $mlItems) {
+		X "$indent`t<v8:item>"
+		X "$indent`t`t<v8:lang>$($mlItem.lang)</v8:lang>"
+		X "$indent`t`t<v8:content>$(Esc-Xml $mlItem.content)</v8:content>"
+		X "$indent`t</v8:item>"
+	}
 	X "$indent</$tag>"
 }
 
@@ -596,7 +608,7 @@ function Emit-Field {
 		$f = @{
 			dataPath = if ($fieldDef.dataPath) { "$($fieldDef.dataPath)" } elseif ($fieldDef.field) { "$($fieldDef.field)" } else { "" }
 			field = if ($fieldDef.field) { "$($fieldDef.field)" } else { "$($fieldDef.dataPath)" }
-			title = if ($fieldDef.title) { "$($fieldDef.title)" } else { "" }
+			title = if ($fieldDef.title) { $fieldDef.title } else { "" }
 			type = if ($fieldDef.type) { Resolve-TypeStr "$($fieldDef.type)" } else { "" }
 			roles = @()
 			restrict = @()
@@ -825,7 +837,7 @@ function Emit-CalcFields {
 			$parsed = Parse-CalcShorthand $cf
 			$dataPath = "$($parsed.dataPath)"
 			$expression = "$($parsed.expression)"
-			$title = "$($parsed.title)"
+			$title = $parsed.title
 			$typeStr = "$($parsed.type)"
 			if ($parsed.restrict) { $restrictTokens = @($parsed.restrict) }
 		} else {
@@ -833,7 +845,7 @@ function Emit-CalcFields {
 				elseif ($cf.field) { "$($cf.field)" }
 				else { "$($cf.name)" }
 			$expression = "$($cf.expression)"
-			if ($cf.title) { $title = "$($cf.title)" }
+			if ($cf.title) { $title = $cf.title }
 			if ($cf.type) { $typeStr = Resolve-TypeStr "$($cf.type)" }
 
 			$restrictVal = if ($cf.restrict) { $cf.restrict } elseif ($cf.useRestriction) { $cf.useRestriction } else { $null }
@@ -935,11 +947,11 @@ function Emit-SingleParam {
 	# a synonym — 1C UI labels a parameter's caption "Представление").
 	$title = ""
 	if ($parsed.title) {
-		$title = "$($parsed.title)"
+		$title = $parsed.title
 	} elseif ($p -isnot [string] -and $p.title) {
-		$title = "$($p.title)"
+		$title = $p.title
 	} elseif ($p -isnot [string] -and $p.presentation) {
-		$title = "$($p.presentation)"
+		$title = $p.presentation
 	}
 	if ($title) {
 		Emit-MLText -tag "title" -text $title -indent "`t`t"
@@ -2146,13 +2158,8 @@ function Emit-SettingsVariants {
 		X "`t<settingsVariant>"
 		X "`t`t<dcsset:name>$(Esc-Xml "$($v.name)")</dcsset:name>"
 
-		$pres = if ($v.presentation) { "$($v.presentation)" } elseif ($v.title) { "$($v.title)" } else { "$($v.name)" }
-		X "`t`t<dcsset:presentation xsi:type=`"v8:LocalStringType`">"
-		X "`t`t`t<v8:item>"
-		X "`t`t`t`t<v8:lang>ru</v8:lang>"
-		X "`t`t`t`t<v8:content>$(Esc-Xml $pres)</v8:content>"
-		X "`t`t`t</v8:item>"
-		X "`t`t</dcsset:presentation>"
+		$pres = if ($v.presentation) { $v.presentation } elseif ($v.title) { $v.title } else { "$($v.name)" }
+		Emit-MLText -tag "dcsset:presentation" -text $pres -indent "`t`t"
 
 		X "`t`t<dcsset:settings xmlns:style=`"http://v8.1c.ru/8.1/data/ui/style`" xmlns:sys=`"http://v8.1c.ru/8.1/data/ui/fonts/system`" xmlns:web=`"http://v8.1c.ru/8.1/data/ui/colors/web`" xmlns:win=`"http://v8.1c.ru/8.1/data/ui/colors/windows`">"
 
