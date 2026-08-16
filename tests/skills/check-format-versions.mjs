@@ -22,7 +22,21 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SKILLS = join(ROOT, '.claude', 'skills');
+const SKILLS = join(ROOT, 'skills');
+
+// Кейсы и гарды адресуют навыки короткими именами, у нас они с префиксом 1c-.
+// Часть навыков переименована при переносе - для них отдельные соответствия.
+const SKILL_ALIASES = {
+  'epf-init': '1c-epf-scaffold',
+  'help-add': '1c-help-manage',
+  'support-edit': '1c-support-state',
+};
+function skillDir(name) {
+  for (const candidate of [SKILL_ALIASES[name], '1c-' + name, name]) {
+    if (candidate && existsSync(join(SKILLS, candidate))) return join(SKILLS, candidate);
+  }
+  return join(SKILLS, '1c-' + name);
+}
 const SPEC = join(ROOT, 'docs', '1c-configuration-spec.md');
 
 // Навыки, объявляющие проверенный диапазон. file — базовое имя скрипта в scripts/.
@@ -92,7 +106,7 @@ for (let i = 1; i < ladder.length; i++) {
 const found = [];
 for (const c of RANGE_CONSUMERS) {
   for (const [port, ext] of [['ps1', '.ps1'], ['py', '.py']]) {
-    const path = join(SKILLS, c.skill, 'scripts', c.file + ext);
+    const path = join(skillDir(c.skill), 'scripts', c.file + ext);
     const text = read(path);
     if (text === null) {
       errors.push(`${c.skill} (${port}): файл не найден: ${path}`);

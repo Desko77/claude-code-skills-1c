@@ -1,0 +1,49 @@
+name: Тесты навыков
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshots:
+    name: Снапшот-тесты скриптов
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Фильтр cases намеренный: он пропускает интеграционные тесты, которым нужна
+      # установленная платформа 1С. Раннер гоняет 761 кейс и сверяет их с реестром
+      # known-gaps.json - падение из реестра ожидаемо, падение вне его роняет прогон.
+      - name: Снапшот-тесты, реализация на PowerShell
+        run: node tests/skills/runner.mjs cases
+
+      - name: Согласованность перечислений между навыками
+        run: node tests/skills/check-enum-drift.mjs
+
+  mirrors:
+    name: Python-зеркала компилируются
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Зеркала не гоняются здесь тестами - раннеру нужен Windows. Но синтаксическая
+      # ошибка в зеркале ловится дешево и сразу.
+      - name: Проверка синтаксиса
+        run: |
+          python -m compileall -q skills tools

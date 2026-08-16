@@ -18,7 +18,21 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SKILLS = join(ROOT, '.claude', 'skills');
+const SKILLS = join(ROOT, 'skills');
+
+// Кейсы и гарды адресуют навыки короткими именами, у нас они с префиксом 1c-.
+// Часть навыков переименована при переносе - для них отдельные соответствия.
+const SKILL_ALIASES = {
+  'epf-init': '1c-epf-scaffold',
+  'help-add': '1c-help-manage',
+  'support-edit': '1c-support-state',
+};
+function skillDir(name) {
+  for (const candidate of [SKILL_ALIASES[name], '1c-' + name, name]) {
+    if (candidate && existsSync(join(SKILLS, candidate))) return join(SKILLS, candidate);
+  }
+  return join(SKILLS, '1c-' + name);
+}
 const SPEC = join(ROOT, 'docs', '1c-configuration-spec.md');
 
 // ─── Реестр карт ────────────────────────────────────────────────────────────
@@ -223,7 +237,7 @@ function extractGen(text, name, kind, lang) {
 }
 
 function readSkill(skill, file, ext) {
-  const p = join(SKILLS, skill, 'scripts', `${file}.${ext}`);
+  const p = join(skillDir(skill), 'scripts', `${file}.${ext}`);
   if (!existsSync(p)) return null;
   return readFileSync(p, 'utf8').replace(/^﻿/, '');
 }

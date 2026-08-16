@@ -19,7 +19,21 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SKILLS = join(ROOT, '.claude', 'skills');
+const SKILLS = join(ROOT, 'skills');
+
+// Кейсы и гарды адресуют навыки короткими именами, у нас они с префиксом 1c-.
+// Часть навыков переименована при переносе - для них отдельные соответствия.
+const SKILL_ALIASES = {
+  'epf-init': '1c-epf-scaffold',
+  'help-add': '1c-help-manage',
+  'support-edit': '1c-support-state',
+};
+function skillDir(name) {
+  for (const candidate of [SKILL_ALIASES[name], '1c-' + name, name]) {
+    if (candidate && existsSync(join(SKILLS, candidate))) return join(SKILLS, candidate);
+  }
+  return join(SKILLS, '1c-' + name);
+}
 
 // ─── Реестр семей ───────────────────────────────────────────────────────────
 // name    — как называть семью в отчёте
@@ -481,7 +495,7 @@ function hashBody(body, lang) {
 function buildIndex() {
   const index = new Map(); // `${skill}|${lang}` -> Map(name -> body)
   for (const skill of readdirSync(SKILLS)) {
-    const dir = join(SKILLS, skill, 'scripts');
+    const dir = join(skillDir(skill), 'scripts');
     if (!existsSync(dir)) continue;
     for (const file of readdirSync(dir)) {
       const lang = file.endsWith('.py') ? 'py' : file.endsWith('.ps1') ? 'ps1' : null;
