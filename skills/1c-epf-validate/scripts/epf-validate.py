@@ -10,6 +10,26 @@ import sys
 from io import StringIO
 from lxml import etree
 
+# Проверенный диапазон версий формата. Эталон - лестница версий в docs/1c-configuration-spec.md
+# (§7.1); согласованность границ стережет tests/skills/check-format-versions.mjs. Сравнение
+# числовое, поэтому промежуточная версия ведет себя предсказуемо.
+FORMAT_VERIFIED_MIN = "2.17"
+FORMAT_VERIFIED_MAX = "2.21"
+
+
+def _format_version_rank(version):
+    m = re.match(r'^(\d+)\.(\d+)$', version or '')
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
+def format_version_known(version):
+    rank = _format_version_rank(version)
+    if rank == 0:
+        return False
+    return _format_version_rank(FORMAT_VERIFIED_MIN) <= rank <= _format_version_rank(FORMAT_VERIFIED_MAX)
+
+
+
 MD_NS = "http://v8.1c.ru/8.3/MDClasses"
 V8_NS = "http://v8.1c.ru/8.1/data/core"
 XR_NS = "http://v8.1c.ru/8.3/xcf/readable"
@@ -165,8 +185,9 @@ def main():
     version = root.get("version", "")
     if not version:
         report_warn("1. Missing version attribute on MetaDataObject")
-    elif version not in ("2.17", "2.18", "2.19", "2.20", "2.21"):
-        report_warn(f"1. Unusual version '{version}' (expected 2.17-2.21)")
+    elif not format_version_known(version):
+        report_warn(f"1. Unusual version '{version}' "
+                    f"(expected {FORMAT_VERIFIED_MIN}-{FORMAT_VERIFIED_MAX})")
 
     # Detect type
     child_elements = []

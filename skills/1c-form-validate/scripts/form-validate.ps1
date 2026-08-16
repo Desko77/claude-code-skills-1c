@@ -10,6 +10,26 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# --- Проверенный диапазон версий формата ---
+# Эталон - лестница версий в docs/1c-configuration-spec.md (§7.1). Границы не размножаются по
+# навыкам списками: их согласованность стережет tests/skills/check-format-versions.mjs.
+# Сравнение числовое, поэтому промежуточная версия ведет себя предсказуемо.
+$formatVerifiedMin = "2.17"
+$formatVerifiedMax = "2.21"
+
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
+function Test-FormatVersionKnown {
+	param([string]$Version)
+	$rank = Get-FormatVersionRank $Version
+	if ($rank -eq 0) { return $false }
+	return ($rank -ge (Get-FormatVersionRank $formatVerifiedMin)) -and ($rank -le (Get-FormatVersionRank $formatVerifiedMax))
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Resolve path ---
@@ -126,10 +146,10 @@ if ($root.LocalName -ne "Form") {
 	Report-Error "Root element is '$($root.LocalName)', expected 'Form'"
 } else {
 	$version = $root.GetAttribute("version")
-	if ($version -eq "2.17" -or $version -eq "2.20") {
+	if (Test-FormatVersionKnown $version) {
 		Report-OK "Root element: Form version=$version"
 	} elseif ($version) {
-		Report-Warn "Form version='$version' (expected 2.17 or 2.20)"
+		Report-Warn "Form version='$version' (expected $formatVerifiedMin-$formatVerifiedMax)"
 	} else {
 		Report-Warn "Form version attribute missing"
 	}

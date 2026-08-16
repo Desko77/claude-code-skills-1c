@@ -34,12 +34,24 @@
 				<xr:TypeId>UUID-016</xr:TypeId>
 				<xr:ValueId>UUID-017</xr:ValueId>
 			</xr:GeneratedType>
+			<xr:GeneratedType name="BaseCalculationTypesRow.ОсновныеНачисления" category="BaseCalculationTypesRow">
+				<xr:TypeId>UUID-018</xr:TypeId>
+				<xr:ValueId>UUID-019</xr:ValueId>
+			</xr:GeneratedType>
+			<xr:GeneratedType name="DisplacingCalculationTypesRow.ОсновныеНачисления" category="DisplacingCalculationTypesRow">
+				<xr:TypeId>UUID-020</xr:TypeId>
+				<xr:ValueId>UUID-021</xr:ValueId>
+			</xr:GeneratedType>
+			<xr:GeneratedType name="LeadingCalculationTypesRow.ОсновныеНачисления" category="LeadingCalculationTypesRow">
+				<xr:TypeId>UUID-022</xr:TypeId>
+				<xr:ValueId>UUID-023</xr:ValueId>
+			</xr:GeneratedType>
 		</InternalInfo>
 		<Properties>
 			<ObjectBelonging>Adopted</ObjectBelonging>
 			<Name>ОсновныеНачисления</Name>
 			<Comment/>
-			<ExtendedConfigurationObject>UUID-018</ExtendedConfigurationObject>
+			<ExtendedConfigurationObject>UUID-024</ExtendedConfigurationObject>
 		</Properties>
 		<ChildObjects/>
 	</ChartOfCalculationTypes>

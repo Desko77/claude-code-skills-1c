@@ -661,7 +661,9 @@ $script:generatedTypes = @{
 		@{ prefix = "ChartOfCharacteristicTypesRef";            category = "Ref" }
 		@{ prefix = "ChartOfCharacteristicTypesSelection";      category = "Selection" }
 		@{ prefix = "ChartOfCharacteristicTypesList";           category = "List" }
-		@{ prefix = "ChartOfCharacteristicTypesCharacteristic"; category = "Characteristic" }
+		# Префикс именно "Characteristic", без имени типа: так пишет платформа. Замерено круговым
+		# прогоном через 8.3.27 и подтверждено выгрузкой типовой конфигурации.
+		@{ prefix = "Characteristic"; category = "Characteristic" }
 		@{ prefix = "ChartOfCharacteristicTypesManager";        category = "Manager" }
 	)
 	"ChartOfCalculationTypes" = @(
@@ -1388,8 +1390,10 @@ function Emit-ConstantProperties {
 	X "$i<Comment/>"
 
 	# Type
-	$valueType = Build-TypeStr $def
-	if (-not $valueType) { $valueType = "String" }
+	# Build-TypeStr рассчитан на реквизиты, где `type` и есть тип данных. У определения ОБЪЕКТА
+	# `type` означает тип метаданных, поэтому общий откат тут не годится: без valueType в тип
+	# значения попадало слово Constant, и платформа отвергала загрузку с «Неизвестное имя типа».
+	$valueType = if ($def.valueType) { Build-TypeStr $def } else { "String" }
 	Emit-ValueType $i $valueType
 
 	X "$i<UseStandardCommands>true</UseStandardCommands>"

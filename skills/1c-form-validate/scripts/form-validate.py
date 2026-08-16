@@ -8,6 +8,26 @@ import re
 import sys
 from lxml import etree
 
+# Проверенный диапазон версий формата. Эталон - лестница версий в docs/1c-configuration-spec.md
+# (§7.1); согласованность границ стережет tests/skills/check-format-versions.mjs. Сравнение
+# числовое, поэтому промежуточная версия ведет себя предсказуемо.
+FORMAT_VERIFIED_MIN = "2.17"
+FORMAT_VERIFIED_MAX = "2.21"
+
+
+def _format_version_rank(version):
+    m = re.match(r'^(\d+)\.(\d+)$', version or '')
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
+def format_version_known(version):
+    rank = _format_version_rank(version)
+    if rank == 0:
+        return False
+    return _format_version_rank(FORMAT_VERIFIED_MIN) <= rank <= _format_version_rank(FORMAT_VERIFIED_MAX)
+
+
+
 F_NS = "http://v8.1c.ru/8.3/xcf/logform"
 V8_NS = "http://v8.1c.ru/8.1/data/core"
 
@@ -161,10 +181,11 @@ def main():
         report_error(f"Root element is '{localname(root)}', expected 'Form'")
     else:
         version = root.get("version", "")
-        if version in ("2.17", "2.20"):
+        if format_version_known(version):
             report_ok(f"Root element: Form version={version}")
         elif version:
-            report_warn(f"Form version='{version}' (expected 2.17 or 2.20)")
+            report_warn(f"Form version='{version}' "
+                        f"(expected {FORMAT_VERIFIED_MIN}-{FORMAT_VERIFIED_MAX})")
         else:
             report_warn("Form version attribute missing")
 

@@ -18,7 +18,7 @@
 				<xr:TypeId>UUID-008</xr:TypeId>
 				<xr:ValueId>UUID-009</xr:ValueId>
 			</xr:GeneratedType>
-			<xr:GeneratedType name="ChartOfCharacteristicTypesCharacteristic.ВидыСвойств" category="Characteristic">
+			<xr:GeneratedType name="Characteristic.ВидыСвойств" category="Characteristic">
 				<xr:TypeId>UUID-010</xr:TypeId>
 				<xr:ValueId>UUID-011</xr:ValueId>
 			</xr:GeneratedType>

@@ -559,7 +559,9 @@ generated_types = {
         {'prefix': 'ChartOfCharacteristicTypesRef', 'category': 'Ref'},
         {'prefix': 'ChartOfCharacteristicTypesSelection', 'category': 'Selection'},
         {'prefix': 'ChartOfCharacteristicTypesList', 'category': 'List'},
-        {'prefix': 'ChartOfCharacteristicTypesCharacteristic', 'category': 'Characteristic'},
+        # Префикс именно "Characteristic", без имени типа: так пишет платформа. Замерено круговым
+        # прогоном через 8.3.27 и подтверждено выгрузкой типовой конфигурации.
+        {'prefix': 'Characteristic', 'category': 'Characteristic'},
         {'prefix': 'ChartOfCharacteristicTypesManager', 'category': 'Manager'},
     ],
     'ChartOfCalculationTypes': [
@@ -1174,7 +1176,10 @@ def emit_constant_properties(indent):
     emit_mltext(i, 'Synonym', synonym)
     X(f'{i}<Comment/>')
     # Type
-    value_type = build_type_str(defn) or 'String'
+    # build_type_str рассчитан на реквизиты, где `type` и есть тип данных. У определения ОБЪЕКТА
+    # `type` означает тип метаданных, поэтому общий откат тут не годится: без valueType в тип
+    # значения попадало слово Constant, и платформа отвергала загрузку с «Неизвестное имя типа».
+    value_type = build_type_str(defn) if defn.get('valueType') else 'String'
     emit_value_type(i, value_type)
     X(f'{i}<UseStandardCommands>true</UseStandardCommands>')
     X(f'{i}<DefaultForm/>')

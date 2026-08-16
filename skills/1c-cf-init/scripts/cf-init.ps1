@@ -12,6 +12,26 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# --- Проверенный диапазон версий формата ---
+# Эталон - лестница версий в docs/1c-configuration-spec.md (§7.1). Границы не размножаются по
+# навыкам списками: их согласованность стережет tests/skills/check-format-versions.mjs.
+# Сравнение числовое, поэтому промежуточная версия ведет себя предсказуемо.
+$formatVerifiedMin = "2.17"
+$formatVerifiedMax = "2.21"
+
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
+function Test-FormatVersionKnown {
+	param([string]$Version)
+	$rank = Get-FormatVersionRank $Version
+	if ($rank -eq 0) { return $false }
+	return ($rank -ge (Get-FormatVersionRank $formatVerifiedMin)) -and ($rank -le (Get-FormatVersionRank $formatVerifiedMax))
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- XML text escaping: only the three characters that break parsing ---
@@ -36,9 +56,8 @@ if ($FormatVersion -notmatch '^\d+\.\d+$') {
 	Write-Error "FormatVersion must look like 2.17, got: $FormatVersion"
 	exit 1
 }
-$knownFormats = @("2.17", "2.18", "2.19", "2.20", "2.21")
-if ($FormatVersion -notin $knownFormats) {
-	[Console]::Error.WriteLine("Warning: format version '$FormatVersion' is outside the known ladder ($($knownFormats -join ', ')). The header is written as asked and feature flags follow the numeric comparison, but the result is not covered by tests.")
+if (-not (Test-FormatVersionKnown $FormatVersion)) {
+	[Console]::Error.WriteLine("Warning: format version '$FormatVersion' is outside the verified ladder ($formatVerifiedMin-$formatVerifiedMax). The header is written as asked and feature flags follow the numeric comparison, but the result is not covered by tests.")
 }
 $formatNumber = [double]::Parse($FormatVersion, [System.Globalization.CultureInfo]::InvariantCulture)
 # TextToSpeech mobile functionality appeared in 8.3.25 (format 2.18).

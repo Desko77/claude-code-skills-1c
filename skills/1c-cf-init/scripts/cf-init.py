@@ -4,8 +4,26 @@
 """Generates minimal XML source files for a 1C configuration."""
 import sys, os, re, argparse, uuid
 
-# Известная лестница версий формата. Список не ограничивает ввод - см. main().
-FORMAT_VERSIONS = ("2.17", "2.18", "2.19", "2.20", "2.21")
+# Проверенный диапазон версий формата. Эталон - лестница версий в docs/1c-configuration-spec.md
+# (§7.1); согласованность границ стережет tests/skills/check-format-versions.mjs. Сравнение
+# числовое, поэтому промежуточная версия ведет себя предсказуемо.
+FORMAT_VERIFIED_MIN = "2.17"
+FORMAT_VERIFIED_MAX = "2.21"
+
+
+def _format_version_rank(version):
+    m = re.match(r'^(\d+)\.(\d+)$', version or '')
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
+def format_version_known(version):
+    rank = _format_version_rank(version)
+    if rank == 0:
+        return False
+    return _format_version_rank(FORMAT_VERIFIED_MIN) <= rank <= _format_version_rank(FORMAT_VERIFIED_MAX)
+
+
+
 
 # Class identifiers of the seven contained interface objects.
 CLASS_IDS = (
@@ -272,9 +290,9 @@ def main():
     if not re.fullmatch(r'\d+\.\d+', format_version):
         print(f"FormatVersion must look like 2.17, got: {format_version}", file=sys.stderr)
         sys.exit(1)
-    if format_version not in FORMAT_VERSIONS:
-        print(f"Warning: format version '{format_version}' is outside the known ladder "
-              f"({', '.join(FORMAT_VERSIONS)}). The header is written as asked and feature flags "
+    if not format_version_known(format_version):
+        print(f"Warning: format version '{format_version}' is outside the verified ladder "
+              f"({FORMAT_VERIFIED_MIN}-{FORMAT_VERIFIED_MAX}). The header is written as asked and feature flags "
               f"follow the numeric comparison, but the result is not covered by tests.",
               file=sys.stderr)
     format_number = float(format_version)

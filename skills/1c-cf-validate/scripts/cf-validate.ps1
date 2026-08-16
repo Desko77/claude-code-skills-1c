@@ -12,6 +12,26 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# --- Проверенный диапазон версий формата ---
+# Эталон - лестница версий в docs/1c-configuration-spec.md (§7.1). Границы не размножаются по
+# навыкам списками: их согласованность стережет tests/skills/check-format-versions.mjs.
+# Сравнение числовое, поэтому промежуточная версия ведет себя предсказуемо.
+$formatVerifiedMin = "2.17"
+$formatVerifiedMax = "2.21"
+
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
+function Test-FormatVersionKnown {
+	param([string]$Version)
+	$rank = Get-FormatVersionRank $Version
+	if ($rank -eq 0) { return $false }
+	return ($rank -ge (Get-FormatVersionRank $formatVerifiedMin)) -and ($rank -le (Get-FormatVersionRank $formatVerifiedMax))
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Resolve path ---
@@ -203,8 +223,8 @@ if ($root.NamespaceURI -ne $expectedNs) {
 $version = $root.GetAttribute("version")
 if (-not $version) {
 	Report-Warn "1. Missing version attribute on MetaDataObject"
-} elseif ($version -notin @("2.17", "2.18", "2.19", "2.20", "2.21")) {
-	Report-Warn "1. Unusual version '$version' (expected 2.17-2.21)"
+} elseif (-not (Test-FormatVersionKnown $version)) {
+	Report-Warn "1. Unusual version '$version' (expected $formatVerifiedMin-$formatVerifiedMax)"
 }
 
 # Must have Configuration child

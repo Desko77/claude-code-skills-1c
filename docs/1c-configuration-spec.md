@@ -281,6 +281,55 @@ ClassId — фиксированные идентификаторы классо
 
 Внутри одного типа объекты отсортированы по имени (алфавитный порядок). Типы, для которых нет объектов, в ChildObjects не записываются.
 
+### 2.5. InternalInfo объектов - наборы GeneratedType
+
+Каждый объект несет в `InternalInfo` набор порождаемых платформой типов. Набор жестко задан типом
+метаданных: платформа выпускает ровно эти элементы, ни больше ни меньше, и своевольничать здесь
+нельзя - лишний или недостающий `GeneratedType` ломает загрузку.
+
+В таблице `*` заменяется именем типа метаданных: для `Catalog` запись `*Object` означает
+`CatalogObject`. Там, где префикс не начинается с имени типа, он написан целиком - такие исключения
+есть, и угадывать их по образцу соседей нельзя.
+
+| Тип | Набор `префикс`/категория |
+|-----|---------------------------|
+| `Catalog` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager |
+| `Document` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager |
+| `Enum` | `*Ref`/Ref, `*List`/List, `*Manager`/Manager |
+| `Constant` | `*Manager`/Manager, `*ValueManager`/ValueManager, `*ValueKey`/ValueKey |
+| `ExchangePlan` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager |
+| `ChartOfCharacteristicTypes` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `Characteristic`/Characteristic |
+| `ChartOfAccounts` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `*ExtDimensionTypes`/ExtDimensionTypes, `*ExtDimensionTypesRow`/ExtDimensionTypesRow |
+| `ChartOfCalculationTypes` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `BaseCalculationTypes`/BaseCalculationTypes, `BaseCalculationTypesRow`/BaseCalculationTypesRow, `DisplacingCalculationTypes`/DisplacingCalculationTypes, `DisplacingCalculationTypesRow`/DisplacingCalculationTypesRow, `LeadingCalculationTypes`/LeadingCalculationTypes, `LeadingCalculationTypesRow`/LeadingCalculationTypesRow |
+| `InformationRegister` | `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `*Record`/Record, `*RecordSet`/RecordSet, `*RecordKey`/RecordKey, `*RecordManager`/RecordManager |
+| `AccumulationRegister` | `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `*Record`/Record, `*RecordSet`/RecordSet, `*RecordKey`/RecordKey |
+| `AccountingRegister` | `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `*Record`/Record, `*RecordSet`/RecordSet, `*RecordKey`/RecordKey, `*ExtDimensions`/ExtDimensions |
+| `CalculationRegister` | `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `*Record`/Record, `*RecordSet`/RecordSet, `*RecordKey`/RecordKey, `RecalculationsManager`/Recalcs |
+| `BusinessProcess` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager, `*RoutePointRef`/RoutePointRef |
+| `Task` | `*Object`/Object, `*Ref`/Ref, `*Selection`/Selection, `*List`/List, `*Manager`/Manager |
+| `DocumentJournal` | `*Selection`/Selection, `*List`/List, `*Manager`/Manager |
+| `Report` | `*Object`/Object, `*Manager`/Manager |
+| `DataProcessor` | `*Object`/Object, `*Manager`/Manager |
+| `Sequence` | `*Manager`/Manager, `*Record`/Record, `*RecordSet`/RecordSet |
+| `FilterCriterion` | `*List`/List, `*Manager`/Manager |
+| `SettingsStorage` | `*Manager`/Manager |
+| `WSReference` | `*Manager`/Manager |
+| `DefinedType` | `*`/DefinedType |
+
+Объекты с табличными частями получают ДОПОЛНИТЕЛЬНО пару `*TabularSection`/TabularSection и
+`*TabularSectionRow`/TabularSectionRow. Их нет у объекта без табличных частей - набор зависит не
+только от типа, но и от состава конкретного объекта.
+
+Типы, не порождающие ни одного `GeneratedType`: общие модули, формы, макеты, картинки и команды,
+группы команд, общие реквизиты, параметры сеанса, регламентные задания, подписки на события,
+HTTP- и web-сервисы, функциональные опции и их параметры, нумераторы документов.
+
+**Замерено 2026-08-16** круговым прогоном через платформу 8.3.27.2214: конфигурация собрана
+навыками, загружена в пустую базу и выгружена обратно; таблица построена по тому, что записала
+платформа. Двадцать два типа сверены таким способом, часть дополнительно подтверждена выгрузкой
+типовой конфигурации. Прогон нашел одну ошибку в навыках: для категории Characteristic писался
+префикс `ChartOfCharacteristicTypesCharacteristic` вместо `Characteristic`.
+
 ---
 
 ## 3. ConfigDumpInfo.xml — служебный файл выгрузки
@@ -928,9 +977,37 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 
 ---
 
-## 7. Различия версий 2.17 → 2.20
+## 7. Версии формата и различия 2.17 → 2.20
 
 ### 7.1. Атрибут version
+
+Лестница версий формата выгрузки. Это единственный эталон диапазона: навыки не держат собственных
+списков версий, а объявляют границы, которые сверяются с этой таблицей
+(`tests/skills/check-format-versions.mjs`).
+
+| Платформа | Версия | Замерено |
+|-----------|--------|----------|
+| 8.3.24 | `2.17` | да |
+| 8.3.25 | `2.18` | нет |
+| 8.3.26 | `2.19` | нет |
+| 8.3.27 | `2.20` | да |
+| 8.5.1 | `2.21` | да |
+
+Столбец «замерено» отличает ступени, сверенные с выгрузкой живой платформы, от тех, что навыки
+поддерживают по описанию возможностей. Замер делается так: пустая файловая база, выгрузка
+конфигурации в XML, чтение атрибута `version` корневого элемента.
+
+Замеры 2026-08-16 на пустых базах: **8.3.24.1586 → 2.17**, **8.3.27.2214 → 2.20**,
+**8.5.1.1423 → 2.21**. Дополнительно подтверждено на всех трех: пустой элемент пишется плотно
+(`<Tag/>`, ни одного случая с пробелом), хвостового перевода строки после корневого тега нет,
+кодировка объявляется как `UTF-8` в верхнем регистре.
+
+Не замерены 2.18 и 2.19 - платформ 8.3.25 и 8.3.26 под рукой нет. Для 2.18 признаком служит
+появление мобильной функциональности `TextToSpeech` и тега `TypeReductionMode`; чем отличается
+2.19, мы не знаем - версия принимается, но своих признаков за ней не закреплено.
+
+Добавили ступень сюда - поднимите верхнюю границу в навыках, иначе гард уронит прогон. Обратное
+тоже верно.
 
 ```xml
 <!-- 2.17 -->
@@ -963,7 +1040,35 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 
 ### 7.6. Форматирование XML
 
-В v2.20 пустые элементы записываются без пробела: `<Comment/>` вместо `<Comment />`. Это косметическое отличие, не влияющее на парсинг.
+Отличий между версиями нет. Пустой элемент платформа во ВСЕХ замеренных версиях пишет плотно -
+`<Comment/>`, без пробела перед косой чертой; хвостового перевода строки после корневого тега нет.
+
+Раньше здесь утверждалось, что плотная запись появилась в 2.20, а в 2.17 стоял пробел. Замер
+2026-08-16 это опроверг: в выгрузках 8.3.24 (2.17), 8.3.27 (2.20) и 8.5.1 (2.21) - ноль пустых
+элементов с пробелом. Пробел дают сериализаторы .NET `XmlWriter` и python `ElementTree`, а не
+платформа, и именно поэтому навыки приводят свой вывод к плотной форме.
+
+### 7.7. Различия 2.20 → 2.21
+
+Набор свойств `Configuration.xml` между 2.17 и 2.20 идентичен - меняются только значения
+(см. §7.2). А вот 2.21 добавляет объявление пространства имен палитры
+
+```xml
+xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"
+```
+
+и четырнадцать свойств. Восемь из них - вспомогательные формы:
+
+`AuxiliaryCollaborationSystemUsersChoiceForm`, `AuxiliaryDataHistoryChangeHistoryForm`,
+`AuxiliaryDataHistoryVersionDataForm`, `AuxiliaryDataHistoryVersionDifferencesForm`,
+`AuxiliaryDynamicListSettingsForm`, `AuxiliaryReportForm`, `AuxiliaryReportSettingsForm`,
+`AuxiliaryReportVariantForm`.
+
+Остальные шесть относятся к оформлению и главному окну: `Caption`, `ShortCaption`,
+`ClientApplicationTheme`, `ClientApplicationWindowsOpenVariant`,
+`MainClientApplicationWindowInterfaceVariant`, `Version85InterfaceMigrationMode`.
+
+Значение `ConfigurationExtensionCompatibilityMode` принимает вид `Version8_5_1`.
 
 ---
 

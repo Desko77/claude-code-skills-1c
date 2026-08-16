@@ -22,12 +22,16 @@
 				<xr:TypeId>UUID-010</xr:TypeId>
 				<xr:ValueId>UUID-011</xr:ValueId>
 			</xr:GeneratedType>
+			<xr:GeneratedType name="Characteristic.ВидыСубконто" category="Characteristic">
+				<xr:TypeId>UUID-012</xr:TypeId>
+				<xr:ValueId>UUID-013</xr:ValueId>
+			</xr:GeneratedType>
 		</InternalInfo>
 		<Properties>
 			<ObjectBelonging>Adopted</ObjectBelonging>
 			<Name>ВидыСубконто</Name>
 			<Comment/>
-			<ExtendedConfigurationObject>UUID-012</ExtendedConfigurationObject>
+			<ExtendedConfigurationObject>UUID-014</ExtendedConfigurationObject>
 		</Properties>
 		<ChildObjects/>
 	</ChartOfCharacteristicTypes>

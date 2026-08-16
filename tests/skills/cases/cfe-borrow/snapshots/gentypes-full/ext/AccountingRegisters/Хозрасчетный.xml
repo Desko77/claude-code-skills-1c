@@ -26,12 +26,16 @@
 				<xr:TypeId>UUID-012</xr:TypeId>
 				<xr:ValueId>UUID-013</xr:ValueId>
 			</xr:GeneratedType>
+			<xr:GeneratedType name="AccountingRegisterExtDimensions.Хозрасчетный" category="ExtDimensions">
+				<xr:TypeId>UUID-014</xr:TypeId>
+				<xr:ValueId>UUID-015</xr:ValueId>
+			</xr:GeneratedType>
 		</InternalInfo>
 		<Properties>
 			<ObjectBelonging>Adopted</ObjectBelonging>
 			<Name>Хозрасчетный</Name>
 			<Comment/>
-			<ExtendedConfigurationObject>UUID-014</ExtendedConfigurationObject>
+			<ExtendedConfigurationObject>UUID-016</ExtendedConfigurationObject>
 		</Properties>
 		<ChildObjects/>
 	</AccountingRegister>
