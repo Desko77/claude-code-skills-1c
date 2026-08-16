@@ -12,6 +12,81 @@ import uuid
 from lxml import etree
 
 
+class LenientDict(dict):
+    """Словарь, нечувствительный к регистру ключей - как PSObject в PowerShell.
+
+    Нужен для прощающего ввода: DSL принимает и `operation`, и `Operation`. Вложенные словари
+    оборачиваются тоже, иначе леность теряется на первом же уровне вложенности.
+    """
+
+    def __init__(self, data=None):
+        super().__init__()
+        for k, v in (data or {}).items():
+            self[k] = v
+
+    @staticmethod
+    def _wrap(v):
+        if isinstance(v, dict):
+            return LenientDict(v)
+        if isinstance(v, list):
+            return [LenientDict(x) if isinstance(x, dict) else x for x in v]
+        return v
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, self._wrap(value))
+
+    def _actual_key(self, key):
+        if super().__contains__(key):
+            return key
+        if isinstance(key, str):
+            low = key.lower()
+            for k in super().keys():
+                if isinstance(k, str) and k.lower() == low:
+                    return k
+        return None
+
+    def __getitem__(self, key):
+        k = self._actual_key(key)
+        if k is None:
+            raise KeyError(key)
+        return super().__getitem__(k)
+
+    def __contains__(self, key):
+        return self._actual_key(key) is not None
+
+    def get(self, key, default=None):
+        k = self._actual_key(key)
+        return super().__getitem__(k) if k is not None else default
+
+
+OPERATIONS = (
+    "add-content",
+    "remove-content",
+    "add-child",
+    "remove-child",
+    "set-property",
+)
+
+
+def _canon_op(name):
+    """Имя операции приводится к каноническому виду - switch в PowerShell сравнивает
+    без учета регистра, а python по умолчанию с учетом."""
+    low = str(name).lower()
+    for o in OPERATIONS:
+        if o.lower() == low:
+            return o
+    return name
+
+
+def lenient(data):
+    """JSON бывает объектом и массивом объектов - оборачиваем и то, и другое."""
+    if isinstance(data, list):
+        return [LenientDict(x) if isinstance(x, dict) else x for x in data]
+    return LenientDict(data) if isinstance(data, dict) else data
+
+
+
+
 def new_uuid():
     return str(uuid.uuid4())
 
@@ -256,7 +331,7 @@ def parse_value_list(val):
     """Parse a string or JSON array into a list of strings."""
     val = val.strip()
     if val.startswith("["):
-        arr = json.loads(val)
+        arr = lenient(json.loads(val))
         return [str(item) for item in arr]
     return [val]
 
@@ -489,8 +564,8 @@ def main():
 
     def do_set_property(json_val):
         nonlocal modify_count
-        prop_def = json.loads(json_val)
-        prop_name = str(prop_def["name"])
+        prop_def = lenient(json.loads(json_val))
+        prop_name = _canon_op(str(prop_def["name"]))
         prop_value = str(prop_def.get("value", ""))
 
         prop_el = None
@@ -586,7 +661,7 @@ def main():
         if not os.path.isabs(def_file):
             def_file = os.path.join(os.getcwd(), def_file)
         with open(def_file, "r", encoding="utf-8-sig") as fh:
-            ops = json.loads(fh.read())
+            ops = lenient(json.loads(fh.read()))
         if isinstance(ops, list):
             operations = ops
         else:
@@ -595,7 +670,7 @@ def main():
         operations = [{"operation": args.Operation, "value": args.Value or ""}]
 
     for op in operations:
-        op_name = op.get("operation", args.Operation or "")
+        op_name = _canon_op(op.get("operation", args.Operation or ""))
         op_value = op.get("value", args.Value or "")
 
         if op_name == "add-content":
