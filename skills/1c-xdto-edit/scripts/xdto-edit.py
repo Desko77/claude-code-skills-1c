@@ -351,8 +351,13 @@ def save_xml(doc, path):
     # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
     # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
     # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
-    if os.path.exists(path) and b'\r\n' in open(path, 'rb').read(65536):
+    _orig = open(path, 'rb').read() if os.path.exists(path) else b''
+    if b'\r\n' in _orig:
         raw = raw.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+    # Хвостовой перевод исходного файла тоже сохраняется: универсального правила нет,
+    # часть навыков его пишет, часть нет - правка не должна это менять.
+    if _orig.endswith(b'\n') and not raw.endswith(b'\n'):
+        raw += b'\r\n' if b'\r\n' in _orig else b'\n'
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf" + raw)
 
@@ -664,8 +669,13 @@ else:
         # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
         # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
         # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
-        if os.path.exists(xsd_path) and b'\r\n' in open(xsd_path, 'rb').read(65536):
+        _orig = open(xsd_path, 'rb').read() if os.path.exists(xsd_path) else b''
+        if b'\r\n' in _orig:
             schema_bytes = schema_bytes.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+        # Хвостовой перевод исходного файла тоже сохраняется: универсального правила нет,
+        # часть навыков его пишет, часть нет - правка не должна это менять.
+        if _orig.endswith(b'\n') and not schema_bytes.endswith(b'\n'):
+            schema_bytes += b'\r\n' if b'\r\n' in _orig else b'\n'
         with open(xsd_path, "wb") as f:
             f.write(schema_bytes)
         invoke_sibling(COMPILE, ["-XsdPath", xsd_path, "-OutputDir", config_root,

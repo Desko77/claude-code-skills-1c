@@ -123,8 +123,13 @@ def save_xml_bom(tree, path):
     # Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
     # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
     # После разбора в байтах всегда LF: XML-разбор нормализует концы строк при чтении.
-    if os.path.exists(path) and b'\r\n' in open(path, 'rb').read(65536):
+    _orig = open(path, 'rb').read() if os.path.exists(path) else b''
+    if b'\r\n' in _orig:
         xml_bytes = xml_bytes.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+    # Хвостовой перевод исходного файла тоже сохраняется: универсального правила нет,
+    # часть навыков его пишет, часть нет - правка не должна это менять.
+    if _orig.endswith(b'\n') and not xml_bytes.endswith(b'\n'):
+        xml_bytes += b'\r\n' if b'\r\n' in _orig else b'\n'
     with open(path, "wb") as f:
         f.write(b"\xef\xbb\xbf")
         f.write(xml_bytes)
