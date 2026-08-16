@@ -1586,7 +1586,9 @@ function printIntegrationReport(results, opts) {
 //   - кейс из реестра ПРОШЕЛ      -> разрыв закрыт, надо вычеркнуть из реестра (сообщаем).
 const KNOWN_GAPS_FILE = resolve(ROOT, 'known-gaps.json');
 
-function applyKnownGaps(results, casesOk) {
+function applyKnownGaps(results, casesOk, scope) {
+  // scope - префикс идентификаторов ("cases/" или "integration/"). Реестр общий,
+  // но считать разрывы надо только по той части, которую сейчас прогнали.
   if (!existsSync(KNOWN_GAPS_FILE)) return casesOk;
   let known;
   try {
@@ -1600,7 +1602,8 @@ function applyKnownGaps(results, casesOk) {
   const regressions = failedNow.filter((r) => !known.has(r.id));
   const fixed = results.filter((r) => r.passed && known.has(r.id));
 
-  console.log(`  Известные разрывы: ${failedNow.length - regressions.length} из ${known.size}`);
+  const scoped = scope ? [...known].filter((id) => id.startsWith(scope)) : [...known];
+  console.log(`  Известные разрывы: ${failedNow.length - regressions.length} из ${scoped.length}`);
   if (fixed.length) {
     console.log(`  Закрыто разрывов: ${fixed.length} - вычеркни их из known-gaps.json:`);
     for (const r of fixed.slice(0, 20)) console.log(`    + ${r.id}`);
@@ -1639,6 +1642,7 @@ async function main() {
         integrationResults.push(...await runIntegrationTest(test, opts));
       }
       integrationOk = printIntegrationReport(integrationResults, opts);
+      integrationOk = applyKnownGaps(integrationResults, integrationOk, 'integration/');
     }
   }
 
@@ -1672,7 +1676,7 @@ async function main() {
       }
       const wallTime = ((performance.now() - wallStart) / 1000).toFixed(1);
       casesOk = printReport(results, opts, wallTime);
-      casesOk = applyKnownGaps(results, casesOk);
+      casesOk = applyKnownGaps(results, casesOk, 'cases/');
     } else if (opts.filter && !isIntegrationFilter) {
       console.log('No test cases found.' + (opts.filter ? ` Filter: "${opts.filter}"` : ''));
     }

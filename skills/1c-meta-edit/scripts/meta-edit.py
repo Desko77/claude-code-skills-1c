@@ -517,6 +517,17 @@ def build_structural_xml(indent, prop_name, value, type_str=""):
     return build_choice_parameters_xml(indent, value)
 
 
+def append_child_with_indent(container, node, indent):
+    """Дописывает узел последним, сохраняя отступы вокруг него."""
+    nl = chr(10)
+    if len(container):
+        container[-1].tail = nl + indent
+    else:
+        container.text = nl + indent
+    node.tail = nl + indent[:-1]
+    container.append(node)
+
+
 def build_link_by_type_xml(indent, value):
     """Связь по типу. Замерено на 8.5: дочерние элементы обязаны нести префикс xr - без него
     платформа молча отбрасывает содержимое; путь должен быть полным (<Тип>.<Имя>.Attribute.<Имя>),
@@ -1865,7 +1876,28 @@ def modify_properties(props_def):
                 break
 
         if prop_el is None:
-            warn(f"Property '{prop_name}' not found in Properties")
+            # Свойство создается заново, а не пропускается: конфигурация могла прийти
+            # из выгрузки, где отсутствующее свойство означает значение по умолчанию.
+            # Порядок внутри Properties платформе безразличен - замерено на 8.5.
+            if prop_name in complex_property_map:
+                warn(f"Property '{prop_name}' not found in Properties")
+                continue
+            new_indent = get_child_indent(properties_el)
+            if prop_name in STRUCTURAL_PROPS:
+                new_xml = build_structural_xml(new_indent, prop_name, prop_value)
+            else:
+                new_text = "true" if prop_value is True else (
+                    "false" if prop_value is False else ps_str(prop_value))
+                new_xml = f"{new_indent}<{prop_name}>{esc_xml(new_text)}</{prop_name}>"
+            new_nodes = import_fragment(new_xml)
+            if not new_nodes:
+                warn(f"Property '{prop_name}' could not be created")
+                continue
+            append_child_with_indent(properties_el, new_nodes[0], new_indent)
+            # Создание намеренно заметно: если имя написано с опечаткой, в файл уйдет
+            # несуществующее свойство, и молчаливое создание это скрыло бы.
+            warn(f"Property '{prop_name}' was missing and has been created")
+            modify_count += 1
             continue
 
         # Complex property: Owners, RegisterRecords, BasedOn, InputByString

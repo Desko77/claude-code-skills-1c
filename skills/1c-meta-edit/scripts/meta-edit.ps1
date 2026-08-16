@@ -562,6 +562,15 @@ function Build-StructuralXml {
 	return Build-ChoiceParametersXml $indent $value
 }
 
+function Append-ChildWithIndent($container, $node, [string]$indent) {
+	# Дописывает узел последним, сохраняя отступы вокруг него.
+	$doc = $container.OwnerDocument
+	$imported = $doc.ImportNode($node, $true)
+	$container.AppendChild($doc.CreateWhitespace("`r`n$indent")) | Out-Null
+	$container.AppendChild($imported) | Out-Null
+	$container.AppendChild($doc.CreateWhitespace("`r`n" + $indent.Substring(0, [Math]::Max(0, $indent.Length - 1)))) | Out-Null
+}
+
 function Build-LinkByTypeXml {
 	param([string]$indent, $value)
 	# Замерено на 8.5: дочерние элементы обязаны нести префикс xr - без него платформа молча
@@ -2013,7 +2022,30 @@ function Modify-Properties($propsDef) {
 		}
 
 		if (-not $propEl) {
-			Warn "Property '$propName' not found in Properties"
+			# Свойство создается заново, а не пропускается: конфигурация могла прийти из
+			# выгрузки, где отсутствующее свойство означает значение по умолчанию.
+			# Порядок внутри Properties платформе безразличен - замерено на 8.5.
+			if ($script:complexPropertyMap.ContainsKey($propName)) {
+				Warn "Property '$propName' not found in Properties"
+				return
+			}
+			$newIndent = Get-ChildIndent $propertiesEl
+			if ($script:structuralProps -contains $propName) {
+				$newXml = Build-StructuralXml $newIndent $propName $propValue ""
+			} else {
+				$newText = if ($propValue -is [bool]) { if ($propValue) { "true" } else { "false" } } else { "$propValue" }
+				$newXml = "$newIndent<$propName>$(Esc-Xml $newText)</$propName>"
+			}
+			$newNodes = Import-Fragment $newXml
+			if ($newNodes.Count -eq 0) {
+				Warn "Property '$propName' could not be created"
+				return
+			}
+			Append-ChildWithIndent $propertiesEl $newNodes[0] $newIndent
+			# Создание намеренно заметно: если имя написано с опечаткой, в файл уйдет
+			# несуществующее свойство, и молчаливое создание это скрыло бы.
+			Warn "Property '$propName' was missing and has been created"
+			$script:modifyCount++
 			return
 		}
 
