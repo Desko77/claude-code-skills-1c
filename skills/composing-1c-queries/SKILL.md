@@ -31,6 +31,17 @@ Before composing a query, if you are not certain about the exact names, **use `g
 
 A query with a wrong object or field name will fail with a runtime error. Spending one call on metadata retrieval is always cheaper than debugging a failed query.
 
+## Имена таблиц и полей из AI-EDT
+
+Если сервер AI-EDT подключен, имена не угадываются, а берутся у него - `insights operation=describe_db_tables`
+(отдельное имя `describe_db_tables` тоже работает). Инструмент показывает, во что объект превращается в
+базе данных: основную таблицу, по одной на каждую табличную часть, виртуальные таблицы регистра
+(остатки, обороты, срезы) с их параметрами, таблицу изменений и перерасчеты регистра расчета. Имена
+таблиц и полей отдаются сразу на двух языках, с типами полей, готовыми к подстановке после `ИЗ`.
+
+Это дешевле, чем писать запрос по памяти и ловить ошибки имен по одной через `validate_query`: за один
+вызов видно все, что вообще можно выбрать.
+
 ## Validate Query via AI-EDT
 
 Если сервер AI-EDT подключен (инструменты `ai-edt` доступны), **обязательно проверяй запрос** перед выполнением через `validate_query`:
