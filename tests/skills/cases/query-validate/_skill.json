@@ -1,0 +1,20 @@
+{
+  "script": "query-validate/scripts/query-validate",
+  "setup": "empty-config",
+  "args": [
+    {
+      "flag": "-QueryPath",
+      "from": "workPath",
+      "field": "queryPath"
+    },
+    {
+      "flag": "-IndexPath",
+      "from": "workPath",
+      "field": "indexPath"
+    }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": true
+  }
+}

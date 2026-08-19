@@ -1,0 +1,80 @@
+{
+  "name": "Корректный запрос: таблицы, ТЧ, виртуальная таблица, поля",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "query.txt",
+        "content": "ВЫБРАТЬ\n\tК.Наименование КАК Контрагент,\n\tК.ИНН,\n\tТ.Номенклатура,\n\tТ.Количество,\n\tОст.КоличествоОстаток\nИЗ\n\tСправочник.Контрагенты КАК К\n\tЛЕВОЕ СОЕДИНЕНИЕ Документ.Накладная.Товары КАК Т\n\t\tПО Т.Ссылка.Контрагент = К.Ссылка\n\tЛЕВОЕ СОЕДИНЕНИЕ РегистрНакопления.Остатки.Остатки(&Дата, ) КАК Ост\n\t\tПО Ост.Номенклатура = Т.Номенклатура\nГДЕ\n\tНЕ К.ПометкаУдаления"
+      }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": [
+        {
+          "type": "Catalog",
+          "name": "Номенклатура",
+          "attributes": [
+            "Артикул: String(25)"
+          ]
+        },
+        {
+          "type": "Catalog",
+          "name": "Контрагенты",
+          "attributes": [
+            "ИНН: String(12)"
+          ]
+        },
+        {
+          "type": "Document",
+          "name": "Накладная",
+          "tabularSections": [
+            {
+              "name": "Товары",
+              "attributes": [
+                "Номенклатура: CatalogRef.Номенклатура",
+                "Количество: Number(10,3)"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "AccumulationRegister",
+          "name": "Остатки",
+          "registerType": "Balance",
+          "dimensions": [
+            "Номенклатура: CatalogRef.Номенклатура"
+          ],
+          "resources": [
+            "Количество: Number(15,3)"
+          ]
+        }
+      ],
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "queryPath": "query.txt",
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "навык только читает и печатает - эталон зафиксировал бы выход preRun, а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "Result: 0 warnings",
+      "Псевдонимов связано: 3"
+    ]
+  }
+}

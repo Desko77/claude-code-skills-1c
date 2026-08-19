@@ -1,0 +1,20 @@
+{
+  "name": "Вложенная подсистема получает ключ с полным путем",
+  "setup": "fixture:sample-config",
+  "params": {
+    "outFile": "index.json"
+  },
+  "noSnapshot": "эталон индекса по этой фикстуре закреплен кейсом sample-config; здесь проверяется одна запись",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "index.json",
+        "text": "\"Subsystem.Основная.Subsystem.Справочники\""
+      },
+      {
+        "file": "index.json",
+        "text": "\"Остаток\""
+      }
+    ]
+  }
+}

@@ -6,7 +6,9 @@ param(
 
 	[switch]$Detailed,
 
-	[int]$MaxErrors = 30
+	[int]$MaxErrors = 30,
+
+	[string]$IndexPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -776,6 +778,151 @@ if (-not $stopped) {
 		Report-OK "12. Types: no type values to check"
 	} elseif ($typeOk) {
 		Report-OK "12. Types: $typeChecked values, all valid"
+	}
+}
+
+# --- Check 13: DataPath resolves against the owner object ---
+# Проверка 5 убеждается, что корень пути - реквизит формы. Дальше путь не разбирался вовсе:
+# Объект.ИНН при отсутствующем ИНН у справочника проходил молча. Здесь берется тип реквизита
+# формы (cfg:CatalogObject.Контрагенты), по нему в индексе находится объект и сверяются
+# остальные части пути.
+
+if (-not $stopped) {
+	$indexObjects = $null
+	$indexIsExtension = $false
+	if ($IndexPath) {
+		try {
+			$idxRaw = [System.IO.File]::ReadAllText($IndexPath, [System.Text.Encoding]::UTF8)
+			$idxData = $idxRaw | ConvertFrom-Json
+			if ($idxData.format -ne 1) {
+				Report-Warn "13. Index format $($idxData.format) is not supported, owner check skipped"
+			} else {
+				$indexObjects = @{}
+				foreach ($prop in $idxData.objects.PSObject.Properties) { $indexObjects[$prop.Name] = $prop.Value }
+				$indexIsExtension = ($idxData.kind -eq "extension")
+			}
+		} catch {
+			Report-Warn "13. Index could not be read ($($_.Exception.Message)), owner check skipped"
+		}
+	}
+
+	if ($null -ne $indexObjects) {
+		$kindNames = New-Object 'System.Collections.Generic.HashSet[string]'
+		foreach ($key in $indexObjects.Keys) { [void]$kindNames.Add($key.Split(".")[0]) }
+
+		$ownerOf = @{}
+		foreach ($attrName in $attrMap.Keys) {
+			$typeHolder = $attrMap[$attrName].SelectSingleNode("f:Type", $nsMgr)
+			if (-not $typeHolder) { continue }
+			$typeValues = @()
+			foreach ($tn in $typeHolder.SelectNodes("v8:Type", $nsMgr)) {
+				$tv = $tn.InnerText.Trim()
+				if ($tv -ne "") { $typeValues += $tv }
+			}
+			# Составной тип разрешать некуда: путь может вести в любой из них.
+			if ($typeValues.Count -ne 1) { continue }
+			$v = $typeValues[0]
+			$colon = $v.IndexOf(":")
+			if ($colon -ge 0) { $v = $v.Substring($colon + 1) }
+			$dot = $v.IndexOf(".")
+			if ($dot -le 0) { continue }
+			$prefix = $v.Substring(0, $dot)
+			$objName = $v.Substring($dot + 1)
+			# Самое длинное совпадение: DocumentJournalList должен дать DocumentJournal,
+			# а не Document.
+			$best = $null
+			foreach ($kind in $kindNames) {
+				if ($prefix.StartsWith($kind) -and ($null -eq $best -or $kind.Length -gt $best.Length)) { $best = $kind }
+			}
+			if ($null -eq $best) { continue }
+			$ownerKey = "$best.$objName"
+			if ($indexObjects.ContainsKey($ownerKey)) { $ownerOf[$attrName] = $ownerKey }
+		}
+
+		$ownerChecked = 0
+		$ownerBad = 0
+		$ownerSkippedNoStd = 0
+		$reportedPaths = New-Object 'System.Collections.Generic.HashSet[string]'
+
+		foreach ($el in $allElements) {
+			if ($stopped) { break }
+			if ($el.Tag -in @("ContextMenu", "ExtendedTooltip", "AutoCommandBar", "SearchStringAddition", "ViewStatusAddition", "SearchControlAddition")) {
+				continue
+			}
+			$dpNode = $el.Node.SelectSingleNode("f:DataPath", $nsMgr)
+			if (-not $dpNode) { continue }
+			$dataPath = $dpNode.InnerText.Trim()
+			if ($dataPath -eq "") { continue }
+			if ($reportedPaths.Contains($dataPath)) { continue }
+			$segments = ($dataPath -replace '\[\d+\]', '').Split(".")
+			if ($segments.Count -lt 2) { continue }
+			if (-not $ownerOf.ContainsKey($segments[0])) { continue }
+			$ownerKey = $ownerOf[$segments[0]]
+			$obj = $indexObjects[$ownerKey]
+
+			# Объект без блока StandardAttributes проверять нельзя: любой Объект.Code
+			# был бы объявлен несуществующим. Такие пропускаем целиком.
+			$stdAttrs = $obj.standardAttributes
+			if (-not $stdAttrs -or $stdAttrs.Count -eq 0) { $ownerSkippedNoStd++; continue }
+
+			$ownFields = New-Object 'System.Collections.Generic.HashSet[string]'
+			foreach ($bucket in @("attributes", "dimensions", "resources", "addressingAttributes", "accountingFlags")) {
+				if ($obj.$bucket) { foreach ($p in $obj.$bucket.PSObject.Properties) { [void]$ownFields.Add($p.Name) } }
+			}
+			foreach ($n in $stdAttrs) { [void]$ownFields.Add([string]$n) }
+			$tabular = @{}
+			if ($obj.tabularSections) { foreach ($p in $obj.tabularSections.PSObject.Properties) { $tabular[$p.Name] = $p.Value; [void]$ownFields.Add($p.Name) } }
+			$stdTabular = @{}
+			if ($obj.standardTabularSections) { foreach ($p in $obj.standardTabularSections.PSObject.Properties) { $stdTabular[$p.Name] = $p.Value; [void]$ownFields.Add($p.Name) } }
+
+			$ownerChecked++
+			[void]$reportedPaths.Add($dataPath)
+			$second = $segments[1]
+			if (-not $ownFields.Contains($second)) {
+				$ownerBad++
+				if ($indexIsExtension) {
+					Report-Warn "13. DataPath='$dataPath': у $ownerKey нет '$second' в этой выгрузке - ожидается в основной конфигурации"
+				} else {
+					Report-Warn "13. DataPath='$dataPath': у $ownerKey нет реквизита или табличной части '$second'"
+				}
+				continue
+			}
+			if ($segments.Count -lt 3) { continue }
+			$third = $segments[2]
+			$tsFields = $null
+			if ($tabular.ContainsKey($second)) {
+				$tsFields = New-Object 'System.Collections.Generic.HashSet[string]'
+				$ts = $tabular[$second]
+				if ($ts.attributes) { foreach ($p in $ts.attributes.PSObject.Properties) { [void]$tsFields.Add($p.Name) } }
+				if ($ts.standardAttributes) { foreach ($n in $ts.standardAttributes) { [void]$tsFields.Add([string]$n) } }
+			} elseif ($stdTabular.ContainsKey($second)) {
+				$tsFields = New-Object 'System.Collections.Generic.HashSet[string]'
+				foreach ($n in $stdTabular[$second]) { [void]$tsFields.Add([string]$n) }
+				# Признаки учета по субконто живут в стандартной ТЧ плана счетов.
+				if ($second -eq "ExtDimensionTypes" -and $obj.extDimensionAccountingFlags) {
+					foreach ($p in $obj.extDimensionAccountingFlags.PSObject.Properties) { [void]$tsFields.Add($p.Name) }
+				}
+			}
+			if ($null -eq $tsFields) { continue }
+			if (-not $tsFields.Contains($third)) {
+				$ownerBad++
+				if ($indexIsExtension) {
+					Report-Warn "13. DataPath='$dataPath': у табличной части '$second' нет '$third' в этой выгрузке - ожидается в основной конфигурации"
+				} else {
+					Report-Warn "13. DataPath='$dataPath': у табличной части '$second' нет реквизита '$third'"
+				}
+			}
+		}
+
+		if ($ownerBad -eq 0) {
+			if ($ownerChecked -gt 0 -or $ownerSkippedNoStd -gt 0) {
+				$note = "$ownerChecked paths resolved against owner objects"
+				if ($ownerSkippedNoStd -gt 0) { $note = "$note, $ownerSkippedNoStd skipped (owner has no StandardAttributes)" }
+				Report-OK "13. Owner object: $note"
+			} else {
+				Report-OK "13. Owner object: no paths bound to configuration objects"
+			}
+		}
 	}
 }
 

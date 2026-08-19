@@ -1,0 +1,35 @@
+{
+  "name": "Битая ссылка ловится по индексу, а не обходом каталога (Check 16)",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Заявки",
+        "attributes": [
+          "Клиент: CatalogRef.НетТакого"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Заявки",
+    "indexPath": "index.json"
+  },
+  "noSnapshot": "meta-validate только читает и печатает - эталон зафиксировал бы выход preRun (meta-compile и config-index), а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "16. Ссылочный тип 'CatalogRef.НетТакого' не разрешается"
+  }
+}

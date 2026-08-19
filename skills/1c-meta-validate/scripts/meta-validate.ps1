@@ -8,7 +8,9 @@ param(
 
 	[int]$MaxErrors = 30,
 
-	[string]$OutFile
+	[string]$OutFile,
+
+	[string]$IndexPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -1348,6 +1350,148 @@ if ($mdType -eq "DocumentJournal" -and $childObjNode) {
 		Report-OK "14. DocumentJournal Columns: none"
 	}
 }
+
+# --- Check 16: Type references point to existing objects ---
+
+# Ссылочный тип узнается по форме имени: часть до первой точки кончается на Ref
+# (CatalogRef, DocumentRef, BusinessProcessRoutePointRef) либо это Characteristic или
+# DefinedType. Все прочее с точкой не трогаем - там может быть что угодно, а ложное
+# срабатывание дороже пропуска.
+function Test-MetadataRef([string]$typeName) {
+	$dot = $typeName.IndexOf(".")
+	if ($dot -le 0) { return $false }
+	$prefix = $typeName.Substring(0, $dot)
+	return ($prefix.EndsWith("Ref") -or $prefix -eq "Characteristic" -or $prefix -eq "DefinedType")
+}
+
+# Резерв на случай, когда индекса не дали: имя разбирается на префикс и объект, и объект
+# ищется файлом. Для ОДНОГО объекта это дешево; в индексе тот же ответ точнее и быстрее.
+$refPrefixDirMap = @{
+	"CatalogRef"="Catalogs"; "DocumentRef"="Documents"; "EnumRef"="Enums"
+	"ExchangePlanRef"="ExchangePlans"; "BusinessProcessRef"="BusinessProcesses"
+	"BusinessProcessRoutePointRef"="BusinessProcesses"; "TaskRef"="Tasks"
+	"ChartOfAccountsRef"="ChartsOfAccounts"
+	"ChartOfCharacteristicTypesRef"="ChartsOfCharacteristicTypes"
+	"ChartOfCalculationTypesRef"="ChartsOfCalculationTypes"
+	"Characteristic"="ChartsOfCharacteristicTypes"; "DefinedType"="DefinedTypes"
+}
+
+$indexTypes = $null
+$indexIsExtension = $false
+if ($IndexPath) {
+	try {
+		$indexRaw = [System.IO.File]::ReadAllText($IndexPath, [System.Text.Encoding]::UTF8)
+		$indexData = $indexRaw | ConvertFrom-Json
+		if ($indexData.format -ne 1) {
+			Report-Warn "16. Index format $($indexData.format) is not supported, cross-object check skipped"
+		} else {
+			$indexTypes = New-Object 'System.Collections.Generic.HashSet[string]'
+			foreach ($tn in $indexData.types) { [void]$indexTypes.Add([string]$tn) }
+			$indexIsExtension = ($indexData.kind -eq "extension")
+		}
+	} catch {
+		Report-Warn "16. Index could not be read ($($_.Exception.Message)), cross-object check skipped"
+	}
+}
+
+# Заимствованный объект живет в расширении: его типы могут ссылаться на основную конфигурацию,
+# которой в этой выгрузке нет. Тогда неизвестная ссылка - предупреждение, а не ошибка.
+$objectIsAdopted = $false
+if ($propsNode) {
+	$belonging = $propsNode.SelectSingleNode("md:ObjectBelonging", $ns)
+	if ($belonging -and $belonging.InnerText.Trim() -eq "Adopted") { $objectIsAdopted = $true }
+}
+$lenient = ($indexIsExtension -or $objectIsAdopted)
+
+# Пары "ссылка / где встретилась" из одного блока Type или ValueType.
+function Get-TypeRefs($container, [string]$label) {
+	$found = [System.Collections.ArrayList]::new()
+	if (-not $container) { return ,$found }
+	foreach ($holderTag in @("md:Type", "md:ValueType")) {
+		$holder = $container.SelectSingleNode($holderTag, $ns)
+		if (-not $holder) { continue }
+		foreach ($tag in @("v8:Type", "v8:TypeSet")) {
+			foreach ($node in $holder.SelectNodes($tag, $ns)) {
+				# Составной тип платформа пишет отдельным элементом на тип, но meta-compile
+				# для DefinedType складывает их в один через " + ". Принимаем оба вида.
+				foreach ($part in ($node.InnerText -split " \+ ")) {
+					$val = $part.Trim()
+					if ($val -eq "") { continue }
+					$colon = $val.IndexOf(":")
+					if ($colon -ge 0) { $val = $val.Substring($colon + 1) }
+					if (Test-MetadataRef $val) { [void]$found.Add(@($val, $label)) }
+				}
+			}
+		}
+	}
+	return ,$found
+}
+
+$typeRefs = [System.Collections.ArrayList]::new()
+if ($propsNode) {
+	foreach ($p in (Get-TypeRefs $propsNode $mdType)) { [void]$typeRefs.Add($p) }
+}
+if ($childObjNode) {
+	foreach ($child in $childObjNode.ChildNodes) {
+		if ($child.NodeType -ne [System.Xml.XmlNodeType]::Element) { continue }
+		$childProps = $child.SelectSingleNode("md:Properties", $ns)
+		if (-not $childProps) { continue }
+		$childNameNode = $childProps.SelectSingleNode("md:Name", $ns)
+		$childName = if ($childNameNode) { $childNameNode.InnerText.Trim() } else { "?" }
+		if ($child.LocalName -eq "TabularSection") {
+			$tsChildren = $child.SelectSingleNode("md:ChildObjects", $ns)
+			if (-not $tsChildren) { continue }
+			foreach ($tsAttr in $tsChildren.SelectNodes("md:Attribute", $ns)) {
+				$tsProps = $tsAttr.SelectSingleNode("md:Properties", $ns)
+				if (-not $tsProps) { continue }
+				$tsNameNode = $tsProps.SelectSingleNode("md:Name", $ns)
+				$tsName = if ($tsNameNode) { $tsNameNode.InnerText.Trim() } else { "?" }
+				foreach ($p in (Get-TypeRefs $tsProps "$childName.$tsName")) { [void]$typeRefs.Add($p) }
+			}
+		} else {
+			foreach ($p in (Get-TypeRefs $childProps "$($child.LocalName) $childName")) { [void]$typeRefs.Add($p) }
+		}
+	}
+}
+
+if ($typeRefs.Count -eq 0) {
+	Report-OK "16. Reference types: none to check"
+} elseif ($null -eq $indexTypes -and -not $script:configDir) {
+	Report-Warn "16. Reference types: $($typeRefs.Count) found, but neither -IndexPath nor configuration root is available - not checked"
+} else {
+	$check16Bad = 0
+	$seenRefs = New-Object 'System.Collections.Generic.HashSet[string]'
+	foreach ($pair in $typeRefs) {
+		if ($script:stopped) { break }
+		$ref = $pair[0]
+		$where = $pair[1]
+		if (-not $seenRefs.Add("$where`t$ref")) { continue }
+		if ($null -ne $indexTypes) {
+			$known = $indexTypes.Contains($ref)
+		} else {
+			$dot = $ref.IndexOf(".")
+			$prefix = $ref.Substring(0, $dot)
+			$refName = $ref.Substring($dot + 1)
+			$refDir = $refPrefixDirMap[$prefix]
+			if (-not $refDir) { continue }
+			$base = Join-Path (Join-Path $script:configDir $refDir) $refName
+			$known = ((Test-Path -LiteralPath $base) -or (Test-Path -LiteralPath "$base.xml"))
+		}
+		if ($known) { continue }
+		$check16Bad++
+		if ($lenient) {
+			Report-Warn "16. Ссылочный тип '$ref' не найден в этой выгрузке - ожидается в основной конфигурации ($where)"
+		} else {
+			Report-Warn "16. Ссылочный тип '$ref' не разрешается: объекта нет в конфигурации ($where)"
+		}
+	}
+	if ($check16Bad -eq 0) {
+		$source = if ($null -ne $indexTypes) { "index" } else { "configuration files" }
+		Report-OK "16. Reference types: $($seenRefs.Count) checked against $source, all resolve"
+	}
+}
+
+if ($script:stopped) { & $finalize; exit 1 }
 
 # --- Final output ---
 

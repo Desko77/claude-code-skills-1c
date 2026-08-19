@@ -4,7 +4,8 @@ param(
 	[Parameter(Mandatory)][string]$SubsystemPath,
 	[switch]$Detailed,
 	[int]$MaxErrors = 30,
-	[string]$OutFile
+	[string]$OutFile,
+	[string]$IndexPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -324,6 +325,46 @@ if (-not $script:stopped) {
 		}
 	} else {
 		Report-OK "13. UseOneCommand: false (no constraint)"
+	}
+}
+
+# --- 14. Content items exist in the configuration ---
+# Состав подсистемы ссылается на объекты именами вида Catalog.Контрагенты - ровно так
+# же они лежат ключами в индексе, поэтому карта соответствий тут не нужна.
+
+if ($IndexPath) {
+	$indexObjects = $null
+	$indexLenient = $false
+	try {
+		$idxData = [System.IO.File]::ReadAllText($IndexPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+		if ($idxData.format -ne 1) {
+			Report-Warn "14. Index format $($idxData.format) is not supported, content check skipped"
+		} else {
+			$indexObjects = New-Object 'System.Collections.Generic.HashSet[string]'
+			foreach ($p in $idxData.objects.PSObject.Properties) { [void]$indexObjects.Add($p.Name) }
+			$indexLenient = ($idxData.kind -eq "extension")
+		}
+	} catch {
+		Report-Warn "14. Index could not be read ($($_.Exception.Message)), content check skipped"
+	}
+	if ($null -ne $indexObjects) {
+		$missingContent = 0
+		$checkedContent = 0
+		foreach ($item in $contentItems) {
+			# Ссылка по UUID именем не проверяется, разбирать ее нечем.
+			if ($item -notmatch '^[A-Za-z]+\..+$') { continue }
+			$checkedContent++
+			if ($indexObjects.Contains($item)) { continue }
+			$missingContent++
+			if ($indexLenient) {
+				Report-Warn "14. Состав: объекта '$item' нет в этой выгрузке - ожидается в основной конфигурации"
+			} else {
+				Report-Warn "14. Состав: объекта '$item' нет в конфигурации"
+			}
+		}
+		if ($missingContent -eq 0) {
+			Report-OK "14. Content objects: $checkedContent checked against index, all exist"
+		}
 	}
 }
 

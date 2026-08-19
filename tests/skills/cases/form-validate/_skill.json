@@ -2,7 +2,17 @@
   "script": "form-validate/scripts/form-validate",
   "setup": "empty-config",
   "args": [
-    { "flag": "-FormPath", "from": "workPath", "field": "formPath" }
+    {
+      "flag": "-FormPath",
+      "from": "workPath",
+      "field": "formPath"
+    },
+    {
+      "flag": "-IndexPath",
+      "from": "workPath",
+      "field": "indexPath",
+      "optional": true
+    }
   ],
   "snapshot": {
     "root": "workDir",

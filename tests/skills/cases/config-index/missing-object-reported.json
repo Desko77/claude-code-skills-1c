@@ -1,0 +1,23 @@
+{
+  "name": "Объявленный в Configuration.xml объект без файла попадает в missing",
+  "setup": "fixture:sample-config",
+  "params": {
+    "outFile": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "эталон индекса по этой фикстуре уже закреплен кейсом sample-config; здесь проверяется отчет о разрыве в stdout",
+  "expect": {
+    "stdoutContains": [
+      "Объявлено в Configuration.xml, но файла нет: 1",
+      "нет файла: Report.НетНаДиске"
+    ],
+    "fileContains": [
+      {
+        "file": "index.json",
+        "text": "\"missing\""
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "script": "bsl-validate/scripts/bsl-validate",
+  "setup": "empty-config",
+  "args": [
+    {
+      "flag": "-ModulePath",
+      "from": "workPath",
+      "field": "modulePath"
+    },
+    {
+      "flag": "-IndexPath",
+      "from": "workPath",
+      "field": "indexPath"
+    }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": true
+  }
+}

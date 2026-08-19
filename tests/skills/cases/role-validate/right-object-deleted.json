@@ -1,0 +1,52 @@
+{
+  "name": "Право на удаленный объект ловится (Check 7)",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Контрагенты",
+        "attributes": [
+          "ИНН: String(12)"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Проверяющая",
+        "objects": [
+          "Catalog.Контрагенты: Read, View",
+          "Catalog.УдаленныйСправочник: Read, View"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "rightsPath": "Roles/Проверяющая/Ext/Rights.xml",
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "валидатор только читает и печатает - эталон зафиксировал бы выход preRun, а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "7. Права: объекта 'Catalog.УдаленныйСправочник' нет в конфигурации"
+  }
+}

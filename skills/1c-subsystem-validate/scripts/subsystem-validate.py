@@ -2,7 +2,7 @@
 # subsystem-validate v1.2 — Validate 1C subsystem XML structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates subsystem XML file structure, properties, content items, child objects."""
-import sys, os, argparse, re
+import sys, os, argparse, json, re
 from lxml import etree
 
 NS = {
@@ -86,12 +86,14 @@ def main():
     parser.add_argument('-Detailed', action='store_true')
     parser.add_argument('-MaxErrors', dest='MaxErrors', type=int, default=30)
     parser.add_argument('-OutFile', dest='OutFile', default='')
+    parser.add_argument('-IndexPath', dest='IndexPath', default='')
     args = parser.parse_args()
 
     subsystem_path = args.SubsystemPath
     detailed = args.Detailed
     max_errors = args.MaxErrors
     out_file = args.OutFile
+    index_path = args.IndexPath
 
     # --- Resolve path ---
     if not os.path.isabs(subsystem_path):
@@ -346,6 +348,42 @@ def main():
         else:
             r.ok('13. UseOneCommand: false (no constraint)')
 
+
+        # --- 14. Content items exist in the configuration ---
+        # Состав подсистемы ссылается на объекты именами вида Catalog.Контрагенты - ровно так
+        # же они лежат ключами в индексе, поэтому карта соответствий тут не нужна.
+        if index_path:
+            index_objects = None
+            index_lenient = False
+            try:
+                with open(index_path, "r", encoding="utf-8") as fh:
+                    index_data = json.load(fh)
+                if index_data.get("format") != 1:
+                    r.warn("14. Index format %s is not supported, content check skipped"
+                           % index_data.get("format"))
+                else:
+                    index_objects = index_data.get("objects") or {}
+                    index_lenient = index_data.get("kind") == "extension"
+            except Exception as exc:
+                r.warn("14. Index could not be read (%s), content check skipped" % exc)
+            if index_objects is not None:
+                missing_content = 0
+                checked_content = 0
+                for item in content_items:
+                    # Ссылка по UUID именем не проверяется, разбирать ее нечем.
+                    if not re.match(r"^[A-Za-z]+\..+$", item):
+                        continue
+                    checked_content += 1
+                    if item in index_objects:
+                        continue
+                    missing_content += 1
+                    if index_lenient:
+                        r.warn("14. Состав: объекта '%s' нет в этой выгрузке - ожидается в основной "
+                               "конфигурации" % item)
+                    else:
+                        r.warn("14. Состав: объекта '%s' нет в конфигурации" % item)
+                if missing_content == 0:
+                    r.ok("14. Content objects: %d checked against index, all exist" % checked_content)
     # --- Finalize ---
     checks = r.ok_count + r.errors + r.warnings
     if r.errors == 0 and r.warnings == 0 and not detailed:

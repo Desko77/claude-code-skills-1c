@@ -51,6 +51,7 @@ const MAPS = [
   // тип → каталог
   { skill: 'cf-edit', file: 'cf-edit', kind: 'dir', py: 'TYPE_TO_DIR', ps1: '$script:typeToDir' },
   { skill: 'cf-validate', file: 'cf-validate', kind: 'dir', py: 'CHILD_TYPE_DIR_MAP', ps1: '$childTypeDirMap' },
+  { skill: 'config-index', file: 'config-index', kind: 'dir', py: 'CHILD_TYPE_DIR_MAP', ps1: '$childTypeDirMap' },
   {
     skill: 'cfe-validate', file: 'cfe-validate', kind: 'dir',
     py: 'CHILD_TYPE_DIR_MAP', ps1: '$childTypeDirMap',
@@ -92,6 +93,14 @@ const MAPS = [
       'TabularSection', 'Dimension', 'Resource', 'Command', 'AddressingAttribute'],
   },
   { skill: 'interface-edit', file: 'interface-edit', kind: 'alias', py: 'TYPE_NORM_MAP', ps1: null },
+  {
+    skill: 'query-validate', file: 'query-validate', kind: 'alias',
+    py: 'QUERY_TABLE_PREFIX_MAP', ps1: '$queryTablePrefixMap',
+  },
+  {
+    skill: 'skd-validate', file: 'skd-validate', kind: 'alias',
+    py: 'QUERY_TABLE_PREFIX_MAP', ps1: '$queryTablePrefixMap',
+  },
   { skill: 'subsystem-edit', file: 'subsystem-edit', kind: 'alias', py: 'CONTENT_TYPE_MAP', ps1: null },
   { skill: 'subsystem-compile', file: 'subsystem-compile', kind: 'alias', py: 'CONTENT_TYPE_MAP', ps1: null },
   { skill: 'meta-remove', file: 'meta-remove', kind: 'keys', py: 'TYPE_PLURAL_MAP', ps1: '$typePluralMap' },

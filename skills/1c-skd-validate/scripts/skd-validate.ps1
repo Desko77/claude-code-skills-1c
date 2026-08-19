@@ -8,7 +8,9 @@ param(
 
 	[int]$MaxErrors = 20,
 
-	[string]$OutFile
+	[string]$OutFile,
+
+	[string]$IndexPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -730,6 +732,101 @@ if ($variantNodes.Count -eq 0) {
 
 	if ($vOk) {
 		Report-OK "$($variantNodes.Count) settingsVariant(s) found"
+	}
+}
+
+# --- Data sets vs configuration ---
+# Набор данных типа Query несет текст запроса, типа Object - имя объекта. И то и другое может
+# ссылаться на объект, которого в конфигурации уже нет. Разбирается только ДВУХЧАСТНОЕ имя
+# метаданных: третья часть в запросе бывает и табличной частью, и значением перечисления, и
+# отличить их без разбора структуры запроса нельзя.
+
+# Имя таблицы в запросе -> тип метаданных. Оба языка запроса.
+$queryTablePrefixMap = @{
+	"Справочник"="Catalog"; "Catalog"="Catalog"
+	"Документ"="Document"; "Document"="Document"
+	"Перечисление"="Enum"; "Enum"="Enum"
+	"РегистрСведений"="InformationRegister"; "InformationRegister"="InformationRegister"
+	"РегистрНакопления"="AccumulationRegister"; "AccumulationRegister"="AccumulationRegister"
+	"РегистрБухгалтерии"="AccountingRegister"; "AccountingRegister"="AccountingRegister"
+	"РегистрРасчета"="CalculationRegister"; "CalculationRegister"="CalculationRegister"
+	"ПланСчетов"="ChartOfAccounts"; "ChartOfAccounts"="ChartOfAccounts"
+	"ПланВидовХарактеристик"="ChartOfCharacteristicTypes"
+	"ChartOfCharacteristicTypes"="ChartOfCharacteristicTypes"
+	"ПланВидовРасчета"="ChartOfCalculationTypes"; "ChartOfCalculationTypes"="ChartOfCalculationTypes"
+	"ПланОбмена"="ExchangePlan"; "ExchangePlan"="ExchangePlan"
+	"БизнесПроцесс"="BusinessProcess"; "BusinessProcess"="BusinessProcess"
+	"Задача"="Task"; "Task"="Task"
+	"Константа"="Constant"; "Constant"="Constant"
+	"ЖурналДокументов"="DocumentJournal"; "DocumentJournal"="DocumentJournal"
+	"Последовательность"="Sequence"; "Sequence"="Sequence"
+	"КритерийОтбора"="FilterCriterion"; "FilterCriterion"="FilterCriterion"
+}
+
+if (-not $script:stopped -and $IndexPath) {
+	$skdIndexObjects = $null
+	$skdIndexLenient = $false
+	try {
+		$skdIndex = [System.IO.File]::ReadAllText($IndexPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+		if ($skdIndex.format -ne 1) {
+			Report-Warn "Index format $($skdIndex.format) is not supported, data set check skipped"
+		} else {
+			$skdIndexObjects = New-Object 'System.Collections.Generic.HashSet[string]'
+			foreach ($p in $skdIndex.objects.PSObject.Properties) { [void]$skdIndexObjects.Add($p.Name) }
+			$skdIndexLenient = ($skdIndex.kind -eq "extension")
+		}
+	} catch {
+		Report-Warn "Index could not be read ($($_.Exception.Message)), data set check skipped"
+	}
+
+	if ($null -ne $skdIndexObjects) {
+		$skdIdent = '[A-Za-z_\u0410-\u044F\u0401\u0451][A-Za-z0-9_\u0410-\u044F\u0401\u0451]*'
+		$skdNameRe = [regex]("\b($skdIdent)\.($skdIdent)")
+		$skdMissing = 0
+		$skdChecked = 0
+		$skdSeen = New-Object 'System.Collections.Generic.HashSet[string]'
+
+		foreach ($ds in $dataSetNodes) {
+			$nameNode = $ds.SelectSingleNode("s:name", $ns)
+			$where = if ($nameNode) { $nameNode.InnerText } else { "?" }
+			$texts = @()
+			$queryNode = $ds.SelectSingleNode("s:query", $ns)
+			if ($queryNode -and $queryNode.InnerText.Trim()) {
+				# Литералы и комментарии выкидываются: внутри них имя таблицы - просто текст.
+				$q = $queryNode.InnerText
+				$q = [regex]::Replace($q, '/\*.*?\*/', ' ', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+				$q = [regex]::Replace($q, '//[^\n]*', ' ')
+				$q = [regex]::Replace($q, '"(?:[^"]|"")*"', ' ')
+				$texts += $q
+			}
+			$objNode = $ds.SelectSingleNode("s:objectName", $ns)
+			if ($objNode -and $objNode.InnerText.Trim()) { $texts += $objNode.InnerText }
+
+			foreach ($txt in $texts) {
+				foreach ($m in $skdNameRe.Matches($txt)) {
+					$prefix = $m.Groups[1].Value
+					$name = $m.Groups[2].Value
+					$kind = $queryTablePrefixMap[$prefix]
+					if (-not $kind) { continue }
+					$key = "$kind.$name"
+					if (-not $skdSeen.Add("$where`t$key")) { continue }
+					$skdChecked++
+					if ($skdIndexObjects.Contains($key)) { continue }
+					$skdMissing++
+					if ($skdIndexLenient) {
+						Report-Warn "Набор данных '$where': объекта '$prefix.$name' нет в этой выгрузке - ожидается в основной конфигурации"
+					} else {
+						Report-Warn "Набор данных '$where': объекта '$prefix.$name' нет в конфигурации"
+					}
+				}
+			}
+		}
+
+		if ($skdMissing -eq 0 -and $skdChecked -gt 0) {
+			Report-OK "Data set objects: $skdChecked checked against index, all exist"
+		} elseif ($skdChecked -eq 0) {
+			Report-OK "Data set objects: no metadata names to check"
+		}
 	}
 }
 

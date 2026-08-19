@@ -1,0 +1,77 @@
+{
+  "name": "Таблица без псевдонима во вложенном запросе тоже проверяется",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "query.txt",
+        "content": "ВЫБРАТЬ Документ.Номер\nИЗ Документ.Накладная КАК Документ\nГДЕ Документ.Ссылка В (ВЫБРАТЬ Ссылка ИЗ Документ.НетТакогоДокумента)"
+      }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": [
+        {
+          "type": "Catalog",
+          "name": "Номенклатура",
+          "attributes": [
+            "Артикул: String(25)"
+          ]
+        },
+        {
+          "type": "Catalog",
+          "name": "Контрагенты",
+          "attributes": [
+            "ИНН: String(12)"
+          ]
+        },
+        {
+          "type": "Document",
+          "name": "Накладная",
+          "tabularSections": [
+            {
+              "name": "Товары",
+              "attributes": [
+                "Номенклатура: CatalogRef.Номенклатура",
+                "Количество: Number(10,3)"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "AccumulationRegister",
+          "name": "Остатки",
+          "registerType": "Balance",
+          "dimensions": [
+            "Номенклатура: CatalogRef.Номенклатура"
+          ],
+          "resources": [
+            "Количество: Number(15,3)"
+          ]
+        }
+      ],
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "queryPath": "query.txt",
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "навык только читает и печатает - эталон зафиксировал бы выход preRun, а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "Таблицы 'Документ.НетТакогоДокумента' нет в конфигурации"
+  }
+}

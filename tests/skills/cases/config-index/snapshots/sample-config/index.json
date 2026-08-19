@@ -1,0 +1,310 @@
+{
+  "format": 1,
+  "kind": "configuration",
+  "name": "ТестИндекс",
+  "version": "",
+  "declared": {
+    "Language": [
+      "Русский"
+    ],
+    "Catalog": [
+      "Контрагенты",
+      "Партнеры",
+      "Номенклатура",
+      "Склады"
+    ],
+    "Enum": [
+      "Статусы"
+    ],
+    "Document": [
+      "Накладная"
+    ],
+    "AccumulationRegister": [
+      "Остатки"
+    ],
+    "CommonModule": [
+      "ОбщиеФункции"
+    ],
+    "Subsystem": [
+      "Основная"
+    ],
+    "Report": [
+      "НетНаДиске"
+    ]
+  },
+  "objects": {
+    "Catalog.Контрагенты": {
+      "kind": "Catalog",
+      "name": "Контрагенты",
+      "attributes": {
+        "ИНН": [
+          "string"
+        ],
+        "Партнер": [
+          "CatalogRef.Партнеры"
+        ]
+      },
+      "standardAttributes": [
+        "PredefinedDataName",
+        "Predefined",
+        "Ref",
+        "DeletionMark",
+        "IsFolder",
+        "Owner",
+        "Parent",
+        "Description",
+        "Code"
+      ],
+      "tabularSections": {
+        "КонтактныеЛица": {
+          "attributes": {
+            "ФИО": [
+              "string"
+            ],
+            "Телефон": [
+              "string"
+            ]
+          },
+          "standardAttributes": [
+            "LineNumber"
+          ]
+        }
+      },
+      "props": {
+        "Hierarchical": "false",
+        "HierarchyType": "HierarchyFoldersAndItems",
+        "CodeLength": "9",
+        "DescriptionLength": "25"
+      }
+    },
+    "Catalog.Партнеры": {
+      "kind": "Catalog",
+      "name": "Партнеры",
+      "standardAttributes": [
+        "PredefinedDataName",
+        "Predefined",
+        "Ref",
+        "DeletionMark",
+        "IsFolder",
+        "Owner",
+        "Parent",
+        "Description",
+        "Code"
+      ],
+      "props": {
+        "Hierarchical": "false",
+        "HierarchyType": "HierarchyFoldersAndItems",
+        "CodeLength": "9",
+        "DescriptionLength": "25"
+      }
+    },
+    "Catalog.Номенклатура": {
+      "kind": "Catalog",
+      "name": "Номенклатура",
+      "standardAttributes": [
+        "PredefinedDataName",
+        "Predefined",
+        "Ref",
+        "DeletionMark",
+        "IsFolder",
+        "Owner",
+        "Parent",
+        "Description",
+        "Code"
+      ],
+      "props": {
+        "Hierarchical": "false",
+        "HierarchyType": "HierarchyFoldersAndItems",
+        "CodeLength": "9",
+        "DescriptionLength": "25"
+      }
+    },
+    "Catalog.Склады": {
+      "kind": "Catalog",
+      "name": "Склады",
+      "standardAttributes": [
+        "PredefinedDataName",
+        "Predefined",
+        "Ref",
+        "DeletionMark",
+        "IsFolder",
+        "Owner",
+        "Parent",
+        "Description",
+        "Code"
+      ],
+      "props": {
+        "Hierarchical": "false",
+        "HierarchyType": "HierarchyFoldersAndItems",
+        "CodeLength": "9",
+        "DescriptionLength": "25"
+      }
+    },
+    "Enum.Статусы": {
+      "kind": "Enum",
+      "name": "Статусы",
+      "standardAttributes": [
+        "Order",
+        "Ref"
+      ],
+      "enumValues": [
+        "Новый",
+        "Закрыт"
+      ]
+    },
+    "Document.Накладная": {
+      "kind": "Document",
+      "name": "Накладная",
+      "attributes": {
+        "Контрагент": [
+          "CatalogRef.Контрагенты"
+        ],
+        "Статус": [
+          "EnumRef.Статусы"
+        ]
+      },
+      "standardAttributes": [
+        "Posted",
+        "Ref",
+        "DeletionMark",
+        "Date",
+        "Number"
+      ],
+      "tabularSections": {
+        "Товары": {
+          "attributes": {
+            "Номенклатура": [
+              "CatalogRef.Номенклатура"
+            ],
+            "Количество": [
+              "decimal"
+            ]
+          },
+          "standardAttributes": [
+            "LineNumber"
+          ]
+        }
+      },
+      "refs": {
+        "RegisterRecords": [
+          "AccumulationRegister.Остатки"
+        ]
+      }
+    },
+    "AccumulationRegister.Остатки": {
+      "kind": "AccumulationRegister",
+      "name": "Остатки",
+      "attributes": {
+        "Комментарий": [
+          "string"
+        ]
+      },
+      "standardAttributes": [
+        "Active",
+        "LineNumber",
+        "Recorder",
+        "Period"
+      ],
+      "dimensions": {
+        "Номенклатура": [
+          "CatalogRef.Номенклатура"
+        ],
+        "Склад": [
+          "CatalogRef.Склады"
+        ]
+      },
+      "resources": {
+        "Количество": [
+          "decimal"
+        ]
+      },
+      "props": {
+        "RegisterType": "Balance"
+      }
+    },
+    "CommonModule.ОбщиеФункции": {
+      "kind": "CommonModule",
+      "name": "ОбщиеФункции",
+      "props": {
+        "Global": "false",
+        "Server": "true",
+        "ClientManagedApplication": "false",
+        "ClientOrdinaryApplication": "false",
+        "ExternalConnection": "false",
+        "ServerCall": "false",
+        "Privileged": "false",
+        "ReturnValuesReuse": "DontUse"
+      }
+    },
+    "Subsystem.Основная": {
+      "kind": "Subsystem",
+      "name": "Основная",
+      "subsystems": [
+        "Справочники"
+      ],
+      "refs": {
+        "Content": [
+          "Catalog.Контрагенты",
+          "Document.Накладная",
+          "AccumulationRegister.Остатки"
+        ]
+      }
+    },
+    "Subsystem.Основная.Subsystem.Справочники": {
+      "kind": "Subsystem",
+      "name": "Справочники",
+      "refs": {
+        "Content": [
+          "Catalog.Контрагенты"
+        ]
+      }
+    }
+  },
+  "types": [
+    "CatalogObject.Контрагенты",
+    "CatalogRef.Контрагенты",
+    "CatalogSelection.Контрагенты",
+    "CatalogList.Контрагенты",
+    "CatalogManager.Контрагенты",
+    "CatalogObject.Партнеры",
+    "CatalogRef.Партнеры",
+    "CatalogSelection.Партнеры",
+    "CatalogList.Партнеры",
+    "CatalogManager.Партнеры",
+    "CatalogObject.Номенклатура",
+    "CatalogRef.Номенклатура",
+    "CatalogSelection.Номенклатура",
+    "CatalogList.Номенклатура",
+    "CatalogManager.Номенклатура",
+    "CatalogObject.Склады",
+    "CatalogRef.Склады",
+    "CatalogSelection.Склады",
+    "CatalogList.Склады",
+    "CatalogManager.Склады",
+    "EnumRef.Статусы",
+    "EnumManager.Статусы",
+    "EnumList.Статусы",
+    "DocumentObject.Накладная",
+    "DocumentRef.Накладная",
+    "DocumentSelection.Накладная",
+    "DocumentList.Накладная",
+    "DocumentManager.Накладная",
+    "AccumulationRegisterRecord.Остатки",
+    "AccumulationRegisterManager.Остатки",
+    "AccumulationRegisterSelection.Остатки",
+    "AccumulationRegisterList.Остатки",
+    "AccumulationRegisterRecordSet.Остатки",
+    "AccumulationRegisterRecordKey.Остатки"
+  ],
+  "commonModules": {
+    "ОбщиеФункции": {
+      "exported": [
+        "Остаток",
+        "ЗаписатьОстаток"
+      ]
+    }
+  },
+  "missing": [
+    "Report.НетНаДиске"
+  ]
+}

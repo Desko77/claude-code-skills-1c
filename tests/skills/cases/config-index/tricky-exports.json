@@ -1,0 +1,34 @@
+{
+  "name": "Экспортные методы разбираются на трудных заголовках",
+  "setup": "fixture:tricky-exports",
+  "params": {
+    "outFile": "index.json"
+  },
+  "noSnapshot": "эталон индекса закреплен кейсом sample-config; здесь проверяется разбор четырех трудных заголовков метода",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "index.json",
+        "text": "\"СУрлом\""
+      },
+      {
+        "file": "index.json",
+        "text": "\"СоСкобкойВСтроке\""
+      },
+      {
+        "file": "index.json",
+        "text": "\"ПереносПеред\""
+      },
+      {
+        "file": "index.json",
+        "text": "\"Асинхронная\""
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "index.json",
+        "text": "\"НеЭкспортная\""
+      }
+    ]
+  }
+}

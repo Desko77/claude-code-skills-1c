@@ -8,7 +8,9 @@ param(
 
 	[switch]$Detailed,
 
-	[int]$MaxErrors = 30
+	[int]$MaxErrors = 30,
+
+	[string]$IndexPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -284,6 +286,7 @@ $objects = $root.GetElementsByTagName("object", $rightsNs)
 $objCount = $objects.Count
 $rightCount = 0
 $rlsCount = 0
+$rightsObjectNames = [System.Collections.ArrayList]::new()
 
 foreach ($obj in $objects) {
 	$objName = ""
@@ -298,6 +301,7 @@ foreach ($obj in $objects) {
 		Report-Error "Object without <name>"
 		continue
 	}
+	[void]$rightsObjectNames.Add($objName)
 
 	$objectType = Get-ObjectType $objName
 	$isNested = Is-NestedObject $objName
@@ -477,6 +481,92 @@ if (Test-Path $configXmlPath) {
 		}
 	} catch {
 		Report-Warn "Configuration.xml: parse error — $($_.Exception.Message)"
+	}
+}
+
+# --- 7. Right objects exist in the configuration ---
+# Имена в правах те же, что ключи индекса (Catalog.Контрагенты), плюс вложенные сущности
+# через Attribute / TabularSection / Command. Разбираем 2, 4 и 6 частей, остальное не трогаем.
+
+function Get-RoleOwnFieldNames($obj) {
+	$names = New-Object 'System.Collections.Generic.HashSet[string]'
+	foreach ($bucket in @("attributes", "dimensions", "resources", "addressingAttributes", "accountingFlags", "extDimensionAccountingFlags")) {
+		if ($obj.$bucket) { foreach ($p in $obj.$bucket.PSObject.Properties) { [void]$names.Add($p.Name) } }
+	}
+	if ($obj.standardAttributes) { foreach ($n in $obj.standardAttributes) { [void]$names.Add([string]$n) } }
+	return $names
+}
+
+if ($IndexPath) {
+	$indexObjects = $null
+	$indexLenient = $false
+	try {
+		$idxData = [System.IO.File]::ReadAllText($IndexPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+		if ($idxData.format -ne 1) {
+			Report-Warn "7. Index format $($idxData.format) is not supported, object check skipped"
+		} else {
+			$indexObjects = @{}
+			foreach ($p in $idxData.objects.PSObject.Properties) { $indexObjects[$p.Name] = $p.Value }
+			$indexLenient = ($idxData.kind -eq "extension")
+		}
+	} catch {
+		Report-Warn "7. Index could not be read ($($_.Exception.Message)), object check skipped"
+	}
+
+	if ($null -ne $indexObjects) {
+		$missingRightsObjects = 0
+		$checkedRightsObjects = 0
+		foreach ($name in $rightsObjectNames) {
+			$parts = $name.Split(".")
+			if ($parts.Count -lt 2) { continue }
+			$ownerKey = $parts[0] + "." + $parts[1]
+			$checkedRightsObjects++
+			if (-not $indexObjects.ContainsKey($ownerKey)) {
+				$missingRightsObjects++
+				if ($indexLenient) {
+					Report-Warn "7. Права: объекта '$ownerKey' нет в этой выгрузке - ожидается в основной конфигурации"
+				} else {
+					Report-Warn "7. Права: объекта '$ownerKey' нет в конфигурации"
+				}
+				continue
+			}
+			$obj = $indexObjects[$ownerKey]
+			$known = $null
+			if ($parts.Count -eq 4) {
+				$childKind = $parts[2]
+				$childName = $parts[3]
+				if ($childKind -eq "Attribute" -or $childKind -eq "StandardAttribute") {
+					$known = (Get-RoleOwnFieldNames $obj).Contains($childName)
+				} elseif ($childKind -eq "TabularSection") {
+					$known = ($null -ne $obj.tabularSections.$childName) -or ($null -ne $obj.standardTabularSections.$childName)
+				} elseif ($childKind -eq "Command") {
+					$known = ($obj.commands -contains $childName)
+				} elseif ($childKind -eq "Form") {
+					$known = ($obj.forms -contains $childName)
+				} elseif ($childKind -eq "Template") {
+					$known = ($obj.templates -contains $childName)
+				} else {
+					continue
+				}
+			} elseif ($parts.Count -eq 6 -and $parts[2] -eq "TabularSection" -and $parts[4] -eq "Attribute") {
+				$ts = $obj.tabularSections.($parts[3])
+				if ($null -eq $ts) { continue }
+				$known = ($null -ne $ts.attributes.($parts[5])) -or ($ts.standardAttributes -contains $parts[5])
+			} else {
+				continue
+			}
+			if ($known) { continue }
+			$missingRightsObjects++
+			$nested = ($parts[2..($parts.Count - 1)] -join ".")
+			if ($indexLenient) {
+				Report-Warn "7. Права: у $ownerKey нет '$nested' в этой выгрузке - ожидается в основной конфигурации"
+			} else {
+				Report-Warn "7. Права: у $ownerKey нет '$nested'"
+			}
+		}
+		if ($missingRightsObjects -eq 0) {
+			Report-OK "7. Right objects: $checkedRightsObjects checked against index, all exist"
+		}
 	}
 }
 

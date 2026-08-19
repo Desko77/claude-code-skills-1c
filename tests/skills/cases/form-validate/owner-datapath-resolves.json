@@ -1,0 +1,87 @@
+{
+  "name": "Пути данных формы разрешаются в реквизиты объекта-владельца (Check 13)",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Контрагенты",
+        "attributes": [
+          "ИНН: String(12)"
+        ],
+        "tabularSections": [
+          {
+            "name": "Контакты",
+            "attributes": [
+              "ФИО: String(100)"
+            ]
+          }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/Catalogs/Контрагенты.xml",
+        "-FormName": "ФормаЭлемента"
+      }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Контрагент",
+        "attributes": [
+          {
+            "name": "Объект",
+            "type": "CatalogObject.Контрагенты",
+            "main": true
+          }
+        ],
+        "elements": [
+          {
+            "input": "Поле1",
+            "path": "Объект.Description",
+            "title": "Поле1"
+          },
+          {
+            "input": "Поле2",
+            "path": "Объект.ИНН",
+            "title": "Поле2"
+          },
+          {
+            "input": "Поле3",
+            "path": "Объект.Контакты.ФИО",
+            "title": "Поле3"
+          }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputPath": "{workDir}/Catalogs/Контрагенты/Forms/ФормаЭлемента/Ext/Form.xml"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "formPath": "Catalogs/Контрагенты/Forms/ФормаЭлемента/Ext/Form.xml",
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "form-validate только читает и печатает - эталон зафиксировал бы выход preRun (meta-compile, form-compile, config-index), а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "13. Owner object: 3 paths resolved against owner objects"
+  }
+}

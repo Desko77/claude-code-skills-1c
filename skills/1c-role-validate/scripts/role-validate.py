@@ -2,7 +2,7 @@
 # role-validate v1.1 — Validate 1C role Rights.xml structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates role Rights.xml: root element, global flags, objects, rights, RLS, templates."""
-import sys, os, argparse, re
+import sys, os, argparse, json, re
 from lxml import etree
 
 GUID_PATTERN = re.compile(
@@ -183,6 +183,7 @@ def main():
     parser.add_argument('-OutFile', dest='OutFile', default='')
     parser.add_argument('-Detailed', dest='Detailed', action='store_true')
     parser.add_argument('-MaxErrors', dest='MaxErrors', type=int, default=30)
+    parser.add_argument('-IndexPath', dest='IndexPath', default='')
     args = parser.parse_args()
 
     rights_path = args.RightsPath
@@ -298,6 +299,7 @@ def main():
     # 3d. Objects
     objects = root.findall(f'{{{RIGHTS_NS}}}object')
     obj_count = len(objects)
+    rights_object_names = []
     right_count = 0
     rls_count = 0
 
@@ -313,6 +315,7 @@ def main():
         if not obj_name:
             report_error('Object without <name>')
             continue
+        rights_object_names.append(obj_name)
 
         object_type = get_object_type(obj_name)
         is_nested = is_nested_object(obj_name)
@@ -491,6 +494,88 @@ def main():
                     report_warn(f'Configuration.xml: <Role>{inferred_role_name}</Role> NOT found in ChildObjects')
         except etree.XMLSyntaxError as e:
             report_warn(f'Configuration.xml: parse error \u2014 {e}')
+
+    # --- 7. Right objects exist in the configuration ---
+    # Имена в правах те же, что ключи индекса (Catalog.Контрагенты), плюс вложенные сущности
+    # через Attribute / TabularSection / Command. Разбираем 2, 4 и 6 частей, остальное не трогаем.
+    index_path = args.IndexPath
+    if index_path:
+        index_objects = None
+        index_lenient = False
+        try:
+            with open(index_path, "r", encoding="utf-8") as fh:
+                index_data = json.load(fh)
+            if index_data.get("format") != 1:
+                report_warn("7. Index format %s is not supported, object check skipped"
+                            % index_data.get("format"))
+            else:
+                index_objects = index_data.get("objects") or {}
+                index_lenient = index_data.get("kind") == "extension"
+        except Exception as exc:
+            report_warn("7. Index could not be read (%s), object check skipped" % exc)
+
+        if index_objects is not None:
+            def own_field_names(obj):
+                names = set()
+                for bucket in ("attributes", "dimensions", "resources",
+                               "addressingAttributes", "accountingFlags",
+                               "extDimensionAccountingFlags"):
+                    names |= set(obj.get(bucket) or {})
+                names |= set(obj.get("standardAttributes") or [])
+                return names
+
+            missing_rights_objects = 0
+            checked_rights_objects = 0
+            for name in rights_object_names:
+                parts = name.split(".")
+                if len(parts) < 2:
+                    continue  # Configuration и подобные - целиком, проверять нечего
+                owner_key = parts[0] + "." + parts[1]
+                checked_rights_objects += 1
+                obj = index_objects.get(owner_key)
+                if obj is None:
+                    missing_rights_objects += 1
+                    if index_lenient:
+                        report_warn("7. Права: объекта '%s' нет в этой выгрузке - ожидается "
+                                    "в основной конфигурации" % owner_key)
+                    else:
+                        report_warn("7. Права: объекта '%s' нет в конфигурации" % owner_key)
+                    continue
+                if len(parts) == 4:
+                    child_kind, child_name = parts[2], parts[3]
+                    if child_kind in ("Attribute", "StandardAttribute"):
+                        known = child_name in own_field_names(obj)
+                    elif child_kind == "TabularSection":
+                        known = (child_name in (obj.get("tabularSections") or {})
+                                 or child_name in (obj.get("standardTabularSections") or {}))
+                    elif child_kind == "Command":
+                        known = child_name in (obj.get("commands") or [])
+                    elif child_kind == "Form":
+                        known = child_name in (obj.get("forms") or [])
+                    elif child_kind == "Template":
+                        known = child_name in (obj.get("templates") or [])
+                    else:
+                        continue
+                elif len(parts) == 6 and parts[2] == "TabularSection" and parts[4] == "Attribute":
+                    ts = (obj.get("tabularSections") or {}).get(parts[3])
+                    if ts is None:
+                        continue
+                    known = (parts[5] in (ts.get("attributes") or {})
+                             or parts[5] in (ts.get("standardAttributes") or []))
+                else:
+                    continue
+                if known:
+                    continue
+                missing_rights_objects += 1
+                nested = ".".join(parts[2:])
+                if index_lenient:
+                    report_warn("7. Права: у %s нет '%s' в этой выгрузке - ожидается в основной "
+                                "конфигурации" % (owner_key, nested))
+                else:
+                    report_warn("7. Права: у %s нет '%s'" % (owner_key, nested))
+            if missing_rights_objects == 0:
+                report_ok("7. Right objects: %d checked against index, all exist"
+                          % checked_rights_objects)
 
     # --- 6. Summary ---
 

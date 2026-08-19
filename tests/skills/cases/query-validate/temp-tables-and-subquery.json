@@ -1,0 +1,77 @@
+{
+  "name": "Временные таблицы и вложенный запрос не дают ложных срабатываний",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "query.txt",
+        "content": "ВЫБРАТЬ Н.Ссылка КАК Номенклатура, Н.Артикул\nПОМЕСТИТЬ ВТ_Номенклатура\nИЗ Справочник.Номенклатура КАК Н\n;\nВЫБРАТЬ ВТ.Номенклатура, ВТ.Артикул, ВТ.ЛюбоеИмяИзВременнойТаблицы\nИЗ ВТ_Номенклатура КАК ВТ\n;\nВЫБРАТЬ П.Поле1, П.Поле2\nИЗ (ВЫБРАТЬ 1 КАК Поле1, 2 КАК Поле2) КАК П"
+      }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": [
+        {
+          "type": "Catalog",
+          "name": "Номенклатура",
+          "attributes": [
+            "Артикул: String(25)"
+          ]
+        },
+        {
+          "type": "Catalog",
+          "name": "Контрагенты",
+          "attributes": [
+            "ИНН: String(12)"
+          ]
+        },
+        {
+          "type": "Document",
+          "name": "Накладная",
+          "tabularSections": [
+            {
+              "name": "Товары",
+              "attributes": [
+                "Номенклатура: CatalogRef.Номенклатура",
+                "Количество: Number(10,3)"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "AccumulationRegister",
+          "name": "Остатки",
+          "registerType": "Balance",
+          "dimensions": [
+            "Номенклатура: CatalogRef.Номенклатура"
+          ],
+          "resources": [
+            "Количество: Number(15,3)"
+          ]
+        }
+      ],
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "queryPath": "query.txt",
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "навык только читает и печатает - эталон зафиксировал бы выход preRun, а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "Result: 0 warnings"
+  }
+}

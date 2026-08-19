@@ -3,6 +3,7 @@
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -80,11 +81,13 @@ def main():
     parser.add_argument("-FormPath", required=True)
     parser.add_argument("-Detailed", action="store_true")
     parser.add_argument("-MaxErrors", type=int, default=30)
+    parser.add_argument("-IndexPath", default="")
     args = parser.parse_args()
 
     form_path = args.FormPath
     detailed = args.Detailed
     max_errors = args.MaxErrors
+    index_path = args.IndexPath
 
     if not os.path.isabs(form_path):
         form_path = os.path.join(os.getcwd(), form_path)
@@ -697,6 +700,158 @@ def main():
                 report_ok(f'12. Types: {type_count} values, all valid')
             else:
                 report_ok('12. Types: no type values to check')
+
+    # --- Check 13: DataPath resolves against the owner object ---
+    # Проверка 5 убеждается, что корень пути - реквизит формы. Дальше путь не разбирался вовсе:
+    # Объект.ИНН при отсутствующем ИНН у справочника проходил молча. Здесь берется тип реквизита
+    # формы (cfg:CatalogObject.Контрагенты), по нему в индексе находится объект и сверяются
+    # остальные части пути.
+    if not stopped:
+        index_objects = None
+        index_is_extension = False
+        if index_path:
+            try:
+                with open(index_path, "r", encoding="utf-8") as fh:
+                    index_data = json.load(fh)
+                if index_data.get("format") != 1:
+                    report_warn("13. Index format %s is not supported, owner check skipped"
+                                % index_data.get("format"))
+                else:
+                    index_objects = index_data.get("objects") or {}
+                    index_is_extension = index_data.get("kind") == "extension"
+            except Exception as exc:
+                report_warn("13. Index could not be read (%s), owner check skipped" % exc)
+
+        if index_objects is None:
+            pass  # Индекса не дали - проверка не выполняется, и это нормальный режим работы.
+        else:
+            kinds = sorted(index_objects.keys())
+            kind_names = set()
+            for key in kinds:
+                kind_names.add(key.split(".", 1)[0])
+
+            def resolve_owner(type_value):
+                """cfg:CatalogObject.Контрагенты -> ключ объекта в индексе."""
+                v = type_value.strip()
+                colon = v.find(":")
+                if colon >= 0:
+                    v = v[colon + 1:]
+                dot = v.find(".")
+                if dot <= 0:
+                    return None
+                prefix, name = v[:dot], v[dot + 1:]
+                # Самое длинное совпадение: DocumentJournalList должен дать DocumentJournal,
+                # а не Document.
+                best = None
+                for kind in kind_names:
+                    if prefix.startswith(kind) and (best is None or len(kind) > len(best)):
+                        best = kind
+                if best is None:
+                    return None
+                key = best + "." + name
+                return key if key in index_objects else None
+
+            owner_of = {}
+            for attr_name, attr_node in attr_map.items():
+                type_holder = attr_node.find(f"{{{F_NS}}}Type")
+                if type_holder is None:
+                    continue
+                type_values = [(tn.text or "").strip() for tn in type_holder.findall(f"{{{V8_NS}}}Type")]
+                type_values = [tv for tv in type_values if tv]
+                # Составной тип разрешать некуда: путь может вести в любой из них.
+                if len(type_values) != 1:
+                    continue
+                owner = resolve_owner(type_values[0])
+                if owner:
+                    owner_of[attr_name] = owner
+
+            path_skip_tags = {"ContextMenu", "ExtendedTooltip", "AutoCommandBar",
+                              "SearchStringAddition", "ViewStatusAddition", "SearchControlAddition"}
+            owner_checked = 0
+            owner_bad = 0
+            owner_skipped_no_std = 0
+            reported_paths = set()
+
+            for el in all_elements:
+                if stopped:
+                    break
+                if el["Tag"] in path_skip_tags:
+                    continue
+                node = el["Node"]
+                dp_node = node.find(f"{{{F_NS}}}DataPath")
+                if dp_node is None:
+                    continue
+                data_path = (dp_node.text or "").strip()
+                if not data_path or data_path in reported_paths:
+                    continue
+                segments = re.sub(r'\[\d+\]', '', data_path).split(".")
+                if len(segments) < 2:
+                    continue
+                owner_key = owner_of.get(segments[0])
+                if owner_key is None:
+                    continue
+                obj = index_objects[owner_key]
+                # Объект без блока StandardAttributes проверять нельзя: любой Объект.Code
+                # был бы объявлен несуществующим. Такие пропускаем целиком.
+                std_attrs = obj.get("standardAttributes")
+                if not std_attrs:
+                    owner_skipped_no_std += 1
+                    continue
+
+                tabular = obj.get("tabularSections") or {}
+                std_tabular = obj.get("standardTabularSections") or {}
+                own_fields = set(obj.get("attributes") or {})
+                own_fields |= set(std_attrs)
+                own_fields |= set(obj.get("dimensions") or {})
+                own_fields |= set(obj.get("resources") or {})
+                own_fields |= set(obj.get("addressingAttributes") or {})
+                own_fields |= set(obj.get("accountingFlags") or {})
+                own_fields |= set(tabular)
+                own_fields |= set(std_tabular)
+
+                owner_checked += 1
+                reported_paths.add(data_path)
+                second = segments[1]
+                if second not in own_fields:
+                    owner_bad += 1
+                    if index_is_extension:
+                        report_warn("13. DataPath='%s': у %s нет '%s' в этой выгрузке - "
+                                    "ожидается в основной конфигурации" % (data_path, owner_key, second))
+                    else:
+                        report_warn("13. DataPath='%s': у %s нет реквизита или табличной части '%s'"
+                                    % (data_path, owner_key, second))
+                    continue
+                if len(segments) < 3:
+                    continue
+                third = segments[2]
+                if second in tabular:
+                    ts = tabular[second]
+                    ts_fields = set(ts.get("attributes") or {}) | set(ts.get("standardAttributes") or [])
+                elif second in std_tabular:
+                    ts_fields = set(std_tabular[second] or [])
+                    # Признаки учета по субконто живут в стандартной ТЧ плана счетов.
+                    if second == "ExtDimensionTypes":
+                        ts_fields |= set(obj.get("extDimensionAccountingFlags") or {})
+                else:
+                    continue
+                if third not in ts_fields:
+                    owner_bad += 1
+                    if index_is_extension:
+                        report_warn("13. DataPath='%s': у табличной части '%s' нет '%s' в этой "
+                                    "выгрузке - ожидается в основной конфигурации"
+                                    % (data_path, second, third))
+                    else:
+                        report_warn("13. DataPath='%s': у табличной части '%s' нет реквизита '%s'"
+                                    % (data_path, second, third))
+
+            if owner_bad == 0:
+                note = "%d paths resolved against owner objects" % owner_checked
+                if owner_skipped_no_std:
+                    note += ", %d skipped (owner has no StandardAttributes)" % owner_skipped_no_std
+                if owner_checked or owner_skipped_no_std:
+                    report_ok("13. Owner object: " + note)
+                else:
+                    report_ok("13. Owner object: no paths bound to configuration objects")
 
     # --- Finalize ---
     checks = ok_count + errors + warnings

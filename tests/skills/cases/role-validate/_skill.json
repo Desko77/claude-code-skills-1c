@@ -2,7 +2,17 @@
   "script": "role-validate/scripts/role-validate",
   "setup": "empty-config",
   "args": [
-    { "flag": "-RightsPath", "from": "workPath", "field": "rightsPath" }
+    {
+      "flag": "-RightsPath",
+      "from": "workPath",
+      "field": "rightsPath"
+    },
+    {
+      "flag": "-IndexPath",
+      "from": "workPath",
+      "field": "indexPath",
+      "optional": true
+    }
   ],
   "snapshot": {
     "root": "workDir",

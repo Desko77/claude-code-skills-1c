@@ -1,0 +1,14 @@
+{
+  "name": "Без -OutFile индекс печатается в stdout",
+  "setup": "fixture:sample-config",
+  "noSnapshot": "навык ничего не пишет в рабочий каталог - эталон зафиксировал бы фикстуру, а не выход навыка",
+  "expect": {
+    "stdoutContains": [
+      "\"format\": 1",
+      "\"CommonModule.ОбщиеФункции\""
+    ],
+    "stdoutNotContains": [
+      "Индекс собран"
+    ]
+  }
+}

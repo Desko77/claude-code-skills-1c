@@ -1,0 +1,20 @@
+{
+  "name": "Расширение опознается по ConfigurationExtensionPurpose",
+  "setup": "fixture:sample-extension",
+  "params": {
+    "outFile": "index.json"
+  },
+  "noSnapshot": "проверяется опознание расширения, а не полный состав; фикстура расширения из cfe-init меняется вместе с тем навыком",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "index.json",
+        "text": "\"kind\": \"extension\""
+      },
+      {
+        "file": "index.json",
+        "text": "\"namePrefix\": \"ТР_\""
+      }
+    ]
+  }
+}

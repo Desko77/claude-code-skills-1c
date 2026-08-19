@@ -1,0 +1,11 @@
+{
+  "name": "Каталог без Configuration.xml отвергается",
+  "setup": "fixture:no-config-xml",
+  "expectError": true,
+  "noSnapshot": "навык отказывает до записи - фиксировать нечего",
+  "expect": {
+    "stderrContains": [
+      "Configuration.xml not found"
+    ]
+  }
+}

@@ -2,7 +2,17 @@
   "script": "meta-validate/scripts/meta-validate",
   "setup": "none",
   "args": [
-    { "flag": "-ObjectPath", "from": "workPath", "field": "objectPath" }
+    {
+      "flag": "-ObjectPath",
+      "from": "workPath",
+      "field": "objectPath"
+    },
+    {
+      "flag": "-IndexPath",
+      "from": "workPath",
+      "field": "indexPath",
+      "optional": true
+    }
   ],
   "snapshot": {
     "root": "workDir",

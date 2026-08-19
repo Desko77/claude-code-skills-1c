@@ -2,7 +2,17 @@
   "script": "skd-validate/scripts/skd-validate",
   "setup": "none",
   "args": [
-    { "flag": "-TemplatePath", "from": "workPath", "field": "templatePath" }
+    {
+      "flag": "-TemplatePath",
+      "from": "workPath",
+      "field": "templatePath"
+    },
+    {
+      "flag": "-IndexPath",
+      "from": "workPath",
+      "field": "indexPath",
+      "optional": true
+    }
   ],
   "snapshot": {
     "root": "workDir",

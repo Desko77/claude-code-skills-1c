@@ -1,0 +1,64 @@
+{
+  "name": "Набор данных СКД сверяется с конфигурацией",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "AccumulationRegister",
+        "name": "Остатки",
+        "registerType": "Balance",
+        "dimensions": [
+          "Номенклатура: CatalogRef.Номенклатура"
+        ],
+        "resources": [
+          "Количество: Number(15,3)"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "skd-compile/scripts/skd-compile",
+      "input": {
+        "dataSets": [
+          {
+            "name": "НаборДанных",
+            "type": "Query",
+            "query": "ВЫБРАТЬ Номенклатура ИЗ РегистрНакопления.Остатки"
+          }
+        ],
+        "fields": [
+          {
+            "name": "Номенклатура",
+            "title": "Номенклатура"
+          }
+        ]
+      },
+      "args": {
+        "-DefinitionFile": "{inputFile}",
+        "-OutputPath": "{workDir}/Template.xml"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "templatePath": "Template.xml",
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "валидатор только читает и печатает - эталон зафиксировал бы выход preRun (meta-compile и skd-compile), а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "Data set objects: 1 checked against index, all exist"
+  }
+}

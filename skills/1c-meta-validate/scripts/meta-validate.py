@@ -1,6 +1,7 @@
 # meta-validate v1.3 — Validate 1C metadata object structure (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -38,11 +39,13 @@ parser.add_argument("-ObjectPath", required=True)
 parser.add_argument("-Detailed", action="store_true")
 parser.add_argument("-MaxErrors", type=int, default=30)
 parser.add_argument("-OutFile", default="")
+parser.add_argument("-IndexPath", default="")
 args = parser.parse_args()
 
 detailed = args.Detailed
 max_errors = args.MaxErrors
 out_file = args.OutFile
+index_path = args.IndexPath
 
 # ── batch mode: pipe-separated paths ─────────────────────────
 
@@ -1258,6 +1261,147 @@ if md_type == "DocumentJournal" and child_obj_node is not None:
         report_ok(f"14. DocumentJournal Columns: {col_count} column(s), all have References")
     elif col_count == 0:
         report_ok("14. DocumentJournal Columns: none")
+
+# ── Check 16: Type references point to existing objects ──
+
+# Ссылочный тип узнается по форме имени: часть до первой точки кончается на Ref
+# (CatalogRef, DocumentRef, BusinessProcessRoutePointRef) либо это Characteristic или
+# DefinedType. Все прочее с точкой не трогаем - там может быть что угодно, а ложное
+# срабатывание дороже пропуска.
+def is_metadata_ref(type_name):
+    dot = type_name.find(".")
+    if dot <= 0:
+        return False
+    prefix = type_name[:dot]
+    return prefix.endswith("Ref") or prefix in ("Characteristic", "DefinedType")
+
+
+# Резерв на случай, когда индекса не дали: имя разбирается на префикс и объект, и объект
+# ищется файлом. Для ОДНОГО объекта это дешево; в индексе тот же ответ точнее и быстрее.
+REF_PREFIX_DIR_MAP = {
+    "CatalogRef": "Catalogs", "DocumentRef": "Documents", "EnumRef": "Enums",
+    "ExchangePlanRef": "ExchangePlans", "BusinessProcessRef": "BusinessProcesses",
+    "BusinessProcessRoutePointRef": "BusinessProcesses", "TaskRef": "Tasks",
+    "ChartOfAccountsRef": "ChartsOfAccounts",
+    "ChartOfCharacteristicTypesRef": "ChartsOfCharacteristicTypes",
+    "ChartOfCalculationTypesRef": "ChartsOfCalculationTypes",
+    "Characteristic": "ChartsOfCharacteristicTypes", "DefinedType": "DefinedTypes",
+}
+
+index_types = None
+index_is_extension = False
+if index_path:
+    try:
+        with open(index_path, "r", encoding="utf-8") as fh:
+            index_data = json.load(fh)
+        if index_data.get("format") != 1:
+            report_warn("16. Index format %s is not supported, cross-object check skipped"
+                        % index_data.get("format"))
+        else:
+            index_types = set(index_data.get("types") or [])
+            index_is_extension = index_data.get("kind") == "extension"
+    except Exception as exc:
+        report_warn("16. Index could not be read (%s), cross-object check skipped" % exc)
+
+# Заимствованный объект живет в расширении: его типы могут ссылаться на основную конфигурацию,
+# которой в этой выгрузке нет. Тогда неизвестная ссылка - предупреждение, а не ошибка.
+object_is_adopted = False
+if props_node is not None:
+    belonging = find(props_node, "md:ObjectBelonging")
+    if belonging is not None and inner_text(belonging).strip() == "Adopted":
+        object_is_adopted = True
+lenient = index_is_extension or object_is_adopted
+
+
+def collect_type_refs(container, label):
+    """Пары (ссылка, где встретилась) из одного блока Type или ValueType."""
+    out = []
+    for holder_tag in ("md:Type", "md:ValueType"):
+        holder = find(container, holder_tag)
+        if holder is None:
+            continue
+        for tag in ("v8:Type", "v8:TypeSet"):
+            for node in find_all(holder, tag):
+                raw = (inner_text(node) or "").strip()
+                # Составной тип платформа пишет отдельным элементом на тип, но meta-compile
+                # для DefinedType складывает их в один через " + ". Принимаем оба вида.
+                for part in raw.split(" + "):
+                    val = part.strip()
+                    if not val:
+                        continue
+                    colon = val.find(":")
+                    if colon >= 0:
+                        val = val[colon + 1:]
+                    if is_metadata_ref(val):
+                        out.append((val, label))
+    return out
+
+
+type_refs = []
+if props_node is not None:
+    type_refs.extend(collect_type_refs(props_node, md_type))
+if child_obj_node is not None:
+    for child in child_obj_node:
+        child_kind = local_name(child)
+        child_props = find(child, "md:Properties")
+        if child_props is None:
+            continue
+        child_name_node = find(child_props, "md:Name")
+        child_name = inner_text(child_name_node).strip() if child_name_node is not None else "?"
+        if child_kind == "TabularSection":
+            ts_children = find(child, "md:ChildObjects")
+            if ts_children is None:
+                continue
+            for ts_attr in find_all(ts_children, "md:Attribute"):
+                ts_props = find(ts_attr, "md:Properties")
+                if ts_props is None:
+                    continue
+                ts_name_node = find(ts_props, "md:Name")
+                ts_name = inner_text(ts_name_node).strip() if ts_name_node is not None else "?"
+                type_refs.extend(collect_type_refs(ts_props, "%s.%s" % (child_name, ts_name)))
+        else:
+            type_refs.extend(collect_type_refs(child_props, "%s %s" % (child_kind, child_name)))
+
+if not type_refs:
+    report_ok("16. Reference types: none to check")
+elif index_types is None and not config_dir:
+    report_warn("16. Reference types: %d found, but neither -IndexPath nor configuration root "
+                "is available - not checked" % len(type_refs))
+else:
+    check16_bad = 0
+    seen_refs = set()
+    for ref, where in type_refs:
+        if stopped:
+            break
+        if (ref, where) in seen_refs:
+            continue
+        seen_refs.add((ref, where))
+        if index_types is not None:
+            known = ref in index_types
+        else:
+            prefix, _, ref_name = ref.partition(".")
+            ref_dir = REF_PREFIX_DIR_MAP.get(prefix)
+            if ref_dir is None:
+                continue
+            base = os.path.join(config_dir, ref_dir, ref_name)
+            known = os.path.exists(base) or os.path.exists(base + ".xml")
+        if known:
+            continue
+        check16_bad += 1
+        if lenient:
+            report_warn("16. Ссылочный тип '%s' не найден в этой выгрузке - ожидается "
+                        "в основной конфигурации (%s)" % (ref, where))
+        else:
+            report_warn("16. Ссылочный тип '%s' не разрешается: объекта нет "
+                        "в конфигурации (%s)" % (ref, where))
+    if check16_bad == 0:
+        source = "index" if index_types is not None else "configuration files"
+        report_ok("16. Reference types: %d checked against %s, all resolve"
+                  % (len(seen_refs), source))
+
+if stopped:
+    finalize()
+    sys.exit(1)
 
 # ── Final output ──────────────────────────────────────────────
 

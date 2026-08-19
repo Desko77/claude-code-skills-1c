@@ -1,0 +1,53 @@
+{
+  "name": "Удаленный объект в составе подсистемы ловится (Check 14)",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Контрагенты",
+        "attributes": [
+          "ИНН: String(12)"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "subsystem-compile/scripts/subsystem-compile",
+      "input": {
+        "name": "Основная",
+        "synonym": "Основная",
+        "content": [
+          "Catalogs.Контрагенты",
+          "Reports.УдаленныйОтчет"
+        ]
+      },
+      "args": {
+        "-DefinitionFile": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "subsystemPath": "Subsystems/Основная.xml",
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Detailed"
+  ],
+  "noSnapshot": "валидатор только читает и печатает - эталон зафиксировал бы выход preRun, а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "14. Состав: объекта 'Report.УдаленныйОтчет' нет в конфигурации"
+  }
+}

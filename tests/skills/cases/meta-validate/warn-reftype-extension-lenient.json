@@ -1,0 +1,44 @@
+{
+  "name": "В расширении неизвестная ссылка - мягкое предупреждение, а не разрыв (Check 16)",
+  "setup": "none",
+  "preRun": [
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Расш",
+        "-NamePrefix": "Расш_",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Расш_Заявки",
+        "attributes": [
+          "Клиент: CatalogRef.Контрагенты"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Расш_Заявки",
+    "indexPath": "index.json"
+  },
+  "noSnapshot": "meta-validate только читает и печатает - эталон зафиксировал бы выход preRun (meta-compile и config-index), а не проверяемого навыка; проверяется stdout",
+  "expect": {
+    "stdoutContains": "ожидается в основной конфигурации",
+    "stdoutNotContains": "не разрешается"
+  }
+}
