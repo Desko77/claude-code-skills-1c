@@ -189,7 +189,7 @@ cp commands/* ~/.claude/commands/
 | Python 3.8+ | Нет | Альтернативные скрипты (.py), `v8unpack-cf`, `check-uuid`, `img-grid-analysis` |
 | [v8unpack](https://pypi.org/project/v8unpack/) | Нет | Распаковка/сборка CF/CFE/EPF без платформы |
 | 1C:Enterprise 8.3 | Нет | Скилы группы `db-*`, сборка EPF/ERF |
-| Node.js + npm-пакет `docx` | Нет | `md-to-docx` (конвертация Markdown → DOCX) |
+| Node.js + npm-пакет `docx` | Нет | `md-to-docx` (конвертация Markdown в DOCX) |
 | `ffmpeg`, `ffprobe` | Нет | `transcribe`, `transcribe-audio-local` (извлечение аудио, разбивка длинных файлов) |
 | NVIDIA GPU + CUDA 12 + cuDNN 9 | Нет | `transcribe`, `transcribe-audio-local` (локальный движок faster-whisper + sherpa-onnx). CPU тоже работает, но в 10+ раз медленнее |
 | `gcomp` | Нет | `1c77-dev` (разбор/сборка .ert и 1Cv7.MD для 1С 7.7) |
@@ -463,7 +463,7 @@ BSL Language Server в Claude Code как LSP: диагностики, go to def
 | `mxl-dsl-spec.md` | DSL макетов |
 | `role-dsl-spec.md` | DSL ролей |
 | `skd-dsl-spec.md` | DSL СКД |
-| `python-porting-guide.md` | Руководство по портированию скриптов PowerShell → Python |
+| `python-porting-guide.md` | Руководство по портированию скриптов PowerShell на Python |
 | `v8-project-guide.md` | Руководство по .v8-project.json |
 | `web-guide.md` | Руководство по веб-публикации 1С |
 | `web-spec.md` | Спецификация веб-публикации |
@@ -484,8 +484,8 @@ node tests/skills/runner.mjs --runtime python      # прогнать python-в�
 ```
 
 Прогон идет в CI на каждый push и pull request - [.github/workflows/tests.yml](.github/workflows/tests.yml),
-раннер windows-latest, потому что скриптам нужен PowerShell. Интеграционные тесты в CI не гоняются:
-им нужна установленная платформа 1С.
+раннер windows-latest, потому что скриптам нужен PowerShell. Интеграционные прогоны идут там же;
+те из них, которым нужна установленная платформа 1С, раннер пропускает сам.
 
 Рядом со снапшотами работают гарды инвариантов - они проверяют не вывод скилов, а согласованность
 самих исходников: карты типов метаданных против спецификации, диапазон версий формата, сохранение
@@ -496,10 +496,11 @@ node tests/skills/check-all.mjs                    # все гарды разо�
 node tests/skills/check-type-maps.mjs --list       # что с чем сверяется
 ```
 
-Требуется Node.js 18+. Текущее состояние: **482 зеленых из 761**, 46 пропущено по условиям среды.
-Остальные 233 - реестр незакрытой функциональности `tests/skills/known-gaps.json`: скрипт не знает
+Требуется Node.js 18+. Текущее состояние: **486 зеленых из 762**, 46 пропущено по условиям среды.
+Остальные 230 - реестр незакрытой функциональности `tests/skills/known-gaps.json`: скрипт не знает
 типа объекта, операции или параметра, которые поддерживает исходный набор. Раннер использует реестр
-как гейт - падение ИЗ реестра ожидаемо, падение ВНЕ его означает регресс и роняет прогон. Подробности
+как гейт для обоих наборов сразу - падение ИЗ реестра ожидаемо, падение ВНЕ его означает регресс
+и роняет прогон. Подробности
 и порядок работы с реестром - `tests/skills/README.md`.
 
 ## Хуки (экспериментально, по умолчанию выключены)
