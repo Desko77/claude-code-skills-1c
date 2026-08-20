@@ -1,0 +1,5 @@
+{
+  "script": "1c-bsp-api/scripts/bsp-api",
+  "setup": "none",
+  "args": []
+}

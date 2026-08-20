@@ -1,0 +1,17 @@
+{
+  "setup": "none",
+  "runtimeOnly": "python",
+  "name": "Служебные модули в справочник интерфейса не попадают",
+  "args_extra": [
+    "modules",
+    "Служебный",
+    "--limit",
+    "5"
+  ],
+  "noSnapshot": "навык ничего не пишет в рабочий каталог",
+  "expect": {
+    "stdoutContains": [
+      "всего 0"
+    ]
+  }
+}
