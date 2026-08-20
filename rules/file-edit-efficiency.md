@@ -47,7 +47,7 @@
 
 Примеры:
 - `@src/CommonModules/МодульИмя/Module.bsl:1-1`
-- `@ПСБ_ЗУП/src/Catalogs/Контрагенты/ObjectModule.bsl:45-60`
+- `@МояКонфигурация/src/Catalogs/Контрагенты/ObjectModule.bsl:45-60`
 
 **Когда `@-references` не подходит** (путь вне workspace, например `C:\Users\...`) - fallback через tool-результат:
 
