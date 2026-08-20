@@ -1,7 +1,7 @@
 # Claude Code Skills for 1C:Enterprise
 
 Набор скилов, правил и команд для [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
-агент работает с 1С не вслепую по тексту файлов, а по формату платформы.
+агент правит 1С по формату платформы, а не текстовым поиском по файлам.
 
 [![Лицензия MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Релиз](https://img.shields.io/github/v/release/Desko77/claude-code-skills-1c)](https://github.com/Desko77/claude-code-skills-1c/releases)
@@ -54,7 +54,7 @@ scaffold объектов, разбор чужих обработок, выгр�
 
 - **код и запросы** - стандарты BSL, антипаттерны вроде запроса в цикле, оптимизация, чеклист ревью;
 - **формы, метаданные, EDT** - требования к XML форм, целостность MDO, ограничения экспорта из EDT;
-- **БСП и типовые** - переиспользовать готовое вместо своего велосипеда, размечать правки типовых;
+- **БСП и типовые** - вызывать готовые механизмы вместо собственной реализации, размечать правки типовых;
 - **процесс и сам агент** - SDD-workflow, выбор модели под задачу, рабочая память, безопасность git.
 
 ## Как это выглядит
@@ -251,8 +251,8 @@ cp commands/* ~/.claude/commands/
 Основной спутник набора - собственный **[AI-EDT](https://github.com/Desko77/ai-edt)** (см. раздел в начале).
 Кроме него с набором сочетаются:
 
-**[bsl-language-server](https://github.com/1c-syntax/claude-code-bsl-lsp)** - полноценная интеграция
-BSL Language Server в Claude Code как LSP: диагностики, go to definition, find references, hover,
+**[bsl-language-server](https://github.com/1c-syntax/claude-code-bsl-lsp)** - интеграция
+BSL Language Server в Claude Code по протоколу LSP: диагностики, go to definition, find references, hover,
 форматирование, code actions для `.bsl` и `.os`.
 
 ```
@@ -382,7 +382,7 @@ BSL Language Server в Claude Code как LSP: диагностики, go to def
 <tr><td><code>kd31-rules</code></td><td>Правила обмена «Конвертация данных 3.1» через MCP-toolkit</td></tr>
 <tr><td><code>cleverence-mslx</code></td><td>Mobile SMARTS (Клеверенс): .mslx-алгоритмы ТСД, online-вызов 1С</td></tr>
 <tr><th colspan="2" align="left">Справочные и утилитарные</th></tr>
-<tr><td><code>ai-edt-tools</code></td><td>Справочник инструментов AI-EDT (MCP-плагин для 1С:EDT): фасады, сценарии, грабли</td></tr>
+<tr><td><code>ai-edt-tools</code></td><td>Справочник инструментов AI-EDT (MCP-плагин для 1С:EDT): фасады, сценарии, особенности и ограничения</td></tr>
 <tr><td><code>1c-naparnik</code></td><td>Справочник инструментов 1С:Напарник (анализ кода, ИТС, документация)</td></tr>
 <tr><td><code>1c-mcp-toolkit</code></td><td>Прямой HTTP API к живой запущенной базе 1С (запросы, BSL-код, метаданные, журнал)</td></tr>
 <tr><td><code>1c-platform-docs</code></td><td>Поиск по документации API платформы</td></tr>
@@ -403,7 +403,7 @@ BSL Language Server в Claude Code как LSP: диагностики, go to def
 <tr><td><code>mermaid-diagrams</code></td><td>Генерация диаграмм Mermaid</td></tr>
 <tr><td><code>mermaid-render</code></td><td>Рендер Mermaid в PNG/SVG/PDF через локальный mmdc</td></tr>
 <tr><td><code>powershell-windows</code></td><td>PowerShell на Windows</td></tr>
-<tr><td><code>lmstudio-api</code></td><td>Справочник HTTP-API LM Studio: загрузка/выгрузка моделей, контекст, отключение reasoning, грабли протокола</td></tr>
+<tr><td><code>lmstudio-api</code></td><td>Справочник HTTP-API LM Studio: загрузка и выгрузка моделей, контекст, отключение reasoning, особенности протокола</td></tr>
 <tr><td><code>sync-fork</code></td><td>Синхронизация git-форка с upstream без потери своих доработок</td></tr>
 <tr><td><code>skill-creator</code></td><td>Создание, тестирование и оптимизация скилов (evals, grading, description loop)</td></tr>
 <tr><td><code>prompt-enhancer</code></td><td>Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ</td></tr>
