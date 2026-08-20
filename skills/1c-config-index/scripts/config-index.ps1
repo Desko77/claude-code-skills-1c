@@ -125,21 +125,46 @@ function Get-IdxTypes($propsMap) {
 	return ,$types
 }
 
+# Литерал ИЛИ комментарий: что началось раньше, то и поглощает второе. Закрывающая кавычка
+# необязательна - незакрытый литерал гасит остаток файла.
+$idxNoiseRe = [regex]'"(?:[^"]|"")*"?|//[^\n]*'
+
+# Гасит строковые литералы и комментарии ЗА ОДИН проход, сохраняя длину текста.
+#
+# Гасить их по очереди неверно в обе стороны, и обе ошибки встречаются в типовом коде: литералы
+# первыми - нечетная кавычка в комментарии открывает мнимый литерал и съедает следующие за ним
+# объявления методов; комментарии первыми - "TCP://" в литерале обрубит строку. Кто из двух начался
+# раньше, решает чередование в самом образце: движок идет слева направо, и внутри уже начавшегося
+# литерала двойной слеш ему не виден.
+#
+# Длина сохраняется, переводы строк внутри литерала тоже: вызывающий код ходит по тексту по
+# позициям, а литерал в BSL занимает несколько строк.
+function Get-IdxBlankNoise([string]$text) {
+	return $idxNoiseRe.Replace($text, {
+		param($m)
+		$s = $m.Value
+		if ($s[0] -eq "/") { return [string]::new([char]" ", $s.Length) }
+		$closed = $s.Length -ge 2 -and $s[$s.Length - 1] -eq '"'
+		$inner = if ($closed) { $s.Substring(1, $s.Length - 2) } else { $s.Substring(1) }
+		if ($inner.IndexOf("`n") -lt 0) {
+			$body = [string]::new([char]" ", $inner.Length)
+		} else {
+			$chars = $inner.ToCharArray()
+			for ($k = 0; $k -lt $chars.Length; $k++) { if ($chars[$k] -ne "`n") { $chars[$k] = " " } }
+			$body = [string]::new($chars)
+		}
+		if ($closed) { return '"' + $body + '"' }
+		return '"' + $body
+	})
+}
+
 # --- BSL: exported methods of a module ---
-# Line comments are stripped first. A commented-out procedure would otherwise become a phantom
-# export - and a phantom export only makes a later check MISS a call, never invent one.
+# Comments are blanked together with string literals. A commented-out procedure would otherwise
+# become a phantom export - and a phantom export only makes a later check MISS a call, never
+# invent one.
 function Get-IdxExports([string]$text) {
 	$names = [System.Collections.ArrayList]::new()
-	# Литералы гасятся ПЕРВЫМИ, иначе "http://host" в значении параметра по умолчанию
-	# обрубит заголовок метода, а скобка внутри строки собьет подсчет вложенности.
-	$blanked = [regex]::Replace($text, '"(?:[^"]|"")*"', { param($m) '"' + (' ' * ($m.Value.Length - 2)) + '"' })
-	$clean = New-Object System.Text.StringBuilder $text.Length
-	foreach ($line in ($blanked -split "`n")) {
-		$cut = $line.IndexOf("//")
-		if ($cut -ge 0) { $line = $line.Substring(0, $cut) }
-		[void]$clean.AppendLine($line)
-	}
-	$src = $clean.ToString()
+	$src = (Get-IdxBlankNoise $text) + "`n"
 	$re = [regex]"(?im)^[ \t]*(?:(?:Асинх|Async)[ \t]+)?(?:Процедура|Функция|Procedure|Function)[ \t]+([A-Za-z_\u0410-\u044F\u0401\u0451][A-Za-z0-9_\u0410-\u044F\u0401\u0451]*)[ \t]*\("
 	foreach ($m in $re.Matches($src)) {
 		# Walk past the parameter list counting nesting: default values contain parens too.

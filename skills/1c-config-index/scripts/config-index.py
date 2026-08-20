@@ -65,6 +65,9 @@ EXPORT_RE = re.compile(
     re.IGNORECASE | re.MULTILINE)
 # Экспорт может стоять на следующей строке - список параметров нередко переносят.
 EXPORT_TAIL_RE = re.compile(r'^\s*(Экспорт|Export)\b', re.IGNORECASE)
+# Литерал ИЛИ комментарий: что началось раньше, то и поглощает второе. Закрывающая кавычка
+# необязательна - незакрытый литерал гасит остаток файла.
+IDX_NOISE_RE = re.compile(r'"(?:[^"]|"")*"?|//[^\n]*')
 
 
 # --- XML helpers (navigate by local name: the dump uses many prefixes) ---
@@ -160,21 +163,37 @@ def idx_ref_list(props_node, prop_name):
     return refs
 
 
+def idx_blank_noise(text):
+    """Гасит строковые литералы и комментарии ЗА ОДИН проход, сохраняя длину текста.
+
+    Гасить их по очереди неверно в обе стороны, и обе ошибки встречаются в типовом коде:
+    литералы первыми - нечетная кавычка в комментарии открывает мнимый литерал и съедает
+    следующие за ним объявления методов; комментарии первыми - "TCP://" в литерале обрубит
+    строку. Кто из двух начался раньше, решает чередование в самом образце: движок идет слева
+    направо, и внутри уже начавшегося литерала двойной слеш ему не виден.
+
+    Незакрытая кавычка гасит остаток файла - так же, как ее понимает платформа.
+    Длина сохраняется, переводы строк внутри литерала тоже: вызывающий код ходит по тексту по
+    позициям, а литерал в BSL занимает несколько строк.
+    """
+    def blank(m):
+        s = m.group(0)
+        if s[0] == '/':
+            return ' ' * len(s)
+        closed = len(s) >= 2 and s[-1] == '"'
+        inner = s[1:-1] if closed else s[1:]
+        body = ' ' * len(inner) if '\n' not in inner \
+            else ''.join('\n' if c == '\n' else ' ' for c in inner)
+        return '"' + body + ('"' if closed else '')
+    return IDX_NOISE_RE.sub(blank, text)
+
+
 def idx_exports(text):
-    """Exported methods of a module. Line comments are stripped first: a commented-out procedure
-    would otherwise become a phantom export - and a phantom export only makes a later check MISS
-    a call, never invent one."""
+    """Exported methods of a module. Comments are blanked together with string literals: a
+    commented-out procedure would otherwise become a phantom export - and a phantom export only
+    makes a later check MISS a call, never invent one."""
     names = []
-    # Литералы гасятся ПЕРВЫМИ, иначе "http://host" в значении параметра по умолчанию
-    # обрубит заголовок метода, а скобка внутри строки собьет подсчет вложенности.
-    blanked = re.sub(r'"(?:[^"]|"")*"', lambda m: '"' + ' ' * (len(m.group(0)) - 2) + '"', text)
-    clean = []
-    for line in blanked.split('\n'):
-        cut = line.find('//')
-        if cut >= 0:
-            line = line[:cut]
-        clean.append(line)
-    src = '\n'.join(clean) + '\n'
+    src = idx_blank_noise(text) + '\n'
     for m in EXPORT_RE.finditer(src):
         # Walk past the parameter list counting nesting: default values contain parens too.
         i = m.end()
