@@ -1,0 +1,19 @@
+{
+  "name": "Слово целиком, а не подстрока: накопитель и Приветственный не срабатывают",
+  "setup": "fixture:false-positives",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "{workDir}/doc.md"
+  ],
+  "expectError": true,
+  "noSnapshot": "навык ничего не пишет в рабочий каталог, проверяется отчет",
+  "expect": {
+    "stdoutContains": [
+      "[регистр] строка 4: \"ловушка\""
+    ],
+    "stdoutNotContains": [
+      "\"копит\"",
+      "похоже на письмо"
+    ]
+  }
+}

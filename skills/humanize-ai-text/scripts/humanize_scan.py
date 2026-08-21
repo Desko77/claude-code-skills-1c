@@ -75,29 +75,41 @@ WORD_RE = re.compile(r'\w+', re.UNICODE)
 #
 # Список намеренно узкий и точный. Оценочные слова ("просто", "легко", "удобно") сюда НЕ входят:
 # они слишком часто законны, а решение по ним принимает модель по проверочному вопросу из SKILL.md.
-TECHNICAL_REGISTER = [
-    'досып', 'кладет', 'кладёт', 'забирает', 'копит', 'схлопыв',
+# Целые слова и обороты: ищутся по границе слова, иначе "копит" находится в "накопитель".
+REGISTER_WORDS = [
+    'кладет', 'кладёт', 'забирает', 'копит', 'копят',
     'внутренняя кухня', 'ядро библиотеки', 'узнают друг о друге',
     'под капотом', 'на лету', 'магия', 'магию', 'магией',
     'умеет', 'умеют', 'дружит с', 'из коробки',
-    'тянет из', 'тащит', 'скармлив', 'подсовыв', 'выкидыв',
-    'проглот', 'съедает', 'жрет', 'жрёт', 'разрулив',
-    'костыл', 'грабли', 'подводные камни', 'ловушк', 'зоопарк',
+    'тянет из', 'тащит', 'съедает', 'жрет', 'жрёт',
+    'грабли', 'подводные камни', 'зоопарк',
     'серебряная пуля', 'изобретать велосипед', 'своего велосипеда', 'вслепую',
     'under the hood', 'out of the box', 'the heart of', 'knows how to',
-    'tops up', 'grabs ', 'piles up', 'learn about each other', 'seamless',
+    'tops up', 'grabs', 'piles up', 'learn about each other', 'seamless', 'magic',
 ]
-# Подстроки, дающие ложное срабатывание внутри более длинного слова.
-REGISTER_ALLOW = ['помощник', 'помощн', 'мощность']
+# Основы: слово продолжается любым окончанием, но начинаться должно именно с них.
+REGISTER_STEMS = [
+    'досып', 'схлопыв', 'скармлив', 'подсовыв', 'выкидыв',
+    'проглот', 'разрулив', 'костыл', 'ловушк',
+]
+REGISTER_RE = re.compile(
+    '|'.join([r'\b(?:%s)\b' % '|'.join(re.escape(w) for w in REGISTER_WORDS)] +
+             [r'\b(?:%s)\w*' % '|'.join(re.escape(s) for s in REGISTER_STEMS)]),
+    re.I | re.UNICODE)
 
 # Эпистолярный жанр: письмо, ответ, обращение. Там разговорный оборот - норма, а не дефект,
 # поэтому проверка регистра сама себя выключает.
+#
+# Приветствие ищется целым словом И в короткой строке: без этого "Приветственный экран" в заголовке
+# технической статьи выключал проверку для всего документа.
+GREETING_MAX_LEN = 60
 SALUTATION_RE = re.compile(
-    r'^\s*(здравствуй|добрый день|добрый вечер|доброе утро|привет|уважаем|дорог|коллеги|'
-    r'dear |hi |hello |good morning|good afternoon)', re.I)
+    r'^\s*(здравствуйте|здравствуй|добрый день|добрый вечер|доброе утро|привет|приветствую|'
+    r'уважаемый|уважаемая|уважаемые|дорогой|дорогая|дорогие|коллеги|'
+    r'dear|hi|hello|good morning|good afternoon)\b', re.I)
 SIGNOFF_RE = re.compile(
-    r'^\s*(с уважением|всего доброго|до встречи|обнимаю|твой |ваш |спасибо за внимание|'
-    r'best regards|sincerely|kind regards|cheers|yours )', re.I)
+    r'^\s*(с уважением|всего доброго|до встречи|обнимаю|спасибо за внимание|'
+    r'best regards|sincerely|kind regards|cheers|yours)\b', re.I)
 
 
 def strip_code(text):
@@ -127,9 +139,10 @@ def looks_epistolary(prose_lines):
     """
     head = [l for l in prose_lines[:12] if l.strip()]
     tail = [l for l in prose_lines[-12:] if l.strip()]
-    if any(SALUTATION_RE.match(l) for l in head):
+    short = lambda l: len(l.strip()) <= GREETING_MAX_LEN
+    if any(SALUTATION_RE.match(l) and short(l) for l in head):
         return True
-    return any(SIGNOFF_RE.match(l) for l in tail)
+    return any(SIGNOFF_RE.match(l) and short(l) for l in tail)
 
 
 def scan(text, technical=True, force_technical=False):
@@ -163,15 +176,9 @@ def scan(text, technical=True, force_technical=False):
             if phrase in low:
                 found.append(('стоп-фраза', line_no, '"%s"' % phrase))
         if check_register:
-            for phrase in TECHNICAL_REGISTER:
-                pos = low.find(phrase)
-                if pos < 0:
-                    continue
-                around = low[max(0, pos - 12):pos + len(phrase) + 12]
-                if any(a in around for a in REGISTER_ALLOW):
-                    continue
+            for m in REGISTER_RE.finditer(line):
                 found.append(('регистр', line_no,
-                              '"%s" - бытовой оборот, нужен технический термин' % phrase))
+                              '"%s" - бытовой оборот, нужен технический термин' % m.group(0)))
 
     headings = sum(1 for line in prose_lines if HEADING_RE.match(line))
     words = len(WORD_RE.findall(prose))
