@@ -8,10 +8,16 @@
 Блоки кода, огражденные тройными кавычками, и inline-код исключены из поиска целиком: внутри них
 и стрелка, и тире - часть синтаксиса, а не признак генерации.
 
+Проверка технического регистра включена по умолчанию: бытовая метафора вместо действия и предмета
+в техническом тексте - дефект. В письме и ответе она нормальна, поэтому проверка сама выключается,
+когда видит приветствие или подпись.
+
 Режимы:
-    python humanize_scan.py файл.md            отчет, файл не меняется
-    python humanize_scan.py файл.md --fix      применить механические замены на месте
-    python humanize_scan.py *.md --quiet       только итоговая строка на файл
+    python humanize_scan.py файл.md                  отчет, файл не меняется
+    python humanize_scan.py файл.md --fix            применить механические замены на месте
+    python humanize_scan.py *.md --quiet             только итоговая строка на файл
+    python humanize_scan.py файл.md --no-technical   без проверки технического регистра
+    python humanize_scan.py письмо.md --technical    проверять регистр и в письме
 """
 import argparse
 import re
@@ -63,6 +69,36 @@ INLINE_CODE_RE = re.compile(r'`[^`\n]*`')
 HEADING_RE = re.compile(r'^\s{0,3}#{2,3}\s')
 WORD_RE = re.compile(r'\w+', re.UNICODE)
 
+# --- технический регистр ---------------------------------------------------------------------
+# Бытовая метафора вместо действия и предмета. В техническом тексте такая фраза не только неточна:
+# по ней нельзя назвать ни метод, ни поле, ни код ошибки, ни измеренную величину.
+#
+# Список намеренно узкий и точный. Оценочные слова ("просто", "легко", "удобно") сюда НЕ входят:
+# они слишком часто законны, а решение по ним принимает модель по проверочному вопросу из SKILL.md.
+TECHNICAL_REGISTER = [
+    'досып', 'кладет', 'кладёт', 'забирает', 'копит', 'схлопыв',
+    'внутренняя кухня', 'ядро библиотеки', 'узнают друг о друге',
+    'под капотом', 'на лету', 'магия', 'магию', 'магией',
+    'умеет', 'умеют', 'дружит с', 'из коробки',
+    'тянет из', 'тащит', 'скармлив', 'подсовыв', 'выкидыв',
+    'проглот', 'съедает', 'жрет', 'жрёт', 'разрулив',
+    'костыл', 'грабли', 'подводные камни', 'ловушк', 'зоопарк',
+    'серебряная пуля', 'изобретать велосипед', 'своего велосипеда', 'вслепую',
+    'under the hood', 'out of the box', 'the heart of', 'knows how to',
+    'tops up', 'grabs ', 'piles up', 'learn about each other', 'seamless',
+]
+# Подстроки, дающие ложное срабатывание внутри более длинного слова.
+REGISTER_ALLOW = ['помощник', 'помощн', 'мощность']
+
+# Эпистолярный жанр: письмо, ответ, обращение. Там разговорный оборот - норма, а не дефект,
+# поэтому проверка регистра сама себя выключает.
+SALUTATION_RE = re.compile(
+    r'^\s*(здравствуй|добрый день|добрый вечер|доброе утро|привет|уважаем|дорог|коллеги|'
+    r'dear |hi |hello |good morning|good afternoon)', re.I)
+SIGNOFF_RE = re.compile(
+    r'^\s*(с уважением|всего доброго|до встречи|обнимаю|твой |ваш |спасибо за внимание|'
+    r'best regards|sincerely|kind regards|cheers|yours )', re.I)
+
 
 def strip_code(text):
     """Возвращает текст, где содержимое блоков кода и inline-кода заменено пробелами.
@@ -83,11 +119,32 @@ def strip_code(text):
     return '\n'.join(out)
 
 
-def scan(text):
+def looks_epistolary(prose_lines):
+    """Похож ли текст на письмо или ответ: приветствие в начале, подпись в конце.
+
+    Смотрим края, а не весь текст: в середине технической статьи слово "уважаемый" может
+    оказаться в цитате, и это еще не делает документ письмом.
+    """
+    head = [l for l in prose_lines[:12] if l.strip()]
+    tail = [l for l in prose_lines[-12:] if l.strip()]
+    if any(SALUTATION_RE.match(l) for l in head):
+        return True
+    return any(SIGNOFF_RE.match(l) for l in tail)
+
+
+def scan(text, technical=True, force_technical=False):
     """Список находок: (категория, номер строки, описание)."""
     prose = strip_code(text)
     prose_lines = prose.split('\n')
     found = []
+
+    # Пропуск по жанру - это пояснение, а не находка: письмо с разговорным оборотом исправно.
+    note = None
+    check_register = technical
+    if check_register and not force_technical and looks_epistolary(prose_lines):
+        check_register = False
+        note = ('похоже на письмо или ответ, проверка технического регистра пропущена; '
+                'включить принудительно - ключ --technical')
 
     for line_no, line in enumerate(prose_lines, 1):
         for ch, _repl, name in MECHANICAL:
@@ -105,6 +162,16 @@ def scan(text):
         for phrase in STOP_PHRASES_RU + STOP_PHRASES_EN:
             if phrase in low:
                 found.append(('стоп-фраза', line_no, '"%s"' % phrase))
+        if check_register:
+            for phrase in TECHNICAL_REGISTER:
+                pos = low.find(phrase)
+                if pos < 0:
+                    continue
+                around = low[max(0, pos - 12):pos + len(phrase) + 12]
+                if any(a in around for a in REGISTER_ALLOW):
+                    continue
+                found.append(('регистр', line_no,
+                              '"%s" - бытовой оборот, нужен технический термин' % phrase))
 
     headings = sum(1 for line in prose_lines if HEADING_RE.match(line))
     words = len(WORD_RE.findall(prose))
@@ -117,7 +184,7 @@ def scan(text):
 
     in_code = sum(text.count(ch) for ch, _r, _n in MECHANICAL) - \
         sum(prose.count(ch) for ch, _r, _n in MECHANICAL)
-    return found, in_code
+    return found, in_code, note
 
 
 def apply_fix(text):
@@ -158,6 +225,11 @@ def main():
                         help='применить механические замены на месте')
     parser.add_argument('--quiet', action='store_true',
                         help='только итоговая строка на файл')
+    parser.add_argument('--no-technical', dest='technical', action='store_false',
+                        help='не проверять технический регистр (по умолчанию проверяется)')
+    parser.add_argument('--technical', dest='force_technical', action='store_true',
+                        help='проверять технический регистр даже в письме или ответе')
+    parser.set_defaults(technical=True, force_technical=False)
     args = parser.parse_args()
 
     total = 0
@@ -177,19 +249,22 @@ def main():
             text = fixed
             print('%s: механических замен %d' % (path.name, changed))
 
-        found, in_code = scan(text)
+        found, in_code, note = scan(text, technical=args.technical,
+                                    force_technical=args.force_technical)
         total += len(found)
         if args.quiet:
             print('%s: находок %d' % (path.name, len(found)))
             continue
 
         print('=== %s ===' % path)
+        if note:
+            print('  (%s)' % note)
         if not found:
             print('Объективных маркеров не найдено.')
         else:
-            for category, line_no, note in found:
+            for category, line_no, text_of in found:
                 where = 'строка %d' % line_no if line_no else 'весь файл'
-                print('  [%s] %s: %s' % (category, where, note))
+                print('  [%s] %s: %s' % (category, where, text_of))
         if in_code:
             print('  (в блоках кода символов из списка: %d, не трогаю)' % in_code)
         print('  ИТОГО находок: %d' % len(found))

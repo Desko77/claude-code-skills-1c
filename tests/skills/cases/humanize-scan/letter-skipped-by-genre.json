@@ -1,0 +1,18 @@
+{
+  "runtimeOnly": "python",
+  "noSnapshot": "навык ничего не пишет в рабочий каталог, проверяется отчет",
+  "name": "В письме проверка регистра пропускается по жанру и находок нет",
+  "setup": "fixture:letter",
+  "args_extra": [
+    "{workDir}/letter.md"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "похоже на письмо или ответ",
+      "ИТОГО находок: 0"
+    ],
+    "stdoutNotContains": [
+      "[регистр] строка"
+    ]
+  }
+}

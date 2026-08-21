@@ -1,0 +1,17 @@
+{
+  "runtimeOnly": "python",
+  "noSnapshot": "навык ничего не пишет в рабочий каталог, проверяется отчет",
+  "name": "Ключ --technical включает проверку регистра и в письме",
+  "setup": "fixture:letter",
+  "args_extra": [
+    "{workDir}/letter.md",
+    "--technical"
+  ],
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "[регистр] строка 3: \"под капотом\"",
+      "[регистр] строка 3: \"тянет из\""
+    ]
+  }
+}

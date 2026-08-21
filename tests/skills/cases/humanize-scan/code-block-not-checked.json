@@ -1,0 +1,16 @@
+{
+  "runtimeOnly": "python",
+  "noSnapshot": "навык ничего не пишет в рабочий каталог, проверяется отчет",
+  "name": "Оборот внутри блока кода не считается находкой",
+  "setup": "fixture:technical",
+  "args_extra": [
+    "{workDir}/doc.md"
+  ],
+  "expectError": true,
+  "expect": {
+    "stdoutNotContains": [
+      "строка 7:",
+      "строка 8:"
+    ]
+  }
+}

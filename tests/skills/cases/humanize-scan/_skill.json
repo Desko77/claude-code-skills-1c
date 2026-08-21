@@ -1,0 +1,5 @@
+{
+  "script": "humanize-ai-text/scripts/humanize_scan",
+  "setup": "none",
+  "args": []
+}

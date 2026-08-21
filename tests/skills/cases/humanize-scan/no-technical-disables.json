@@ -1,0 +1,18 @@
+{
+  "runtimeOnly": "python",
+  "noSnapshot": "навык ничего не пишет в рабочий каталог, проверяется отчет",
+  "name": "Ключ --no-technical выключает проверку регистра",
+  "setup": "fixture:technical",
+  "args_extra": [
+    "{workDir}/doc.md",
+    "--no-technical"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "Объективных маркеров не найдено"
+    ],
+    "stdoutNotContains": [
+      "[регистр]"
+    ]
+  }
+}

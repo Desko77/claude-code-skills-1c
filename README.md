@@ -401,7 +401,7 @@ BSL Language Server в Claude Code по протоколу LSP: диагност
 <tr><td><code>docx-from-sample</code></td><td>Новый DOCX в оформлении готового образца: стили, нумерация заголовков, таблицы, колонтитулы наследуются из файла-образца</td></tr>
 <tr><td><code>transcribe</code></td><td>Транскрибация аудио (локально, faster-whisper + sherpa-onnx GPU) и видео (Gemini API). Установка через <code>scripts/setup.py</code></td></tr>
 <tr><td><code>transcribe-audio-local</code></td><td>Только аудио, только локально, self-contained - для передачи на другую машину без облака</td></tr>
-<tr><td><code>meeting-to-tasks</code></td><td>Полный цикл «запись встречи -&gt; список задач -&gt; план разработки по SDD на каждую задачу»</td></tr>
+<tr><td><code>meeting-to-tasks</code></td><td>Полный цикл от записи встречи к списку задач и плану разработки по SDD на каждую задачу</td></tr>
 <tr><td><code>mermaid-diagrams</code></td><td>Генерация диаграмм Mermaid</td></tr>
 <tr><td><code>mermaid-render</code></td><td>Рендер Mermaid в PNG/SVG/PDF через локальный mmdc</td></tr>
 <tr><td><code>powershell-windows</code></td><td>PowerShell на Windows</td></tr>
@@ -524,7 +524,7 @@ node tests/skills/check-all.mjs                    # все гарды разо�
 node tests/skills/check-type-maps.mjs --list       # что с чем сверяется
 ```
 
-Требуется Node.js 18+. Текущее состояние: **528 зеленых из 816**, 60 пропущено по условиям среды.
+Требуется Node.js 18+. Текущее состояние: **528 зеленых из 821**, 65 пропущено по условиям среды.
 Остальные 228 - реестр незакрытой функциональности `tests/skills/known-gaps.json`: скрипт не знает
 типа объекта, операции или параметра, которые поддерживает исходный набор. Раннер использует реестр
 как гейт для обоих наборов сразу - падение ИЗ реестра ожидаемо, падение ВНЕ его означает регресс
