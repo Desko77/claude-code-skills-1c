@@ -226,6 +226,10 @@ def apply_fix(text):
 
 
 def main():
+    # Отчет содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description='Поиск объективных маркеров AI-генерации; механические чинятся сразу')
     parser.add_argument('files', nargs='+')

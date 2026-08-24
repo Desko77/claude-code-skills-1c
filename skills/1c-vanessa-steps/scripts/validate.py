@@ -695,6 +695,10 @@ def print_recommendations_for_ai(result: Dict):
 
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description='Валидация сценариев Vanessa Automation',
         formatter_class=argparse.RawDescriptionHelpFormatter,

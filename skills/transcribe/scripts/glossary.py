@@ -196,6 +196,10 @@ def describe(gl):
 
 def main(argv=None):
     """Проверка глоссария вручную: показать разбор и прогнать замены по строке или файлу."""
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     argv = list(sys.argv[1:] if argv is None else argv)
     text_arg, path = None, None
     while argv:

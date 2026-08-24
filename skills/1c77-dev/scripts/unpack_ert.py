@@ -53,6 +53,10 @@ def run_gcomp(gcomp, args):
 
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("file", help="исходный .ert или 1Cv7.MD")
     p.add_argument("--dest", help="каталог назначения (-DD). Без него GComp создает SRC\\<имя>")

@@ -39,6 +39,11 @@ except ImportError:
 import traceback
 from pathlib import Path
 
+# Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+# везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 WHISPER_VENV_PYTHON = SKILL_ROOT / "venv-whisper" / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")

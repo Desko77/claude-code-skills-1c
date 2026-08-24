@@ -63,6 +63,10 @@ def stat_of(path):
 
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out", required=True, help="целевой .ert (или 1cv7.md)")
     p.add_argument("--src", required=True, help="каталог исходников (-DD)")

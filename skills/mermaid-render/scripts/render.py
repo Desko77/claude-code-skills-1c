@@ -16,6 +16,11 @@ import sys
 from glob import glob
 from pathlib import Path
 
+# Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+# везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 VALID_THEMES = {"default", "forest", "dark", "neutral"}
 VALID_FORMATS = {"png", "svg", "pdf"}
 MD_EXTS = {".md", ".markdown"}

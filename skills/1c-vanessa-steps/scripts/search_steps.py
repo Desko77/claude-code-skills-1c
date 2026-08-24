@@ -550,6 +550,10 @@ def format_yaml_compact_output(data: Dict) -> str:
 
 def main():
     """Основная функция CLI"""
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description='Поиск шагов в библиотеке Vanessa Automation',
         formatter_class=argparse.RawDescriptionHelpFormatter,

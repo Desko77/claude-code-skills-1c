@@ -57,6 +57,11 @@ import numpy as np
 import soundfile as sf  # noqa: E402
 import sherpa_onnx  # noqa: E402
 
+# Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+# везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 
 MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 SEG_MODEL = MODELS_DIR / "sherpa-onnx-pyannote-segmentation-3-0" / "model.onnx"

@@ -60,6 +60,11 @@ import numpy as np  # noqa: E402
 import soundfile as sf  # noqa: E402
 import sherpa_onnx  # noqa: E402
 
+# Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+# везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 
 def ffmpeg_to_wav16k(input_path: Path, out_wav: Path) -> None:
     """Конвертировать любое аудио в 16kHz mono PCM_S16LE WAV через ffmpeg."""

@@ -19,6 +19,12 @@ import json
 from pathlib import Path
 
 import numpy as np
+import sys
+
+# Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+# везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 DEFAULT_DB = Path.home() / ".claude" / "skills" / "transcribe" / "voiceprints" / "db.json"
 MATCH_THRESHOLD = 0.7  # косинус. Откалибровано на реальных записях: различимые голоса дают >0.8 между

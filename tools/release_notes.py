@@ -13,6 +13,11 @@ import re
 import sys
 from pathlib import Path
 
+# Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+# везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 BLOCK_START = re.compile(r"^(#{1,6} |> |\||---$|\*\*\*$|___$)")
 LIST_ITEM = re.compile(r"^(\s*)([-*+]|\d+\.)\s+")
 

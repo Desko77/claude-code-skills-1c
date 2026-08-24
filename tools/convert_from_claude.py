@@ -459,6 +459,10 @@ def convert_workflows(source_dir: Path, target_dir: Path, dry_run: bool) -> list
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description="Convert claude-code-skills-1c → cursor-1c-skills"
     )

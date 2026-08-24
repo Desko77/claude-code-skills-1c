@@ -644,6 +644,10 @@ def evidence_report(transcript_text, known_names=()):
 
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)

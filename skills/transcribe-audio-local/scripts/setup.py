@@ -33,6 +33,11 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
+# Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+# везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 VENV_WHISPER = SKILL_ROOT / "venv-whisper"
 VENV_SHERPA = SKILL_ROOT / "venv-sherpa"

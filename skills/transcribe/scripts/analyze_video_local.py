@@ -362,6 +362,10 @@ def _transcript_text(segs):
 # ---------------- main ----------------
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     ap = argparse.ArgumentParser(description="Локальный разбор видео (whisper + VLM/LLM на 150), без облака")
     ap.add_argument("video", help="Путь к видеофайлу")
     ap.add_argument("--output-dir", "-o", default=None)

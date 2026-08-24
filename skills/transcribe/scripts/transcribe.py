@@ -801,6 +801,10 @@ def build_model_chain(cli_model=None, cli_fallback=None, no_fallback=False):
 
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description="Транскрибация аудио и видео через Gemini API"
     )

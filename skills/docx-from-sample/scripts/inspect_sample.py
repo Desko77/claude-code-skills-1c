@@ -324,6 +324,10 @@ def guess_profile(path, styles, tables, sections, params, hf=None):
 
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     ap = argparse.ArgumentParser()
     ap.add_argument("sample")
     ap.add_argument("--json", help="куда записать черновой профиль")

@@ -134,6 +134,10 @@ def render_png(pdf, pages, outdir):
 
 
 def main():
+    # Вывод содержит кириллицу. Без явного переключения печать падает с UnicodeEncodeError
+    # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
     ap = argparse.ArgumentParser()
     ap.add_argument("docx")
     ap.add_argument("--md", help="исходный markdown для сверки количества таблиц и строк")
