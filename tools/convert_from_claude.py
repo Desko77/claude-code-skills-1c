@@ -451,8 +451,11 @@ def convert_workflows(source_dir: Path, target_dir: Path, dry_run: bool) -> list
 
     for item in sorted(source_dir.glob("*.yml")):
         if not dry_run:
-            shutil.copy2(item, target_dir / item.name)
-        results.append(f"  {'[DRY] ' if dry_run else ''}workflow: {item.name}")
+            # Ветка по умолчанию в зеркале - master, а не main. Без замены сборка
+            # зарегистрирована, но не запускается ни на одном коммите: условие не совпадает.
+            text = item.read_text(encoding="utf-8").replace("branches: [main]", "branches: [master]")
+            (target_dir / item.name).write_text(text, encoding="utf-8", newline="")
+        results.append(f"  {'[DRY] ' if dry_run else ''}workflow: {item.name} (ветка master)")
     return results
 
 
