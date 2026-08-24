@@ -31,7 +31,16 @@ RULES_DIR = ROOT / "rules"
 SKILLS_DIR = ROOT / "skills"
 
 # Ключи, допустимые во frontmatter правила. Все прочее - опечатка либо забытый эксперимент.
-RULE_KEYS = {"paths", "name", "description"}
+# Ключи frontmatter правила. Набор существует в двух формах: здесь правило - это .md с
+# ключом paths, в зеркале для Cursor - .mdc с ключами globs и alwaysApply. Линтер запускается
+# сборкой в обоих репозиториях, поэтому знает обе формы.
+RULE_KEYS = {"paths", "globs", "alwaysApply", "name", "description"}
+PATH_KEYS = ("paths", "paths[]", "globs", "globs[]")
+
+
+def rule_files():
+    """Правила обеих форм: .md здесь, .mdc в зеркале."""
+    return sorted(list(RULES_DIR.glob("*.md")) + list(RULES_DIR.glob("*.mdc")))
 
 # Имена, которые выглядят ссылкой на файл, но ею не являются: шаблоны имен результата,
 # заполнители в примерах команд. Проверять их бессмысленно.
@@ -106,10 +115,17 @@ def parse_frontmatter(text):
 
 
 def collect_known_files():
-    """Имена файлов, на которые ссылаться законно."""
+    """Имена файлов, на которые ссылаться законно.
+
+    В зеркале для Cursor правила лежат с расширением .mdc, а ссылки в скилах остаются на .md:
+    имя правила одно и то же, различается только формат подключения к среде. Поэтому правило
+    засчитывается по обоим расширениям.
+    """
     known = {}
-    for path in RULES_DIR.glob("*.md"):
+    for path in list(RULES_DIR.glob("*.md")) + list(RULES_DIR.glob("*.mdc")):
         known.setdefault(path.name, []).append(path)
+        if path.suffix == ".mdc":
+            known.setdefault(path.stem + ".md", []).append(path)
     for path in SKILLS_DIR.rglob("*.md"):
         known.setdefault(path.name, []).append(path)
     for path in (ROOT / "docs").glob("*.md"):
@@ -136,7 +152,7 @@ def check_frontmatter(problems):
         if not fields.get("description"):
             problems.append(("ERROR", str(skill_md), "во frontmatter нет поля description"))
 
-    for rule in sorted(RULES_DIR.glob("*.md")):
+    for rule in rule_files():
         fields, _ = parse_frontmatter(read(rule))
         unknown = {k for k in fields if not k.endswith("[]")} - RULE_KEYS
         if unknown:
@@ -167,11 +183,11 @@ def measure_budget():
     """Постоянно загружаемое: правила без paths плюс описания всех скилов."""
     always = []
     conditional = []
-    for rule in sorted(RULES_DIR.glob("*.md")):
+    for rule in rule_files():
         text = read(rule)
         fields, _ = parse_frontmatter(text)
         size = len(text.encode("utf-8"))
-        if "paths" in fields or "paths[]" in fields:
+        if any(key in fields for key in PATH_KEYS):
             conditional.append((rule.name, size))
         else:
             always.append((rule.name, size))

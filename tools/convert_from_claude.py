@@ -440,6 +440,32 @@ def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
     return results
 
 
+def convert_tools(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]:
+    """Перенести инструменты, которые запускает сборка.
+
+    Сам конвертер в зеркало не идет: он собирает зеркало, а не работает внутри него.
+    Остальное нужно там же, где и здесь: линтер набора запускается сборкой, сборка заметок
+    готовит описание релиза зеркала.
+    """
+    results = []
+    if not source_dir.is_dir():
+        return ["  SKIP: no tools/ directory"]
+
+    skip = {"convert_from_claude.py"}
+
+    if not dry_run:
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    for item in sorted(source_dir.glob("*.py")):
+        if item.name in skip:
+            results.append(f"  SKIP (собирает зеркало): {item.name}")
+            continue
+        if not dry_run:
+            shutil.copy2(item, target_dir / item.name)
+        results.append(f"  {'[DRY] ' if dry_run else ''}tool: {item.name}")
+    return results
+
+
 def convert_workflows(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]:
     """Перенести описание сборки: без него тесты в зеркале лежат, но не запускаются."""
     results = []
@@ -553,6 +579,11 @@ def main():
     # Copy tests
     print("\n=== Tests ===")
     for msg in convert_tests(source / "tests", target / "tests", dry_run):
+        print(msg)
+
+    # Copy tools used by CI
+    print("\n=== Tools ===")
+    for msg in convert_tools(source / "tools", target / "tools", dry_run):
         print(msg)
 
     # Copy CI workflows
