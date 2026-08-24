@@ -240,3 +240,38 @@ id колонок должны быть уникальны в рамках вс�
 ### attributes (реквизиты формы) с ValueTable - без изменений
 
 При пересоздании таблиц в дизайнере блок `<attributes>` с `<types>ValueTable</types>` и колонками остаётся как был (только EDT может переставить `<title>` перед `<id>` - не критично). Дело только в `<items xsi:type="form:Table">`.
+
+---
+
+## Страницы и группа страниц - два разных типа extInfo
+
+Распространенная ошибка: считать, что правильный тип один, а второй это опечатка. Типов два, и они относятся к
+разным элементам.
+
+| Элемент | Тип extInfo |
+|---|---|
+| `<type>Pages</type>` - контейнер закладок | `form:PagesGroupExtInfo` |
+| `<type>Page</type>` - отдельная страница внутри контейнера | `form:PageGroupExtInfo` |
+
+Замерено на выгрузке типовой ERP: 450 элементов `Page` c `form:PageGroupExtInfo` и 166 элементов
+`Pages` с `form:PagesGroupExtInfo`, ни одного перекрестного случая. Подстановка типа контейнера
+странице (и наоборот) - реальная ошибка, а не вариант написания.
+
+У страницы внутри extInfo лежат `<group>` и `<showTitle>`, у контейнера - `<pagesRepresentation>`.
+
+## У страницы обязателен признак доступности
+
+Каждый элемент `<type>Page</type>` несет `<enabled>` на своем уровне, рядом с `<type>`, а не внутри
+extInfo. Замерено там же: 259 страниц из 259.
+
+```xml
+<items xsi:type="form:FormGroup">
+  <name>СтраницаОсновное</name>
+  <enabled>true</enabled>
+  <type>Page</type>
+  <extInfo xsi:type="form:PageGroupExtInfo">
+    <group>Vertical</group>
+    <showTitle>true</showTitle>
+  </extInfo>
+</items>
+```

@@ -12,6 +12,119 @@ import tempfile
 import uuid
 
 
+# --- Вердикт платформы (общий блок, версия 1) ---
+# Платформа сообщает результат тремя независимыми каналами, и ни один не самодостаточен:
+# нулевой код возврата при проваленной операции - ее штатное поведение. Четвертый сигнал -
+# постусловие: артефакт операции действительно появился и он от этого запуска.
+
+# Фразы, которыми платформа сообщает об ОТСУТСТВИИ проблем. Сверяются раньше диагностики
+# и целиком: строка "операция завершена с ошибками" не должна попасть под "операция завершена".
+PLATFORM_CLEAN_PHRASES = (
+    "ошибок не обнаружено",
+    "ошибки не обнаружены",
+    "предупреждений не обнаружено",
+    "ошибок: 0",
+    "предупреждений: 0",
+    "errors were not found",
+    "0 errors",
+)
+
+# Сообщения, при которых операция провалена, даже если код возврата нулевой.
+PLATFORM_FATAL_PHRASES = (
+    "неверное свойство объекта метаданных",
+    "не входит в состав объекта метаданных",
+    "неизвестное имя типа",
+    "неизвестный объект метаданных",
+    "ни один из документов не является регистратором для регистра",
+    "неверное значение перечисления",
+    "не может быть приведен к типу",
+    "необходима версия платформы не меньше",
+    "не найден метод",
+    "не может быть применен",
+)
+
+
+def hide_platform_secret(text):
+    """Замаскировать секреты в строке, уходящей в вывод."""
+    if not text:
+        return text
+    # Ключи с секретом: пароль базы, код разблокировки, пароль хранилища конфигурации.
+    # Длинные имена стоят первыми, иначе короткое подойдет как префикс длинного.
+    keys = r'(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
+    masked = re.sub(keys + r'"[^"]*"', r'\g<1>"***"', text)
+    masked = re.sub(keys + r'([^\s"]\S*)', r'\g<1>***', masked)
+    return masked
+
+
+def platform_log_problems(log_text):
+    """Строки лога, означающие провал операции при любом коде возврата."""
+    problems = []
+    if not log_text:
+        return problems
+    for line in log_text.splitlines():
+        trimmed = line.strip()
+        if not trimmed:
+            continue
+        lower = trimmed.lower()
+        if any(phrase in lower for phrase in PLATFORM_CLEAN_PHRASES):
+            continue
+        if any(phrase in lower for phrase in PLATFORM_FATAL_PHRASES):
+            problems.append(trimmed)
+    return problems
+
+
+def platform_result_code(result_file):
+    """Числовой результат платформы или None, если сигнал недоступен."""
+    if not result_file or not os.path.isfile(result_file):
+        return None
+    try:
+        with open(result_file, "r", encoding="utf-8-sig") as f:
+            raw = f.read().strip()
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def write_platform_verdict(exit_code, result_file, log_text, success_message,
+                           failure_message, artifact_path=None, strict=False):
+    """Свести четыре сигнала в один код возврата и напечатать вердикт."""
+    final_code = exit_code
+    result_code = platform_result_code(result_file)
+    if result_code is not None and result_code != 0 and final_code == 0:
+        print(f"[error] platform result code: {result_code}", file=sys.stderr)
+        final_code = 1
+
+    if final_code == 0:
+        print(success_message)
+    else:
+        print(f"{failure_message} (code: {final_code})", file=sys.stderr)
+
+    if log_text:
+        print("--- Log ---")
+        print(log_text)
+        print("--- End ---")
+
+    problems = platform_log_problems(log_text)
+    if problems:
+        print(f"[warning] platform reported success, but the log contains {len(problems)} problem(s):")
+        for problem in problems:
+            print(f"  {problem}")
+        if strict and final_code == 0:
+            final_code = 1
+
+    if artifact_path and final_code == 0 and not os.path.exists(artifact_path):
+        print(f"[error] platform reported success, but the expected result is missing: {artifact_path}",
+              file=sys.stderr)
+        final_code = 1
+
+    return final_code
+
+
 def new_uuid():
     return str(uuid.uuid4())
 
@@ -1034,43 +1147,57 @@ def main():
         if register_columns:
             print('WARNING: Register column categories (Dimension/Resource/Attribute) are guessed. Form field bindings may not survive round-trip through a real database.')
 
+    # Журналы и файлы результата пишутся рядом с временной базой: она уникальна на запуск.
+    # Общий временный каталог с постоянными именами отдавал вердикт прошлого прогона.
+    def read_log(path):
+        if not os.path.isfile(path):
+            return None
+        try:
+            with open(path, 'r', encoding='utf-8-sig') as f:
+                return f.read()
+        except Exception:
+            return None
+
     # Create infobase
     print(f'Creating infobase: {temp_base}')
+    create_log = temp_base + '.create.log'
+    create_result = temp_base + '.create.result'
     result = subprocess.run(
-        [args.V8Path, 'CREATEINFOBASE', f'File={temp_base}', '/DisableStartupDialogs'],
+        [args.V8Path, 'CREATEINFOBASE', f'File={temp_base}',
+         '/Out', create_log, '/DumpResult', create_result, '/DisableStartupDialogs'],
         capture_output=True, text=True,
     )
-    if result.returncode != 0:
-        print(f'Failed to create infobase (code: {result.returncode})', file=sys.stderr)
+    if write_platform_verdict(result.returncode, create_result, read_log(create_log),
+                              'Infobase created', 'Failed to create infobase',
+                              artifact_path=os.path.join(temp_base, '1Cv8.1CD')) != 0:
         sys.exit(1)
 
     if has_ref_types:
         cfg_dir = os.path.join(temp_base, 'cfg')
         # LoadConfigFromFiles
         print('Loading configuration from files...')
+        load_log = temp_base + '.load.log'
+        load_result = temp_base + '.load.result'
         result = subprocess.run(
-            [args.V8Path, 'DESIGNER', f'/F{temp_base}', '/LoadConfigFromFiles', cfg_dir, '/DisableStartupDialogs'],
+            [args.V8Path, 'DESIGNER', f'/F{temp_base}', '/LoadConfigFromFiles', cfg_dir,
+             '/Out', load_log, '/DumpResult', load_result, '/DisableStartupDialogs'],
             capture_output=True, text=True,
         )
-        if result.returncode != 0:
-            print(f'Failed to load config (code: {result.returncode})', file=sys.stderr)
+        if write_platform_verdict(result.returncode, load_result, read_log(load_log),
+                                  'Configuration loaded', 'Failed to load config') != 0:
             sys.exit(1)
 
         # UpdateDBCfg
         print('Updating database configuration...')
-        update_log = os.path.join(tempfile.gettempdir(), 'stub_update_log.txt')
+        update_log = temp_base + '.update.log'
+        update_result = temp_base + '.update.result'
         result = subprocess.run(
-            [args.V8Path, 'DESIGNER', f'/F{temp_base}', '/UpdateDBCfg', '/Out', update_log, '/DisableStartupDialogs'],
+            [args.V8Path, 'DESIGNER', f'/F{temp_base}', '/UpdateDBCfg',
+             '/Out', update_log, '/DumpResult', update_result, '/DisableStartupDialogs'],
             capture_output=True, text=True,
         )
-        if result.returncode != 0:
-            if os.path.isfile(update_log):
-                try:
-                    with open(update_log, 'r', encoding='utf-8-sig') as f:
-                        print(f.read())
-                except Exception:
-                    pass
-            print(f'Failed to update DB config (code: {result.returncode})', file=sys.stderr)
+        if write_platform_verdict(result.returncode, update_result, read_log(update_log),
+                                  'Database configuration updated', 'Failed to update DB config') != 0:
             sys.exit(1)
 
         # Cleanup cfg dir

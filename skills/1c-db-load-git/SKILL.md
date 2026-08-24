@@ -59,6 +59,7 @@ powershell.exe -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 <�
 | `-Format <формат>` | нет | `Hierarchical` (по умолч.) / `Plain` |
 | `-DryRun` | нет | Только показать что будет загружено (без загрузки) |
 | `-UpdateDB` | нет | После загрузки сразу обновить конфигурацию БД (`/UpdateDBCfg`) |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

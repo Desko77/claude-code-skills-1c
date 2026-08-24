@@ -53,6 +53,7 @@ powershell.exe -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 <п�
 | `-UserName <имя>` | нет | Имя пользователя |
 | `-Password <пароль>` | нет | Пароль |
 | `-OutputFile <путь>` | да | Путь к выходному DT-файлу |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` - нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

@@ -57,6 +57,7 @@ powershell.exe -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 <п�
 | `-InputFile <путь>` | да | Путь к DT-файлу |
 | `-JobsCount <N>` | нет | Число фоновых заданий загрузки (0 = решает платформа) |
 | `-UnlockCode <код>` | нет | Код разрешения начала сеансов, если база заблокирована (`/UC`) |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` - нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

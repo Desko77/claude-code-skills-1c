@@ -13,6 +13,118 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# --- Вердикт платформы (общий блок, версия 1) ---
+# Платформа сообщает результат тремя независимыми каналами, и ни один не самодостаточен:
+# нулевой код возврата при проваленной операции - ее штатное поведение. Четвертый сигнал -
+# постусловие: артефакт операции действительно появился и он от этого запуска.
+
+function Hide-PlatformSecret {
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+    # Ключи с секретом: пароль базы, код разблокировки, пароль хранилища конфигурации.
+    # Длинные имена стоят первыми, иначе короткое подойдет как префикс длинного.
+    $keys = '(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
+    $masked = $Text -replace ($keys + '"[^"]*"'), '$1"***"'
+    $masked = $masked -replace ($keys + '([^\s"]\S*)'), '$1***'
+    return $masked
+}
+
+function Get-PlatformLogProblems {
+    param([string]$LogText)
+    $problems = @()
+    if (-not $LogText) { return $problems }
+    # Фразы, которыми платформа сообщает об ОТСУТСТВИИ проблем. Сверяются раньше диагностики
+    # и целиком: строка "операция завершена с ошибками" не должна попасть под "операция завершена".
+    $cleanPhrases = @(
+        'ошибок не обнаружено',
+        'ошибки не обнаружены',
+        'предупреждений не обнаружено',
+        'ошибок: 0',
+        'предупреждений: 0',
+        'errors were not found',
+        '0 errors'
+    )
+    # Сообщения, при которых операция провалена, даже если код возврата нулевой.
+    $fatalPhrases = @(
+        'неверное свойство объекта метаданных',
+        'не входит в состав объекта метаданных',
+        'неизвестное имя типа',
+        'неизвестный объект метаданных',
+        'ни один из документов не является регистратором для регистра',
+        'неверное значение перечисления',
+        'не может быть приведен к типу',
+        'необходима версия платформы не меньше',
+        'не найден метод',
+        'не может быть применен'
+    )
+    foreach ($line in ($LogText -split "`r?`n")) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed) { continue }
+        $lower = $trimmed.ToLowerInvariant()
+        $isClean = $false
+        foreach ($phrase in $cleanPhrases) {
+            if ($lower.Contains($phrase)) { $isClean = $true; break }
+        }
+        if ($isClean) { continue }
+        foreach ($phrase in $fatalPhrases) {
+            if ($lower.Contains($phrase)) { $problems += $trimmed; break }
+        }
+    }
+    return $problems
+}
+
+function Get-PlatformResultCode {
+    param([string]$ResultFile)
+    if (-not $ResultFile -or -not (Test-Path $ResultFile)) { return $null }
+    $raw = (Get-Content $ResultFile -Raw -ErrorAction SilentlyContinue)
+    if ($null -eq $raw) { return $null }
+    $raw = $raw.Trim()
+    if ($raw -eq '') { return $null }
+    $parsed = 0
+    if ([int]::TryParse($raw, [ref]$parsed)) { return $parsed }
+    return $null
+}
+
+function Write-PlatformVerdict {
+    param(
+        [int]$ExitCode,
+        [string]$ResultFile,
+        [string]$LogText,
+        [string]$ArtifactPath,
+        [string]$SuccessMessage,
+        [string]$FailureMessage,
+        [switch]$Strict
+    )
+    $finalCode = $ExitCode
+    $resultCode = Get-PlatformResultCode -ResultFile $ResultFile
+    if ($null -ne $resultCode -and $resultCode -ne 0 -and $finalCode -eq 0) {
+        Write-Host "[error] platform result code: $resultCode" -ForegroundColor Red
+        $finalCode = 1
+    }
+    if ($finalCode -eq 0) {
+        Write-Host $SuccessMessage -ForegroundColor Green
+    } else {
+        Write-Host "$FailureMessage (code: $finalCode)" -ForegroundColor Red
+    }
+    if ($LogText) {
+        Write-Host "--- Log ---"
+        Write-Host $LogText
+        Write-Host "--- End ---"
+    }
+    $problems = @(Get-PlatformLogProblems -LogText $LogText)
+    if ($problems.Count -gt 0) {
+        Write-Host "[warning] platform reported success, but the log contains $($problems.Count) problem(s):" -ForegroundColor Yellow
+        foreach ($problem in $problems) { Write-Host "  $problem" -ForegroundColor Yellow }
+        if ($Strict -and $finalCode -eq 0) { $finalCode = 1 }
+    }
+    if ($ArtifactPath -and $finalCode -eq 0 -and -not (Test-Path $ArtifactPath)) {
+        Write-Host "[error] platform reported success, but the expected result is missing: $ArtifactPath" -ForegroundColor Red
+        $finalCode = 1
+    }
+    return $finalCode
+}
+
+
 # --- 1. Scan XML files for reference types ---
 
 $typeMap = @{}  # MetadataType -> @(Name1, Name2, ...)
@@ -1253,11 +1365,20 @@ $propsXml		</Properties>$childObjLine
 }
 
 # --- 5. Create infobase ---
+# Журналы и файлы результата пишутся рядом с временной базой: она уникальна на запуск.
+# Общий временный каталог с постоянными именами отдавал вердикт прошлого прогона.
 Write-Host "Creating infobase: $TempBasePath"
-$createArgs = "CREATEINFOBASE File=`"$TempBasePath`" /DisableStartupDialogs"
+$createLog = "$TempBasePath.create.log"
+$createResult = "$TempBasePath.create.result"
+$createArgs = "CREATEINFOBASE File=`"$TempBasePath`" /Out `"$createLog`" /DumpResult `"$createResult`" /DisableStartupDialogs"
 $proc = Start-Process -FilePath $V8Path -ArgumentList $createArgs -NoNewWindow -Wait -PassThru
-if ($proc.ExitCode -ne 0) {
-	Write-Error "Failed to create infobase (code: $($proc.ExitCode))"
+$createLogText = $null
+if (Test-Path $createLog) { $createLogText = Get-Content $createLog -Raw -ErrorAction SilentlyContinue }
+$createCode = Write-PlatformVerdict -ExitCode $proc.ExitCode -ResultFile $createResult -LogText $createLogText `
+	-ArtifactPath (Join-Path $TempBasePath "1Cv8.1CD") `
+	-SuccessMessage "Infobase created" `
+	-FailureMessage "Failed to create infobase"
+if ($createCode -ne 0) {
 	exit 1
 }
 
@@ -1266,23 +1387,31 @@ if ($hasRefTypes) {
 	$cfgDir = Join-Path $TempBasePath "cfg"
 	# LoadConfigFromFiles
 	Write-Host "Loading configuration from files..."
-	$loadLog = Join-Path $env:TEMP "stub_load_log.txt"
-	$loadArgs = "DESIGNER /F`"$TempBasePath`" /LoadConfigFromFiles `"$cfgDir`" /Out `"$loadLog`" /DisableStartupDialogs"
+	$loadLog = "$TempBasePath.load.log"
+	$loadResult = "$TempBasePath.load.result"
+	$loadArgs = "DESIGNER /F`"$TempBasePath`" /LoadConfigFromFiles `"$cfgDir`" /Out `"$loadLog`" /DumpResult `"$loadResult`" /DisableStartupDialogs"
 	$proc = Start-Process -FilePath $V8Path -ArgumentList $loadArgs -NoNewWindow -Wait -PassThru
-	if ($proc.ExitCode -ne 0) {
-		if (Test-Path $loadLog) { Get-Content $loadLog -Raw -ErrorAction SilentlyContinue | Write-Host }
-		Write-Error "Failed to load config (code: $($proc.ExitCode))"
+	$loadLogText = $null
+	if (Test-Path $loadLog) { $loadLogText = Get-Content $loadLog -Raw -ErrorAction SilentlyContinue }
+	$loadCode = Write-PlatformVerdict -ExitCode $proc.ExitCode -ResultFile $loadResult -LogText $loadLogText `
+		-SuccessMessage "Configuration loaded" `
+		-FailureMessage "Failed to load config"
+	if ($loadCode -ne 0) {
 		exit 1
 	}
 
 	# UpdateDBCfg
 	Write-Host "Updating database configuration..."
-	$updateLog = Join-Path $env:TEMP "stub_update_log.txt"
-	$updateArgs = "DESIGNER /F`"$TempBasePath`" /UpdateDBCfg /Out `"$updateLog`" /DisableStartupDialogs"
+	$updateLog = "$TempBasePath.update.log"
+	$updateResult = "$TempBasePath.update.result"
+	$updateArgs = "DESIGNER /F`"$TempBasePath`" /UpdateDBCfg /Out `"$updateLog`" /DumpResult `"$updateResult`" /DisableStartupDialogs"
 	$proc = Start-Process -FilePath $V8Path -ArgumentList $updateArgs -NoNewWindow -Wait -PassThru
-	if ($proc.ExitCode -ne 0) {
-		if (Test-Path $updateLog) { Get-Content $updateLog -Raw -ErrorAction SilentlyContinue | Write-Host }
-		Write-Error "Failed to update DB config (code: $($proc.ExitCode))"
+	$updateLogText = $null
+	if (Test-Path $updateLog) { $updateLogText = Get-Content $updateLog -Raw -ErrorAction SilentlyContinue }
+	$updateCode = Write-PlatformVerdict -ExitCode $proc.ExitCode -ResultFile $updateResult -LogText $updateLogText `
+		-SuccessMessage "Database configuration updated" `
+		-FailureMessage "Failed to update DB config"
+	if ($updateCode -ne 0) {
 		exit 1
 	}
 

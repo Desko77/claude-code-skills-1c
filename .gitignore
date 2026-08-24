@@ -57,3 +57,6 @@ Thumbs.db
 # Артефакты прогона тестов скилов
 tests/skills/.cache/
 tests/skills/.last-report.json
+
+# Клоны чужих репозиториев для разбора (не публикуются)
+/clones/

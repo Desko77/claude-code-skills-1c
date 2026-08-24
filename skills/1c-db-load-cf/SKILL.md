@@ -52,6 +52,7 @@ powershell.exe -NoProfile -File skills/1c-db-load-cf/scripts/db-load-cf.ps1 <п�
 | `-InputFile <путь>` | да | Путь к CF-файлу |
 | `-Extension <имя>` | нет | Загрузить как расширение |
 | `-AllExtensions` | нет | Загрузить все расширения из архива |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

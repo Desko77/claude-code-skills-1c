@@ -3,10 +3,11 @@
 // Usage: node tests/skills/runner.mjs [filter] [--update-snapshots] [--runtime python] [--json report.json] [--concurrency N] [--with-validation]
 
 import { execFileSync, execFile } from 'child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync,
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync,
          readdirSync, statSync, cpSync, copyFileSync, chmodSync } from 'fs';
 import { createHash } from 'crypto';
 import { join, resolve, dirname, relative, basename, extname } from 'path';
+import { removeTree } from './fs-safe.mjs';
 import { fileURLToPath } from 'url';
 import { tmpdir, cpus } from 'os';
 
@@ -184,7 +185,7 @@ function ensureSetup(setupName, runtime, skillCasesDir) {
     const want = fixtureStamp(EMPTY_CONFIGS[setupName]);
     if (existsSync(cached)) {
       if (existsSync(stamp) && readFileSync(stamp, 'utf8') === want) return cached;
-      rmSync(cached, { recursive: true, force: true });
+      removeTree(cached);
     }
 
     mkdirSync(cached, { recursive: true });
@@ -193,7 +194,7 @@ function ensureSetup(setupName, runtime, skillCasesDir) {
       execSkillRaw(runtime, script, ['-Name', 'TestConfig', '-OutputDir', cached, ...EMPTY_CONFIGS[setupName]]);
       writeFileSync(stamp, want, 'utf8');
     } catch (e) {
-      rmSync(cached, { recursive: true, force: true });
+      removeTree(cached);
       throw new Error(`Failed to create ${setupName} fixture: ${e.message}`);
     }
     return cached;
@@ -303,10 +304,10 @@ function cleanupWorkspace(ws) {
     return;
   }
   // On Windows, file handles from db-update (1cv8) may linger briefly after the
-  // process exits — rmSync then throws EBUSY. Retry a few times, then swallow:
+  // process exits — deletion then throws EBUSY. Retry a few times, then swallow:
   // a leaked tmp dir is preferable to crashing the entire runner.
   try {
-    rmSync(ws.path, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    removeTree(ws.path, { retries: 10, delayMs: 200, force: false });
   } catch (e) {
     console.warn(`Warning: failed to clean workspace ${ws.path}: ${e.message}`);
   }
@@ -683,7 +684,7 @@ function updateSnapshot(workDir, snapshotDir, snapshotConfig, caseData) {
   if (caseData?.noSnapshot) return;
 
   // Remove old snapshot
-  if (existsSync(snapshotDir)) rmSync(snapshotDir, { recursive: true, force: true });
+  if (existsSync(snapshotDir)) removeTree(snapshotDir);
 
   // Determine which files to snapshot — all files in workDir that were created by the skill
   // For "workDir" root mode, we need to figure out what files the skill added.
@@ -819,7 +820,7 @@ async function runCaseAsync(testCase, opts) {
         } catch (e) {
           throw new Error(`preRun step "${step.script}" failed: ${e.stderr || e.message}`);
         }
-        if (preInputFile && existsSync(preInputFile)) rmSync(preInputFile);
+        if (preInputFile && existsSync(preInputFile)) removeTree(preInputFile);
       }
     }
 
@@ -841,7 +842,7 @@ async function runCaseAsync(testCase, opts) {
       stderr = e.stderr || '';
     }
 
-    if (inputFile && existsSync(inputFile)) rmSync(inputFile);
+    if (inputFile && existsSync(inputFile)) removeTree(inputFile);
 
     // Assertions
     const errors = [];
@@ -1041,7 +1042,7 @@ function runCase(testCase, opts) {
         } catch (e) {
           throw new Error(`preRun step "${step.script}" failed: ${e.stderr || e.message}`);
         }
-        if (preInputFile && existsSync(preInputFile)) rmSync(preInputFile);
+        if (preInputFile && existsSync(preInputFile)) removeTree(preInputFile);
       }
     }
 
@@ -1065,7 +1066,7 @@ function runCase(testCase, opts) {
     }
 
     // Remove temp input file from workDir before snapshot comparison
-    if (inputFile && existsSync(inputFile)) rmSync(inputFile);
+    if (inputFile && existsSync(inputFile)) removeTree(inputFile);
 
     // 4. Assertions
     const errors = [];
@@ -1509,7 +1510,7 @@ async function runIntegrationOnce(test, opts, engine, labelEngine) {
         break; // stop on first failure
       }
 
-      if (inputFile && existsSync(inputFile)) rmSync(inputFile);
+      if (inputFile && existsSync(inputFile)) removeTree(inputFile);
 
       // Post-step validation
       if (opts.withValidation && step.validate) {
@@ -1535,7 +1536,7 @@ async function runIntegrationOnce(test, opts, engine, labelEngine) {
     // Cache result if configured
     if (test.cache && stepResults.every(s => s.passed)) {
       const cachePath = join(CACHE, test.cache);
-      if (existsSync(cachePath)) rmSync(cachePath, { recursive: true, force: true });
+      if (existsSync(cachePath)) removeTree(cachePath);
       cpSync(workDir, cachePath, { recursive: true });
     }
 
@@ -1600,12 +1601,14 @@ function applyKnownGaps(results, casesOk, scope) {
   }
   const failedNow = results.filter((r) => !r.passed && !r.skipped);
   const regressions = failedNow.filter((r) => !known.has(r.id));
-  const fixed = results.filter((r) => r.passed && known.has(r.id));
+  // Пропущенный кейс несет passed=true, и без явного отсева он попадал в «закрытые»:
+  // кейс с runtimeOnly на чужом порту не выполнялся, но объявлялся починенным.
+  const fixed = results.filter((r) => r.passed && !r.skipped && known.has(r.id));
 
   const scoped = scope ? [...known].filter((id) => id.startsWith(scope)) : [...known];
   console.log(`  Известные разрывы: ${failedNow.length - regressions.length} из ${scoped.length}`);
   if (fixed.length) {
-    console.log(`  Закрыто разрывов: ${fixed.length} - вычеркни их из known-gaps.json:`);
+    console.log(`  Закрыто разрывов: ${fixed.length} - вычеркивать из known-gaps.json только после прогона ВТОРОГО порта:`);
     for (const r of fixed.slice(0, 20)) console.log(`    + ${r.id}`);
     if (fixed.length > 20) console.log(`    ... и еще ${fixed.length - 20}`);
   }

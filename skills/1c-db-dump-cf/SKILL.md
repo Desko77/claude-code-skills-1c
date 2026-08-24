@@ -51,6 +51,7 @@ powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 <п�
 | `-OutputFile <путь>` | да | Путь к выходному CF-файлу |
 | `-Extension <имя>` | нет | Выгрузить расширение |
 | `-AllExtensions` | нет | Выгрузить все расширения |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

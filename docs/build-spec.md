@@ -762,6 +762,46 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 
 **`/ConfigurationRepositoryUnLock [-Objects <файл>] [-force] [-Extension <имя>]`** — отменить захват. С `-force` — локальные изменения будут потеряны.
 
+### Отчет по версиям `/ConfigurationRepositoryReport`
+
+```
+1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /ConfigurationRepositoryF "C:\Repo" /ConfigurationRepositoryN Admin /ConfigurationRepositoryP "" /ConfigurationRepositoryReport report.txt /Out log.txt
+```
+
+**`/ConfigurationRepositoryReport <файл>`** — сформировать отчет по версиям хранилища в указанный файл.
+
+Замерено на 8.3.27.1859 против живого хранилища: операция завершается кодом 0, пишет `0` в файл
+`/DumpResult` и строку `Отчет успешно построен` в `/Out`. **Отчет отдается в формате MXL** (табличный
+документ), а не текстом. Против базы, не подключенной к хранилищу, - код 1 и строка
+`Неклассифицированная ошибка работы с хранилищем конфигурации`.
+
+Необязательные параметры этой команды (границы диапазона версий, группировка отчета) здесь **не
+проверены**. Пользоваться ими, не проверив, нельзя.
+
+### Формат файла `-Objects`
+
+Ключ `-Objects` есть у команд захвата, обновления, помещения и отмены захвата. Файл - **XML**, а не
+список имен строками.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Objects xmlns="http://v8.1c.ru/8.3/config/objects" version="1.0">
+  <Object fullName="Справочник.Валюты" includeChildObjects="false"/>
+</Objects>
+```
+
+Замеры на 8.3.27.1859:
+
+- простой текст платформа отвергает разбором XML: `Ошибка разбора XML ... Document is empty`;
+- атрибут называется `includeChildObjects`; на `includeChildren` платформа отвечает
+  `читаемый тег не соответствует ожидаемым. Текущий includeChildren, ожидаемые includeChildObjects`;
+- имя, которого нет в конфигурации, дает `Объекты, отсутствующие в обеих конфигурациях` и отказ
+  операции;
+- захват и отмена захвата на существующих объектах завершаются кодом 0 со строками
+  `Объект захвачен для редактирования: <имя>` и `Захват объекта отменен: <имя>`.
+
+Готовая реализация со сборкой файла и гардами - скил `1c-storage-ops`.
+
 ### Подключение и отключение
 
 **`/ConfigurationRepositoryBindCfg [-forceBindAlreadyBindedUser] [-forceReplaceCfg] [-Extension <имя>]`** — подключить ИБ к хранилищу.

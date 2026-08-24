@@ -45,6 +45,7 @@ powershell.exe -NoProfile -File skills/1c-db-create/scripts/db-create.ps1 <па�
 | `-UseTemplate <файл>` | нет | Создать из шаблона (.cf или .dt) |
 | `-AddToList` | нет | Добавить в список баз 1С |
 | `-ListName <имя>` | нет | Имя базы в списке |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

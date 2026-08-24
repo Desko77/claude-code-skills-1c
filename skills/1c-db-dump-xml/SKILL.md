@@ -58,6 +58,7 @@ powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 <�
 | `-Extension <имя>` | нет | Выгрузить расширение |
 | `-AllExtensions` | нет | Выгрузить все расширения |
 | `-Format <формат>` | нет | `Hierarchical` (по умолч.) / `Plain` |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

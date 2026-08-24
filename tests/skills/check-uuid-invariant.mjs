@@ -9,7 +9,8 @@
 // Предопределенные элементы в охват пока не входят - см. комментарий у чтения uuid ниже.
 // Прогоняет оба рантайма. Выход 1 при нарушении. Запуск: node tests/skills/check-uuid-invariant.mjs [--runtime python]
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
+import { removeTree } from './fs-safe.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -126,7 +127,7 @@ for (const runtime of runtimes) {
     }
     runErrors++;
   } finally {
-    if (work) try { rmSync(work, { recursive: true, force: true }); } catch {}
+    if (work) removeTree(work, { force: true });  // финальная уборка: неудача не влияет на вердикт
   }
 }
 

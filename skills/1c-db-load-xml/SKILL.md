@@ -61,6 +61,7 @@ powershell.exe -NoProfile -File skills/1c-db-load-xml/scripts/db-load-xml.ps1 <�
 | `-AllExtensions` | нет | Загрузить все расширения |
 | `-Format <формат>` | нет | `Hierarchical` (по умолч.) / `Plain` |
 | `-UpdateDB` | нет | После загрузки сразу обновить конфигурацию БД (`/UpdateDBCfg`) |
+| `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
 > `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 

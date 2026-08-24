@@ -16,6 +16,26 @@ from pathlib import Path
 # ─── Rules configuration ────────────────────────────────────────────────────
 
 RULES_CONFIG = {
+    "designer-batch-verdict": {
+        "description": "Вердикт пакетного запуска платформы: четыре сигнала вместо кода возврата",
+        "globs": ["**/scripts/*.ps1", "**/scripts/*.py", "**/*.cmd", "**/*.bat"],
+    },
+    "1c-transactions-and-locks": {
+        "description": "Транзакции и управляемые блокировки: шаблон, порядок захвата",
+        "globs": ["**/*.bsl", "**/*.os"],
+    },
+    "edt-source-format": {
+        "description": "Формат исходников 1С и один владелец развертывания на прогон",
+        "globs": ["**/*.mdo", "**/*.form", "**/Configuration.xml"],
+    },
+    "1c-cyrillic-windows": {
+        "description": "Кириллица в путях и аргументах на Windows: симптомы, кодировки, отказы",
+        "globs": ["**/*.ps1", "**/*.py", "**/*.cmd", "**/*.bat", "**/*.mjs"],
+    },
+    "1c-ordinary-forms": {
+        "description": "Обычные формы: отличия от управляемых, порядок операций с видимостью",
+        "globs": ["**/Forms/**/*.bsl", "**/Ext/Form.xml"],
+    },
     "1c-coding-standards": {
         "description": "Стандарты кода BSL: именование, запросы, коллекции",
         "globs": ["**/*.bsl", "**/*.os"],
