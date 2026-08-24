@@ -405,6 +405,57 @@ def convert_docs(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]
     return results
 
 
+def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]:
+    """Перенести регресс-тесты скилов.
+
+    Скрипты в зеркале те же самые, и ломаются они так же. Без тестов дефект здесь виден только
+    после того, как его поймали в исходном наборе, а часть скилов зеркала берут отсюда напрямую.
+    Раннер разрешает скилы относительно корня репозитория и раскладку не меняет, поэтому набор
+    переносится как есть.
+
+    Артефакты прогона - кэш и последний отчет - остаются локальными и не переносятся.
+    """
+    results = []
+    if not source_dir.is_dir():
+        return ["  SKIP: no tests/ directory"]
+
+    skip_parts = {".cache", "__pycache__", "node_modules"}
+    skip_names = {".last-report.json"}
+
+    if not dry_run:
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    for item in sorted(source_dir.rglob("*")):
+        if not item.is_file():
+            continue
+        rel = item.relative_to(source_dir)
+        if skip_parts & set(rel.parts) or rel.name in skip_names:
+            continue
+        if not dry_run:
+            (target_dir / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, target_dir / rel)
+        count += 1
+    results.append(f"  {'[DRY] ' if dry_run else ''}перенесено файлов: {count}")
+    return results
+
+
+def convert_workflows(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]:
+    """Перенести описание сборки: без него тесты в зеркале лежат, но не запускаются."""
+    results = []
+    if not source_dir.is_dir():
+        return ["  SKIP: no .github/workflows/"]
+
+    if not dry_run:
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    for item in sorted(source_dir.glob("*.yml")):
+        if not dry_run:
+            shutil.copy2(item, target_dir / item.name)
+        results.append(f"  {'[DRY] ' if dry_run else ''}workflow: {item.name}")
+    return results
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -491,6 +542,17 @@ def main():
         else:
             doc_count += 1
     print(f"  {'[DRY] ' if dry_run else ''}перенесено файлов: {doc_count}")
+
+    # Copy tests
+    print("\n=== Tests ===")
+    for msg in convert_tests(source / "tests", target / "tests", dry_run):
+        print(msg)
+
+    # Copy CI workflows
+    print("\n=== CI ===")
+    for msg in convert_workflows(source / ".github" / "workflows",
+                                 target / ".github" / "workflows", dry_run):
+        print(msg)
 
     # Summary
     prefix = "[DRY RUN] " if dry_run else ""
