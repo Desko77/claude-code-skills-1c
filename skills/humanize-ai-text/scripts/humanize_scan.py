@@ -20,6 +20,7 @@
     python humanize_scan.py письмо.md --technical    проверять регистр и в письме
 """
 import argparse
+import io
 import re
 import sys
 from pathlib import Path
@@ -245,14 +246,19 @@ def main():
         if not path.is_file():
             sys.stderr.write('Файл не найден: %s\n' % name)
             return 1
-        raw = path.read_text(encoding='utf-8-sig', newline='')
+        # Чтение и запись идут через io.open, а не через методы Path: параметр newline
+        # у них появился только в python 3.13, а без него перевод строки нормализуется
+        # при чтении, и файл с CRLF сохранялся бы с LF.
+        with io.open(str(path), encoding='utf-8-sig', newline='') as fh:
+            raw = fh.read()
         eol = '\r\n' if '\r\n' in raw else '\n'
         text = raw.replace('\r\n', '\n')
 
         if args.fix:
             fixed, changed = apply_fix(text)
             if changed:
-                path.write_text(fixed.replace('\n', eol), encoding='utf-8', newline='')
+                with io.open(str(path), 'w', encoding='utf-8', newline='') as fh:
+                    fh.write(fixed.replace('\n', eol))
             text = fixed
             print('%s: механических замен %d' % (path.name, changed))
 
