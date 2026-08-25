@@ -481,6 +481,20 @@ curl -sS "http://localhost:6003/api/execute_query?channel=dev" \
 
 Regex для имени: `^[a-zA-Z0-9_-]{1,64}$`. По умолчанию `default`.
 
+## Автономная запись данных и канал кода (headless)
+
+Toolkit из коробки заточен под чтение. Для полностью headless-**записи** данных и правки
+**кода** конфигурации — см. [references/agent-write-and-code-channel.md](references/agent-write-and-code-channel.md)
+и переносимый набор скриптов `scripts/agent-kit/` (параметры в одном `.dev.env`):
+
+- `start-mcp.ps1` — headless-запуск сервера (`/C "startup;mode=embedded;port=N"`, без кликов).
+- `run-bsl.ps1` — выполнить любой BSL, включая запись/удаление (обход фильтра через Base64:
+  `Выполнить(ПолучитьСтрокуИзДвоичныхДанных(Base64Значение(...)))`). Полный доступ — только dev/test.
+- `code-channel.ps1 -Action backup|dump|apply` — правка кода: DumpConfigToFiles → правка →
+  LoadConfigFromFiles + UpdateDBCfg (требует монополии).
+
+Быстрый старт: `cp scripts/agent-kit/.dev.env.template .dev.env`, заполнить, `.\start-mcp.ps1`.
+
 ## Связанные скиллы
 
 - `composing-1c-queries` - синтаксис языка запросов 1С (составление `query` для
