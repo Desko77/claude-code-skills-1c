@@ -6,7 +6,7 @@
       "variants": 2
     },
     "ps1:Assert-EditAllowed": {
-      "skills": 2,
+      "skills": 18,
       "variants": 1
     },
     "ps1:Build-MLTextXml": {
@@ -142,7 +142,11 @@
       "variants": 2
     },
     "ps1:Find-V8Project": {
-      "skills": 2,
+      "skills": 18,
+      "variants": 1
+    },
+    "ps1:Find-V8ProjectFile": {
+      "skills": 3,
       "variants": 1
     },
     "ps1:Format-Type": {
@@ -154,7 +158,7 @@
       "variants": 3
     },
     "ps1:Get-EditMode": {
-      "skills": 2,
+      "skills": 18,
       "variants": 1
     },
     "ps1:Get-ElementName": {
@@ -189,8 +193,12 @@
       "skills": 12,
       "variants": 1
     },
-    "ps1:Get-RootUuid": {
+    "ps1:Get-ProjectPlatformArguments": {
       "skills": 3,
+      "variants": 1
+    },
+    "ps1:Get-RootUuid": {
+      "skills": 19,
       "variants": 2
     },
     "ps1:Get-TypeShorthand": {
@@ -281,6 +289,10 @@
       "skills": 2,
       "variants": 1
     },
+    "ps1:Read-PlatformText": {
+      "skills": 2,
+      "variants": 1
+    },
     "ps1:Remove-NodeWithWhitespace": {
       "skills": 5,
       "variants": 1
@@ -297,6 +309,10 @@
       "skills": 11,
       "variants": 3
     },
+    "ps1:Resolve-PlatformArguments": {
+      "skills": 3,
+      "variants": 1
+    },
     "ps1:Resolve-QueryValue": {
       "skills": 2,
       "variants": 1
@@ -309,12 +325,20 @@
       "skills": 2,
       "variants": 2
     },
+    "ps1:Show-PlatformOutput": {
+      "skills": 2,
+      "variants": 1
+    },
     "ps1:Split-CamelCase": {
       "skills": 3,
       "variants": 2
     },
+    "ps1:Split-PlatformArguments": {
+      "skills": 3,
+      "variants": 1
+    },
     "ps1:Test-ExternalObjectRoot": {
-      "skills": 2,
+      "skills": 18,
       "variants": 1
     },
     "ps1:Test-FormatVersionKnown": {
@@ -327,7 +351,7 @@
     },
     "ps1:Write-ChildSubsystemStub": {
       "skills": 2,
-      "variants": 2
+      "variants": 1
     },
     "ps1:Write-PlatformVerdict": {
       "skills": 12,
@@ -370,19 +394,23 @@
       "variants": 1
     },
     "py:_sg_find_v8project": {
-      "skills": 2,
+      "skills": 18,
       "variants": 1
     },
     "py:_sg_get_edit_mode": {
-      "skills": 2,
+      "skills": 18,
       "variants": 1
     },
     "py:_sg_is_external_root": {
-      "skills": 2,
+      "skills": 18,
+      "variants": 1
+    },
+    "py:_sg_parse": {
+      "skills": 18,
       "variants": 1
     },
     "py:_sg_root_uuid": {
-      "skills": 2,
+      "skills": 18,
       "variants": 1
     },
     "py:_wrap": {
@@ -394,7 +422,7 @@
       "variants": 2
     },
     "py:assert_edit_allowed": {
-      "skills": 2,
+      "skills": 18,
       "variants": 1
     },
     "py:assign_speaker": {
@@ -593,6 +621,10 @@
       "skills": 2,
       "variants": 1
     },
+    "py:find_v8_project_file": {
+      "skills": 3,
+      "variants": 1
+    },
     "py:format_ts": {
       "skills": 2,
       "variants": 1
@@ -693,6 +725,10 @@
       "skills": 2,
       "variants": 1
     },
+    "py:merge_dash_values": {
+      "skills": 3,
+      "variants": 1
+    },
     "py:merge_with_speakers": {
       "skills": 2,
       "variants": 1
@@ -785,8 +821,16 @@
       "skills": 2,
       "variants": 1
     },
+    "py:project_platform_arguments": {
+      "skills": 3,
+      "variants": 1
+    },
     "py:ps_str": {
       "skills": 3,
+      "variants": 1
+    },
+    "py:read_platform_text": {
+      "skills": 2,
       "variants": 1
     },
     "py:remove_node_with_whitespace": {
@@ -808,6 +852,10 @@
     "py:report_warn": {
       "skills": 6,
       "variants": 5
+    },
+    "py:resolve_platform_arguments": {
+      "skills": 3,
+      "variants": 1
     },
     "py:resolve_query_value": {
       "skills": 2,
@@ -849,6 +897,10 @@
       "skills": 2,
       "variants": 2
     },
+    "py:show_platform_output": {
+      "skills": 2,
+      "variants": 1
+    },
     "py:smooth_word_speakers": {
       "skills": 2,
       "variants": 1
@@ -864,6 +916,10 @@
     "py:split_camel_case": {
       "skills": 3,
       "variants": 3
+    },
+    "py:split_platform_arguments": {
+      "skills": 3,
+      "variants": 1
     },
     "py:step": {
       "skills": 2,
