@@ -85,11 +85,21 @@ def _parse_xml(source, from_string=False):
 # default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
 # ============================================================
 
+def _sg_parse(xml_path):
+    """Разбор XML средствами стандартной библиотеки.
+
+    Свой, а не разбор скила: одни порты работают через lxml, другие XML не разбирают вовсе,
+    и обращение к чужому имени попадало в общий except ниже - гард молча разрешал правку.
+    """
+    from xml.etree import ElementTree as _sg_et
+    return _sg_et.parse(xml_path).getroot()
+
+
 def _sg_root_uuid(xml_path):
     if not os.path.isfile(xml_path):
         return None
     try:
-        mx = etree.parse(xml_path).getroot()
+        mx = _sg_parse(xml_path)
         for child in mx:
             if isinstance(child.tag, str) and child.get("uuid"):
                 return child.get("uuid")
@@ -102,7 +112,7 @@ def _sg_is_external_root(xml_path):
     if not os.path.isfile(xml_path):
         return False
     try:
-        mx = etree.parse(xml_path).getroot()
+        mx = _sg_parse(xml_path)
         for child in mx:
             if isinstance(child.tag, str):
                 return child.tag.split("}")[-1] in ("ExternalDataProcessor", "ExternalReport")

@@ -42,6 +42,35 @@
           "1c-epf-dump"
         ]
       }
+    },
+    "support-guard": {
+      "описание": "Гард поддержки: отказ править объект типовой конфигурации на замке поставщика",
+      "ps1": {
+        "маркер": "# --- Support guard (Ext/ParentConfigurations.bin) ---",
+        "конец": "# --- Конец общего блока гарда поддержки ---",
+        "вызов": "Assert-EditAllowed",
+        "эталон": "1c-xdto-compile",
+        "потребители": [
+          "1c-cf-edit",
+          "1c-form-add",
+          "1c-form-compile",
+          "1c-form-edit",
+          "1c-help-manage",
+          "1c-interface-edit",
+          "1c-meta-compile",
+          "1c-meta-edit",
+          "1c-meta-remove",
+          "1c-mxl-compile",
+          "1c-role-compile",
+          "1c-skd-compile",
+          "1c-skd-edit",
+          "1c-subsystem-compile",
+          "1c-subsystem-edit",
+          "1c-template-add",
+          "1c-xdto-compile",
+          "1c-xdto-edit"
+        ]
+      }
     }
   }
 }

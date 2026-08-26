@@ -166,6 +166,7 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 		exit 1
 	} catch { return }
 }
+# --- Конец общего блока гарда поддержки ---
 
 # --- Detect format version ---
 
