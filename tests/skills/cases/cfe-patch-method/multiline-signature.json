@@ -1,0 +1,50 @@
+{
+  "name": "Многострочное объявление метода: сигнатура читается целиком",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "CommonModule",
+        "name": "ПереносМод2",
+        "properties": {
+          "Server": true
+        }
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "CommonModules/ПереносМод2/Ext/Module.bsl",
+        "content": "#Область ПрограммныйИнтерфейс\n\nПроцедура Длинная(ПервыйПараметр,\n\t\tВторойПараметр,\n\t\tТретийПараметр) Экспорт\n\tШаг();\nКонецПроцедуры\n\n#КонецОбласти\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Тест",
+        "-OutputDir": "{workDir}/ext",
+        "-ConfigPath": "{workDir}"
+      }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/ext",
+        "-ConfigPath": "{workDir}",
+        "-Object": "CommonModule.ПереносМод2"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext",
+    "modulePath": "CommonModule.ПереносМод2",
+    "methodName": "Длинная",
+    "interceptorType": "Before"
+  },
+  "expect": {
+    "stdoutContains": "&Перед(\"Длинная\")"
+  }
+}

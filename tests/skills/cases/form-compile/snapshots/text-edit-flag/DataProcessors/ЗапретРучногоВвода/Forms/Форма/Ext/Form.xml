@@ -38,8 +38,15 @@
 				<v8:Type>cfg:DataProcessorObject.ЗапретРучногоВвода</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="ОбычноеПоле" id="8">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>ОбычноеПоле</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -49,6 +56,12 @@
 			</Type>
 		</Attribute>
 		<Attribute name="ПолеБезРучногоВвода" id="9">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>ПолеБезРучногоВвода</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>

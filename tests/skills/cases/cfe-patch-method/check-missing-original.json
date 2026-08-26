@@ -1,0 +1,54 @@
+{
+  "name": "-Check: перехватываемого метода нет в конфигурации (exit 1)",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "CommonModule",
+        "name": "ПропалМод",
+        "properties": {
+          "Server": true
+        }
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "CommonModules/ПропалМод/Ext/Module.bsl",
+        "content": "#Область ПрограммныйИнтерфейс\n\nПроцедура Остался() Экспорт\n\tШаг();\nКонецПроцедуры\n\n#КонецОбласти\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Тест",
+        "-OutputDir": "{workDir}/ext",
+        "-ConfigPath": "{workDir}"
+      }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/ext",
+        "-ConfigPath": "{workDir}",
+        "-Object": "CommonModule.ПропалМод"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "ext/CommonModules/ПропалМод/Ext/Module.bsl",
+        "content": "#Область ПрограммныйИнтерфейс\n&ИзменениеИКонтроль(\"Пропал\")\nПроцедура Тест_Пропал()\n\tШаг();\nКонецПроцедуры\n#КонецОбласти\n"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext"
+  },
+  "args_extra": [
+    "-Check"
+  ],
+  "expectError": "оригинал не найден"
+}

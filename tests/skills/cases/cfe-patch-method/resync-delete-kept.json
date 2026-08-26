@@ -1,0 +1,56 @@
+{
+  "name": "Ресинк: отключенный фрагмент остался в оригинале - обведен на месте, без дубля",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "CommonModule",
+        "name": "УдержМод",
+        "properties": {
+          "Server": true
+        }
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "CommonModules/УдержМод/Ext/Module.bsl",
+        "content": "#Область ПрограммныйИнтерфейс\n\nПроцедура П() Экспорт\n\tШаг1();\n\tШаг2();\n\tШаг3();\n\tШаг4();\nКонецПроцедуры\n\n#КонецОбласти\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Тест",
+        "-OutputDir": "{workDir}/ext",
+        "-ConfigPath": "{workDir}"
+      }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/ext",
+        "-ConfigPath": "{workDir}",
+        "-Object": "CommonModule.УдержМод"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "ext/CommonModules/УдержМод/Ext/Module.bsl",
+        "content": "#Область ПрограммныйИнтерфейс\n&ИзменениеИКонтроль(\"П\")\nПроцедура Тест_П()\n\tШаг1();\n#Удаление\n\tШаг2();\n#КонецУдаления\n\tШаг3();\nКонецПроцедуры\n#КонецОбласти\n"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext",
+    "modulePath": "CommonModule.УдержМод",
+    "methodName": "П",
+    "interceptorType": "ModificationAndControl"
+  },
+  "expect": {
+    "stdoutContains": "правок сохранено: 1"
+  }
+}

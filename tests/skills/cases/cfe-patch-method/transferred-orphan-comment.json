@@ -33,5 +33,5 @@
     "methodName": "П",
     "interceptorType": "ModificationAndControl"
   },
-  "expect": { "stdoutContains": "комментарий не перенесён" }
+  "expect": { "stdoutContains": "комментарий не перенесен" }
 }

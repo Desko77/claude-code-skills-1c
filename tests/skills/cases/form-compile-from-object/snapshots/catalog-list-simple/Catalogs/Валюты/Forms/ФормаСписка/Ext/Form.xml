@@ -83,6 +83,7 @@
 				<v8:Type>cfg:DynamicList</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
 			<Settings xsi:type="DynamicList">
 				<MainTable>Catalog.Валюты</MainTable>
 				<ManualQuery>false</ManualQuery>

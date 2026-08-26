@@ -1,0 +1,56 @@
+{
+  "name": "Ресинк: список параметров оригинала изменился - объявление пересобрано",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "CommonModule",
+        "name": "СигнМод",
+        "properties": {
+          "Server": true
+        }
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "CommonModules/СигнМод/Ext/Module.bsl",
+        "content": "#Область ПрограммныйИнтерфейс\n\nПроцедура П(А, Б) Экспорт\n\tИтог = А;\nКонецПроцедуры\n\n#КонецОбласти\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Тест",
+        "-OutputDir": "{workDir}/ext",
+        "-ConfigPath": "{workDir}"
+      }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/ext",
+        "-ConfigPath": "{workDir}",
+        "-Object": "CommonModule.СигнМод"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "ext/CommonModules/СигнМод/Ext/Module.bsl",
+        "content": "#Область ПрограммныйИнтерфейс\n&ИзменениеИКонтроль(\"П\")\nПроцедура Тест_П(А)\n\tИтог = А;\nКонецПроцедуры\n#КонецОбласти\n"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext",
+    "modulePath": "CommonModule.СигнМод",
+    "methodName": "П",
+    "interceptorType": "ModificationAndControl"
+  },
+  "expect": {
+    "stdoutContains": "АКТУАЛИЗИРОВАН"
+  }
+}

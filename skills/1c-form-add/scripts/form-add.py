@@ -251,6 +251,17 @@ def write_text_with_bom(path, text):
         f.write(text)
 
 
+PALETTE_NS = ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
+
+
+def add_palette_ns(decl, format_version):
+    """Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style."""
+    if float(format_version) < 2.21:
+        return decl
+    lf = ' xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
+    return decl.replace(lf, lf + PALETTE_NS, 1)
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -374,9 +385,7 @@ def main():
 
     form_uuid = str(uuid.uuid4())
 
-    form_meta_xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses"'
+    meta_ns_decl = add_palette_ns(
         ' xmlns:app="http://v8.1c.ru/8.2/managed-application/core"'
         ' xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"'
         ' xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi"'
@@ -392,7 +401,16 @@ def main():
         ' xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef"'
         ' xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"'
         ' xmlns:xs="http://www.w3.org/2001/XMLSchema"'
-        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"', format_version)
+
+    # Режим совместимости интерфейса форма получает начиная с формата 2.21.
+    compatibility_line = ('\t\t\t<UseInInterfaceCompatibilityMode>Any</UseInInterfaceCompatibilityMode>\n'
+                          if float(format_version) >= 2.21 else '')
+
+    form_meta_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses"'
+        + meta_ns_decl +
         f' version="{format_version}">\n'
         f'\t<Form uuid="{form_uuid}">\n'
         '\t\t<Properties>\n'
@@ -410,6 +428,7 @@ def main():
         '\t\t\t\t<v8:Value xsi:type="app:ApplicationUsePurpose">PlatformApplication</v8:Value>\n'
         '\t\t\t\t<v8:Value xsi:type="app:ApplicationUsePurpose">MobilePlatformApplication</v8:Value>\n'
         '\t\t\t</UsePurposes>\n'
+        + compatibility_line
         + ('\t\t\t<ExtendedPresentation/>\n' if object_type in processor_like_types else '')
         + '\t\t</Properties>\n'
         '\t</Form>\n'
@@ -422,7 +441,7 @@ def main():
 
     form_xml_path = os.path.join(form_ext_dir, "Form.xml")
 
-    form_ns_decl = (
+    form_ns_decl = add_palette_ns(
         'xmlns="http://v8.1c.ru/8.3/xcf/logform"'
         ' xmlns:app="http://v8.1c.ru/8.2/managed-application/core"'
         ' xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"'
@@ -438,7 +457,7 @@ def main():
         ' xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows"'
         ' xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"'
         ' xmlns:xs="http://www.w3.org/2001/XMLSchema"'
-        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+        ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"', format_version
     )
 
     if purpose in ("List", "Choice"):
@@ -451,9 +470,6 @@ def main():
             '\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">\n'
             '\t\t<Autofill>true</Autofill>\n'
             '\t</AutoCommandBar>\n'
-            '\t<Events>\n'
-            '\t\t<Event name="OnCreateAtServer">\u041f\u0440\u0438\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0438\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435</Event>\n'
-            '\t</Events>\n'
             '\t<ChildItems/>\n'
             '\t<Attributes>\n'
             '\t\t<Attribute name="\u0421\u043f\u0438\u0441\u043e\u043a" id="1">\n'
@@ -480,9 +496,6 @@ def main():
             '\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">\n'
             '\t\t<Autofill>true</Autofill>\n'
             '\t</AutoCommandBar>\n'
-            '\t<Events>\n'
-            '\t\t<Event name="OnCreateAtServer">\u041f\u0440\u0438\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0438\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435</Event>\n'
-            '\t</Events>\n'
             '\t<ChildItems/>\n'
             '\t<Attributes>\n'
             f'\t\t<Attribute name="{main_attr_name}" id="1">\n'
@@ -524,9 +537,6 @@ def main():
             '\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">\n'
             '\t\t<Autofill>true</Autofill>\n'
             '\t</AutoCommandBar>\n'
-            '\t<Events>\n'
-            '\t\t<Event name="OnCreateAtServer">\u041f\u0440\u0438\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0438\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435</Event>\n'
-            '\t</Events>\n'
             '\t<ChildItems/>\n'
             '\t<Attributes>\n'
             f'\t\t<Attribute name="{main_attr_name}" id="1">\n'
@@ -551,11 +561,6 @@ def main():
 
     module_bsl = (
         '#\u041e\u0431\u043b\u0430\u0441\u0442\u044c \u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u0421\u043e\u0431\u044b\u0442\u0438\u0439\u0424\u043e\u0440\u043c\u044b\n'
-        '\n'
-        '&\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435\n'
-        '\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u0430 \u041f\u0440\u0438\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0438\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435(\u041e\u0442\u043a\u0430\u0437, \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442\u043d\u0430\u044f\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430)\n'
-        '\n'
-        '\u041a\u043e\u043d\u0435\u0446\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u044b\n'
         '\n'
         '#\u041a\u043e\u043d\u0435\u0446\u041e\u0431\u043b\u0430\u0441\u0442\u0438\n'
         '\n'

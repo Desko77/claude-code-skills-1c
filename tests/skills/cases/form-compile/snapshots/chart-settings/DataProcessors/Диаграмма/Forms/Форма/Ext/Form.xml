@@ -16,8 +16,15 @@
 				<v8:Type>cfg:DataProcessorObject.Диаграмма</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Диаграмма" id="2">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Диаграмма</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>d5p1:Chart</v8:Type>
 			</Type>

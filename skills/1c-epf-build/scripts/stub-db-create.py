@@ -956,7 +956,7 @@ def main():
     parser.add_argument('-AdditionalV8Arguments', default='')
     args = parser.parse_args()
     # Дополнительные аргументы приходят одной строкой через запятую и подмешиваются в каждый
-    # запуск платформы: лицензионный ключ нужен и созданию базы, и загрузке конфигурации.
+    # запуск платформы: ключ вида /UseHwLicenses нужен и созданию базы, и загрузке конфигурации.
     extra_args = [p.strip() for p in args.AdditionalV8Arguments.split(',') if p.strip()]
 
     type_map = scan_ref_types(args.SourceDir)

@@ -1,0 +1,52 @@
+{
+  "name": "Дубликат имени внутри группы -> [ERROR] exit 1",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "ТестДубльВложен"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/DataProcessors/ТестДубльВложен.xml",
+        "-FormName": "Форма"
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "DataProcessors/ТестДубльВложен/Forms/Форма/Ext/Form.xml"
+  },
+  "expectError": "Duplicate element name",
+  "input": {
+    "title": "Дубль во вложенности",
+    "attributes": [
+      {
+        "name": "Объект",
+        "type": "DataProcessorObject.ТестДубльВложен",
+        "main": true
+      }
+    ],
+    "elements": [
+      {
+        "check": "Флаг",
+        "name": "Дубль"
+      },
+      {
+        "group": "Группа",
+        "children": [
+          {
+            "label": "Подпись",
+            "name": "Дубль"
+          }
+        ]
+      }
+    ]
+  }
+}

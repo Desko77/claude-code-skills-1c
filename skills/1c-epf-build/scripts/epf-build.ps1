@@ -332,7 +332,7 @@ if (-not $InfoBasePath -and (-not $InfoBaseServer -or -not $InfoBaseRef)) {
     Write-Host "No database specified. Creating temporary stub database..."
     $stubArgs = "-SourceDir `"$sourceDir`" -V8Path `"$V8Path`" -TempBasePath `"$autoBasePath`""
     # Аргументы разрешаются ДО цепочки: заданные только в настройках проекта иначе не дошли бы
-    # до создания временной базы, и она упала бы там же, где нужен лицензионный ключ.
+    # до создания временной базы, и она упала бы там же, где нужен ключ вида /UseHwLicenses.
     $resolvedStubArgs = Resolve-PlatformArguments -Explicit $explicitV8Args -StartDir $settingsDir -Key "v8args"
     if ($resolvedStubArgs.Count -gt 0) {
         $stubArgs += " -AdditionalV8Arguments `"$($resolvedStubArgs -join ',')`""

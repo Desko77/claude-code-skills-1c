@@ -16,18 +16,37 @@
 				<v8:Type>cfg:DataProcessorObject.СпецПоля</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="ТаблицаОтчета" id="2">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>ТаблицаОтчета</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>mxl:SpreadsheetDocument</v8:Type>
 			</Type>
 		</Attribute>
 		<Attribute name="Описание" id="3">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Описание</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>fd:FormattedDocument</v8:Type>
 			</Type>
 		</Attribute>
 		<Attribute name="Содержимое" id="4">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Содержимое</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -37,11 +56,23 @@
 			</Type>
 		</Attribute>
 		<Attribute name="ТекстXML" id="5">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>ТекстXML</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>d5p1:TextDocument</v8:Type>
 			</Type>
 		</Attribute>
 		<Attribute name="ПроцентВыполнения" id="6">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>ПроцентВыполнения</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>xs:decimal</v8:Type>
 				<v8:NumberQualifiers>
@@ -52,6 +83,12 @@
 			</Type>
 		</Attribute>
 		<Attribute name="Масштаб" id="7">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Масштаб</v8:content>
+				</v8:item>
+			</Title>
 			<Type>
 				<v8:Type>xs:decimal</v8:Type>
 				<v8:NumberQualifiers>
