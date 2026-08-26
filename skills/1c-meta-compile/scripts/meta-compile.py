@@ -778,8 +778,10 @@ def emit_type_content(indent, type_str, cfg_prefix=False):
     X(f'{indent}<v8:Type>{type_str}</v8:Type>')
 
 def emit_value_type(indent, type_str):
+    # Измерения и ресурсы регистров платформа выгружает через объявленный в шапке префикс
+    # cfg, а не локальным объявлением - замерено на эталоне регистра сведений.
     X(f'{indent}<Type>')
-    emit_type_content(f'{indent}\t', type_str)
+    emit_type_content(f'{indent}\t', type_str, cfg_prefix=True)
     X(f'{indent}</Type>')
 
 def emit_fill_value(indent, type_str):
@@ -1053,14 +1055,32 @@ standard_attributes_by_type = {
 }
 
 def emit_standard_attribute(indent, attr_name):
+    # Настройки приходят ключом standardAttributes: заданное свойство заменяет умолчание,
+    # остальные печатаются как есть.
+    cfg = (defn.get('standardAttributes') or {}).get(attr_name) or {}
+
     X(f'{indent}<xr:StandardAttribute name="{attr_name}">')
     X(f'{indent}\t<xr:LinkByType/>')
-    X(f'{indent}\t<xr:FillChecking>DontCheck</xr:FillChecking>')
+    # Владелец подчиненного справочника обязателен к заполнению - платформа выставляет это
+    # сама. Владелец и родитель заполняются из значения заполнения.
+    default_checking = 'ShowError' if attr_name == 'Owner' else 'DontCheck'
+    fill_checking = (normalize_enum_value('FillChecking', str(cfg['fillChecking']))
+                     if cfg.get('fillChecking') else default_checking)
+    X(f'{indent}\t<xr:FillChecking>{fill_checking}</xr:FillChecking>')
     X(f'{indent}\t<xr:MultiLine>false</xr:MultiLine>')
-    X(f'{indent}\t<xr:FillFromFillingValue>false</xr:FillFromFillingValue>')
+    from_filling = 'true' if attr_name in ('Owner', 'Parent') else 'false'
+    X(f'{indent}\t<xr:FillFromFillingValue>{from_filling}</xr:FillFromFillingValue>')
     X(f'{indent}\t<xr:CreateOnInput>Auto</xr:CreateOnInput>')
+    # Свойство появилось в формате 2.18. У владельца справочника тип задан списком владельцев,
+    # и приведение значений платформа запрещает.
+    if float(format_version) >= 2.18:
+        reduction = 'Deny' if attr_name == 'Owner' else 'TransformValues'
+        X(f'{indent}\t<xr:TypeReductionMode>{reduction}</xr:TypeReductionMode>')
     X(f'{indent}\t<xr:MaxValue xsi:nil="true"/>')
-    X(f'{indent}\t<xr:ToolTip/>')
+    if cfg.get('tooltip'):
+        emit_mltext(f'{indent}	', 'xr:ToolTip', cfg['tooltip'])
+    else:
+        X(f'{indent}	<xr:ToolTip/>')
     X(f'{indent}\t<xr:ExtendedEdit>false</xr:ExtendedEdit>')
     X(f'{indent}\t<xr:Format/>')
     X(f'{indent}\t<xr:ChoiceForm/>')
@@ -1071,12 +1091,21 @@ def emit_standard_attribute(indent, attr_name):
     X(f'{indent}\t<xr:DataHistory>Use</xr:DataHistory>')
     X(f'{indent}\t<xr:MarkNegatives>false</xr:MarkNegatives>')
     X(f'{indent}\t<xr:MinValue xsi:nil="true"/>')
-    X(f'{indent}\t<xr:Synonym/>')
-    X(f'{indent}\t<xr:Comment/>')
+    if cfg.get('synonym'):
+        emit_mltext(f'{indent}	', 'xr:Synonym', cfg['synonym'])
+    else:
+        X(f'{indent}	<xr:Synonym/>')
+    if cfg.get('comment'):
+        X(f'{indent}	<xr:Comment>{esc_xml(str(cfg["comment"]))}</xr:Comment>')
+    else:
+        X(f'{indent}	<xr:Comment/>')
     X(f'{indent}\t<xr:FullTextSearch>Use</xr:FullTextSearch>')
     X(f'{indent}\t<xr:ChoiceParameterLinks/>')
     X(f'{indent}\t<xr:FillValue xsi:nil="true"/>')
-    X(f'{indent}\t<xr:Mask/>')
+    if cfg.get('mask'):
+        X(f'{indent}	<xr:Mask>{esc_xml(str(cfg["mask"]))}</xr:Mask>')
+    else:
+        X(f'{indent}	<xr:Mask/>')
     X(f'{indent}\t<xr:ChoiceParameters/>')
     X(f'{indent}</xr:StandardAttribute>')
 
@@ -1084,9 +1113,12 @@ def emit_standard_attributes(indent, object_type):
     attrs = standard_attributes_by_type.get(object_type)
     if not attrs:
         return
-    # Платформа выгружает блок, только когда у стандартного реквизита изменено хотя бы одно
-    # свойство. Без настроек блока в выгрузке нет, и писать его - расходиться с платформой.
-    if not defn.get('standardAttributes'):
+    # У ссылочных объектов платформа выгружает блок, только когда у стандартного реквизита
+    # изменено хотя бы одно свойство. У наборов записей он есть всегда - это часть описания
+    # самого набора.
+    always_has_block = ('Enum', 'InformationRegister', 'AccumulationRegister',
+                        'AccountingRegister', 'CalculationRegister')
+    if object_type not in always_has_block and not defn.get('standardAttributes'):
         return
     X(f'{indent}<StandardAttributes>')
     for a in attrs:
@@ -1227,6 +1259,14 @@ def emit_tabular_section(indent, ts_name, columns, object_type, object_name, opt
     emit_tabular_standard_attributes(f'{indent}\t\t')
     if object_type == 'Catalog':
         X(f'{indent}\t\t<Use>ForItem</Use>')
+    # Свойство появилось в формате 2.20. Значение по умолчанию задает режим совместимости
+    # конфигурации: начиная с 8.3.27 это 9, до него - 5. У обработки и отчета его нет:
+    # их табличные части в базе не хранятся.
+    if object_type not in ('DataProcessor', 'Report') and float(format_version) >= 2.20:
+        line_number_length = 9 if compatibility_mode >= 'Version8_3_27' else 5
+        if options and options.get('lineNumberLength') is not None:
+            line_number_length = int(options['lineNumberLength'])
+        X(f'{indent}		<LineNumberLength>{line_number_length}</LineNumberLength>')
     X(f'{indent}\t</Properties>')
     ts_context = 'processor-tabular' if object_type in ('DataProcessor', 'Report') else 'tabular'
     X(f'{indent}\t<ChildObjects>')
@@ -1320,6 +1360,9 @@ def emit_dimension(indent, parsed, register_type):
         X(f'{indent}\t\t<UseInTotals>{use_in_totals}</UseInTotals>')
     if register_type == 'InformationRegister':
         X(f'{indent}\t\t<DataHistory>Use</DataHistory>')
+        # Свойство появилось в формате 2.18.
+        if float(format_version) >= 2.18:
+            X(f'{indent}		<TypeReductionMode>TransformValues</TypeReductionMode>')
     X(f'{indent}\t</Properties>')
     X(f'{indent}</Dimension>')
 
@@ -1357,9 +1400,11 @@ def emit_resource(indent, parsed, register_type):
     X(f'{indent}\t\t<ExtendedEdit>false</ExtendedEdit>')
     X(f'{indent}\t\t<MinValue xsi:nil="true"/>')
     X(f'{indent}\t\t<MaxValue xsi:nil="true"/>')
+    # У ресурса регистра сведений значение заполнения соответствует типу: у числа это ноль,
+    # у строки пустая строка. Пустая ссылка на значение остается неопределенной.
     if register_type == 'InformationRegister':
         X(f'{indent}\t\t<FillFromFillingValue>false</FillFromFillingValue>')
-        X(f'{indent}\t\t<FillValue xsi:nil="true"/>')
+        emit_fill_value(f'{indent}\t\t', parsed['type'])
     flags = parsed.get('flags', [])
     fill_checking = 'DontCheck'
     if 'req' in flags:
@@ -1548,7 +1593,7 @@ def emit_document_properties(indent):
     X(f'{i}<UnpostInPrivilegedMode>{unpost_in_priv}</UnpostInPrivilegedMode>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -1614,7 +1659,7 @@ def emit_constant_properties(indent):
     X(f'{i}<ChoiceForm/>')
     X(f'{i}<LinkByType/>')
     X(f'{i}<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     X(f'{i}<DataHistory>DontUse</DataHistory>')
     X(f'{i}<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>')
@@ -1634,16 +1679,16 @@ def emit_information_register_properties(indent):
     emit_standard_attributes(i, 'InformationRegister')
     periodicity = get_enum_prop('InformationRegisterPeriodicity', 'periodicity', 'Nonperiodical')
     write_mode = get_enum_prop('WriteMode', 'writeMode', 'Independent')
+    # Основной отбор по периоду платформа по умолчанию не включает - ни при какой
+    # периодичности. Значение задается ключом mainFilterOnPeriod.
     main_filter_on_period = 'false'
     if defn.get('mainFilterOnPeriod') is not None:
         main_filter_on_period = 'true' if defn['mainFilterOnPeriod'] is True else 'false'
-    elif periodicity != 'Nonperiodical':
-        main_filter_on_period = 'true'
     X(f'{i}<InformationRegisterPeriodicity>{periodicity}</InformationRegisterPeriodicity>')
     X(f'{i}<WriteMode>{write_mode}</WriteMode>')
     X(f'{i}<MainFilterOnPeriod>{main_filter_on_period}</MainFilterOnPeriod>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -1670,7 +1715,7 @@ def emit_accumulation_register_properties(indent):
     X(f'{i}<RegisterType>{register_type}</RegisterType>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     emit_standard_attributes(i, 'AccumulationRegister')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2113,7 +2158,8 @@ def emit_data_processor_properties(indent):
     X(f'{i}<Name>{esc_xml(obj_name)}</Name>')
     emit_mltext(i, 'Synonym', synonym)
     X(f'{i}<Comment/>')
-    X(f'{i}<UseStandardCommands>false</UseStandardCommands>')
+    # Стандартные команды обработки платформа включает по умолчанию.
+    X(f'{i}<UseStandardCommands>true</UseStandardCommands>')
     default_form = str(defn['defaultForm']) if defn.get('defaultForm') else ''
     if default_form:
         X(f'{i}<DefaultForm>{default_form}</DefaultForm>')
@@ -2167,7 +2213,7 @@ def emit_exchange_plan_properties(indent):
     X(f'{i}<AuxiliaryChoiceForm/>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2258,7 +2304,7 @@ def emit_chart_of_characteristic_types_properties(indent):
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<BasedOn/>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2381,7 +2427,7 @@ def emit_chart_of_accounts_properties(indent):
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<BasedOn/>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2415,7 +2461,7 @@ def emit_accounting_register_properties(indent):
     X(f'{i}<PeriodAdjustmentLength>{period_adj_len}</PeriodAdjustmentLength>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     emit_standard_attributes(i, 'AccountingRegister')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2472,7 +2518,7 @@ def emit_chart_of_calculation_types_properties(indent):
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<BasedOn/>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2520,7 +2566,7 @@ def emit_calculation_register_properties(indent):
         X(f'{i}<ScheduleDate/>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     emit_standard_attributes(i, 'CalculationRegister')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2569,7 +2615,7 @@ def emit_business_process_properties(indent):
     X(f'{i}<AuxiliaryChoiceForm/>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2636,7 +2682,7 @@ def emit_task_properties(indent):
     X(f'{i}<AuxiliaryChoiceForm/>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -2953,7 +2999,28 @@ def detect_format_version(d):
         d = parent
     return "2.17"
 
+def detect_compatibility_mode(directory):
+    """Режим совместимости из Configuration.xml вверх по дереву."""
+    d = os.path.abspath(directory)
+    for _ in range(20):
+        cfg_path = os.path.join(d, 'Configuration.xml')
+        if os.path.isfile(cfg_path):
+            try:
+                with open(cfg_path, 'r', encoding='utf-8-sig') as f:
+                    head = f.read()
+            except OSError:
+                head = ''
+            m = re.search(r'<CompatibilityMode>([^<]+)</CompatibilityMode>', head)
+            if m:
+                return m.group(1)
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return 'Version8_3_24'
+
 format_version = detect_format_version(output_dir)
+compatibility_mode = detect_compatibility_mode(args.OutputDir)
 
 # ---------------------------------------------------------------------------
 # 15. Main assembler

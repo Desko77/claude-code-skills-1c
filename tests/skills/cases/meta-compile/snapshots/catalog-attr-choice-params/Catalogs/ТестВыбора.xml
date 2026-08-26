@@ -98,7 +98,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.БанковскиеСчета</v8:Type>
+						<v8:Type>cfg:CatalogRef.БанковскиеСчета</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -138,7 +138,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Партнеры</v8:Type>
+						<v8:Type>cfg:CatalogRef.Партнеры</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -178,7 +178,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.ВидыТранспорта</v8:Type>
+						<v8:Type>cfg:CatalogRef.ВидыТранспорта</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -218,7 +218,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Валюты</v8:Type>
+						<v8:Type>cfg:CatalogRef.Валюты</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -390,7 +390,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Номенклатура</v8:Type>
+						<v8:Type>cfg:CatalogRef.Номенклатура</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>

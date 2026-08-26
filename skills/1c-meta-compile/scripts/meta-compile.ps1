@@ -165,7 +165,11 @@ if ($def -is [array] -or ($null -ne $def -and $def.GetType().BaseType.Name -eq '
 		$tmpJson = Join-Path ([System.IO.Path]::GetTempPath()) "meta-compile-batch-$PID-$idx-$([guid]::NewGuid().ToString('N')).json"
 		try {
 			$item | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 $tmpJson
-			$proc = Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -File `"$PSCommandPath`" -JsonPath `"$tmpJson`" -OutputDir `"$OutputDir`"" -NoNewWindow -Wait -PassThru
+			# Тот же интерпретатор, что запустил этот скрипт: имя powershell.exe выбирает версию 5.1,
+			# которая иначе разбирает кириллицу в передаваемом определении.
+			$hostExe = (Get-Process -Id $PID).Path
+			if (-not $hostExe) { $hostExe = "pwsh.exe" }
+			$proc = Start-Process -FilePath $hostExe -ArgumentList "-NoProfile -File `"$PSCommandPath`" -JsonPath `"$tmpJson`" -OutputDir `"$OutputDir`"" -NoNewWindow -Wait -PassThru
 			if ($proc.ExitCode -eq 0) { $batchOk++ } else { $batchFail++ }
 		} finally {
 			Remove-Item $tmpJson -Force -ErrorAction SilentlyContinue
@@ -617,9 +621,11 @@ function Emit-TypeContent {
 }
 
 function Emit-ValueType {
+	# Измерения и ресурсы регистров платформа выгружает через объявленный в шапке префикс
+	# cfg, а не локальным объявлением - замерено на эталоне регистра сведений.
 	param([string]$indent, [string]$typeStr)
 	X "$indent<Type>"
-	Emit-TypeContent "$indent`t" $typeStr
+	Emit-TypeContent "$indent`t" $typeStr -CfgPrefix
 	X "$indent</Type>"
 }
 
@@ -925,14 +931,40 @@ $script:standardAttributesByType = @{
 
 function Emit-StandardAttribute {
 	param([string]$indent, [string]$attrName)
+
+	# Настройки приходят ключом standardAttributes: заданное свойство заменяет умолчание,
+	# остальные печатаются как есть. Блок и выгружается платформой только когда в нем есть
+	# отличия от умолчания.
+	$cfg = $null
+	if ($def.standardAttributes) {
+		foreach ($p in $def.standardAttributes.PSObject.Properties) {
+			if ($p.Name -eq $attrName) { $cfg = $p.Value; break }
+		}
+	}
+
 	X "$indent<xr:StandardAttribute name=`"$attrName`">"
 	X "$indent`t<xr:LinkByType/>"
-	X "$indent`t<xr:FillChecking>DontCheck</xr:FillChecking>"
+	# Владелец подчиненного справочника обязателен к заполнению - платформа выставляет это
+	# сама. Владелец и родитель заполняются из значения заполнения.
+	$defaultChecking = if ($attrName -eq "Owner") { "ShowError" } else { "DontCheck" }
+	$fillChecking = if ($cfg -and $cfg.fillChecking) { Normalize-EnumValue "FillChecking" "$($cfg.fillChecking)" } else { $defaultChecking }
+	X "$indent`t<xr:FillChecking>$fillChecking</xr:FillChecking>"
 	X "$indent`t<xr:MultiLine>false</xr:MultiLine>"
-	X "$indent`t<xr:FillFromFillingValue>false</xr:FillFromFillingValue>"
+	$fromFillingValue = if ($attrName -eq "Owner" -or $attrName -eq "Parent") { "true" } else { "false" }
+	X "$indent`t<xr:FillFromFillingValue>$fromFillingValue</xr:FillFromFillingValue>"
 	X "$indent`t<xr:CreateOnInput>Auto</xr:CreateOnInput>"
+	# Свойство появилось в формате 2.18. У владельца справочника тип задан списком владельцев,
+	# и приведение значений платформа запрещает.
+	if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.18) {
+		$reduction = if ($attrName -eq "Owner") { "Deny" } else { "TransformValues" }
+		X "$indent`t<xr:TypeReductionMode>$reduction</xr:TypeReductionMode>"
+	}
 	X "$indent`t<xr:MaxValue xsi:nil=`"true`"/>"
-	X "$indent`t<xr:ToolTip/>"
+	if ($cfg -and $cfg.tooltip) {
+		Emit-MLText "$indent`t" "xr:ToolTip" $cfg.tooltip
+	} else {
+		X "$indent`t<xr:ToolTip/>"
+	}
 	X "$indent`t<xr:ExtendedEdit>false</xr:ExtendedEdit>"
 	X "$indent`t<xr:Format/>"
 	X "$indent`t<xr:ChoiceForm/>"
@@ -943,12 +975,26 @@ function Emit-StandardAttribute {
 	X "$indent`t<xr:DataHistory>Use</xr:DataHistory>"
 	X "$indent`t<xr:MarkNegatives>false</xr:MarkNegatives>"
 	X "$indent`t<xr:MinValue xsi:nil=`"true`"/>"
-	X "$indent`t<xr:Synonym/>"
-	X "$indent`t<xr:Comment/>"
+	if ($cfg -and $cfg.synonym) {
+		Emit-MLText "$indent`t" "xr:Synonym" $cfg.synonym
+	} else {
+		X "$indent`t<xr:Synonym/>"
+	}
+	if ($cfg -and $cfg.comment) {
+		X "$indent`t<xr:Comment>$(Esc-Xml "$($cfg.comment)")</xr:Comment>"
+	} else {
+		X "$indent`t<xr:Comment/>"
+	}
 	X "$indent`t<xr:FullTextSearch>Use</xr:FullTextSearch>"
+	# Составные свойства стандартного реквизита (связи и параметры выбора, значение
+	# заполнения) навык пока печатает умолчанием: генератора для них в префиксе xr нет.
 	X "$indent`t<xr:ChoiceParameterLinks/>"
 	X "$indent`t<xr:FillValue xsi:nil=`"true`"/>"
-	X "$indent`t<xr:Mask/>"
+	if ($cfg -and $cfg.mask) {
+		X "$indent`t<xr:Mask>$(Esc-Xml "$($cfg.mask)")</xr:Mask>"
+	} else {
+		X "$indent`t<xr:Mask/>"
+	}
 	X "$indent`t<xr:ChoiceParameters/>"
 	X "$indent</xr:StandardAttribute>"
 }
@@ -957,9 +1003,11 @@ function Emit-StandardAttributes {
 	param([string]$indent, [string]$objectType)
 	$attrs = $script:standardAttributesByType[$objectType]
 	if (-not $attrs) { return }
-	# Платформа выгружает блок, только когда у стандартного реквизита изменено хотя бы одно
-	# свойство. Без настроек блока в выгрузке нет, и писать его - расходиться с платформой.
-	if (-not $def.standardAttributes) { return }
+	# У ссылочных объектов платформа выгружает блок, только когда у стандартного реквизита
+	# изменено хотя бы одно свойство. У наборов записей он есть всегда - это часть описания
+	# самого набора.
+	$alwaysHasBlock = @("Enum","InformationRegister","AccumulationRegister","AccountingRegister","CalculationRegister")
+	if ($objectType -notin $alwaysHasBlock -and -not $def.standardAttributes) { return }
 	X "$indent<StandardAttributes>"
 	foreach ($a in $attrs) {
 		Emit-StandardAttribute "$indent`t" $a
@@ -1113,6 +1161,15 @@ function Emit-TabularSection {
 	if ($objectType -eq "Catalog") {
 		X "$indent`t`t<Use>ForItem</Use>"
 	}
+	# Свойство появилось в формате 2.20. Значение по умолчанию задает режим совместимости
+	# конфигурации: начиная с 8.3.27 это 9, до него - 5. У обработки и отчета его нет:
+	# их табличные части в базе не хранятся.
+	if ($objectType -notin @("DataProcessor","Report") -and
+		[double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.20) {
+		$lineNumberLength = if ($script:compatibilityMode -ge "Version8_3_27") { 9 } else { 5 }
+		if ($options -and $null -ne $options.lineNumberLength) { $lineNumberLength = [int]$options.lineNumberLength }
+		X "$indent`t`t<LineNumberLength>$lineNumberLength</LineNumberLength>"
+	}
 	X "$indent`t</Properties>"
 
 	$tsContext = if ($objectType -in @("DataProcessor","Report")) { "processor-tabular" } else { "tabular" }
@@ -1229,6 +1286,10 @@ function Emit-Dimension {
 	# InformationRegister dimensions: DataHistory
 	if ($registerType -eq "InformationRegister") {
 		X "$indent`t`t<DataHistory>Use</DataHistory>"
+		# Свойство появилось в формате 2.18.
+		if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.18) {
+			X "$indent`t`t<TypeReductionMode>TransformValues</TypeReductionMode>"
+		}
 	}
 
 	X "$indent`t</Properties>"
@@ -1272,10 +1333,11 @@ function Emit-Resource {
 	X "$indent`t`t<MinValue xsi:nil=`"true`"/>"
 	X "$indent`t`t<MaxValue xsi:nil=`"true`"/>"
 
-	# InformationRegister resources have FillFromFillingValue, FillValue
+	# У ресурса регистра сведений значение заполнения соответствует типу: у числа это ноль,
+	# у строки пустая строка. Пустая ссылка на значение остается неопределенной.
 	if ($registerType -eq "InformationRegister") {
 		X "$indent`t`t<FillFromFillingValue>false</FillFromFillingValue>"
-		X "$indent`t`t<FillValue xsi:nil=`"true`"/>"
+		Emit-FillValue "$indent`t`t" $parsed.type
 	}
 
 	$fillChecking = "DontCheck"
@@ -1500,7 +1562,7 @@ function Emit-DocumentProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -1579,7 +1641,7 @@ function Emit-ConstantProperties {
 	X "$i<LinkByType/>"
 	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 	X "$i<DataHistory>DontUse</DataHistory>"
 	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"
@@ -1605,12 +1667,11 @@ function Emit-InformationRegisterProperties {
 	$periodicity = Get-EnumProp "InformationRegisterPeriodicity" "periodicity" "Nonperiodical"
 	$writeMode = Get-EnumProp "WriteMode" "writeMode" "Independent"
 
-	# MainFilterOnPeriod: auto based on periodicity unless explicitly set
+	# Основной отбор по периоду платформа по умолчанию не включает - ни при какой
+	# периодичности. Значение задается ключом mainFilterOnPeriod.
 	$mainFilterOnPeriod = "false"
 	if ($null -ne $def.mainFilterOnPeriod) {
 		$mainFilterOnPeriod = if ($def.mainFilterOnPeriod -eq $true) { "true" } else { "false" }
-	} elseif ($periodicity -ne "Nonperiodical") {
-		$mainFilterOnPeriod = "true"
 	}
 
 	X "$i<InformationRegisterPeriodicity>$periodicity</InformationRegisterPeriodicity>"
@@ -1618,7 +1679,7 @@ function Emit-InformationRegisterProperties {
 	X "$i<MainFilterOnPeriod>$mainFilterOnPeriod</MainFilterOnPeriod>"
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -1654,7 +1715,7 @@ function Emit-AccumulationRegisterProperties {
 
 	Emit-StandardAttributes $i "AccumulationRegister"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -1860,7 +1921,8 @@ function Emit-DataProcessorProperties {
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
 	X "$i<Comment/>"
-	X "$i<UseStandardCommands>false</UseStandardCommands>"
+	# Стандартные команды обработки платформа включает по умолчанию.
+	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
 	$defaultForm = if ($def.defaultForm) { "$($def.defaultForm)" } else { "" }
 	if ($defaultForm) { X "$i<DefaultForm>$defaultForm</DefaultForm>" } else { X "$i<DefaultForm/>" }
@@ -1920,7 +1982,7 @@ function Emit-ExchangePlanProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -2026,7 +2088,7 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -2170,7 +2232,7 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -2213,7 +2275,7 @@ function Emit-AccountingRegisterProperties {
 
 	Emit-StandardAttributes $i "AccountingRegister"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -2286,7 +2348,7 @@ function Emit-ChartOfCalculationTypesProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -2338,7 +2400,7 @@ function Emit-CalculationRegisterProperties {
 
 	Emit-StandardAttributes $i "CalculationRegister"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -2402,7 +2464,7 @@ function Emit-BusinessProcessProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -2475,7 +2537,7 @@ function Emit-TaskProperties {
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -3178,7 +3240,23 @@ function Detect-FormatVersion([string]$dir) {
 
 # Гард до определения версии и любой записи: объект добавляется в конфигурацию.
 Assert-EditAllowed $OutputDir "editable"
+function Detect-CompatibilityMode([string]$dir) {
+	$d = $dir
+	while ($d) {
+		$cfgPath = Join-Path $d "Configuration.xml"
+		if (Test-Path $cfgPath) {
+			$cfgText = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8)
+			if ($cfgText -match '<CompatibilityMode>([^<]+)</CompatibilityMode>') { return $Matches[1] }
+		}
+		$parent = Split-Path $d -Parent
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return "Version8_3_24"
+}
+
 $script:formatVersion = Detect-FormatVersion $OutputDir
+$script:compatibilityMode = Detect-CompatibilityMode $OutputDir
 
 # --- 15. Main assembler ---
 

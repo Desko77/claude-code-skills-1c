@@ -65,7 +65,7 @@
 			<UnpostInPrivilegedMode>true</UnpostInPrivilegedMode>
 			<IncludeHelpInContents>false</IncludeHelpInContents>
 			<DataLockFields/>
-			<DataLockControlMode>Automatic</DataLockControlMode>
+			<DataLockControlMode>Managed</DataLockControlMode>
 			<FullTextSearch>Use</FullTextSearch>
 			<ObjectPresentation/>
 			<ExtendedObjectPresentation/>
@@ -89,7 +89,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Организации</v8:Type>
+						<v8:Type>cfg:CatalogRef.Организации</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -128,7 +128,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Организации</v8:Type>
+						<v8:Type>cfg:CatalogRef.Организации</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -167,7 +167,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.СтруктураПредприятия</v8:Type>
+						<v8:Type>cfg:CatalogRef.СтруктураПредприятия</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -206,7 +206,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:EnumRef.ХозяйственныеОперации</v8:Type>
+						<v8:Type>cfg:EnumRef.ХозяйственныеОперации</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -245,7 +245,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:EnumRef.ТипыНалогообложенияНДС</v8:Type>
+						<v8:Type>cfg:EnumRef.ТипыНалогообложенияНДС</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -284,7 +284,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.НаправленияДеятельности</v8:Type>
+						<v8:Type>cfg:CatalogRef.НаправленияДеятельности</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -323,7 +323,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Пользователи</v8:Type>
+						<v8:Type>cfg:CatalogRef.Пользователи</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -362,7 +362,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:DocumentRef.АктВыполненныхВнутреннихРабот</v8:Type>
+						<v8:Type>cfg:DocumentRef.АктВыполненныхВнутреннихРабот</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -401,7 +401,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:DocumentRef.АктВыполненныхВнутреннихРабот</v8:Type>
+						<v8:Type>cfg:DocumentRef.АктВыполненныхВнутреннихРабот</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -575,7 +575,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Номенклатура</v8:Type>
+								<v8:Type>cfg:CatalogRef.Номенклатура</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>
@@ -612,7 +612,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.ХарактеристикиНоменклатуры</v8:Type>
+								<v8:Type>cfg:CatalogRef.ХарактеристикиНоменклатуры</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>
@@ -649,7 +649,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Назначения</v8:Type>
+								<v8:Type>cfg:CatalogRef.Назначения</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>
@@ -686,7 +686,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.УпаковкиЕдиницыИзмерения</v8:Type>
+								<v8:Type>cfg:CatalogRef.УпаковкиЕдиницыИзмерения</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>
@@ -807,7 +807,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.СтруктураПредприятия</v8:Type>
+								<v8:Type>cfg:CatalogRef.СтруктураПредприятия</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>
@@ -844,7 +844,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.ГруппыПродукции</v8:Type>
+								<v8:Type>cfg:CatalogRef.ГруппыПродукции</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>
@@ -881,7 +881,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.КлючиАналитикиУчетаНоменклатуры</v8:Type>
+								<v8:Type>cfg:CatalogRef.КлючиАналитикиУчетаНоменклатуры</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>
@@ -1014,7 +1014,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:ChartOfCharacteristicTypesRef.ДополнительныеРеквизитыИСведения</v8:Type>
+								<v8:Type>cfg:ChartOfCharacteristicTypesRef.ДополнительныеРеквизитыИСведения</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>

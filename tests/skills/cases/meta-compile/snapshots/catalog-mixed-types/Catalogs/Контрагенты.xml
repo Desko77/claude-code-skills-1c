@@ -353,7 +353,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.ФизическиеЛица</v8:Type>
+						<v8:Type>cfg:CatalogRef.ФизическиеЛица</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>
@@ -393,7 +393,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:EnumRef.СтатусыКонтрагентов</v8:Type>
+						<v8:Type>cfg:EnumRef.СтатусыКонтрагентов</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>

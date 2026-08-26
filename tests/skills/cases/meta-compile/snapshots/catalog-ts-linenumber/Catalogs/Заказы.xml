@@ -151,7 +151,7 @@
 							</Synonym>
 							<Comment/>
 							<Type>
-								<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Номенклатура</v8:Type>
+								<v8:Type>cfg:CatalogRef.Номенклатура</v8:Type>
 							</Type>
 							<PasswordMode>false</PasswordMode>
 							<Format/>

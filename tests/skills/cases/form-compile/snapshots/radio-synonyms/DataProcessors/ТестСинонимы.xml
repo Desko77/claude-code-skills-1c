@@ -20,7 +20,7 @@
 				</v8:item>
 			</Synonym>
 			<Comment/>
-			<UseStandardCommands>false</UseStandardCommands>
+			<UseStandardCommands>true</UseStandardCommands>
 			<DefaultForm>DataProcessor.ТестСинонимы.Form.Форма</DefaultForm>
 			<AuxiliaryForm/>
 			<IncludeHelpInContents>false</IncludeHelpInContents>
@@ -39,7 +39,7 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:EnumRef.СпособыКурса</v8:Type>
+						<v8:Type>cfg:EnumRef.СпособыКурса</v8:Type>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>

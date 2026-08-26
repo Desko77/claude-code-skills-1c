@@ -66,6 +66,7 @@
 		<ChildObjects>
 			<Language>Русский</Language>
 			<Role>Тест_ОсновнаяРоль</Role>
+			<Catalog>Номенклатура</Catalog>
 			<Document>ЗаказКлиента</Document>
 		</ChildObjects>
 	</Configuration>

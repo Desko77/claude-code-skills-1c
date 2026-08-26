@@ -71,7 +71,7 @@
 							<Name>Номенклатура</Name>
 							<Comment/>
 							<ExtendedConfigurationObject>UUID-022</ExtendedConfigurationObject>
-							<Type><v8:Type>d5p1:CatalogRef.Номенклатура</v8:Type></Type>
+							<Type><v8:Type>cfg:CatalogRef.Номенклатура</v8:Type></Type>
 						</Properties>
 					</Attribute>
 					<Attribute uuid="UUID-023">
