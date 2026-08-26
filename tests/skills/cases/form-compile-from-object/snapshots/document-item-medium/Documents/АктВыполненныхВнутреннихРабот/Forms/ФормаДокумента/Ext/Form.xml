@@ -7,10 +7,7 @@
 		</v8:item>
 	</Title>
 	<AutoTitle>false</AutoTitle>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<ChildItems>
 		<Pages name="ГруппаСтраницы" id="1">
 			<ExtendedTooltip name="ГруппаСтраницыРасширеннаяПодсказка" id="2"/>

@@ -6,10 +6,8 @@
 			<v8:content>Простая форма</v8:content>
 		</v8:item>
 	</Title>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoTitle>false</AutoTitle>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<Attributes>
 		<Attribute name="Объект" id="1">
 			<Type>

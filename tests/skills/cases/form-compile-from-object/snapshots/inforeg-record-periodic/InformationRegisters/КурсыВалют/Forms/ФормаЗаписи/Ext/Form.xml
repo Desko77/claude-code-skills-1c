@@ -6,11 +6,9 @@
 			<v8:content>Курсы валют</v8:content>
 		</v8:item>
 	</Title>
+	<AutoTitle>false</AutoTitle>
 	<WindowOpeningMode>LockOwnerWindow</WindowOpeningMode>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<ChildItems>
 		<InputField name="Период" id="1">
 			<DataPath>Запись.Period</DataPath>

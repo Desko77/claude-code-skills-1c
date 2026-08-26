@@ -6,13 +6,11 @@
 			<v8:content>Товары</v8:content>
 		</v8:item>
 	</Title>
+	<AutoTitle>false</AutoTitle>
 	<SaveWindowSettings>false</SaveWindowSettings>
 	<CollapseItemsByImportanceVariant>DontUse</CollapseItemsByImportanceVariant>
 	<GroupList>2:UUID-001</GroupList>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<ChildItems>
 		<Table name="Список" id="1">
 			<DataPath>Список</DataPath>

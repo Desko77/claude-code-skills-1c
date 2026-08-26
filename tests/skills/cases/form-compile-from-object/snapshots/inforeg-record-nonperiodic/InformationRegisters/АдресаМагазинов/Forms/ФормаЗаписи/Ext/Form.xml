@@ -6,11 +6,9 @@
 			<v8:content>Адреса магазинов</v8:content>
 		</v8:item>
 	</Title>
+	<AutoTitle>false</AutoTitle>
 	<WindowOpeningMode>LockOwnerWindow</WindowOpeningMode>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<ChildItems>
 		<InputField name="Магазин" id="1">
 			<DataPath>Запись.Магазин</DataPath>

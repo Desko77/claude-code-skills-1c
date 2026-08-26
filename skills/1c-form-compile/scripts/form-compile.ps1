@@ -2582,7 +2582,11 @@ function Emit-Popup {
 function Emit-Attributes {
 	param($attrs, [string]$indent)
 
-	if (-not $attrs -or $attrs.Count -eq 0) { return }
+	# Блок реквизитов есть в выгрузке всегда: у формы без реквизитов он пустой.
+	if (-not $attrs -or $attrs.Count -eq 0) {
+		X "$indent<Attributes/>"
+		return
+	}
 
 	X "$indent<Attributes>"
 	foreach ($attr in $attrs) {
@@ -2784,6 +2788,10 @@ if (-not $formTitle -and $def.properties -and $def.properties.title) {
 }
 if ($formTitle) {
 	Emit-MLText -tag "Title" -text $formTitle -indent "`t"
+	# Заданный заголовок выключает автоматический: платформа выгружает это признаком.
+	if ($null -eq $def.autoTitle -and -not ($def.properties -and $null -ne $def.properties.autoTitle)) {
+		X "`t<AutoTitle>false</AutoTitle>"
+	}
 }
 
 # 12b. Properties (skip 'title' — handled above as multilingual)
@@ -2809,10 +2817,24 @@ if ($def.excludedCommands -and $def.excludedCommands.Count -gt 0) {
 }
 
 # 12d. AutoCommandBar (always present, id=-1)
-X "`t<AutoCommandBar name=`"ФормаКоманднаяПанель`" id=`"-1`">"
-X "`t`t<HorizontalAlign>Right</HorizontalAlign>"
-X "`t`t<Autofill>false</Autofill>"
-X "`t</AutoCommandBar>"
+# Свойства панели пишутся, когда панель настраивают: ключом commandBar или элементом
+# autoCmdBar с кнопками. Нетронутую панель платформа выгружает одним тегом.
+$hasAutoCmdBarElement = $false
+if ($def.elements) {
+	foreach ($el in $def.elements) {
+		if ($el.autoCmdBar) { $hasAutoCmdBarElement = $true; break }
+	}
+}
+if ($hasAutoCmdBarElement -or ($def.commandBar -and ($def.commandBar.horizontalAlign -or $null -ne $def.commandBar.autofill))) {
+	X "`t<AutoCommandBar name=`"ФормаКоманднаяПанель`" id=`"-1`">"
+	$acbAlign = if ($def.commandBar.horizontalAlign) { "$($def.commandBar.horizontalAlign)" } else { "Right" }
+	X "`t`t<HorizontalAlign>$acbAlign</HorizontalAlign>"
+	$acbFill = if ($def.commandBar.autofill -eq $true) { "true" } else { "false" }
+	X "`t`t<Autofill>$acbFill</Autofill>"
+	X "`t</AutoCommandBar>"
+} else {
+	X "`t<AutoCommandBar name=`"ФормаКоманднаяПанель`" id=`"-1`"/>"
+}
 
 # 12e. Events
 if ($def.events) {
@@ -2858,7 +2880,61 @@ if (-not (Test-Path $outDir)) {
 }
 
 $enc = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($outPath, $xml.ToString(), $enc)
+# Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+# дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+[System.IO.File]::WriteAllText($outPath, $xml.ToString().TrimEnd("`r", "`n"), $enc)
+
+# --- Модуль формы ---
+# Заготовки процедур ставятся ровно под события из описания: лишний обработчик в модуле
+# платформа не свяжет с формой, а недостающий оборвет открытие формы.
+$moduleDir = Join-Path (Split-Path $outPath -Parent) "Form"
+$modulePath = Join-Path $moduleDir "Module.bsl"
+if (Test-Path $moduleDir) {
+	$handlerLines = @()
+	if ($def.events) {
+		foreach ($p in $def.events.PSObject.Properties) {
+			$procName = "$($p.Value)"
+			if (-not $procName) { continue }
+			$directive = if ($procName -match "НаСервере$") { "&НаСервере" } else { "&НаКлиенте" }
+			$params = switch ($p.Name) {
+				"OnCreateAtServer" { "(Отказ, СтандартнаяОбработка)" }
+				"OnOpen" { "(Отказ)" }
+				"BeforeClose" { "(Отказ, ЗавершениеРаботы, ТекстПредупреждения, СтандартнаяОбработка)" }
+				"NotificationProcessing" { "(ИмяСобытия, Параметр, Источник)" }
+				default { "()" }
+			}
+			$handlerLines += ""
+			$handlerLines += $directive
+			$handlerLines += "Процедура $procName$params"
+			$handlerLines += ""
+			$handlerLines += "КонецПроцедуры"
+		}
+	}
+
+	$moduleLines = @("#Область ОбработчикиСобытийФормы")
+	$moduleLines += $handlerLines
+	$moduleLines += @(
+		"",
+		"#КонецОбласти",
+		"",
+		"#Область ОбработчикиСобытийЭлементовФормы",
+		"",
+		"#КонецОбласти",
+		"",
+		"#Область ОбработчикиКомандФормы",
+		"",
+		"#КонецОбласти",
+		"",
+		"#Область ОбработчикиОповещений",
+		"",
+		"#КонецОбласти",
+		"",
+		"#Область СлужебныеПроцедурыИФункции",
+		"",
+		"#КонецОбласти"
+	)
+	[System.IO.File]::WriteAllText($modulePath, ($moduleLines -join "`r`n"), $enc)
+}
 
 # --- 13b. Auto-register form in parent object XML ---
 

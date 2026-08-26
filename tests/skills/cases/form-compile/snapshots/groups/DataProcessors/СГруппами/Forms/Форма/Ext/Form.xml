@@ -6,16 +6,14 @@
 			<v8:content>Группы</v8:content>
 		</v8:item>
 	</Title>
+	<AutoTitle>false</AutoTitle>
 	<ShowCloseButton>false</ShowCloseButton>
 	<HorizontalAlign>Left</HorizontalAlign>
 	<ChildrenAlign>ItemsLeftTitlesLeft</ChildrenAlign>
 	<ChildItemsWidth>Equal</ChildItemsWidth>
 	<VerticalAlign>Top</VerticalAlign>
 	<HorizontalSpacing>Double</HorizontalSpacing>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<ChildItems>
 		<CommandBar name="КоманднаяПанель" id="1">
 			<Autofill>true</Autofill>

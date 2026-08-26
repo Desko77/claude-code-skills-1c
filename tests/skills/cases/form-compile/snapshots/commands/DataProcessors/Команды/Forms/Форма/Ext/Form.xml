@@ -6,10 +6,8 @@
 			<v8:content>Форма с командами</v8:content>
 		</v8:item>
 	</Title>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoTitle>false</AutoTitle>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<ChildItems>
 		<CommandBar name="Панель" id="1">
 			<ChildItems>

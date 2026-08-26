@@ -6,10 +6,8 @@
 			<v8:content>Заказ поставщику</v8:content>
 		</v8:item>
 	</Title>
-	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-		<HorizontalAlign>Right</HorizontalAlign>
-		<Autofill>false</Autofill>
-	</AutoCommandBar>
+	<AutoTitle>false</AutoTitle>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 	<ChildItems>
 		<InputField name="Партнер" id="1">
 			<ContextMenu name="ПартнерКонтекстноеМеню" id="2"/>
@@ -28,10 +26,8 @@
 			<v8:content>Заказ поставщику</v8:content>
 		</v8:item>
 	</Title>
-		<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
-			<HorizontalAlign>Right</HorizontalAlign>
-			<Autofill>false</Autofill>
-		</AutoCommandBar>
+		<AutoTitle>false</AutoTitle>
+		<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>
 		<ChildItems>
 			<InputField name="Партнер" id="1">
 				<ContextMenu name="ПартнерКонтекстноеМеню" id="2"/>

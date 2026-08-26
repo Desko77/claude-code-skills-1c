@@ -2387,7 +2387,9 @@ def emit_popup(lines, el, name, eid, indent):
 # --- Attribute emitter ---
 
 def emit_attributes(lines, attrs, indent):
+    # Блок реквизитов есть в выгрузке всегда: у формы без реквизитов он пустой.
     if not attrs or len(attrs) == 0:
+        lines.append(f'{indent}<Attributes/>')
         return
 
     lines.append(f'{indent}<Attributes>')
@@ -2816,6 +2818,9 @@ def main():
         form_title = defn['properties']['title']
     if form_title:
         emit_mltext(lines, '\t', 'Title', form_title)
+        # Заданный заголовок выключает автоматический: платформа выгружает это признаком.
+        if defn.get('autoTitle') is None and 'autoTitle' not in (defn.get('properties') or {}):
+            lines.append('\t<AutoTitle>false</AutoTitle>')
 
     # Properties (skip 'title' — handled above)
     if defn.get('properties'):
@@ -2830,10 +2835,18 @@ def main():
         lines.append('\t</CommandSet>')
 
     # AutoCommandBar (always present, id=-1)
-    lines.append('\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">')
-    lines.append('\t\t<HorizontalAlign>Right</HorizontalAlign>')
-    lines.append('\t\t<Autofill>false</Autofill>')
-    lines.append('\t</AutoCommandBar>')
+    # Свойства панели пишутся, когда панель настраивают: ключом commandBar или элементом
+    # autoCmdBar с кнопками. Нетронутую панель платформа выгружает одним тегом.
+    has_auto_cmd_bar = any(el.get('autoCmdBar') for el in (defn.get('elements') or [])
+                           if isinstance(el, dict))
+    bar_cfg = defn.get('commandBar') or {}
+    if has_auto_cmd_bar or bar_cfg.get('horizontalAlign') or bar_cfg.get('autofill') is not None:
+        lines.append('\t<AutoCommandBar name="\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c" id="-1">')
+        lines.append('\t\t<HorizontalAlign>Right</HorizontalAlign>')
+        lines.append('\t\t<Autofill>false</Autofill>')
+        lines.append('\t</AutoCommandBar>')
+    else:
+        lines.append('\t<AutoCommandBar name="ФормаКоманднаяПанель" id="-1"/>')
 
     # Events
     if defn.get('events'):
@@ -2872,8 +2885,43 @@ def main():
     if out_dir and not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
 
-    content = '\n'.join(lines) + '\n'
+    # Платформа не оставляет перевод строки после закрывающего тега.
+    content = '\n'.join(lines)
     write_utf8_bom(out_path, content)
+
+    # --- Модуль формы ---
+    # Заготовки процедур ставятся ровно под события из описания: лишний обработчик в модуле
+    # платформа не свяжет с формой, а недостающий оборвет открытие формы.
+    module_dir = os.path.join(os.path.dirname(out_path), 'Form')
+    if os.path.isdir(module_dir):
+        handler_lines = []
+        for event_name, proc_name in (defn.get('events') or {}).items():
+            proc_name = str(proc_name)
+            if not proc_name:
+                continue
+            directive = '&\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435' \
+                if proc_name.endswith('\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435') \
+                else '&\u041d\u0430\u041a\u043b\u0438\u0435\u043d\u0442\u0435'
+            params = {
+                'OnCreateAtServer': '(\u041e\u0442\u043a\u0430\u0437, \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442\u043d\u0430\u044f\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430)',
+                'OnOpen': '(\u041e\u0442\u043a\u0430\u0437)',
+                'BeforeClose': '(\u041e\u0442\u043a\u0430\u0437, \u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435\u0420\u0430\u0431\u043e\u0442\u044b, \u0422\u0435\u043a\u0441\u0442\u041f\u0440\u0435\u0434\u0443\u043f\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u044f, \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442\u043d\u0430\u044f\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430)',
+                'NotificationProcessing': '(\u0418\u043c\u044f\u0421\u043e\u0431\u044b\u0442\u0438\u044f, \u041f\u0430\u0440\u0430\u043c\u0435\u0442\u0440, \u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a)',
+            }.get(event_name, '()')
+            handler_lines += ['', directive,
+                              '\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u0430 ' + proc_name + params,
+                              '',
+                              '\u041a\u043e\u043d\u0435\u0446\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u044b']
+
+        module_lines = ['#\u041e\u0431\u043b\u0430\u0441\u0442\u044c \u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u0421\u043e\u0431\u044b\u0442\u0438\u0439\u0424\u043e\u0440\u043c\u044b']
+        module_lines += handler_lines
+        for region in ('\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u0421\u043e\u0431\u044b\u0442\u0438\u0439\u042d\u043b\u0435\u043c\u0435\u043d\u0442\u043e\u0432\u0424\u043e\u0440\u043c\u044b',
+                       '\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u041a\u043e\u043c\u0430\u043d\u0434\u0424\u043e\u0440\u043c\u044b',
+                       '\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u041e\u043f\u043e\u0432\u0435\u0449\u0435\u043d\u0438\u0439',
+                       '\u0421\u043b\u0443\u0436\u0435\u0431\u043d\u044b\u0435\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u044b\u0418\u0424\u0443\u043d\u043a\u0446\u0438\u0438'):
+            module_lines += ['', '#\u041a\u043e\u043d\u0435\u0446\u041e\u0431\u043b\u0430\u0441\u0442\u0438', '', '#\u041e\u0431\u043b\u0430\u0441\u0442\u044c ' + region]
+        module_lines += ['', '#\u041a\u043e\u043d\u0435\u0446\u041e\u0431\u043b\u0430\u0441\u0442\u0438']
+        write_utf8_bom(os.path.join(module_dir, 'Module.bsl'), '\r\n'.join(module_lines))
 
     # --- 4. Auto-register form in parent object XML ---
     # Infer parent from OutputPath: .../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml
