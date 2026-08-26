@@ -48,7 +48,7 @@
 			<InputByString>
 				<xr:Field>Task.ЗадачаИсполнителя.StandardAttribute.Number</xr:Field>
 			</InputByString>
-			<CreateOnInput>DontUse</CreateOnInput>
+			<CreateOnInput>Use</CreateOnInput>
 			<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>
 			<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>
 			<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>

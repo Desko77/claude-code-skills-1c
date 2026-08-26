@@ -593,8 +593,101 @@ if (-not $drillDone) {
 	$header += " ==="
 	Out $header
 
+	# --- Стандартные реквизиты ---
+	# Набор задан типом объекта, а характеристики - его свойствами: длина и тип кода,
+	# длина наименования, владельцы и вид подчинения, периодичность и способ нумерации.
+	function Out-StandardAttributes($props, [string]$mdType, $owners) {
+		$rows = @()
+
+		$codeLen = $props.SelectSingleNode("md:CodeLength", $ns)
+		$codeType = $props.SelectSingleNode("md:CodeType", $ns)
+		if ($codeLen -and [int]$codeLen.InnerText -gt 0) {
+			$typeName = if ($codeType -and $codeType.InnerText -eq "Number") { "Число" } else { "Строка" }
+			$rows += "  Код: $typeName($($codeLen.InnerText))"
+		}
+
+		$descLen = $props.SelectSingleNode("md:DescriptionLength", $ns)
+		if ($descLen -and [int]$descLen.InnerText -gt 0) {
+			$rows += "  Наименование: Строка($($descLen.InnerText))"
+		}
+
+		if ($owners -and $owners.Count -gt 0) {
+			$ownerTypes = @($owners | ForEach-Object {
+				$kind = ($_ -split '\.')[0]
+				$name = ($_ -split '\.')[-1]
+				$prefix = if ($kind -eq "Catalog") { "СправочникСсылка" } else { $kind }
+				"$prefix.$name"
+			})
+			$rows += "  Владелец: $($ownerTypes -join ', ') - обязательный"
+			$subUse = $props.SelectSingleNode("md:SubordinationUse", $ns)
+			if ($subUse) {
+				$subText = switch ($subUse.InnerText) {
+					"ToItems" { "элементам" }
+					"ToFolders" { "группам" }
+					"ToFoldersAndItems" { "группам и элементам" }
+					default { $subUse.InnerText }
+				}
+				$rows += "  Подчинение: $subText"
+			}
+		}
+
+		# Родитель есть у иерархического объекта и ссылается на него самого.
+		$hierNode = $props.SelectSingleNode("md:Hierarchical", $ns)
+		if ($hierNode -and $hierNode.InnerText -eq "true") {
+			$selfName = $props.SelectSingleNode("md:Name", $ns).InnerText
+			$selfRef = if ($mdType -eq "ChartOfCharacteristicTypes") { "ПВХСсылка" } else { "СправочникСсылка" }
+			$rows += "  Родитель: $selfRef.$selfName"
+		}
+
+		if ($mdType -in @("Document", "BusinessProcess", "Task")) {
+			$rows += "  Дата - Дата, обязательный"
+
+			# Номер описывается одной строкой: тип, периодичность и способ нумерации - его
+			# характеристики, а не отдельные реквизиты.
+			$numParts = @()
+			$numLen = $props.SelectSingleNode("md:NumberLength", $ns)
+			$numType = $props.SelectSingleNode("md:NumberType", $ns)
+			if ($numLen -and [int]$numLen.InnerText -gt 0) {
+				$numTypeName = if ($numType -and $numType.InnerText -eq "Number") { "Число" } else { "Строка" }
+				$numParts += "$numTypeName($($numLen.InnerText))"
+			}
+			$numPeriod = $props.SelectSingleNode("md:NumberPeriodicity", $ns)
+			if ($numPeriod) {
+				$periodText = switch ($numPeriod.InnerText) {
+					"Year" { "по году" }
+					"Quarter" { "по кварталу" }
+					"Month" { "по месяцу" }
+					"Day" { "по дню" }
+					"Nonperiodical" { "непериодический" }
+					default { $numPeriod.InnerText }
+				}
+				$numParts += $periodText
+			}
+			$autoNum = $props.SelectSingleNode("md:Autonumbering", $ns)
+			if ($autoNum -and $autoNum.InnerText -eq "true") { $numParts += "авто" }
+			if ($numParts.Count -gt 0) { $rows += "  Номер - $($numParts -join ', ')" }
+		}
+
+		if ($rows.Count -gt 0) {
+			Out "Стандартные реквизиты:"
+			foreach ($row in $rows) { Out $row }
+		}
+	}
+
 	# --- Mode: brief ---
 	if ($Mode -eq "brief") {
+		# Подчиненность идет первой строкой: она определяет, как объект вообще заводится.
+		$briefOwners = @()
+		$briefOwnersNode = $props.SelectSingleNode("md:Owners", $ns)
+		if ($briefOwnersNode) {
+			foreach ($item in $briefOwnersNode.ChildNodes) {
+				if ($item.NodeType -eq 'Element' -and $item.InnerText.Trim()) {
+					$briefOwners += ($item.InnerText.Trim() -split '\.')[-1]
+				}
+			}
+		}
+		if ($briefOwners.Count -gt 0) { Out "Подчинён: $($briefOwners -join ', ')" }
+
 		# Attributes
 		$attrs = @()
 		if ($childObjs) { $attrs = @(Get-Attributes $childObjs) }
@@ -743,31 +836,20 @@ if (-not $drillDone) {
 
 		# Document-specific header properties
 		if ($mdType -eq "Document") {
-			$numType = $props.SelectSingleNode("md:NumberType", $ns)
-			$numLen = $props.SelectSingleNode("md:NumberLength", $ns)
-			$numPer = $props.SelectSingleNode("md:NumberPeriodicity", $ns)
-			$autoNum = $props.SelectSingleNode("md:Autonumbering", $ns)
+			# Номер описан в блоке стандартных реквизитов ниже: в шапке остается то, что
+			# относится к самому документу.
 			$posting = $props.SelectSingleNode("md:Posting", $ns)
 
 			$parts = @()
-			if ($numType -and $numLen) {
-				$nt = if ($numType.InnerText -eq "String") { "Строка" } else { "Число" }
-				$piece = "Номер: $nt($($numLen.InnerText))"
-				if ($numPer) {
-					$perRu = if ($numberPeriodMap.ContainsKey($numPer.InnerText)) { $numberPeriodMap[$numPer.InnerText] } else { $numPer.InnerText }
-					$piece += ", $perRu"
-				}
-				if ($autoNum -and $autoNum.InnerText -eq "true") { $piece += ", авто" }
-				$parts += $piece
-			}
 			if ($posting) {
 				$parts += "Проведение: $(if ($posting.InnerText -eq 'Allow') { 'да' } else { 'нет' })"
 			}
 			if ($parts.Count -gt 0) { Out ($parts -join " | ") }
 		}
 
-		# Catalog-specific header properties
-		if ($mdType -eq "Catalog") {
+		# Свойства, общие для справочника и плана видов характеристик: иерархия, длины кода
+		# и наименования, владельцы. У плана видов характеристик они те же.
+		if ($mdType -in @("Catalog", "ChartOfCharacteristicTypes")) {
 			$parts = @()
 			$hier = $props.SelectSingleNode("md:Hierarchical", $ns)
 			if ($hier -and $hier.InnerText -eq "true") {
@@ -782,12 +864,24 @@ if (-not $drillDone) {
 				}
 				$parts += "Иерархический: $htText"
 			}
-			$codeLen = $props.SelectSingleNode("md:CodeLength", $ns)
-			$descLen = $props.SelectSingleNode("md:DescriptionLength", $ns)
-			if ($codeLen -and [int]$codeLen.InnerText -gt 0) { $parts += "Код($($codeLen.InnerText))" }
-			if ($descLen -and [int]$descLen.InnerText -gt 0) { $parts += "Наименование($($descLen.InnerText))" }
+			$owners = @()
+			$ownersNode = $props.SelectSingleNode("md:Owners", $ns)
+			if ($ownersNode) {
+				foreach ($item in $ownersNode.ChildNodes) {
+					if ($item.NodeType -eq 'Element' -and $item.InnerText.Trim()) {
+						$owners += $item.InnerText.Trim()
+					}
+				}
+			}
+			if ($owners.Count -gt 0) {
+				$ownerNames = @($owners | ForEach-Object { ($_ -split '\.')[-1] })
+				$parts += "Подчинён: $($ownerNames -join ', ')"
+			}
 			if ($parts.Count -gt 0) { Out ($parts -join " | ") }
 		}
+
+		# Владельцы нужны блоку: у подчиненного справочника это стандартный реквизит.
+		Out-StandardAttributes $props $mdType $owners
 
 		# Register-specific header properties
 		if ($mdType -match "Register$") {

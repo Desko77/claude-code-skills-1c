@@ -32,6 +32,69 @@ out_file = args.OutFile
 lines = []
 
 
+def out_standard_attributes(props, md_type, owners):
+    """Блок стандартных реквизитов: набор задан типом объекта, характеристики - свойствами."""
+    rows = []
+
+    code_len = find(props, "md:CodeLength")
+    code_type = find(props, "md:CodeType")
+    if code_len is not None and inner_text(code_len).isdigit() and int(inner_text(code_len)) > 0:
+        type_name = "Число" if code_type is not None and inner_text(code_type) == "Number" else "Строка"
+        rows.append(f"  Код: {type_name}({inner_text(code_len)})")
+
+    desc_len = find(props, "md:DescriptionLength")
+    if desc_len is not None and inner_text(desc_len).isdigit() and int(inner_text(desc_len)) > 0:
+        rows.append(f"  Наименование: Строка({inner_text(desc_len)})")
+
+    if owners:
+        owner_types = []
+        for owner in owners:
+            kind = owner.split(".")[0]
+            name = owner.split(".")[-1]
+            prefix = "СправочникСсылка" if kind == "Catalog" else kind
+            owner_types.append(f"{prefix}.{name}")
+        rows.append(f"  Владелец: {', '.join(owner_types)} - обязательный")
+        sub_use = find(props, "md:SubordinationUse")
+        if sub_use is not None:
+            sub_map = {"ToItems": "элементам", "ToFolders": "группам",
+                       "ToFoldersAndItems": "группам и элементам"}
+            rows.append(f"  Подчинение: {sub_map.get(inner_text(sub_use), inner_text(sub_use))}")
+
+    # Родитель есть у иерархического объекта и ссылается на него самого.
+    hier_node = find(props, "md:Hierarchical")
+    if hier_node is not None and inner_text(hier_node) == "true":
+        name_node = find(props, "md:Name")
+        self_name = inner_text(name_node) if name_node is not None else ""
+        self_ref = "ПВХСсылка" if md_type == "ChartOfCharacteristicTypes" else "СправочникСсылка"
+        rows.append(f"  Родитель: {self_ref}.{self_name}")
+
+    if md_type in ("Document", "BusinessProcess", "Task"):
+        rows.append("  Дата - Дата, обязательный")
+        # Номер описывается одной строкой: тип, периодичность и способ нумерации - его
+        # характеристики, а не отдельные реквизиты.
+        num_parts = []
+        num_len = find(props, "md:NumberLength")
+        num_type = find(props, "md:NumberType")
+        if num_len is not None and inner_text(num_len).isdigit() and int(inner_text(num_len)) > 0:
+            num_type_name = "Число" if num_type is not None and inner_text(num_type) == "Number" else "Строка"
+            num_parts.append(f"{num_type_name}({inner_text(num_len)})")
+        num_period = find(props, "md:NumberPeriodicity")
+        if num_period is not None:
+            period_map = {"Year": "по году", "Quarter": "по кварталу", "Month": "по месяцу",
+                          "Day": "по дню", "Nonperiodical": "непериодический"}
+            num_parts.append(period_map.get(inner_text(num_period), inner_text(num_period)))
+        auto_num = find(props, "md:Autonumbering")
+        if auto_num is not None and inner_text(auto_num) == "true":
+            num_parts.append("авто")
+        if num_parts:
+            rows.append(f"  Номер - {', '.join(num_parts)}")
+
+    if rows:
+        out("Стандартные реквизиты:")
+        for row in rows:
+            out(row)
+
+
 def out(text):
     lines.append(text)
 
@@ -637,6 +700,16 @@ if not drill_done:
     out(header)
 
     if mode == "brief":
+        # Подчиненность идет первой строкой: она определяет, как объект вообще заводится.
+        brief_owners = []
+        brief_owners_node = find(props, "md:Owners")
+        if brief_owners_node is not None:
+            for item in brief_owners_node:
+                if (item.text or '').strip():
+                    brief_owners.append(item.text.strip().split('.')[-1])
+        if brief_owners:
+            out('Подчинён: ' + ', '.join(brief_owners))
+
         # Attributes
         attrs = get_attributes(child_objs) if child_objs is not None else []
         if attrs:
@@ -766,28 +839,19 @@ if not drill_done:
 
         # Document-specific header
         if md_type == "Document":
-            num_type = find(props, "md:NumberType")
-            num_len = find(props, "md:NumberLength")
-            num_per = find(props, "md:NumberPeriodicity")
-            auto_num = find(props, "md:Autonumbering")
+            # Номер описан в блоке стандартных реквизитов ниже: в шапке остается то, что
+            # относится к самому документу.
             posting = find(props, "md:Posting")
             parts = []
-            if num_type is not None and num_len is not None:
-                nt = "Строка" if inner_text(num_type) == "String" else "Число"
-                piece = f"Номер: {nt}({inner_text(num_len)})"
-                if num_per is not None:
-                    per_ru = number_period_map.get(inner_text(num_per), inner_text(num_per))
-                    piece += f", {per_ru}"
-                if auto_num is not None and inner_text(auto_num) == "true":
-                    piece += ", авто"
-                parts.append(piece)
             if posting is not None:
                 parts.append(f"Проведение: {'да' if inner_text(posting) == 'Allow' else 'нет'}")
             if parts:
                 out(" | ".join(parts))
 
         # Catalog-specific header
-        if md_type == "Catalog":
+        # Свойства, общие для справочника и плана видов характеристик: иерархия,
+        # длины кода и наименования, владельцы.
+        if md_type in ("Catalog", "ChartOfCharacteristicTypes"):
             parts = []
             hier = find(props, "md:Hierarchical")
             if hier is not None and inner_text(hier) == "true":
@@ -800,14 +864,25 @@ if not drill_done:
                 else:
                     ht_text += ", без ограничения уровней"
                 parts.append(f"Иерархический: {ht_text}")
-            code_len = find(props, "md:CodeLength")
-            desc_len = find(props, "md:DescriptionLength")
-            if code_len is not None and inner_text(code_len).isdigit() and int(inner_text(code_len)) > 0:
-                parts.append(f"Код({inner_text(code_len)})")
-            if desc_len is not None and inner_text(desc_len).isdigit() and int(inner_text(desc_len)) > 0:
-                parts.append(f"Наименование({inner_text(desc_len)})")
+            owners = []
+            owners_node = find(props, "md:Owners")
+            if owners_node is not None:
+                for item in owners_node:
+                    if (item.text or "").strip():
+                        owners.append(item.text.strip())
+            if owners:
+                parts.append("Подчинён: " + ", ".join(o.split(".")[-1] for o in owners))
             if parts:
                 out(" | ".join(parts))
+
+        # Владельцы нужны блоку: у подчиненного справочника это стандартный реквизит.
+        owners_for_block = []
+        owners_node = find(props, "md:Owners")
+        if owners_node is not None:
+            for item in owners_node:
+                if (item.text or "").strip():
+                    owners_for_block.append(item.text.strip())
+        out_standard_attributes(props, md_type, owners_for_block)
 
         # Register-specific header
         if md_type.endswith("Register"):

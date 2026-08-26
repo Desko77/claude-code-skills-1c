@@ -4,6 +4,7 @@
   "descriptionLength": 25,
   "checkUnique": false,
   "quickChoice": true,
+  "createOnInput": "Use",
   "standardAttributes": {
     "Description": {
       "fillChecking": "DontCheck"
