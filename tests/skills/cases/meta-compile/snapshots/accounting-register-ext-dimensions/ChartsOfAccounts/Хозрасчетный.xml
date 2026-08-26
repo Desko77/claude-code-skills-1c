@@ -41,6 +41,7 @@
 			</Synonym>
 			<Comment/>
 			<UseStandardCommands>true</UseStandardCommands>
+			<IncludeHelpInContents>false</IncludeHelpInContents>
 			<ExtDimensionTypes>ChartOfCharacteristicTypes.ВидыСубконто</ExtDimensionTypes>
 			<MaxExtDimensionCount>2</MaxExtDimensionCount>
 			<CodeMask/>
@@ -49,9 +50,6 @@
 			<CodeSeries>WholeChartOfAccounts</CodeSeries>
 			<CheckUnique>false</CheckUnique>
 			<DefaultPresentation>AsDescription</DefaultPresentation>
-			<AutoOrderByCode>true</AutoOrderByCode>
-			<OrderLength>5</OrderLength>
-			<EditType>InDialog</EditType>
 			<StandardTabularSections>
 				<xr:StandardTabularSection name="ExtDimensionTypes">
 					<xr:StandardAttributes>
@@ -164,6 +162,7 @@
 			</StandardTabularSections>
 			<Characteristics/>
 			<PredefinedDataUpdate>Auto</PredefinedDataUpdate>
+			<EditType>InDialog</EditType>
 			<QuickChoice>true</QuickChoice>
 			<ChoiceMode>BothWays</ChoiceMode>
 			<InputByString>
@@ -179,11 +178,8 @@
 			<AuxiliaryObjectForm/>
 			<AuxiliaryListForm/>
 			<AuxiliaryChoiceForm/>
-			<IncludeHelpInContents>false</IncludeHelpInContents>
 			<BasedOn/>
 			<DataLockFields/>
-			<DataLockControlMode>Managed</DataLockControlMode>
-			<FullTextSearch>Use</FullTextSearch>
 			<ObjectPresentation/>
 			<ExtendedObjectPresentation/>
 			<ListPresentation/>
@@ -191,6 +187,10 @@
 			<Explanation/>
 			<CreateOnInput>Use</CreateOnInput>
 			<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
+			<AutoOrderByCode>true</AutoOrderByCode>
+			<OrderLength>5</OrderLength>
+			<DataLockControlMode>Managed</DataLockControlMode>
+			<FullTextSearch>Use</FullTextSearch>
 			<DataHistory>DontUse</DataHistory>
 			<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>
 			<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>

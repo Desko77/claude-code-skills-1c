@@ -29,10 +29,10 @@
 			<Synonym>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Обмен сфилиалами</v8:content>
+					<v8:content>Обмен СФилиалами</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment/>
+			<Comment>обмен данными с филиалами</Comment>
 			<UseStandardCommands>true</UseStandardCommands>
 			<CodeLength>9</CodeLength>
 			<CodeAllowedLength>Variable</CodeAllowedLength>
@@ -268,7 +268,7 @@
 					<Synonym>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Путь кфайлу</v8:content>
+							<v8:content>Путь КФайлу</v8:content>
 						</v8:item>
 					</Synonym>
 					<Comment/>

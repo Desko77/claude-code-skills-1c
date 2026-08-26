@@ -1,16 +1,8 @@
 {
   "type": "Catalog",
   "name": "ДоговорыЭДО",
-  "synonym": "Договоры эдо",
   "hierarchical": true,
-  "attributes": [
-    {
-      "name": "СтавкаНДС",
-      "type": "Number(5,2)",
-      "synonym": "Ставка ндс"
-    },
-    "Ответственный: String(50)"
-  ],
+  "attributes": ["СтавкаНДС: Number(5,2)", "Ответственный: String(50)"],
   "tabularSections": {
     "Представления": ["Язык: String(10)", "Текст: String(100)"]
   }

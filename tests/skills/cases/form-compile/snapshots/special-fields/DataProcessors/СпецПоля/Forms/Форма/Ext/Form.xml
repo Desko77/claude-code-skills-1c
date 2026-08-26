@@ -63,7 +63,7 @@
 				</v8:item>
 			</Title>
 			<Type>
-				<v8:Type>d5p1:TextDocument</v8:Type>
+				<v8:Type>TextDocument</v8:Type>
 			</Type>
 		</Attribute>
 		<Attribute name="ПроцентВыполнения" id="6">

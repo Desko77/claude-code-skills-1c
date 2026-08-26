@@ -173,7 +173,7 @@
 					<Synonym>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Тип ттн</v8:content>
+							<v8:content>Тип ТТН</v8:content>
 						</v8:item>
 					</Synonym>
 					<Comment/>
@@ -297,7 +297,7 @@
 					<Synonym>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Пустая ссылка вмассиве</v8:content>
+							<v8:content>Пустая ссылка ВМассиве</v8:content>
 						</v8:item>
 					</Synonym>
 					<Comment/>

@@ -194,8 +194,11 @@ function Esc-Xml([string]$s) {
 function Split-CamelCase([string]$name) {
 	if (-not $name) { return $name }
 	$result = [regex]::Replace($name, '([a-z\u0430-\u044F\u0451])([A-Z\u0410-\u042F\u0401])', '$1 $2')
+	# Регистр понижается только у одиночной заглавной: аббревиатура из нескольких
+	# заглавных подряд (API, НДС) остается как написана.
 	if ($result.Length -gt 1) {
-		$result = $result.Substring(0,1) + $result.Substring(1).ToLower()
+		$tail = [regex]::Replace($result.Substring(1), '(?<![А-ЯЁA-Z])([А-ЯЁA-Z])(?![А-ЯЁA-Z])', { param($m) $m.Groups[1].Value.ToLower() })
+		$result = $result.Substring(0,1) + $tail
 	}
 	return $result
 }

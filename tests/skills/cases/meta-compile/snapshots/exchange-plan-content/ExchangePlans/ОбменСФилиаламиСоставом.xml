@@ -29,10 +29,10 @@
 			<Synonym>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Обмен сфилиалами составом</v8:content>
+					<v8:content>Обмен СФилиалами составом</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment/>
+			<Comment>обмен с явным составом</Comment>
 			<UseStandardCommands>true</UseStandardCommands>
 			<CodeLength>9</CodeLength>
 			<CodeAllowedLength>Variable</CodeAllowedLength>

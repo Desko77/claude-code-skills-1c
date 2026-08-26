@@ -31,7 +31,7 @@
 					<v8:content>Настройки обмена</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment/>
+			<Comment>служебный справочник</Comment>
 			<Hierarchical>false</Hierarchical>
 			<HierarchyType>HierarchyFoldersAndItems</HierarchyType>
 			<LimitLevelCount>false</LimitLevelCount>

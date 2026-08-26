@@ -18,16 +18,9 @@
     "cases/form-edit/dup-element-existing",
     "cases/form-remove/basic",
     "cases/meta-compile/catalog-attr-reserved-name",
-    "cases/meta-compile/catalog-command",
-    "cases/meta-compile/catalog-command-groups",
-    "cases/meta-compile/catalog-predefined",
     "cases/meta-compile/chart-of-accounts",
     "cases/meta-compile/chart-of-calculation-types",
-    "cases/meta-compile/error-command-nav-param",
-    "cases/meta-compile/error-command-no-group",
-    "cases/meta-compile/http-service",
     "cases/meta-compile/roundtrip-lf-preserve",
-    "cases/meta-compile/type-prefix-lenient",
     "cases/meta-edit/roundtrip-lf-preserve",
     "cases/meta-info/catalog-numeric-code",
     "cases/meta-info/cct-hierarchical",
@@ -100,7 +93,6 @@
     "cases/subsystem-edit/roundtrip-lf-preserve",
     "cases/support-edit/set-prereq-g1",
     "cases/template-remove/basic",
-    "cases/xdto-compile/roundtrip-lf-preserve",
-    "integration/build-cfe"
+    "cases/xdto-compile/roundtrip-lf-preserve"
   ]
 }

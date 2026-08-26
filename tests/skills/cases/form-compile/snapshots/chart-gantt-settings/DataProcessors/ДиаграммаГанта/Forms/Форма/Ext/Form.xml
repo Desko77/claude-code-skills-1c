@@ -26,7 +26,7 @@
 				</v8:item>
 			</Title>
 			<Type>
-				<v8:Type>d5p1:GanttChart</v8:Type>
+				<v8:Type>GanttChart</v8:Type>
 			</Type>
 		</Attribute>
 	</Attributes>

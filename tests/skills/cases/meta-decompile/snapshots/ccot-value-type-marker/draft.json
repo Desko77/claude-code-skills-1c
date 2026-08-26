@@ -3,6 +3,7 @@
   "name": "ВидыСведений",
   "descriptionLength": 25,
   "checkUnique": false,
+  "codeSeries": "WholeChartOfCharacteristicTypes",
   "quickChoice": true,
   "createOnInput": "Use",
   "standardAttributes": {

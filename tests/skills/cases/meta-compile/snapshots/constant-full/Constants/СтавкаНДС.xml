@@ -20,10 +20,10 @@
 			<Synonym>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Ставка ндс</v8:content>
+					<v8:content>Ставка НДС</v8:content>
 				</v8:item>
 			</Synonym>
-			<Comment/>
+			<Comment>(Демо)</Comment>
 			<Type>
 				<v8:Type>xs:decimal</v8:Type>
 				<v8:NumberQualifiers>

@@ -285,7 +285,7 @@ $script:validEnumValues = @{
 	"RegisterRecordsDeletion"        = @("AutoDelete","AutoDeleteOnUnpost","AutoDeleteOff")
 	"RegisterRecordsWritingOnPost"   = @("WriteModified","WriteSelected","WriteAll")
 	"ReturnValuesReuse"              = @("DontUse","DuringRequest","DuringSession")
-	"ReuseSessions"                  = @("DontUse","AutoUse")
+	"ReuseSessions"                  = @("DontUse","Use","AutoUse")
 	"FillChecking"                   = @("DontCheck","ShowError","ShowWarning")
 	"Indexing"                       = @("DontIndex","Index","IndexWithAdditionalOrder")
 	"SubordinationUse"               = @("ToItems","ToFolders","ToFoldersAndItems")
@@ -410,9 +410,11 @@ function Split-CamelCase {
 	# Insert space before uppercase that follows lowercase (Cyrillic + Latin)
 	$result = [regex]::Replace($name, '([а-яё])([А-ЯЁ])', '$1 $2')
 	$result = [regex]::Replace($result, '([a-z])([A-Z])', '$1 $2')
-	# Lowercase all but first character of the result
+	# Регистр понижается только у одиночной заглавной: аббревиатура из нескольких
+	# заглавных подряд (API, НДС) остается как написана.
 	if ($result.Length -gt 1) {
-		$result = $result.Substring(0,1) + $result.Substring(1).ToLower()
+		$tail = [regex]::Replace($result.Substring(1), '(?<![А-ЯЁA-Z])([А-ЯЁA-Z])(?![А-ЯЁA-Z])', { param($m) $m.Groups[1].Value.ToLower() })
+		$result = $result.Substring(0,1) + $tail
 	}
 	return $result
 }
@@ -456,6 +458,12 @@ $script:typeSynonyms["enumref"]                       = "EnumRef"
 function Resolve-TypeStr {
 	param([string]$typeStr)
 	if (-not $typeStr) { return $typeStr }
+
+	# Тип, скопированный из выгрузки, несет префикс пространства имен: cfg:, d5p1:, d4p1:.
+	# В описании он лишний - имя типа платформа читает без него.
+	# Срезается только префикс выгрузки конфигурации: схемные префиксы (v8:, xs:, v8ui:)
+	# часть имени типа, и без них тип не разрешается.
+	if ($typeStr -match '^(?:cfg|d\d+p\d+):(.+)$') { $typeStr = $Matches[1] }
 
 	# Check for parameterized types: Number(15,2), Строка(100), etc.
 	if ($typeStr -match '^([^(]+)\((.+)\)$') {
@@ -1385,7 +1393,7 @@ function Emit-CatalogProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	$hierarchical = if ($def.hierarchical -eq $true) { "true" } else { "false" }
 	$hierarchyType = Get-EnumProp "HierarchyType" "hierarchyType" "HierarchyFoldersAndItems"
@@ -1485,7 +1493,7 @@ function Emit-DocumentProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 	X "$i<Numerator/>"
 
@@ -1593,7 +1601,7 @@ function Emit-EnumProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>false</UseStandardCommands>"
 
 	Emit-StandardAttributes $i "Enum"
@@ -1617,7 +1625,7 @@ function Emit-ConstantProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	# Type
 	# Build-TypeStr рассчитан на реквизиты, где `type` и есть тип данных. У определения ОБЪЕКТА
@@ -1662,7 +1670,7 @@ function Emit-InformationRegisterProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 	X "$i<EditType>InDialog</EditType>"
 	X "$i<DefaultRecordForm/>"
@@ -1711,7 +1719,7 @@ function Emit-AccumulationRegisterProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 	X "$i<DefaultListForm/>"
 	X "$i<AuxiliaryListForm/>"
@@ -1745,7 +1753,7 @@ function Emit-DefinedTypeProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	# Type — composite type with multiple v8:Type entries (accept both valueType and valueTypes)
 	$valueTypes = @()
@@ -1784,7 +1792,7 @@ function Emit-CommonModuleProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	# Context shortcuts
 	$context = if ($def.context) { "$($def.context)" } else { "" }
@@ -1826,7 +1834,7 @@ function Emit-ScheduledJobProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	$methodName = if ($def.methodName) { "$($def.methodName)" } else { "" }
 	# Ensure CommonModule. prefix
@@ -1859,7 +1867,7 @@ function Emit-EventSubscriptionProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	# Source — array of v8:Type
 	$sources = @()
@@ -1894,7 +1902,7 @@ function Emit-ReportProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
 	$defaultForm = if ($def.defaultForm) { "$($def.defaultForm)" } else { "" }
@@ -1928,7 +1936,7 @@ function Emit-DataProcessorProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	# Стандартные команды обработки платформа включает по умолчанию.
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
@@ -1951,7 +1959,7 @@ function Emit-ExchangePlanProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
@@ -2014,23 +2022,10 @@ function Emit-ChartOfCharacteristicTypesProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
+	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 
-	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
-	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
-	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
-	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
-	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
-
-	X "$i<CodeLength>$codeLength</CodeLength>"
-	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
-	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
-	X "$i<CheckUnique>$checkUnique</CheckUnique>"
-	X "$i<Autonumbering>$autonumbering</Autonumbering>"
-	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
-
-	# CharacteristicExtValues
 	$charExtValues = if ($def.characteristicExtValues) { "$($def.characteristicExtValues)" } else { "" }
 	if ($charExtValues) { X "$i<CharacteristicExtValues>$charExtValues</CharacteristicExtValues>" }
 	else { X "$i<CharacteristicExtValues/>" }
@@ -2069,6 +2064,23 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i<Hierarchical>$hierarchical</Hierarchical>"
 	X "$i<FoldersOnTop>true</FoldersOnTop>"
 
+	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
+	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
+	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
+	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
+	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
+
+	$codeSeries = if ($def.codeSeries) { "$($def.codeSeries)" } else { "WholeChartOfCharacteristicTypes" }
+	X "$i<CodeLength>$codeLength</CodeLength>"
+	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
+	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
+	X "$i<CodeSeries>$codeSeries</CodeSeries>"
+	X "$i<CheckUnique>$checkUnique</CheckUnique>"
+	X "$i<Autonumbering>$autonumbering</Autonumbering>"
+	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
+
+	# CharacteristicExtValues
+
 	Emit-StandardAttributes $i "ChartOfCharacteristicTypes"
 	X "$i<Characteristics/>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
@@ -2079,9 +2091,11 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i`t<xr:Field>ChartOfCharacteristicTypes.$objName.StandardAttribute.Description</xr:Field>"
 	X "$i`t<xr:Field>ChartOfCharacteristicTypes.$objName.StandardAttribute.Code</xr:Field>"
 	X "$i</InputByString>"
+	X "$i<CreateOnInput>Use</CreateOnInput>"
 	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
-	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
 	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
+	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
+	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 	X "$i<DefaultObjectForm/>"
 	X "$i<DefaultFolderForm/>"
 	X "$i<DefaultListForm/>"
@@ -2092,7 +2106,6 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i<AuxiliaryListForm/>"
 	X "$i<AuxiliaryChoiceForm/>"
 	X "$i<AuxiliaryFolderChoiceForm/>"
-	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
@@ -2107,8 +2120,6 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i<ListPresentation/>"
 	X "$i<ExtendedListPresentation/>"
 	X "$i<Explanation/>"
-	X "$i<CreateOnInput>Use</CreateOnInput>"
-	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 	X "$i<DataHistory>DontUse</DataHistory>"
 	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"
 	X "$i<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>"
@@ -2120,7 +2131,7 @@ function Emit-DocumentJournalProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	$defaultForm = if ($def.defaultForm) { "$($def.defaultForm)" } else { "" }
 	if ($defaultForm) { X "$i<DefaultForm>$defaultForm</DefaultForm>" } else { X "$i<DefaultForm/>" }
@@ -2169,8 +2180,10 @@ function Emit-ChartOfAccountsProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
+
+	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 
 	# ExtDimensionTypes
 	$extDimTypes = if ($def.extDimensionTypes) { "$($def.extDimensionTypes)" } else { "" }
@@ -2201,10 +2214,6 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<CodeSeries>$codeSeries</CodeSeries>"
 	X "$i<CheckUnique>false</CheckUnique>"
 	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
-	X "$i<AutoOrderByCode>$autoOrder</AutoOrderByCode>"
-	X "$i<OrderLength>$orderLength</OrderLength>"
-
-	X "$i<EditType>InDialog</EditType>"
 
 	Emit-StandardAttributes $i "ChartOfAccounts"
 
@@ -2221,6 +2230,7 @@ function Emit-ChartOfAccountsProperties {
 
 	X "$i<Characteristics/>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
+	X "$i<EditType>InDialog</EditType>"
 	X "$i<QuickChoice>true</QuickChoice>"
 	X "$i<ChoiceMode>BothWays</ChoiceMode>"
 	X "$i<InputByString>"
@@ -2236,15 +2246,8 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<AuxiliaryObjectForm/>"
 	X "$i<AuxiliaryListForm/>"
 	X "$i<AuxiliaryChoiceForm/>"
-	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
-
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
-	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
-
-	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
-	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 	X "$i<ObjectPresentation/>"
 	X "$i<ExtendedObjectPresentation/>"
@@ -2253,6 +2256,14 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<Explanation/>"
 	X "$i<CreateOnInput>Use</CreateOnInput>"
 	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
+	X "$i<AutoOrderByCode>$autoOrder</AutoOrderByCode>"
+	X "$i<OrderLength>$orderLength</OrderLength>"
+
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
+	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
+
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
+	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 	X "$i<DataHistory>DontUse</DataHistory>"
 	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"
 	X "$i<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>"
@@ -2264,7 +2275,7 @@ function Emit-AccountingRegisterProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 	X "$i<DefaultListForm/>"
 	X "$i<AuxiliaryListForm/>"
@@ -2300,7 +2311,7 @@ function Emit-ChartOfCalculationTypesProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
@@ -2309,10 +2320,30 @@ function Emit-ChartOfCalculationTypesProperties {
 	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
 
 	X "$i<CodeLength>$codeLength</CodeLength>"
+	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<CodeType>$codeType</CodeType>"
 	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
-	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
+
+
+	Emit-StandardAttributes $i "ChartOfCalculationTypes"
+	X "$i<EditType>InDialog</EditType>"
+	X "$i<QuickChoice>true</QuickChoice>"
+	X "$i<ChoiceMode>BothWays</ChoiceMode>"
+	X "$i<InputByString>"
+	X "$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Description</xr:Field>"
+	X "$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Code</xr:Field>"
+	X "$i</InputByString>"
+	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
+	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
+	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
+	X "$i<DefaultObjectForm/>"
+	X "$i<DefaultListForm/>"
+	X "$i<DefaultChoiceForm/>"
+	X "$i<AuxiliaryObjectForm/>"
+	X "$i<AuxiliaryListForm/>"
+	X "$i<AuxiliaryChoiceForm/>"
+	X "$i<BasedOn/>"
 
 	$dependence = Get-EnumProp "DependenceOnCalculationTypes" "dependenceOnCalculationTypes" "DontUse"
 	X "$i<DependenceOnCalculationTypes>$dependence</DependenceOnCalculationTypes>"
@@ -2332,29 +2363,23 @@ function Emit-ChartOfCalculationTypesProperties {
 
 	$actionPeriodUse = if ($def.actionPeriodUse -eq $true) { "true" } else { "false" }
 	X "$i<ActionPeriodUse>$actionPeriodUse</ActionPeriodUse>"
-
-	Emit-StandardAttributes $i "ChartOfCalculationTypes"
 	X "$i<Characteristics/>"
+	X "$i<StandardTabularSections/>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
-	X "$i<EditType>InDialog</EditType>"
-	X "$i<QuickChoice>true</QuickChoice>"
-	X "$i<ChoiceMode>BothWays</ChoiceMode>"
-	X "$i<InputByString>"
-	X "$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Description</xr:Field>"
-	X "$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Code</xr:Field>"
-	X "$i</InputByString>"
-	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
-	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
-	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
-	X "$i<DefaultObjectForm/>"
-	X "$i<DefaultListForm/>"
-	X "$i<DefaultChoiceForm/>"
-	X "$i<AuxiliaryObjectForm/>"
-	X "$i<AuxiliaryListForm/>"
-	X "$i<AuxiliaryChoiceForm/>"
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
-	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
+
+
+	X "$i<ObjectPresentation/>"
+	X "$i<ExtendedObjectPresentation/>"
+	X "$i<ListPresentation/>"
+	X "$i<ExtendedListPresentation/>"
+	X "$i<Explanation/>"
+	X "$i<DataHistory>DontUse</DataHistory>"
+	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"
+	X "$i<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>"
+	X "$i<CreateOnInput>Use</CreateOnInput>"
+	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 
 	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
@@ -2362,13 +2387,7 @@ function Emit-ChartOfCalculationTypesProperties {
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
 	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
-	X "$i<ObjectPresentation/>"
-	X "$i<ExtendedObjectPresentation/>"
-	X "$i<ListPresentation/>"
-	X "$i<ExtendedListPresentation/>"
-	X "$i<Explanation/>"
-	X "$i<CreateOnInput>Use</CreateOnInput>"
-	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
+
 }
 
 function Emit-CalculationRegisterProperties {
@@ -2377,7 +2396,7 @@ function Emit-CalculationRegisterProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 	X "$i<DefaultListForm/>"
 	X "$i<AuxiliaryListForm/>"
@@ -2427,7 +2446,7 @@ function Emit-BusinessProcessProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
 	$editType = Get-EnumProp "EditType" "editType" "InDialog"
@@ -2495,7 +2514,7 @@ function Emit-TaskProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
 	$numberType = Get-EnumProp "NumberType" "numberType" "String"
@@ -2570,7 +2589,7 @@ function Emit-HTTPServiceProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	$rootURL = if ($def.rootURL) { "$($def.rootURL)" } else { $objName.ToLower() }
 	X "$i<RootURL>$(Esc-Xml $rootURL)</RootURL>"
@@ -2588,7 +2607,7 @@ function Emit-WebServiceProperties {
 
 	X "$i<Name>$(Esc-Xml $objName)</Name>"
 	Emit-MLText $i "Synonym" $synonym
-	X "$i<Comment/>"
+	Emit-Comment $i
 
 	$namespace = if ($def.namespace) { "$($def.namespace)" } else { "" }
 	X "$i<Namespace>$(Esc-Xml $namespace)</Namespace>"
@@ -2717,6 +2736,7 @@ function Emit-URLTemplate {
 	$tmplSynonym = Split-CamelCase $tmplName
 
 	$template = ""
+	$tmplComment = ""
 	# Порядок объявления значим (для операции это ее сигнатура), поэтому упорядоченный словарь:
 	# обычная хеш-таблица PowerShell отдает ключи в произвольном порядке.
 	$methods = [ordered]@{}
@@ -2725,9 +2745,12 @@ function Emit-URLTemplate {
 		$template = "$tmplDef"
 	} else {
 		$template = if ($tmplDef.template) { "$($tmplDef.template)" } else { "/$($tmplName.ToLower())" }
+		if ($tmplDef.synonym) { $tmplSynonym = $tmplDef.synonym }
+		if ($tmplDef.comment) { $tmplComment = "$($tmplDef.comment)" }
 		if ($tmplDef.methods) {
 			$tmplDef.methods.PSObject.Properties | ForEach-Object {
-				$methods[$_.Name] = "$($_.Value)"
+				# Метод задается кратко строкой с видом запроса или объектом с обработчиком.
+				$methods[$_.Name] = $_.Value
 			}
 		}
 	}
@@ -2736,6 +2759,7 @@ function Emit-URLTemplate {
 	X "$indent`t<Properties>"
 	X "$indent`t`t<Name>$(Esc-Xml $tmplName)</Name>"
 	Emit-MLText "$indent`t`t" "Synonym" $tmplSynonym
+	if ($tmplComment) { X "$indent`t`t<Comment>$(Esc-Xml $tmplComment)</Comment>" } else { X "$indent`t`t<Comment/>" }
 	X "$indent`t`t<Template>$(Esc-Xml $template)</Template>"
 	X "$indent`t</Properties>"
 
@@ -2743,14 +2767,24 @@ function Emit-URLTemplate {
 		X "$indent`t<ChildObjects>"
 		foreach ($methodName in $methods.Keys) {
 			$methodUuid = New-Guid-String
-			$httpMethod = $methods[$methodName]
+			$methodDef = $methods[$methodName]
 			$methodSynonym = Split-CamelCase $methodName
-			$handler = "${tmplName}${methodName}"
+			$methodComment = ""
+			if ($methodDef -is [string]) {
+				$httpMethod = "$methodDef"
+				$handler = "${tmplName}${methodName}"
+			} else {
+				$httpMethod = if ($methodDef.httpMethod) { "$($methodDef.httpMethod)" } else { "GET" }
+				$handler = if ($methodDef.handler) { "$($methodDef.handler)" } else { "${tmplName}${methodName}" }
+				if ($methodDef.synonym) { $methodSynonym = $methodDef.synonym }
+				if ($methodDef.comment) { $methodComment = "$($methodDef.comment)" }
+			}
 
 			X "$indent`t`t<Method uuid=`"$methodUuid`">"
 			X "$indent`t`t`t<Properties>"
 			X "$indent`t`t`t`t<Name>$(Esc-Xml $methodName)</Name>"
 			Emit-MLText "$indent`t`t`t`t" "Synonym" $methodSynonym
+			if ($methodComment) { X "$indent`t`t`t`t<Comment>$(Esc-Xml $methodComment)</Comment>" } else { X "$indent`t`t`t`t<Comment/>" }
 			X "$indent`t`t`t`t<HTTPMethod>$httpMethod</HTTPMethod>"
 			X "$indent`t`t`t`t<Handler>$(Esc-Xml $handler)</Handler>"
 			X "$indent`t`t`t</Properties>"
@@ -2882,6 +2916,106 @@ function Emit-AddressingAttribute {
 	X "$indent`t`t<DataHistory>Use</DataHistory>"
 	X "$indent`t</Properties>"
 	X "$indent</AddressingAttribute>"
+}
+
+# --- Команды объекта ---
+# Группа обязательна: без нее платформа не знает, где показывать команду. Секционные группы
+# командного интерфейса параметра команды не принимают.
+$commandGroupSynonyms = @{
+	"панельнавигации.важное"        = "NavigationPanelImportant"
+	"панельнавигации.обычное"       = "NavigationPanelOrdinary"
+	"панельнавигации.смтакже"       = "NavigationPanelSeeAlso"
+	"панельдействий.важное"         = "ActionsPanelImportant"
+	"панельдействий.обычное"        = "ActionsPanelOrdinary"
+	"панельдействий.смтакже"        = "ActionsPanelSeeAlso"
+	"панельдействий.создать"        = "ActionsPanelCreate"
+	"панельдействий.сервис"         = "ActionsPanelTools"
+	"команднаяпанельформы.важное"   = "FormCommandBarImportant"
+	"команднаяпанельформы.обычное"  = "FormCommandBarOrdinary"
+	"команднаяпанельформы.смтакже"  = "FormCommandBarSeeAlso"
+	"команднаяпанельформы.создать"  = "FormCommandBarCreate"
+	"панельнавигацииформы.важное"   = "FormNavigationPanelImportant"
+	"панельнавигацииформы.обычное"  = "FormNavigationPanelOrdinary"
+	"панельнавигацииформы.перейти"  = "FormNavigationPanelGoTo"
+	"панельнавигацииформы.смтакже"  = "FormNavigationPanelSeeAlso"
+}
+
+# Группа задается предопределенным именем или ссылкой на собственную группу команд.
+function Resolve-CommandGroup {
+	param([string]$group)
+	if (-not $group) { return "" }
+	$key = ($group -replace '\s', '').ToLower()
+	if ($commandGroupSynonyms.ContainsKey($key)) { return $commandGroupSynonyms[$key] }
+	if ($group -match '^(ГруппаКоманд|CommandGroup)\.(.+)$') { return "CommandGroup.$($Matches[2])" }
+	return $group
+}
+
+$commandSectionGroups = @(
+	"NavigationPanelImportant","NavigationPanelOrdinary","NavigationPanelSeeAlso"
+	"ActionsPanelImportant","ActionsPanelOrdinary","ActionsPanelSeeAlso","ActionsPanelCreate"
+	"CommandBar","CommandStatusBar"
+)
+
+function Emit-ObjectCommand {
+	param([string]$indent, [string]$cmdName, $cmdDef)
+
+	$uuid = New-Guid-String
+	$cmdSynonym = if ($cmdDef.synonym) { $cmdDef.synonym } else { Split-CamelCase $cmdName }
+	$rawGroup = if ($cmdDef.group) { "$($cmdDef.group)" } else { "" }
+	$group = Resolve-CommandGroup $rawGroup
+	if (-not $group) {
+		[Console]::Error.WriteLine("Ошибка: команде '$cmdName' не задана группа. Укажите group, например FormCommandBarImportant")
+		exit 1
+	}
+	$paramType = if ($cmdDef.commandParameterType) { "$($cmdDef.commandParameterType)" } else { "" }
+	if ($paramType -and $commandSectionGroups -contains $group) {
+		[Console]::Error.WriteLine("Ошибка: у команды '$cmdName' параметр команды недоступен для группы $group - секционные группы командного интерфейса принимают команды без параметра")
+		exit 1
+	}
+
+	X "$indent<Command uuid=`"$uuid`">"
+	$i = "$indent`t`t"
+	X "$indent`t<Properties>"
+	X "$i<Name>$(Esc-Xml $cmdName)</Name>"
+	Emit-MLText $i "Synonym" $cmdSynonym
+	if ($cmdDef.comment) { X "$i<Comment>$(Esc-Xml "$($cmdDef.comment)")</Comment>" } else { X "$i<Comment/>" }
+	X "$i<Group>$group</Group>"
+	if ($paramType) {
+		X "$i<CommandParameterType>"
+		Emit-TypeContent "$i`t" $paramType -CfgPrefix
+		X "$i</CommandParameterType>"
+	} else {
+		X "$i<CommandParameterType/>"
+	}
+	$useMode = if ($cmdDef.parameterUseMode) { "$($cmdDef.parameterUseMode)" } else { "Single" }
+	X "$i<ParameterUseMode>$useMode</ParameterUseMode>"
+	$modifies = if ($cmdDef.modifiesData -eq $true) { "true" } else { "false" }
+	X "$i<ModifiesData>$modifies</ModifiesData>"
+	$representation = if ($cmdDef.representation) { "$($cmdDef.representation)" } else { "Auto" }
+	X "$i<Representation>$representation</Representation>"
+	if ($cmdDef.tooltip) { Emit-MLText $i "ToolTip" $cmdDef.tooltip } else { X "$i<ToolTip/>" }
+
+	# Картинка задается именем или объектом с прозрачным пикселем.
+	$picture = $cmdDef.picture
+	if ($picture) {
+		$picRef = if ($picture -is [string]) { "$picture" } else { "$($picture.src)" }
+		X "$i<Picture>"
+		X "$i`t<xr:Ref>$(Esc-Xml $picRef)</xr:Ref>"
+		$loadTransparent = if ($cmdDef.loadTransparent -eq $false) { "false" } else { "true" }
+		X "$i`t<xr:LoadTransparent>$loadTransparent</xr:LoadTransparent>"
+		if ($picture -isnot [string] -and $picture.transparentPixel) {
+			X "$i`t<xr:TransparentPixel x=`"$($picture.transparentPixel.x)`" y=`"$($picture.transparentPixel.y)`"/>"
+		}
+		X "$i</Picture>"
+	} else {
+		X "$i<Picture/>"
+	}
+	$shortcut = if ($cmdDef.shortcut) { "$($cmdDef.shortcut)" } else { "" }
+	if ($shortcut) { X "$i<Shortcut>$(Esc-Xml $shortcut)</Shortcut>" } else { X "$i<Shortcut/>" }
+	$unavailable = if ($cmdDef.onMainServerUnavalableBehavior) { "$($cmdDef.onMainServerUnavalableBehavior)" } else { "Auto" }
+	X "$i<OnMainServerUnavalableBehavior>$unavailable</OnMainServerUnavalableBehavior>"
+	X "$indent`t</Properties>"
+	X "$indent</Command>"
 }
 
 # --- 13h. Wave 7: конфигурационные объекты без собственных данных ---
@@ -3168,7 +3302,7 @@ function Emit-CommandGroupProperties {
 	X "$i<Representation>$repr</Representation>"
 	X "$i<ToolTip/>"
 	Emit-PictureRef $i $def.picture
-	$category = if ($def.category) { "$($def.category)" } else { "FormCommandBar" }
+	$category = if ($def.category) { "$($def.category)" } else { "NavigationPanel" }
 	X "$i<Category>$category</Category>"
 }
 
@@ -3327,6 +3461,11 @@ X "`t`t</Properties>"
 $hasChildren = $false
 
 # --- Types with Attributes + TabularSections ---
+	$objCommands = [ordered]@{}
+	if ($def.commands) {
+		foreach ($prop in $def.commands.PSObject.Properties) { $objCommands[$prop.Name] = $prop.Value }
+	}
+
 $typesWithAttrTS = @("Catalog","Document","Report","DataProcessor","ExchangePlan",
 	"ChartOfCharacteristicTypes","ChartOfAccounts","ChartOfCalculationTypes",
 	"BusinessProcess","Task")
@@ -3383,7 +3522,8 @@ if ($objType -in $typesWithAttrTS) {
 		$addrAttrs = @($def.addressingAttributes)
 	}
 
-	$childCount = $attrs.Count + $tsSections.Count + $acctFlags.Count + $extDimFlags.Count + $addrAttrs.Count
+
+	$childCount = $attrs.Count + $tsSections.Count + $acctFlags.Count + $extDimFlags.Count + $addrAttrs.Count + $objCommands.Count
 	if ($childCount -gt 0) {
 		$hasChildren = $true
 		X "`t`t<ChildObjects>"
@@ -3409,6 +3549,9 @@ if ($objType -in $typesWithAttrTS) {
 			$edfName = if ($edf.name) { $edf.name } else { "$edf" }
 			Emit-ExtDimensionAccountingFlag "`t`t`t" $edfName
 		}
+		foreach ($cmdName in $objCommands.Keys) {
+			Emit-ObjectCommand "`t`t`t" $cmdName $objCommands[$cmdName]
+		}
 		foreach ($aa in $addrAttrs) {
 			Emit-AddressingAttribute "`t`t`t" $aa
 		}
@@ -3426,11 +3569,14 @@ if ($objType -eq "Enum") {
 			$values += Parse-EnumValueShorthand $v
 		}
 	}
-	if ($values.Count -gt 0) {
+	if ($values.Count -gt 0 -or $objCommands.Count -gt 0) {
 		$hasChildren = $true
 		X "`t`t<ChildObjects>"
 		foreach ($v in $values) {
 			Emit-EnumValue "`t`t`t" $v
+		}
+		foreach ($cmdName in $objCommands.Keys) {
+			Emit-ObjectCommand "`t`t`t" $cmdName $objCommands[$cmdName]
 		}
 		X "`t`t</ChildObjects>"
 	} else {
@@ -3461,7 +3607,7 @@ if ($objType -in @("InformationRegister","AccumulationRegister","AccountingRegis
 		}
 	}
 
-	if ($dims.Count -gt 0 -or $resources.Count -gt 0 -or $regAttrs.Count -gt 0) {
+	if ($dims.Count -gt 0 -or $resources.Count -gt 0 -or $regAttrs.Count -gt 0 -or $objCommands.Count -gt 0) {
 		$hasChildren = $true
 		X "`t`t<ChildObjects>"
 		foreach ($r in $resources) {
@@ -3476,6 +3622,9 @@ if ($objType -in @("InformationRegister","AccumulationRegister","AccountingRegis
 		foreach ($a in $regAttrs) {
 			Emit-Attribute "`t`t`t" $a $regCtx
 		}
+		foreach ($cmdName in $objCommands.Keys) {
+			Emit-ObjectCommand "`t`t`t" $cmdName $objCommands[$cmdName]
+		}
 		X "`t`t</ChildObjects>"
 	} else {
 		X "`t`t<ChildObjects/>"
@@ -3486,11 +3635,14 @@ if ($objType -in @("InformationRegister","AccumulationRegister","AccountingRegis
 if ($objType -eq "DocumentJournal") {
 	$columns = @()
 	if ($def.columns) { $columns = @($def.columns) }
-	if ($columns.Count -gt 0) {
+	if ($columns.Count -gt 0 -or $objCommands.Count -gt 0) {
 		$hasChildren = $true
 		X "`t`t<ChildObjects>"
 		foreach ($col in $columns) {
 			Emit-Column "`t`t`t" $col
+		}
+		foreach ($cmdName in $objCommands.Keys) {
+			Emit-ObjectCommand "`t`t`t" $cmdName $objCommands[$cmdName]
 		}
 		X "`t`t</ChildObjects>"
 	} else {
@@ -3642,6 +3794,157 @@ if ($objType -notin $typesNoSubDir) {
 $enc = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($mainXmlPath, $metadataXml, $enc)
 
+# --- Предопределенные элементы ---
+# Платформа хранит их отдельным файлом Ext/Predefined.xml, а не внутри описания объекта.
+# Состав полей зависит от вида объекта: у плана счетов это признаки учета и субконто,
+# у плана видов расчета - признак базового периода действия.
+
+$predefinedRootType = @{
+	"Catalog"                    = "CatalogPredefinedItems"
+	"ChartOfAccounts"            = "ChartOfAccountsPredefinedItems"
+	"ChartOfCharacteristicTypes" = "PlanOfCharacteristicKindPredefinedItems"
+	"ChartOfCalculationTypes"    = "CalculationTypePredefinedItems"
+}
+
+function Parse-PredefinedItem {
+	param($raw)
+
+	if ($raw -isnot [string]) {
+		$item = @{}
+		foreach ($prop in $raw.PSObject.Properties) { $item[$prop.Name] = $prop.Value }
+		if (-not $item.ContainsKey("description")) { $item["description"] = Split-CamelCase "$($item['name'])" }
+		return $item
+	}
+
+	# Краткая запись: "(код) Имя [описание]: Тип" - все, кроме имени, необязательно.
+	$pattern = '^\s*(?:\((?<code>[^)]*)\)\s*)?(?<name>[^\[\]:]+?)\s*(?:\[(?<desc>[^\]]*)\])?\s*(?::\s*(?<type>.+))?\s*$'
+	$m = [regex]::Match("$raw", $pattern)
+	if (-not $m.Success) { return @{ name = "$raw"; description = Split-CamelCase "$raw" } }
+
+	$item = @{ name = $m.Groups["name"].Value.Trim() }
+	if ($m.Groups["code"].Success) { $item["code"] = $m.Groups["code"].Value }
+	if ($m.Groups["desc"].Success) {
+		$item["description"] = $m.Groups["desc"].Value
+	} else {
+		$item["description"] = Split-CamelCase $item["name"]
+	}
+	if ($m.Groups["type"].Success) { $item["type"] = $m.Groups["type"].Value.Trim() }
+	return $item
+}
+
+function Emit-PredefinedCode {
+	param($item, [string]$indent)
+
+	$code = if ($item.ContainsKey("code")) { "$($item['code'])" } else { "" }
+	if (-not $code) {
+		X "$indent<Code/>"
+		return
+	}
+	# Числовой код платформа помечает типом; строковый пишется как есть.
+	if ($script:predefinedCodeIsNumber) {
+		X "$indent<Code xsi:type=`"xs:decimal`">$code</Code>"
+	} else {
+		X "$indent<Code>$(Esc-Xml $code)</Code>"
+	}
+}
+
+function Emit-PredefinedFlags {
+	param($item, [string]$indent, [string]$flagKind, $declared, [string]$key)
+
+	if (-not $declared -or $declared.Count -eq 0) { return }
+	$enabled = @()
+	if ($item.ContainsKey($key) -and $item[$key]) { $enabled = @($item[$key] | ForEach-Object { "$_" }) }
+	X "$indent<AccountingFlags>"
+	foreach ($flag in $declared) {
+		$value = if ($enabled -contains $flag) { "true" } else { "false" }
+		X "$indent`t<Flag ref=`"ChartOfAccounts.$objName.$flagKind.$flag`">$value</Flag>"
+	}
+	X "$indent</AccountingFlags>"
+}
+
+function Emit-PredefinedItem {
+	param($item, [string]$indent)
+
+	$script:predefinedIndex++
+	$uuid = New-Guid-String
+	X "$indent<Item id=`"$uuid`">"
+	$i = "$indent`t"
+	X "$i<Name>$(Esc-Xml "$($item['name'])")</Name>"
+	Emit-PredefinedCode $item $i
+	$desc = if ($item.ContainsKey("description")) { "$($item['description'])" } else { "" }
+	if ($desc) { X "$i<Description>$(Esc-Xml $desc)</Description>" } else { X "$i<Description/>" }
+
+	if ($objType -eq "ChartOfCharacteristicTypes") {
+		$typeStr = if ($item.ContainsKey("type")) { "$($item['type'])" } else { "" }
+		if ($typeStr) {
+			X "$i<Type>"
+			Emit-TypeContent "$i`t" $typeStr
+			X "$i</Type>"
+		}
+	}
+
+	if ($objType -eq "ChartOfAccounts") {
+		$accountType = if ($item.ContainsKey("accountType")) { "$($item['accountType'])" } else { "ActivePassive" }
+		X "$i<AccountType>$accountType</AccountType>"
+		$offBalance = if ($item.ContainsKey("offBalance") -and $item["offBalance"] -eq $true) { "true" } else { "false" }
+		X "$i<OffBalance>$offBalance</OffBalance>"
+		if ($item.ContainsKey("order")) { X "$i<Order>$(Esc-Xml "$($item['order'])")</Order>" }
+		Emit-PredefinedFlags $item $i "AccountingFlag" $script:declaredAccountingFlags "flags"
+		Emit-PredefinedSubconto $item $i
+	}
+
+	if ($objType -eq "ChartOfCalculationTypes") {
+		$actionBase = if ($item.ContainsKey("actionPeriodIsBase") -and $item["actionPeriodIsBase"] -eq $true) { "true" } else { "false" }
+		X "$i<ActionPeriodIsBase>$actionBase</ActionPeriodIsBase>"
+	}
+
+	# Признак группы есть у справочника и плана видов характеристик; у плана счетов
+	# иерархия задается кодом, и платформа этот признак не выгружает.
+	$hasFolderFlag = @("Catalog","ChartOfCharacteristicTypes") -contains $objType
+	$isFolder = if ($item.ContainsKey("isFolder") -and $item["isFolder"] -eq $true) { "true" } else { "false" }
+	# У справочника и плана видов характеристик признак группы идет до вложенных элементов,
+	# у плана счетов - после: так их выгружает платформа.
+	$children = @()
+	if ($item.ContainsKey("childItems") -and $item["childItems"]) { $children = @($item["childItems"]) }
+	if ($hasFolderFlag) { X "$i<IsFolder>$isFolder</IsFolder>" }
+	if ($children.Count -gt 0) {
+		X "$i<ChildItems>"
+		foreach ($child in $children) {
+			Emit-PredefinedItem (Parse-PredefinedItem $child) "$i`t"
+		}
+		X "$i</ChildItems>"
+	}
+
+
+	X "$indent</Item>"
+}
+
+function Emit-PredefinedSubconto {
+	param($item, [string]$indent)
+
+	$subconto = @()
+	if ($item.ContainsKey("subconto") -and $item["subconto"]) { $subconto = @($item["subconto"]) }
+	if ($subconto.Count -eq 0) {
+		X "$indent<ExtDimensionTypes/>"
+		return
+	}
+	X "$indent<ExtDimensionTypes>"
+	foreach ($entry in $subconto) {
+		# Запись субконто: "ВидСубконто | Turnover, Признак1, Признак2".
+		$parts = "$entry" -split '\|'
+		$dimName = $parts[0].Trim()
+		$attrs = @()
+		if ($parts.Count -gt 1) { $attrs = @($parts[1] -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+		$turnover = if ($attrs -contains "Turnover" -or $attrs -contains "Оборотный") { "true" } else { "false" }
+		$flags = @($attrs | Where-Object { $_ -ne "Turnover" -and $_ -ne "Оборотный" })
+		X "$indent`t<ExtDimensionType name=`"$script:extDimensionOwner.$dimName`">"
+		X "$indent`t`t<Turnover>$turnover</Turnover>"
+		Emit-PredefinedFlags @{ flags = $flags } "$indent`t`t" "ExtDimensionAccountingFlag" $script:declaredExtDimensionFlags "flags"
+		X "$indent`t</ExtDimensionType>"
+	}
+	X "$indent</ExtDimensionTypes>"
+}
+
 # Module files
 $modulesCreated = @()
 
@@ -3664,6 +3967,54 @@ $typesWithManagerModule = @("Report","DataProcessor","Constant","Enum")
 $typesWithValueManagerModule = @("Constant")
 # Types with Module.bsl (general)
 $typesWithModule = @("CommonModule","HTTPService","WebService")
+
+# Предопределенные элементы платформа держит отдельным файлом.
+if ($def.predefined -and $def.predefined -isnot [bool] -and $predefinedRootType.ContainsKey($objType)) {
+	$predefinedItems = @($def.predefined)
+	if ($predefinedItems.Count -gt 0) {
+		$script:predefinedIndex = 0
+		$script:predefinedCodeIsNumber = ((Get-EnumProp "CodeType" "codeType" "String") -eq "Number")
+		$script:declaredAccountingFlags = @()
+		$script:declaredExtDimensionFlags = @()
+		$script:extDimensionOwner = ""
+		if ($objType -eq "ChartOfAccounts") {
+			foreach ($flag in @($def.accountingFlags)) {
+				$script:declaredAccountingFlags += if ($flag -is [string]) { "$flag" } else { "$($flag.name)" }
+			}
+			foreach ($flag in @($def.extDimensionAccountingFlags)) {
+				$script:declaredExtDimensionFlags += if ($flag -is [string]) { "$flag" } else { "$($flag.name)" }
+			}
+			$script:extDimensionOwner = "$($def.extDimensionTypes)"
+		}
+
+		$script:xml = New-Object System.Text.StringBuilder 8192
+		X '<?xml version="1.0" encoding="UTF-8"?>'
+		X "<PredefinedData xmlns=`"http://v8.1c.ru/8.3/xcf/predef`" xmlns:v8=`"http://v8.1c.ru/8.1/data/core`" xmlns:xr=`"http://v8.1c.ru/8.3/xcf/readable`" xmlns:xs=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`" xsi:type=`"$($predefinedRootType[$objType])`" version=`"$($script:formatVersion)`">"
+		foreach ($raw in $predefinedItems) {
+			Emit-PredefinedItem (Parse-PredefinedItem $raw) "`t"
+		}
+		X "</PredefinedData>"
+
+		Ensure-ExtDir
+		$predefinedPath = Join-Path $extDir "Predefined.xml"
+		[System.IO.File]::WriteAllText($predefinedPath, $script:xml.ToString().TrimEnd("`r", "`n"), $enc)
+		$modulesCreated += $predefinedPath
+	}
+}
+
+# Модуль команды: платформа заводит его у каждой команды объекта.
+if ($objCommands -and $objCommands.Count -gt 0) {
+	foreach ($cmdName in $objCommands.Keys) {
+		$cmdDir = Join-Path (Join-Path (Join-Path $objSubDir "Commands") $cmdName) "Ext"
+		if (-not (Test-Path $cmdDir)) { New-Item -ItemType Directory -Path $cmdDir -Force | Out-Null }
+		$cmdModule = Join-Path $cmdDir "CommandModule.bsl"
+		if (-not (Test-Path $cmdModule)) {
+			$cmdText = "&НаКлиенте`nПроцедура ОбработкаКоманды(ПараметрКоманды, ПараметрыВыполненияКоманды)`n`n`t// Вставьте обработчик команды.`n`nКонецПроцедуры`n"
+			[System.IO.File]::WriteAllText($cmdModule, $cmdText, (New-Object System.Text.UTF8Encoding($false)))
+			$modulesCreated += $cmdModule
+		}
+	}
+}
 
 if ($objType -in $typesWithObjectModule) {
 	$modulePath = Join-Path $extDir "ObjectModule.bsl"

@@ -309,7 +309,9 @@ def split_camel_case(name):
         return name
     result = re.sub(r'([a-z\u0430-\u044f\u0451])([A-Z\u0410-\u042f\u0401])', r'\1 \2', name)
     if len(result) > 1:
-        result = result[0] + result[1:].lower()
+        tail = re.sub(r'(?<![А-ЯЁA-Z])([А-ЯЁA-Z])(?![А-ЯЁA-Z])',
+                      lambda m: m.group(1).lower(), result[1:])
+        result = result[0] + tail
     return result
 
 

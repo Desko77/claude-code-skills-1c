@@ -342,6 +342,11 @@ output_param_types = {
 def resolve_type_str(type_str):
     if not type_str:
         return type_str
+    # Срезается только префикс выгрузки конфигурации: схемные префиксы (v8:, xs:, v8ui:)
+    # часть имени типа, и без них тип не разрешается.
+    m_prefix = re.match(r'^(?:cfg|d\d+p\d+):(.+)$', type_str)
+    if m_prefix:
+        type_str = m_prefix.group(1)
 
     m = re.match(r'^([^(]+)\((.+)\)$', type_str)
     if m:

@@ -345,7 +345,7 @@ valid_enum_values = {
     'RegisterRecordsDeletion': ['AutoDelete', 'AutoDeleteOnUnpost', 'AutoDeleteOff'],
     'RegisterRecordsWritingOnPost': ['WriteModified', 'WriteSelected', 'WriteAll'],
     'ReturnValuesReuse': ['DontUse', 'DuringRequest', 'DuringSession'],
-    'ReuseSessions': ['DontUse', 'AutoUse'],
+    'ReuseSessions': ['DontUse', 'Use', 'AutoUse'],
     'FillChecking': ['DontCheck', 'ShowError', 'ShowWarning'],
     'Indexing': ['DontIndex', 'Index', 'IndexWithAdditionalOrder'],
 }
@@ -472,7 +472,9 @@ def split_camel_case(name):
     # Insert space between lowercase Latin and uppercase Latin
     result = re.sub(r"([a-z])([A-Z])", r"\1 \2", result)
     if len(result) > 1:
-        result = result[0] + result[1:].lower()
+        tail = re.sub(r'(?<![А-ЯЁA-Z])([А-ЯЁA-Z])(?![А-ЯЁA-Z])',
+                      lambda m: m.group(1).lower(), result[1:])
+        result = result[0] + tail
     return result
 
 
@@ -539,6 +541,11 @@ type_synonyms = {
 def resolve_type_str(type_str):
     if not type_str:
         return type_str
+    # Срезается только префикс выгрузки конфигурации: схемные префиксы (v8:, xs:, v8ui:)
+    # часть имени типа, и без них тип не разрешается.
+    m_prefix = re.match(r'^(?:cfg|d\d+p\d+):(.+)$', type_str)
+    if m_prefix:
+        type_str = m_prefix.group(1)
 
     # Parameterized: Number(15,2), Строка(100)
     m = re.match(r"^([^(]+)\((.+)\)$", type_str)

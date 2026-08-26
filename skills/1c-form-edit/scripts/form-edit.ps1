@@ -323,6 +323,11 @@ $script:formTypeSynonyms["определяемыйтип"]             = "Define
 function Resolve-TypeStr {
 	param([string]$typeStr)
 	if (-not $typeStr) { return $typeStr }
+	# Тип, скопированный из выгрузки, несет префикс пространства имен: cfg:, d5p1:, d4p1:.
+	# В описании он лишний - имя типа платформа читает без него.
+	# Срезается только префикс выгрузки конфигурации: схемные префиксы (v8:, xs:, v8ui:)
+	# часть имени типа, и без них тип не разрешается.
+	if ($typeStr -match '^(?:cfg|d\d+p\d+):(.+)$') { $typeStr = $Matches[1] }
 	if ($typeStr -match '^([^(]+)\((.+)\)$') {
 		$base = $Matches[1].Trim(); $params = $Matches[2]
 		$r = $script:formTypeSynonyms[$base.ToLower()]
