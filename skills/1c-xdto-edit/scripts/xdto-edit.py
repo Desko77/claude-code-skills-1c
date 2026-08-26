@@ -303,9 +303,9 @@ if args.Value.startswith("@"):
 assert_edit_allowed(pkg_dir, "editable")
 
 SKILLS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DECOMPILE = os.path.join(SKILLS, "xdto-decompile", "scripts", "xdto-decompile.py")
-COMPILE = os.path.join(SKILLS, "xdto-compile", "scripts", "xdto-compile.py")
-VALIDATE = os.path.join(SKILLS, "xdto-validate", "scripts", "xdto-validate.py")
+DECOMPILE = os.path.join(SKILLS, "1c-xdto-decompile", "scripts", "xdto-decompile.py")
+COMPILE = os.path.join(SKILLS, "1c-xdto-compile", "scripts", "xdto-compile.py")
+VALIDATE = os.path.join(SKILLS, "1c-xdto-validate", "scripts", "xdto-validate.py")
 
 
 # Исключение из автономности навыков, сделанное осознанно: конвертер XSD <-> модель

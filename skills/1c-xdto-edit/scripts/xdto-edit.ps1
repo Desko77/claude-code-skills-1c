@@ -200,9 +200,9 @@ $encBom = New-Object System.Text.UTF8Encoding($true)
 # применяется к схеме, пакет собирается обратно. Второго эмиттера не заводим —
 # байт-точность для всего нетронутого достаётся от компилятора.
 
-$decompileScript = Join-Path (Join-Path $PSScriptRoot "..\..\xdto-decompile") "scripts\xdto-decompile.ps1"
-$compileScript   = Join-Path (Join-Path $PSScriptRoot "..\..\xdto-compile") "scripts\xdto-compile.ps1"
-$validateScript  = Join-Path (Join-Path $PSScriptRoot "..\..\xdto-validate") "scripts\xdto-validate.ps1"
+$decompileScript = Join-Path (Join-Path $PSScriptRoot "..\..\1c-xdto-decompile") "scripts\xdto-decompile.ps1"
+$compileScript   = Join-Path (Join-Path $PSScriptRoot "..\..\1c-xdto-compile") "scripts\xdto-compile.ps1"
+$validateScript  = Join-Path (Join-Path $PSScriptRoot "..\..\1c-xdto-validate") "scripts\xdto-validate.ps1"
 
 # Исключение из автономности навыков, сделанное осознанно: конвертер XSD ↔ модель
 # нельзя скопировать буквально (xdto-compile — скрипт со сквозным потоком, не библиотека),

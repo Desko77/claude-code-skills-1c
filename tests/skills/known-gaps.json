@@ -149,14 +149,6 @@
     "cases/template-add/format-221",
     "cases/template-remove/basic",
     "cases/xdto-compile/roundtrip-lf-preserve",
-    "cases/xdto-edit/add-enum",
-    "cases/xdto-edit/add-import",
-    "cases/xdto-edit/add-property",
-    "cases/xdto-edit/add-property-attribute",
-    "cases/xdto-edit/add-type",
-    "cases/xdto-edit/remove-property-batch",
-    "cases/xdto-edit/replace-property",
-    "cases/xdto-edit/set-namespace",
     "integration/build-cfe"
   ]
 }
