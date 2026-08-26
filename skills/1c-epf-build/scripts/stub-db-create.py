@@ -123,8 +123,7 @@ def write_platform_verdict(exit_code, result_file, log_text, success_message,
         final_code = 1
 
     return final_code
-
-
+# --- Конец общего блока вердикта платформы ---
 def new_uuid():
     return str(uuid.uuid4())
 

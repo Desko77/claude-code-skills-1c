@@ -142,8 +142,7 @@ def write_platform_verdict(exit_code, result_file, log_text, success_message,
         final_code = 1
 
     return final_code
-
-
+# --- Конец общего блока вердикта платформы ---
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")

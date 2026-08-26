@@ -176,8 +176,7 @@ function Write-PlatformVerdict {
     }
     return $finalCode
 }
-
-
+# --- Конец общего блока вердикта платформы ---
 # --- Resolve V8Path ---
 if (-not $V8Path) {
     $found = Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1

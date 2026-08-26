@@ -123,8 +123,7 @@ function Write-PlatformVerdict {
     }
     return $finalCode
 }
-
-
+# --- Конец общего блока вердикта платформы ---
 # --- 1. Scan XML files for reference types ---
 
 $typeMap = @{}  # MetadataType -> @(Name1, Name2, ...)

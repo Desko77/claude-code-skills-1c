@@ -220,8 +220,7 @@ function Write-PlatformVerdict {
     }
     return $finalCode
 }
-
-
+# --- Конец общего блока вердикта платформы ---
 # --- Helper: map sub-file path (BSL, HTML, etc.) to object XML ---
 function Get-ObjectXmlFromSubFile {
     param([string]$RelativePath)

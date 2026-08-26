@@ -1,12 +1,36 @@
 {
   "_note": "Храповик общих реализаций: сколько различающихся вариантов тела допустимо у семьи сегодня. Число не должно расти. Уменьшили разброс - обновите линию: node tests/skills/check-inline-drift.mjs --update",
   "families": {
+    "ps1:Add-Todo": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Assert-EditAllowed": {
+      "skills": 2,
+      "variants": 1
+    },
     "ps1:Build-MLTextXml": {
       "skills": 2,
       "variants": 2
     },
     "ps1:Build-ValueTypeXml": {
       "skills": 2,
+      "variants": 2
+    },
+    "ps1:ConvertTo-JsonEscaped": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:ConvertTo-JsonText": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:ConvertTo-XmlText": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Detect-FormatVersion": {
+      "skills": 11,
       "variants": 2
     },
     "ps1:Emit-Button": {
@@ -54,8 +78,8 @@
       "variants": 1
     },
     "ps1:Emit-MLText": {
-      "skills": 4,
-      "variants": 3
+      "skills": 5,
+      "variants": 4
     },
     "ps1:Emit-Page": {
       "skills": 2,
@@ -101,8 +125,36 @@
       "skills": 2,
       "variants": 2
     },
+    "ps1:Esc": {
+      "skills": 2,
+      "variants": 1
+    },
     "ps1:Esc-Xml": {
-      "skills": 8,
+      "skills": 10,
+      "variants": 2
+    },
+    "ps1:EscText": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Expand-SelfClosingElement": {
+      "skills": 3,
+      "variants": 2
+    },
+    "ps1:Find-V8Project": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Format-Type": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Get-ChildIndent": {
+      "skills": 7,
+      "variants": 3
+    },
+    "ps1:Get-EditMode": {
+      "skills": 2,
       "variants": 1
     },
     "ps1:Get-ElementName": {
@@ -117,12 +169,48 @@
       "skills": 2,
       "variants": 2
     },
+    "ps1:Get-MLText": {
+      "skills": 6,
+      "variants": 5
+    },
     "ps1:Get-ObjectType": {
       "skills": 2,
       "variants": 2
     },
     "ps1:Get-OurHttpd": {
       "skills": 3,
+      "variants": 2
+    },
+    "ps1:Get-PlatformLogProblems": {
+      "skills": 12,
+      "variants": 1
+    },
+    "ps1:Get-PlatformResultCode": {
+      "skills": 12,
+      "variants": 1
+    },
+    "ps1:Get-RootUuid": {
+      "skills": 3,
+      "variants": 2
+    },
+    "ps1:Get-TypeShorthand": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Hide-PlatformSecret": {
+      "skills": 12,
+      "variants": 1
+    },
+    "ps1:Import-Fragment": {
+      "skills": 5,
+      "variants": 4
+    },
+    "ps1:Info": {
+      "skills": 5,
+      "variants": 5
+    },
+    "ps1:Insert-BeforeElement": {
+      "skills": 6,
       "variants": 2
     },
     "ps1:Is-NestedObject": {
@@ -137,13 +225,21 @@
       "skills": 2,
       "variants": 2
     },
+    "ps1:Normalize-ContentRef": {
+      "skills": 2,
+      "variants": 1
+    },
     "ps1:Normalize-EnumValue": {
       "skills": 2,
       "variants": 1
     },
+    "ps1:Out": {
+      "skills": 4,
+      "variants": 4
+    },
     "ps1:Out-Line": {
-      "skills": 6,
-      "variants": 1
+      "skills": 10,
+      "variants": 4
     },
     "ps1:Parse-AttributeShorthand": {
       "skills": 2,
@@ -181,17 +277,25 @@
       "skills": 2,
       "variants": 2
     },
+    "ps1:Parse-ValueList": {
+      "skills": 2,
+      "variants": 1
+    },
+    "ps1:Remove-NodeWithWhitespace": {
+      "skills": 5,
+      "variants": 1
+    },
     "ps1:Report-Error": {
-      "skills": 9,
-      "variants": 2
+      "skills": 11,
+      "variants": 3
     },
     "ps1:Report-OK": {
-      "skills": 9,
-      "variants": 2
+      "skills": 11,
+      "variants": 3
     },
     "ps1:Report-Warn": {
-      "skills": 9,
-      "variants": 2
+      "skills": 11,
+      "variants": 3
     },
     "ps1:Resolve-QueryValue": {
       "skills": 2,
@@ -206,11 +310,27 @@
       "variants": 2
     },
     "ps1:Split-CamelCase": {
+      "skills": 3,
+      "variants": 2
+    },
+    "ps1:Test-ExternalObjectRoot": {
       "skills": 2,
       "variants": 1
     },
     "ps1:Test-FormatVersionKnown": {
       "skills": 6,
+      "variants": 1
+    },
+    "ps1:Warn": {
+      "skills": 6,
+      "variants": 6
+    },
+    "ps1:Write-ChildSubsystemStub": {
+      "skills": 2,
+      "variants": 2
+    },
+    "ps1:Write-PlatformVerdict": {
+      "skills": 12,
       "variants": 1
     },
     "py:__contains__": {
@@ -279,6 +399,10 @@
     },
     "py:assign_speaker": {
       "skills": 2,
+      "variants": 1
+    },
+    "py:blank": {
+      "skills": 3,
       "variants": 1
     },
     "py:build_mltext_xml": {
@@ -513,6 +637,10 @@
       "skills": 3,
       "variants": 1
     },
+    "py:hide_platform_secret": {
+      "skills": 11,
+      "variants": 1
+    },
     "py:import_fragment": {
       "skills": 5,
       "variants": 5
@@ -645,6 +773,14 @@
       "skills": 2,
       "variants": 1
     },
+    "py:platform_log_problems": {
+      "skills": 11,
+      "variants": 1
+    },
+    "py:platform_result_code": {
+      "skills": 11,
+      "variants": 1
+    },
     "py:progress": {
       "skills": 2,
       "variants": 1
@@ -763,6 +899,10 @@
     },
     "py:write_plain": {
       "skills": 2,
+      "variants": 1
+    },
+    "py:write_platform_verdict": {
+      "skills": 11,
       "variants": 1
     },
     "py:write_speakers_md": {

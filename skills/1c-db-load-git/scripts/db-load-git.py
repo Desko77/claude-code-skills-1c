@@ -144,8 +144,7 @@ def write_platform_verdict(exit_code, result_file, log_text, success_message,
         final_code = 1
 
     return final_code
-
-
+# --- Конец общего блока вердикта платформы ---
 def get_object_xml_from_subfile(relative_path):
     """Map sub-file path (BSL, HTML, etc.) to object XML path."""
     parts = re.split(r"[\\/]", relative_path)
