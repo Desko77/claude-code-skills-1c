@@ -523,6 +523,14 @@ foreach ($area in $def.areas) {
 
 $xml = New-Object System.Text.StringBuilder 4096
 
+# Версии формата сравниваются по составным частям, а не как десятичная дробь:
+# 2.9 старее, чем 2.21, хотя как число больше.
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
 function X {
 	param([string]$text)
 	$script:xml.AppendLine($text) | Out-Null
@@ -533,7 +541,7 @@ X '<?xml version="1.0" encoding="UTF-8"?>'
 # Палитра появляется в шапке макета с формата 2.21 (8.5) и встает после основного
 # пространства имен.
 $mxlTemplateVersion = Get-TemplateFormatVersion $OutputPath
-$mxlPal = if ([double]::Parse($mxlTemplateVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) { ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"' } else { '' }
+$mxlPal = if ((Get-FormatVersionRank $mxlTemplateVersion) -ge 221) { ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"' } else { '' }
 X "<document xmlns=`"http://v8.1c.ru/8.2/data/spreadsheet`"$mxlPal xmlns:style=`"http://v8.1c.ru/8.1/data/ui/style`" xmlns:v8=`"http://v8.1c.ru/8.1/data/core`" xmlns:v8ui=`"http://v8.1c.ru/8.1/data/ui`" xmlns:xs=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`">"
 
 # 7b. Language settings

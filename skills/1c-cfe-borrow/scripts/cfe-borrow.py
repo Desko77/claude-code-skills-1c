@@ -394,6 +394,12 @@ def new_guid():
     return str(uuid.uuid4())
 
 
+def format_version_rank(version):
+    """Версии сравниваются по составным частям: 2.9 старее, чем 2.21, хотя как число больше."""
+    m = re.match(r"^(\d+)\.(\d+)$", str(version or ""))
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -438,6 +444,14 @@ def main():
     cfg_dir = os.path.dirname(cfg_resolved)
 
     format_version = detect_format_version(ext_dir)
+
+    # Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style.
+    global XMLNS_DECL
+    if format_version_rank(format_version) >= 221:
+        XMLNS_DECL = XMLNS_DECL.replace(
+            'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style=',
+            'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
+            ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette" xmlns:style=')
 
     # --- 2. Load extension Configuration.xml ---
     xml_parser = etree.XMLParser(remove_blank_text=False)

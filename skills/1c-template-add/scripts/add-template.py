@@ -256,6 +256,12 @@ def detect_format_version(d):
     return "2.17"
 
 
+def format_version_rank(version):
+    """Версии сравниваются по составным частям: 2.9 старее, чем 2.21, хотя как число больше."""
+    m = re.match(r"^(\d+)\.(\d+)$", str(version or ""))
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -336,6 +342,7 @@ def main():
         ' xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi"'
         ' xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"'
         ' xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
+        + (' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"' if format_version_rank(format_version) >= 221 else '') +
         ' xmlns:style="http://v8.1c.ru/8.1/data/ui/style"'
         ' xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system"'
         ' xmlns:v8="http://v8.1c.ru/8.1/data/core"'
@@ -393,8 +400,7 @@ def main():
             '<SpreadsheetDocument xmlns="http://v8.1c.ru/spreadsheet/document"'
             ' xmlns:ss="http://v8.1c.ru/spreadsheet/document"'
             ' xmlns:v8="http://v8.1c.ru/8.1/data/core"'
-            ' xmlns:xs="http://www.w3.org/2001/XMLSchema">\n'
-            '</SpreadsheetDocument>'
+            ' xmlns:xs="http://www.w3.org/2001/XMLSchema"/>'
         )
         write_text_with_bom(template_file_path, content)
 

@@ -1185,6 +1185,14 @@ function Emit-TabularSection {
 
 # --- 10. EnumValue emitter ---
 
+# Версии формата сравниваются по составным частям, а не как десятичная дробь:
+# 2.9 старее, чем 2.21, хотя как число больше.
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
 function Emit-EnumValue {
 	param([string]$indent, $parsed)
 	$uuid = New-Guid-String
@@ -1195,7 +1203,7 @@ function Emit-EnumValue {
 	X "$indent`t`t<Comment/>"
 	# Цвет значения перечисления появился в формате 2.21 (8.5); значение auto означает, что
 	# цвет выбирает платформа.
-	if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) {
+	if ((Get-FormatVersionRank $script:formatVersion) -ge 221) {
 		X "$indent`t`t<Color>auto</Color>"
 	}
 	X "$indent`t</Properties>"
@@ -3215,7 +3223,7 @@ $script:xmlnsDecl = 'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.
 
 # Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style.
 function Get-XmlnsDecl {
-	if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) {
+	if ((Get-FormatVersionRank $script:formatVersion) -ge 221) {
 		return $script:xmlnsDecl.Replace('xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style=', 'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette" xmlns:style=')
 	}
 	return $script:xmlnsDecl
@@ -3716,7 +3724,7 @@ if ($objType -eq "CommonForm") {
 	if (-not (Test-Path $formXmlPath)) {
 		# Начиная с формата 2.21 (8.5) в шапке формы объявляется палитра - между lf и style.
 		$formPal = ''
-		if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) {
+		if ((Get-FormatVersionRank $script:formatVersion) -ge 221) {
 			$formPal = ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
 		}
 		$formNs = 'xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"' + $formPal + ' xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'

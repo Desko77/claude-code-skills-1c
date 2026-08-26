@@ -311,6 +311,12 @@ def write_utf8_bom(path, content):
         f.write(content)
 
 
+def format_version_rank(version):
+    """Версии сравниваются по составным частям: 2.9 старее, чем 2.21, хотя как число больше."""
+    m = re.match(r"^(\d+)\.(\d+)$", str(version or ""))
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -616,7 +622,7 @@ def main():
     # Палитра появляется в шапке макета с формата 2.21 (8.5) и встает после основного
     # пространства имен.
     mxl_pal = (' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
-               if float(template_format_version(args.OutputPath)) >= 2.21 else '')
+               if format_version_rank(template_format_version(args.OutputPath)) >= 221 else '')
     lines.append(f'<document xmlns="http://v8.1c.ru/8.2/data/spreadsheet"{mxl_pal} xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
 
     # 7b. Language settings

@@ -791,6 +791,14 @@ if ($script:inputErrors.Count -gt 0) {
 
 # --- Detect format version ---
 
+# Версии формата сравниваются по составным частям, а не как десятичная дробь:
+# 2.9 старее, чем 2.21, хотя как число больше.
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
 function Detect-FormatVersion([string]$dir) {
 	$d = $dir
 	while ($d) {
@@ -829,7 +837,7 @@ $nsParts = @(
 	'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"',
 	'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
 )
-if ([double]::Parse($formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) {
+if ((Get-FormatVersionRank $formatVersion) -ge 221) {
 	$nsParts += 'xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
 }
 $nsParts += @(

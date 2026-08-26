@@ -214,6 +214,14 @@ $encBom = New-Object System.Text.UTF8Encoding($true)
 
 # --- Detect format version ---
 
+# Версии формата сравниваются по составным частям, а не как десятичная дробь:
+# 2.9 старее, чем 2.21, хотя как число больше.
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
 function Detect-FormatVersion([string]$dir) {
 	$d = $dir
 	while ($d) {
@@ -232,7 +240,7 @@ function Detect-FormatVersion([string]$dir) {
 Assert-EditAllowed (Join-Path $SrcDir $ObjectName) "editable"
 $formatVersion = Detect-FormatVersion (Resolve-Path $SrcDir).Path
 # Начиная с формата 2.21 (8.5) в шапке объявляется палитра - между lf и style.
-$palNs = if ([double]::Parse($formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) { ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"' } else { '' }
+$palNs = if ((Get-FormatVersionRank $formatVersion) -ge 221) { ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"' } else { '' }
 
 # --- 1. Метаданные макета (Templates/<TemplateName>.xml) ---
 
@@ -282,11 +290,8 @@ switch ($TemplateType) {
 		[System.IO.File]::WriteAllText($templateFilePath, "", $encBom)
 	}
 	"SpreadsheetDocument" {
-		$content = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<SpreadsheetDocument xmlns="http://v8.1c.ru/spreadsheet/document" xmlns:ss="http://v8.1c.ru/spreadsheet/document" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:xs="http://www.w3.org/2001/XMLSchema">
-</SpreadsheetDocument>
-"@
+		# Пустой табличный документ платформа выгружает одним тегом и без хвостового перевода строки.
+		$content = '<?xml version="1.0" encoding="UTF-8"?>' + "`r`n" + '<SpreadsheetDocument xmlns="http://v8.1c.ru/spreadsheet/document" xmlns:ss="http://v8.1c.ru/spreadsheet/document" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:xs="http://www.w3.org/2001/XMLSchema"/>'
 		[System.IO.File]::WriteAllText($templateFilePath, $content, $encBom)
 	}
 	"BinaryData" {

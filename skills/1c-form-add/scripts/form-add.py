@@ -254,9 +254,15 @@ def write_text_with_bom(path, text):
 PALETTE_NS = ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
 
 
+def format_version_rank(version):
+    """Версии сравниваются по составным частям: 2.9 старее, чем 2.21, хотя как число больше."""
+    m = re.match(r"^(\d+)\.(\d+)$", str(version or ""))
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
 def add_palette_ns(decl, format_version):
     """Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style."""
-    if float(format_version) < 2.21:
+    if format_version_rank(format_version) < 221:
         return decl
     lf = ' xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
     return decl.replace(lf, lf + PALETTE_NS, 1)
@@ -298,7 +304,15 @@ def main():
         sys.exit(1)
 
     object_xml_full = os.path.abspath(object_path)
-    format_version = detect_format_version(os.path.dirname(object_xml_full))
+    # У автономной внешней обработки или отчета конфигурации нет, и версию формата задает
+    # описание самого объекта.
+    with open(object_xml_full, 'r', encoding='utf-8-sig', errors='replace') as fh:
+        owner_head = fh.read(2000)
+    owner_version = re.search(r'<MetaDataObject[^>]+version="(\d+\.\d+)"', owner_head)
+    if re.search(r'<(ExternalDataProcessor|ExternalReport)\s', owner_head) and owner_version:
+        format_version = owner_version.group(1)
+    else:
+        format_version = detect_format_version(os.path.dirname(object_xml_full))
 
     parser_xml = etree.XMLParser(remove_blank_text=False)
     tree = etree.parse(object_xml_full, parser_xml)
@@ -405,7 +419,7 @@ def main():
 
     # Режим совместимости интерфейса форма получает начиная с формата 2.21.
     compatibility_line = ('\t\t\t<UseInInterfaceCompatibilityMode>Any</UseInInterfaceCompatibilityMode>\n'
-                          if float(format_version) >= 2.21 else '')
+                          if format_version_rank(format_version) >= 221 else '')
 
     form_meta_xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'

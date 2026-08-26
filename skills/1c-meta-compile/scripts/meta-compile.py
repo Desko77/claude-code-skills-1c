@@ -1280,6 +1280,12 @@ def emit_tabular_section(indent, ts_name, columns, object_type, object_name, opt
 # 10. EnumValue emitter
 # ---------------------------------------------------------------------------
 
+def format_version_rank(version):
+    """Версии сравниваются по составным частям: 2.9 старее, чем 2.21, хотя как число больше."""
+    m = re.match(r"^(\d+)\.(\d+)$", str(version or ""))
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
 def emit_enum_value(indent, parsed):
     uid = new_uuid()
     X(f'{indent}<EnumValue uuid="{uid}">')
@@ -1289,7 +1295,7 @@ def emit_enum_value(indent, parsed):
     X(f'{indent}\t\t<Comment/>')
     # Цвет значения перечисления появился в формате 2.21 (8.5); значение auto означает,
     # что цвет выбирает платформа.
-    if float(format_version) >= 2.21:
+    if format_version_rank(format_version) >= 221:
         X(f'{indent}\t\t<Color>auto</Color>')
     X(f'{indent}\t</Properties>')
     X(f'{indent}</EnumValue>')
@@ -2974,7 +2980,7 @@ xmlns_decl = 'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8
 
 # Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style.
 def get_xmlns_decl():
-    if float(format_version) >= 2.21:
+    if format_version_rank(format_version) >= 221:
         return xmlns_decl.replace(
             'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style=',
             'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette" xmlns:style=')
@@ -3425,7 +3431,7 @@ if obj_type == 'CommonForm':
     if not os.path.isfile(form_xml_path):
         # Начиная с формата 2.21 (8.5) в шапке формы объявляется палитра - между lf и style.
         form_pal = ''
-        if float(format_version) >= 2.21:
+        if format_version_rank(format_version) >= 221:
             form_pal = ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
         form_ns = (
             'xmlns="http://v8.1c.ru/8.3/xcf/logform" '

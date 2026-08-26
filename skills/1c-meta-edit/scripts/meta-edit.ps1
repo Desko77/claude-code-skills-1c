@@ -244,6 +244,14 @@ function Get-EditDistance {
 
 # Имя из списка, отличающееся от заданного не более чем на две правки. Порог выбран так, чтобы
 # ловить перестановку и пропуск буквы, но не считать опечаткой другое свойство.
+# Версии формата сравниваются по составным частям, а не как десятичная дробь:
+# 2.9 старее, чем 2.21, хотя как число больше.
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
 function Find-TypoCandidate {
 	param([string]$Name, [string[]]$Candidates)
 	$best = $null
@@ -371,6 +379,12 @@ Assert-EditAllowed $resolvedPath "editable"
 $script:xmlDoc = New-Object System.Xml.XmlDocument
 $script:xmlDoc.PreserveWhitespace = $true
 $script:xmlDoc.Load($resolvedPath)
+
+# Версию формата задает шапка правимого файла: часть свойств есть только с определенной версии.
+$script:formatVersion = "2.17"
+$rootNode = $script:xmlDoc.DocumentElement
+if ($rootNode -and $rootNode.GetAttribute("version")) { $script:formatVersion = $rootNode.GetAttribute("version") }
+$script:formatRank = Get-FormatVersionRank $script:formatVersion
 
 # --- Counters ---
 $script:addCount = 0
@@ -1540,6 +1554,10 @@ function Build-EnumValueFragment {
 	$sb.AppendLine("$indent`t`t<Name>$(Esc-Xml $parsed.name)</Name>") | Out-Null
 	$sb.AppendLine($(Build-MLTextXml "$indent`t`t" "Synonym" $parsed.synonym)) | Out-Null
 	$sb.AppendLine("$indent`t`t<Comment/>") | Out-Null
+	# Цвет значения перечисления появился в формате 2.21 (8.5); auto означает выбор платформы.
+	if ($script:formatRank -ge 221) {
+		$sb.AppendLine("$indent`t`t<Color>auto</Color>") | Out-Null
+	}
 	$sb.AppendLine("$indent`t</Properties>") | Out-Null
 	$sb.Append("$indent</EnumValue>") | Out-Null
 	return $sb.ToString()

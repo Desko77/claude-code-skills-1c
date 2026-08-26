@@ -77,6 +77,8 @@ try {
 $nsMgr = New-Object System.Xml.XmlNamespaceManager($xmlDoc.NameTable)
 $nsMgr.AddNamespace("f", "http://v8.1c.ru/8.3/xcf/logform")
 $nsMgr.AddNamespace("v8", "http://v8.1c.ru/8.1/data/core")
+# Ссылки параметров выбора платформа пишет в этом пространстве имен.
+$nsMgr.AddNamespace("xr", "http://v8.1c.ru/8.3/xcf/readable")
 
 $root = $xmlDoc.DocumentElement
 
@@ -87,6 +89,17 @@ $script:isConfigContext = $false
 $walkDir = Split-Path (Resolve-Path $FormPath) -Parent
 for ($i = 0; $i -lt 15; $i++) {
 	if (-not $walkDir -or $walkDir -eq (Split-Path $walkDir)) { break }
+	# Описание внешней обработки лежит рядом с ее каталогом и встречается раньше, чем
+	# Configuration.xml. Без этой проверки автономная обработка, распакованная внутрь
+	# каталога конфигурации, принималась за объект конфигурации.
+	$walkParent = Split-Path $walkDir
+	$ownerXml = if ($walkParent) { Join-Path $walkParent ((Split-Path $walkDir -Leaf) + ".xml") } else { "" }
+	if ($ownerXml -and (Test-Path $ownerXml)) {
+		$head = Get-Content $ownerXml -TotalCount 5 -Encoding UTF8 -ErrorAction SilentlyContinue
+		if ($head -and (($head -join " ") -match "<(ExternalDataProcessor|ExternalReport)\s")) {
+			break
+		}
+	}
 	if (Test-Path (Join-Path $walkDir "Configuration.xml")) {
 		$script:isConfigContext = $true
 		break
@@ -151,7 +164,16 @@ if ($root.LocalName -ne "Form") {
 	if (Test-FormatVersionKnown $version) {
 		Report-OK "Root element: Form version=$version"
 	} elseif ($version) {
-		Report-Warn "Form version='$version' (expected $formatVerifiedMin-$formatVerifiedMax)"
+		# Версия вне проверенного диапазона - это непокрытие проверками, а не дефект файла;
+		# сторона отклонения важна: ниже диапазона формат старый, выше - еще не замерен.
+		$rank = Get-FormatVersionRank $version
+		if ($rank -eq 0) {
+			Report-Warn "Form version='$version' is malformed (expected a number like 2.21)"
+		} elseif ($rank -lt (Get-FormatVersionRank $formatVerifiedMin)) {
+			Report-Warn "Format version '$version' is below the tested range $formatVerifiedMin-$formatVerifiedMax"
+		} else {
+			Report-Warn "Format version '$version' is above the tested range $formatVerifiedMin-$formatVerifiedMax"
+		}
 	} else {
 		Report-Warn "Form version attribute missing"
 	}
@@ -238,6 +260,14 @@ if (-not $stopped) {
 	$dupCount = ($allElements | Group-Object { $_.Id } | Where-Object { $_.Count -gt 1 -and $_.Name -ne "-1" }).Count
 	if ($dupCount -eq 0) {
 		Report-OK "Unique element IDs: $($elementIds.Count) elements"
+	}
+
+	$nameGroups = $allElements | Where-Object { $_.Name } | Group-Object { $_.Name.ToLower() } | Where-Object { $_.Count -gt 1 }
+	foreach ($g in $nameGroups) {
+		Report-Error "Duplicate element name: '$($g.Group[0].Name)' ($($g.Count) elements)"
+	}
+	if (-not $nameGroups) {
+		Report-OK "Unique element names: $($allElements.Count) elements"
 	}
 }
 
@@ -358,6 +388,19 @@ if (-not $stopped) {
 	}
 }
 
+# Часть путей платформа записывает не именем реквизита: числом, парой идентификаторов
+# через двоеточие, ссылкой на текущие данные таблицы или тильдой. Такие пути к реквизитам
+# формы не разрешаются, и проверять их по списку реквизитов нельзя.
+function Test-OpaquePath {
+	param([string]$Segment)
+	if (-not $Segment) { return $true }
+	if ($Segment -match '^\d+$') { return $true }
+	if ($Segment -match '^[\d/]+:[0-9a-fA-F-]+$') { return $true }
+	if ($Segment.StartsWith("~")) { return $true }
+	if ($Segment -eq "Items") { return $true }
+	return $false
+}
+
 # --- Check 5: DataPath -> Attribute references ---
 
 if (-not $stopped) {
@@ -381,6 +424,18 @@ if (-not $stopped) {
 			try { if ([int]$el.Id -lt 1000000) { $pathBaseSkipped++; continue } } catch {}
 		}
 
+		foreach ($bindTag in @("MultipleValueDataPath", "MultipleValuePresentDataPath")) {
+			$bindNode = $node.SelectSingleNode("f:$bindTag", $nsMgr)
+			if (-not $bindNode) { continue }
+			$bindPath = $bindNode.InnerText.Trim()
+			if (-not $bindPath) { continue }
+			$bindRoot = ($bindPath -replace '\[\d+\]', '') -split '\.' | Select-Object -First 1
+			if (-not (Test-OpaquePath $bindRoot) -and -not $attrMap.ContainsKey($bindRoot)) {
+				Report-Error "[$tag] '$elName': $bindTag='$bindPath' — attribute '$bindRoot' not found"
+				$pathErrors++
+			}
+		}
+
 		$dpNode = $node.SelectSingleNode("f:DataPath", $nsMgr)
 		if (-not $dpNode) { continue }
 
@@ -394,7 +449,7 @@ if (-not $stopped) {
 		$segments = $cleanPath -split '\.'
 		$rootAttr = $segments[0]
 
-		if (-not $attrMap.ContainsKey($rootAttr)) {
+		if (-not (Test-OpaquePath $rootAttr) -and -not $attrMap.ContainsKey($rootAttr)) {
 			Report-Error "[$tag] '$elName': DataPath='$dataPath' — attribute '$rootAttr' not found"
 			$pathErrors++
 		}
@@ -410,6 +465,32 @@ if (-not $stopped) {
 		Report-OK "DataPath references: $pathMsg"
 	} elseif ($pathErrors -eq 0) {
 		Report-OK "DataPath references: none"
+	}
+}
+
+# --- Check 5a: Пути ссылок параметров выбора ---
+# В заимствованной форме собственные реквизиты объявляет само расширение. Путь вида
+# Объект.X платформа свяжет только при объявленном основном реквизите, а его в форме
+# может не быть - тогда ссылка висит в пустоте.
+if (-not $stopped) {
+	$linkErrors = 0
+	$linkChecked = 0
+	$childItems = $root.SelectSingleNode("f:ChildItems", $nsMgr)
+	if ($childItems) {
+		foreach ($linkPath in $childItems.SelectNodes(".//xr:DataPath", $nsMgr)) {
+			$value = $linkPath.InnerText.Trim()
+			if (-not $value) { continue }
+			$rootSeg = ($value -replace '\[\d+\]', '') -split '\.' | Select-Object -First 1
+			if (Test-OpaquePath $rootSeg) { continue }
+			$linkChecked++
+			if (-not $attrMap.ContainsKey($rootSeg)) {
+				Report-Error "Choice parameter link: DataPath='$value' — attribute '$rootSeg' not found"
+				$linkErrors++
+			}
+		}
+	}
+	if ($linkErrors -eq 0 -and $linkChecked -gt 0) {
+		Report-OK "Choice parameter links: $linkChecked paths checked"
 	}
 }
 
@@ -504,6 +585,7 @@ if (-not $stopped) {
 
 if (-not $stopped) {
 	$actionErrors = 0
+	$actionMissing = 0
 	$actionChecked = 0
 
 	foreach ($cmd in $cmdNodes) {
@@ -512,12 +594,12 @@ if (-not $stopped) {
 		$actionNode = $cmd.SelectSingleNode("f:Action", $nsMgr)
 		$actionChecked++
 		if (-not $actionNode -or -not $actionNode.InnerText.Trim()) {
-			Report-Error "Command '$cmdName': missing or empty Action"
-			$actionErrors++
+			Report-Warn "Command '$cmdName': no Action declared (handler may be assigned at runtime)"
+			$actionMissing++
 		}
 	}
 
-	if ($actionErrors -eq 0 -and $actionChecked -gt 0) {
+	if ($actionErrors -eq 0 -and $actionMissing -eq 0 -and $actionChecked -gt 0) {
 		Report-OK "Command actions: $actionChecked commands checked"
 	} elseif ($actionChecked -eq 0) {
 		Report-OK "Command actions: none"
@@ -750,6 +832,14 @@ if (-not $stopped) {
 			Report-Error "12. Type '$tv': invalid runtime/UI type (not valid in XDTO schema)"
 			$typeOk = $false; $typeInvalid++
 			continue
+		}
+		if ($tv -match '^([A-Za-z][\w.-]*):') {
+			$usedPrefix = $Matches[1]
+			if (-not $root.GetNamespaceOfPrefix($usedPrefix)) {
+				Report-Error "12. Type '$tv': prefix '${usedPrefix}:' is not declared in the form header"
+				$typeOk = $false; $typeInvalid++
+				continue
+			}
 		}
 		if ($tv -in $validClosedTypes) { continue }
 		if ($tv -match '^cfg:(.+)$') {

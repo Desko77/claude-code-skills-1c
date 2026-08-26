@@ -225,6 +225,7 @@ NSMAP_WRAPPER = {
 # ============================================================
 
 xml_tree = None   # etree._ElementTree
+format_rank = 0.0
 xml_root = None   # root <MetaDataObject>
 obj_element = None  # the object type element (e.g. <Catalog>)
 obj_type = ""
@@ -1529,6 +1530,9 @@ def build_enum_value_fragment(parsed, indent):
     lines.append(f"{indent}\t\t<Name>{esc_xml(parsed['name'])}</Name>")
     lines.append(build_mltext_xml(f"{indent}\t\t", "Synonym", parsed["synonym"]))
     lines.append(f"{indent}\t\t<Comment/>")
+    # Цвет значения перечисления появился в формате 2.21 (8.5); auto означает выбор платформы.
+    if format_rank >= 221:
+        lines.append(f"{indent}\t\t<Color>auto</Color>")
     lines.append(f"{indent}\t</Properties>")
     lines.append(f"{indent}</EnumValue>")
     return "\r\n".join(lines)
@@ -2666,6 +2670,12 @@ def save_xml(tree, path):
 # Main
 # ============================================================
 
+def format_version_rank(version):
+    """Версии сравниваются по составным частям: 2.9 старее, чем 2.21, хотя как число больше."""
+    m = re.match(r"^(\d+)\.(\d+)$", str(version or ""))
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -2742,6 +2752,12 @@ def main():
     xml_parser = etree.XMLParser(remove_blank_text=False)
     xml_tree = etree.parse(resolved_path, xml_parser)
     xml_root = xml_tree.getroot()
+
+    # Версию формата задает шапка правимого файла: часть свойств есть только с определенной версии.
+    global format_rank
+    version_attr = xml_root.get("version", "2.17")
+    m_version = re.match(r"^(\d+\.\d+)", version_attr)
+    format_rank = format_version_rank(m_version.group(1)) if m_version else 0
 
     # --- Detect object type ---
     if localname(xml_root) != "MetaDataObject":

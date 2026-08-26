@@ -21,6 +21,19 @@ def _format_version_rank(version):
     return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
 
 
+def opaque_path(segment):
+    """Путь, который платформа записала не именем реквизита формы, по реквизитам не проверяется."""
+    if not segment:
+        return True
+    if re.match(r'^\d+$', segment):
+        return True
+    if re.match(r'^[\d/]+:[0-9a-fA-F-]+$', segment):
+        return True
+    if segment.startswith('~'):
+        return True
+    return segment == 'Items'
+
+
 def format_version_known(version):
     rank = _format_version_rank(version)
     if rank == 0:
@@ -32,7 +45,9 @@ def format_version_known(version):
 F_NS = "http://v8.1c.ru/8.3/xcf/logform"
 V8_NS = "http://v8.1c.ru/8.1/data/core"
 
-NSMAP = {"f": F_NS, "v8": V8_NS}
+XR_NS = "http://v8.1c.ru/8.3/xcf/readable"
+
+NSMAP = {"f": F_NS, "v8": V8_NS, "xr": XR_NS}
 
 KNOWN_INVALID_TYPES = {
     'FormDataStructure', 'FormDataCollection', 'FormDataTree',
@@ -134,6 +149,15 @@ def main():
         parent = os.path.dirname(walk_dir)
         if parent == walk_dir:
             break
+        # Описание внешней обработки лежит рядом с ее каталогом и встречается раньше, чем
+        # Configuration.xml. Без этой проверки автономная обработка, распакованная внутрь
+        # каталога конфигурации, принималась за объект конфигурации.
+        owner_xml = os.path.join(parent, os.path.basename(walk_dir) + '.xml')
+        if os.path.isfile(owner_xml):
+            with open(owner_xml, 'r', encoding='utf-8-sig', errors='replace') as fh:
+                head = fh.read(2000)
+            if re.search(r'<(ExternalDataProcessor|ExternalReport)\s', head):
+                break
         if os.path.isfile(os.path.join(walk_dir, 'Configuration.xml')):
             is_config_context = True
             break
@@ -187,8 +211,17 @@ def main():
         if format_version_known(version):
             report_ok(f"Root element: Form version={version}")
         elif version:
-            report_warn(f"Form version='{version}' "
-                        f"(expected {FORMAT_VERIFIED_MIN}-{FORMAT_VERIFIED_MAX})")
+            # Версия вне проверенного диапазона - это непокрытие проверками, а не дефект файла;
+            # сторона отклонения важна: ниже диапазона формат старый, выше - еще не замерен.
+            rank = _format_version_rank(version)
+            if rank == 0:
+                report_warn(f"Form version='{version}' is malformed (expected a number like 2.21)")
+            elif rank < _format_version_rank(FORMAT_VERIFIED_MIN):
+                report_warn(f"Format version '{version}' is below the tested range "
+                            f"{FORMAT_VERIFIED_MIN}-{FORMAT_VERIFIED_MAX}")
+            else:
+                report_warn(f"Format version '{version}' is above the tested range "
+                            f"{FORMAT_VERIFIED_MIN}-{FORMAT_VERIFIED_MAX}")
         else:
             report_warn("Form version attribute missing")
 
@@ -248,6 +281,18 @@ def main():
         acb_children = acb.find(f"{{{F_NS}}}ChildItems")
         if acb_children is not None:
             collect_elements(acb_children, "\u0424\u043e\u0440\u043c\u0430\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c")
+
+    # Два элемента с одним именем платформа принимает, но второй из кода недостижим.
+    name_counts = {}
+    for el in all_elements:
+        if not el["Name"]:
+            continue
+        name_counts.setdefault(el["Name"].lower(), []).append(el["Name"])
+    for names in name_counts.values():
+        if len(names) > 1:
+            report_error(f"Duplicate element name: '{names[0]}' ({len(names)} elements)")
+    if all(len(v) == 1 for v in name_counts.values()):
+        report_ok(f"Unique element names: {len(all_elements)} elements")
 
     # --- Check 3: Unique element IDs ---
     if not stopped:
@@ -392,6 +437,19 @@ def main():
                 except (ValueError, TypeError):
                     pass
 
+            for bind_tag in ("MultipleValueDataPath", "MultipleValuePresentDataPath"):
+                bind_node = node.find(f"{{{F_NS}}}{bind_tag}")
+                if bind_node is None:
+                    continue
+                bind_path = (bind_node.text or "").strip()
+                if not bind_path:
+                    continue
+                bind_root = re.sub(r'\[\d+\]', '', bind_path).split(".")[0]
+                if not opaque_path(bind_root) and bind_root not in attr_map:
+                    report_error(f"[{tag}] '{el_name}': {bind_tag}='{bind_path}' "
+                                 f"— attribute '{bind_root}' not found")
+                    path_errors += 1
+
             dp_node = node.find(f"{{{F_NS}}}DataPath")
             if dp_node is None:
                 continue
@@ -406,7 +464,7 @@ def main():
             segments = clean_path.split(".")
             root_attr = segments[0]
 
-            if root_attr not in attr_map:
+            if not opaque_path(root_attr) and root_attr not in attr_map:
                 report_error(f"[{tag}] '{el_name}': DataPath='{data_path}' \u2014 attribute '{root_attr}' not found")
                 path_errors += 1
 
@@ -418,6 +476,29 @@ def main():
             path_msg = f"{path_msg}, {skip_note}" if path_msg else skip_note
         if path_errors == 0 and path_msg:
             report_ok(f"DataPath references: {path_msg}")
+
+    # --- Check 5a: Пути ссылок параметров выбора ---
+    # В заимствованной форме собственные реквизиты объявляет само расширение. Путь вида
+    # Объект.X платформа свяжет только при объявленном основном реквизите.
+    if not stopped:
+        link_errors = 0
+        link_checked = 0
+        child_items_node = root.find(f"{{{F_NS}}}ChildItems")
+        if child_items_node is not None:
+            for link_path in child_items_node.iter(f"{{{XR_NS}}}DataPath"):
+                value = (link_path.text or "").strip()
+                if not value:
+                    continue
+                link_root = re.sub(r'\[\d+\]', '', value).split(".")[0]
+                if opaque_path(link_root):
+                    continue
+                link_checked += 1
+                if link_root not in attr_map:
+                    report_error(f"Choice parameter link: DataPath='{value}' "
+                                 f"— attribute '{link_root}' not found")
+                    link_errors += 1
+        if link_errors == 0 and link_checked > 0:
+            report_ok(f"Choice parameter links: {link_checked} paths checked")
 
     # --- Check 6: Button command references ---
     if not stopped:
@@ -495,6 +576,7 @@ def main():
     # --- Check 8: Command actions ---
     if not stopped:
         action_errors = 0
+        action_missing = 0
         action_checked = 0
 
         for cmd in cmd_nodes:
@@ -504,10 +586,11 @@ def main():
             action_node = cmd.find(f"{{{F_NS}}}Action")
             action_checked += 1
             if action_node is None or not (action_node.text or "").strip():
-                report_error(f"Command '{cmd_name}': missing or empty Action")
-                action_errors += 1
+                report_warn(f"Command '{cmd_name}': no Action declared "
+                            f"(handler may be assigned at runtime)")
+                action_missing += 1
 
-        if action_errors == 0 and action_checked > 0:
+        if action_errors == 0 and action_missing == 0 and action_checked > 0:
             report_ok(f"Command actions: {action_checked} commands checked")
 
     # --- Check 9: MainAttribute count ---
@@ -673,7 +756,12 @@ def main():
             if not tv:
                 continue
 
-            if tv in KNOWN_INVALID_TYPES:
+            used_prefix = re.match(r'^([A-Za-z][\w.-]*):', tv)
+            if used_prefix and used_prefix.group(1) not in (root.nsmap or {}):
+                report_error(f"12. Type '{tv}': prefix '{used_prefix.group(1)}:' "
+                             f"is not declared in the form header")
+                type_error_count += 1
+            elif tv in KNOWN_INVALID_TYPES:
                 report_error(f'12. Type "{tv}": invalid runtime/UI type (not valid in XDTO schema)')
                 type_error_count += 1
             elif tv in VALID_CLOSED_TYPES:

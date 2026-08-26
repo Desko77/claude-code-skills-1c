@@ -64,7 +64,7 @@ $formatNumber = [double]::Parse($FormatVersion, [System.Globalization.CultureInf
 # On 2.17 the tag makes the platform reject the dump with an XDTO error.
 $useTextToSpeech = $formatNumber -ge 2.18
 # Format 2.21 (8.5) brings the palette namespace and the reworked main window properties.
-$useVersion85Interface = $formatNumber -ge 2.21
+$useVersion85Interface = (Get-FormatVersionRank $FormatVersion) -ge 221
 
 if ($CompatibilityMode -eq "DontUse") {
 	[Console]::Error.WriteLine("Warning: CompatibilityMode 'DontUse' is not recommended - the configuration loses platform features of 8.3 and cannot be opened by older releases either. Use Version8_3_XX unless the legacy mode is a deliberate choice.")

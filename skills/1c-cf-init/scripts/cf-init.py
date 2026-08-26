@@ -11,6 +11,12 @@ FORMAT_VERIFIED_MIN = "2.17"
 FORMAT_VERIFIED_MAX = "2.21"
 
 
+def format_version_rank(version):
+    """Версии сравниваются по составным частям: 2.9 старее, чем 2.21, хотя как число больше."""
+    m = re.match(r"^(\d+)\.(\d+)$", str(version or ""))
+    return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
+
+
 def _format_version_rank(version):
     m = re.match(r'^(\d+)\.(\d+)$', version or '')
     return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
@@ -300,7 +306,7 @@ def main():
     # On 2.17 the tag makes the platform reject the dump with an XDTO error.
     use_text_to_speech = format_number >= 2.18
     # Format 2.21 (8.5) brings the palette namespace and the reworked main window properties.
-    v85 = format_number >= 2.21
+    v85 = format_version_rank(args.FormatVersion) >= 221
 
     if compat == "DontUse":
         print("Warning: CompatibilityMode 'DontUse' is not recommended - the configuration "

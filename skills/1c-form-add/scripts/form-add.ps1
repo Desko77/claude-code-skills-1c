@@ -186,7 +186,15 @@ if (-not (Test-Path $ObjectPath)) {
 
 $objectXmlFull = Resolve-Path $ObjectPath
 Assert-EditAllowed $objectXmlFull "editable"
-$script:formatVersion = Detect-FormatVersion (Split-Path $objectXmlFull.Path -Parent)
+# У автономной внешней обработки или отчета конфигурации нет, и версию формата задает
+# описание самого объекта.
+$ownerHead = [System.IO.File]::ReadAllText($objectXmlFull.Path, [System.Text.Encoding]::UTF8)
+$ownerHead = $ownerHead.Substring(0, [Math]::Min(2000, $ownerHead.Length))
+if ($ownerHead -match "<(ExternalDataProcessor|ExternalReport)\s" -and $ownerHead -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') {
+	$script:formatVersion = $Matches[1]
+} else {
+	$script:formatVersion = Detect-FormatVersion (Split-Path $objectXmlFull.Path -Parent)
+}
 
 $xmlDoc = New-Object System.Xml.XmlDocument
 $xmlDoc.PreserveWhitespace = $true
@@ -310,9 +318,17 @@ if ($objectType -in $processorLikeTypes) {
 }
 
 # Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style.
+# Версии формата сравниваются по составным частям, а не как десятичная дробь:
+# 2.9 старее, чем 2.21, хотя как число больше.
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
 function Add-PaletteNs {
 	param([string]$decl)
-	if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -lt 2.21) { return $decl }
+	if ((Get-FormatVersionRank $script:formatVersion) -lt 221) { return $decl }
 	return $decl.Replace(
 		'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style=',
 		'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette" xmlns:style=')
@@ -322,7 +338,7 @@ $metaNsDecl = Add-PaletteNs 'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="ht
 
 # Режим совместимости интерфейса форма получает начиная с формата 2.21.
 $compatibilityLine = ""
-if ([double]::Parse($script:formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) {
+if ((Get-FormatVersionRank $script:formatVersion) -ge 221) {
 	$compatibilityLine = "`n`t`t`t<UseInInterfaceCompatibilityMode>Any</UseInInterfaceCompatibilityMode>"
 }
 

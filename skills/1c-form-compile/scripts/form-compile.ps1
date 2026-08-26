@@ -1646,6 +1646,14 @@ function X {
 
 # Объявления пространств имен зависят от версии формата: палитра цветов (pal)
 # добавлена в 2.21, до нее платформа этот префикс не пишет.
+# Версии формата сравниваются по составным частям, а не как десятичная дробь:
+# 2.9 старее, чем 2.21, хотя как число больше.
+function Get-FormatVersionRank {
+	param([string]$Version)
+	if ($Version -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
+	return 0
+}
+
 function Get-FormHeader {
 	param([string]$version)
 	$ns = @(
@@ -1658,9 +1666,7 @@ function Get-FormHeader {
 		'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"'
 		'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
 	)
-	$major = 0.0
-	if ($version -match "^(\d+\.\d+)") { $major = [double]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture) }
-	if ($major -ge 2.21) {
+	if ((Get-FormatVersionRank $version) -ge 221) {
 		$ns += 'xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
 	}
 	$ns += @(

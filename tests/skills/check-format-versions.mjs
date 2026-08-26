@@ -49,15 +49,14 @@ const RANGE_CONSUMERS = [
   { skill: 'form-validate', file: 'form-validate' },
   { skill: 'meta-validate', file: 'meta-validate' },
   { skill: 'cf-init', file: 'cf-init', hasDefault: true },
+  { skill: 'epf-init', file: 'init', hasDefault: true },
+  { skill: 'erf-init', file: 'init', hasDefault: true },
 ];
 
 // Навыки без параметра -FormatVersion: версия зашита прямо в шаблон заголовка. Диапазон они не
 // объявляют, но и выпускать файл вне диапазона не должны - поэтому проверяется зашитое значение.
 // Заодно ловится случай, когда шаблонов в скрипте несколько и они разъехались между собой.
-const FIXED_VERSION_EMITTERS = [
-  { skill: 'epf-init', file: 'init' },
-  { skill: 'erf-init', file: 'init' },
-];
+const FIXED_VERSION_EMITTERS = [];
 
 const errors = [];
 const listMode = process.argv.includes('--list');
