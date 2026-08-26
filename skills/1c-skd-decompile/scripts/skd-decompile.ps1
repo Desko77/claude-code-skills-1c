@@ -1555,6 +1555,7 @@ function Get-SafeQueryFileName {
 	return $candidate
 }
 
+# --- Черновой JSON (общий блок, версия 1) ---
 function ConvertTo-JsonStringLiteral($s) {
 	$sb = New-Object System.Text.StringBuilder
 	[void]$sb.Append('"')
@@ -1618,6 +1619,9 @@ function ConvertTo-InlineJson($v) {
 }
 
 function ConvertTo-DraftJson($v, $indent) {
+	# Компактное значение не разворачивается и на верхнем уровне: иначе описание из
+	# одной строки печаталось бы деревом.
+	if (Test-CompactJson $v) { return ConvertTo-InlineJson $v }
 	if ($null -eq $v) { return 'null' }
 	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
 	if ($v -is [int] -or $v -is [int64] -or $v -is [double] -or $v -is [decimal]) {
@@ -1646,6 +1650,7 @@ function ConvertTo-DraftJson($v, $indent) {
 	}
 	return ConvertTo-JsonStringLiteral ([string]$v)
 }
+# --- Конец общего блока чернового JSON ---
 
 # === Main ===
 

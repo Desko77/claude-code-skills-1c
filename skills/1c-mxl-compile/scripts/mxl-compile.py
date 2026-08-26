@@ -5,8 +5,10 @@ import argparse
 import json
 import math
 import os
+import hashlib
 import re
 import sys
+import uuid
 
 # ============================================================
 # Support guard (Ext/ParentConfigurations.bin) — see docs/1c-support-state-spec.md
@@ -317,6 +319,124 @@ def format_version_rank(version):
     return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
 
 
+# Идентификатор набора колонок выводится из его имени: UUID версии 3 (MD5) без
+# пространства имен - одно и то же имя всегда дает один и тот же идентификатор.
+def name_uuid(name):
+    return str(uuid.UUID(bytes=hashlib.md5(name.encode('utf-8')).digest(), version=3))
+
+
+# Координаты области 1-based, а ноль дал бы -1 - сентинел отсутствующей оси.
+def check_named_area_bounds(begin, end, axis, index, name):
+    if begin < 1 or end < begin:
+        print('namedAreas: %s%s%s must be a 1-based number or ascending range, got "%s-%s": namedAreas[%d] "%s"'
+              % (chr(39), axis, chr(39), begin, end, index, name), file=sys.stderr)
+        sys.exit(1)
+    return (begin, end)
+
+
+# Ось именованной области задается числом или диапазоном; список через запятую не
+# описывает прямоугольник и потому отвергается.
+def named_area_range(value, axis, index, name):
+    text = str(value)
+    if ',' in text:
+        print('namedAreas: %s%s%s must be a single number or range, got list "%s": namedAreas[%d] "%s"'
+              % (chr(39), axis, chr(39), text, index, name), file=sys.stderr)
+        sys.exit(1)
+    m = re.match(r'^\s*(\d+)\s*-\s*(\d+)\s*$', text)
+    if m:
+        return check_named_area_bounds(int(m.group(1)), int(m.group(2)), axis, index, name)
+    m = re.match(r'^\s*(\d+)\s*$', text)
+    if m:
+        return check_named_area_bounds(int(m.group(1)), int(m.group(1)), axis, index, name)
+    print('namedAreas: %s%s%s must be a single number or range, got "%s": namedAreas[%d] "%s"'
+          % (chr(39), axis, chr(39), text, index, name), file=sys.stderr)
+    sys.exit(1)
+
+
+# Строка задается массивом: элемент на колонку слева направо. Такая запись разворачивается в
+# канонический вид до расчета форматов и вывода, поэтому дальше по коду вид строки один.
+def shorthand_cell(value, col):
+    # Фигурные скобки означают параметр, квадратные внутри строки - шаблонный текст.
+    m = re.match(r'^\{(.+)\}$', value)
+    if m:
+        return {'col': col, 'param': m.group(1)}
+    if re.search(r'\[.+\]', value):
+        return {'col': col, 'template': value}
+    return {'col': col, 'text': value}
+
+
+def expand_area_rows(area_rows, area_name):
+    expanded = []
+    prev_occupied = {}
+    row_no = 0
+    for row in (area_rows or []):
+        row_no += 1
+        if not isinstance(row, list):
+            table = LenientDict(row)
+            if table.get('cells'):
+                table['cells'] = [LenientDict(c) for c in table['cells']]
+            occupied = {}
+            for c in (table.get('cells') or []):
+                # Колонка без явного номера раскладывается позже, в основном проходе: до
+                # него занятые ей клетки неизвестны, поэтому в опору для '|' она не идет.
+                if not c.get('col'):
+                    continue
+                span = int(c['span']) if c.get('span') else 1
+                for k in range(span):
+                    occupied[int(c['col']) + k] = c
+            prev_occupied = occupied
+            expanded.append(table)
+            continue
+
+        cells = []
+        occupied = {}
+        last_cell = None
+        col_no = 0
+        for item in row:
+            col_no += 1
+            if item is None:
+                last_cell = None
+                continue
+
+            if item == '>':
+                if last_cell is None:
+                    print('Row shorthand: %s has no cell to the left: area "%s", row %d, cell %d'
+                          % (chr(39) + '>' + chr(39), area_name, row_no, col_no), file=sys.stderr)
+                    sys.exit(1)
+                last_cell['span'] = (int(last_cell['span']) if last_cell.get('span') else 1) + 1
+                occupied[col_no] = last_cell
+                continue
+
+            if item == '|':
+                above = prev_occupied.get(col_no)
+                if above is None:
+                    print('Row shorthand: %s has no cell above: area "%s", row %d, cell %d'
+                          % (chr(39) + '|' + chr(39), area_name, row_no, col_no), file=sys.stderr)
+                    sys.exit(1)
+                above['rowspan'] = (int(above['rowspan']) if above.get('rowspan') else 1) + 1
+                occupied[col_no] = above
+                last_cell = None
+                continue
+
+            if isinstance(item, str):
+                cell = shorthand_cell(item, col_no)
+            else:
+                cell = LenientDict(item)
+                if 'col' in cell:
+                    print('Row shorthand: cell object must not carry %scol%s: area "%s", row %d, cell %d'
+                          % (chr(39), chr(39), area_name, row_no, col_no), file=sys.stderr)
+                    sys.exit(1)
+                cell['col'] = col_no
+            cells.append(cell)
+            span = int(cell['span']) if cell.get('span') else 1
+            for k in range(span):
+                occupied[col_no + k] = cell
+            last_cell = cell
+        prev_occupied = occupied
+        expanded.append({'cells': cells})
+    return expanded
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -337,11 +457,34 @@ def main():
     if not defn.get('columns'):
         print("Required field 'columns' is missing", file=sys.stderr)
         sys.exit(1)
-    if not defn.get('areas'):
+    if not defn.get('areas') and not defn.get('rows'):
         print("Required field 'areas' is missing", file=sys.stderr)
         sys.exit(1)
 
+    # Строки вне именованных областей обрабатываются как безымянная область: в файл она не
+    # попадает, но строки выгружаются так же.
+    sheet_areas = []
+    if defn.get('areas'):
+        sheet_areas.extend(defn['areas'])
+    if defn.get('rows'):
+        sheet_areas.append({'name': '', 'rows': defn['rows']})
+
+    sheet_areas = [LenientDict({
+        'name': a.get('name') or '',
+        'columnSet': a.get('columnSet'),
+        'rows': expand_area_rows(a.get('rows'), a.get('name') or ''),
+    }) for a in sheet_areas]
+
     total_columns = int(defn['columns'])
+    # Языки, на которые идет текст ячейки, заданный одной строкой.
+    text_languages = [str(x) for x in (defn.get('textLanguages') or ['ru'])]
+
+    # Текст ячейки задается строкой - тогда он идет на все языки вывода - или объектом
+    # вида "язык: текст", тогда на каждый язык идет свой.
+    def text_items(value):
+        if isinstance(value, str):
+            return [(lang, value) for lang in text_languages]
+        return [(str(k), str(v)) for k, v in value.items()]
     default_width = int(defn['defaultWidth']) if defn.get('defaultWidth') else 10
 
     # --- 2. Build font palette ---
@@ -350,7 +493,10 @@ def main():
 
     def add_font(name, font_def):
         face = font_def.get('face', 'Arial') if font_def else 'Arial'
-        size = int(font_def.get('size', 10)) if font_def else 10
+        size_value = font_def.get('size', 10) if font_def else 10
+        size = repr(float(size_value)) if isinstance(size_value, float) else str(int(size_value))
+        if size.endswith('.0'):
+            size = size[:-2]
         bold = 'true' if font_def and font_def.get('bold') is True else 'false'
         italic = 'true' if font_def and font_def.get('italic') is True else 'false'
         underline = 'true' if font_def and font_def.get('underline') is True else 'false'
@@ -375,9 +521,7 @@ def main():
                 has_default = True
             add_font(fname, fdef)
 
-    # Ensure default font exists
-    if not has_default:
-        add_font('default', {'face': 'Arial', 'size': 10})
+    # Шрифт по умолчанию не объявляется: платформа пишет шрифт только там, где он задан.
 
     # --- 3. Determine line palette ---
     has_thin_borders = False
@@ -472,13 +616,44 @@ def main():
             for c in columns:
                 col_width_map[c] = width
 
+    # Набор колонок - своя раскладка ширин для части строк. Ширины разбираются тем же
+    # правилом, что и основные, а идентификатор берется из описания или выводится из имени.
+    column_sets = {}
+    for set_name, set_def in (defn.get('columnSets') or {}).items():
+        set_widths = {}
+        for wp_name, wp_value in (set_def.get('columnWidths') or {}).items():
+            val = str(wp_value)
+            m = re.match(r'^([0-9.]+)x$', val)
+            width = round(float(m.group(1)) * default_width) if m else int(val)
+            for c in parse_column_spec(wp_name):
+                set_widths[c] = width
+        column_sets[set_name] = {
+            'Id': str(set_def.get('id')) if set_def.get('id') else name_uuid(set_name),
+            'Columns': int(set_def['columns']) if set_def.get('columns') else total_columns,
+            'WidthMap': set_widths,
+        }
+
+    # Ссылка на набор допустима только именем: объект на месте имени - ошибка описания.
+    def resolve_column_set_name(value, area_name):
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            print('%scolumnSet%s must be a name declared in columnSets, got an object: area "%s"'
+                  % (chr(39), chr(39), area_name), file=sys.stderr)
+            sys.exit(1)
+        if value not in column_sets:
+            print('%scolumnSet%s is not declared in columnSets: "%s", area "%s"'
+                  % (chr(39), chr(39), value, area_name), file=sys.stderr)
+            sys.exit(1)
+        return value
+
     # --- 5. Style resolver ---
     def resolve_style(style_name, fill_type):
         # В PowerShell параметр объявлен как [string]: встроенный объект стиля превращается
         # в текст @{...}, такого имени в наборе стилей нет, и стиль молча игнорируется.
         # Здесь то же самое - иначе объект уходит в поиск по словарю и разбор падает.
         style_name = ps_str(style_name) if style_name else style_name
-        font_idx = font_map.get('default', 0)
+        font_idx = font_map.get('default', -1)
         lb = -1; tb = -1; rb = -1; bb = -1
         ha = ''; va = ''; nf = ''
         wrap = False
@@ -507,12 +682,15 @@ def main():
                             bb = line_idx
 
                 # Alignment
-                if style.get('align'):
-                    align_map = {'left': 'Left', 'center': 'Center', 'right': 'Right'}
-                    ha = align_map.get(style['align'], '')
-                if style.get('valign'):
-                    valign_map = {'top': 'Top', 'center': 'Center'}
-                    va = valign_map.get(style['valign'], '')
+                align_value = style.get('align') or style.get('horizontalAlignment')
+                if align_value:
+                    align_map = {'left': 'Left', 'center': 'Center', 'right': 'Right',
+                                 'justify': 'Justify'}
+                    ha = align_map.get(str(align_value).lower(), '')
+                valign_value = style.get('valign') or style.get('verticalAlignment')
+                if valign_value:
+                    valign_map = {'top': 'Top', 'center': 'Center', 'bottom': 'Bottom'}
+                    va = valign_map.get(str(valign_value).lower(), '')
 
                 # Wrap
                 if style.get('wrap') is True:
@@ -547,8 +725,6 @@ def main():
         return format_order.index(key) + 1
 
     # 6a. Default width format
-    default_format_key = get_format_key(width=default_width)
-    default_format_index = register_format(default_format_key, {'Width': default_width})
 
     # 6b. Column width formats
     col_format_map = {}  # 1-based col -> format index
@@ -558,14 +734,21 @@ def main():
         idx = register_format(key, {'Width': w})
         col_format_map[int(col)] = idx
 
+    # 6b-1. Форматы ширин наборов колонок
+    set_format_maps = {}
+    for set_name, set_info in column_sets.items():
+        set_map = {}
+        for col in sorted(set_info['WidthMap']):
+            w = set_info['WidthMap'][col]
+            set_map[int(col)] = register_format(get_format_key(width=w), {'Width': w})
+        set_format_maps[set_name] = set_map
+
     # 6c. Helper: determine fillType from cell content
     def get_fill_type(cell):
         if cell.get('param'):
             return 'Parameter'
         if cell.get('template'):
             return 'Template'
-        if cell.get('text'):
-            return 'Text'
         return ''
 
     # Helper: register a cell format and return its index
@@ -586,10 +769,12 @@ def main():
             'FillType': resolved['FillType'],
             'NumberFormat': resolved['NumberFormat'],
         }
+        if key == get_format_key(font_idx=-1):
+            return 0
         return register_format(key, props)
 
     # Pre-register all formats from areas
-    for area in defn['areas']:
+    for area in sheet_areas:
         for row in area.get('rows', []):
             # Skip list-of-values shorthand rows (treated as empty rows like PS1)
             if isinstance(row, list):
@@ -626,14 +811,38 @@ def main():
     lines.append(f'<document xmlns="http://v8.1c.ru/8.2/data/spreadsheet"{mxl_pal} xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
 
     # 7b. Language settings
+    # Ширина по умолчанию идет последним форматом палитры: платформа пишет ее
+    # после всех прочих.
+    default_format_key = get_format_key(width=default_width)
+    default_format_index = register_format(default_format_key, {'Width': default_width})
+
+    # Состав языков берется из описания: у макета их бывает несколько, и порядок значим.
+    russian = '\u0420\u0443\u0441\u0441\u043a\u0438\u0439'
+    language_list = []
+    for lang in (defn.get('languages') or []):
+        if isinstance(lang, str):
+            language_list.append({'id': lang, 'code': lang, 'description': lang})
+        else:
+            lang_id = str(lang.get('id', ''))
+            language_list.append({
+                'id': lang_id,
+                'code': str(lang.get('code') or lang_id),
+                'description': str(lang.get('description') or lang_id),
+            })
+    if not language_list:
+        language_list = [{'id': 'ru', 'code': russian, 'description': russian}]
+    current_language = str(defn.get('currentLanguage') or language_list[0]['id'])
+    default_language = str(defn.get('defaultLanguage') or language_list[0]['id'])
+
     lines.append('\t<languageSettings>')
-    lines.append('\t\t<currentLanguage>ru</currentLanguage>')
-    lines.append('\t\t<defaultLanguage>ru</defaultLanguage>')
-    lines.append('\t\t<languageInfo>')
-    lines.append('\t\t\t<id>ru</id>')
-    lines.append('\t\t\t<code>\u0420\u0443\u0441\u0441\u043a\u0438\u0439</code>')
-    lines.append('\t\t\t<description>\u0420\u0443\u0441\u0441\u043a\u0438\u0439</description>')
-    lines.append('\t\t</languageInfo>')
+    lines.append(f'\t\t<currentLanguage>{current_language}</currentLanguage>')
+    lines.append(f'\t\t<defaultLanguage>{default_language}</defaultLanguage>')
+    for lang in language_list:
+        lines.append('\t\t<languageInfo>')
+        lines.append(f'\t\t\t<id>{esc_xml(lang["id"])}</id>')
+        lines.append(f'\t\t\t<code>{esc_xml(lang["code"])}</code>')
+        lines.append(f'\t\t\t<description>{esc_xml(lang["description"])}</description>')
+        lines.append('\t\t</languageInfo>')
     lines.append('\t</languageSettings>')
 
     # 7c. Columns
@@ -653,22 +862,43 @@ def main():
 
     lines.append('\t</columns>')
 
+    # Раскладки наборов идут отдельными блоками колонок, отличаясь идентификатором.
+    for set_name, set_info in column_sets.items():
+        lines.append('\t<columns>')
+        lines.append(f'\t\t<id>{set_info["Id"]}</id>')
+        lines.append(f'\t\t<size>{set_info["Columns"]}</size>')
+        set_map = set_format_maps[set_name]
+        for col in sorted(set_map):
+            lines.append('\t\t<columnsItem>')
+            lines.append(f'\t\t\t<index>{col - 1}</index>')
+            lines.append('\t\t\t<column>')
+            lines.append(f'\t\t\t\t<formatIndex>{set_map[col]}</formatIndex>')
+            lines.append('\t\t\t</column>')
+            lines.append('\t\t</columnsItem>')
+        lines.append('\t</columns>')
+
     # 7d. Rows -- main generation loop
     global_row = 0
     merges = []
     named_items = []
     active_rowspans = []  # list of {ColStart, ColEnd, StartLocalRow, EndLocalRow}
 
-    for area in defn['areas']:
+    for area in sheet_areas:
         area_start_row = global_row
         area_name = area.get('name', '')
+        area_column_set = resolve_column_set_name(area.get('columnSet'), area_name)
         active_rowspans = []
         local_row = 0
 
         for row in area.get('rows', []):
-            # List-of-values shorthand: treat as row with no properties (like PS1)
-            if isinstance(row, list):
-                row = {}
+            # Набор колонок области действует на все ее строки; строка может задать свой.
+            row_column_set = (resolve_column_set_name(row['columnSet'], area_name)
+                              if row.get('columnSet') is not None else area_column_set)
+            # Ширина строки берется из выбранного набора колонок: у набора она своя, и
+            # проверять колонки строки по раскладке документа нельзя.
+            row_columns = (column_sets[row_column_set]['Columns'] if row_column_set
+                           else total_columns)
+
             # Empty row placeholder: emit N empty rows
             if row.get('empty'):
                 count = int(row['empty'])
@@ -676,6 +906,8 @@ def main():
                     lines.append('\t<rowsItem>')
                     lines.append(f'\t\t<index>{global_row}</index>')
                     lines.append('\t\t<row>')
+                    if row_column_set:
+                        lines.append(f'\t\t\t<columnsID>{column_sets[row_column_set]["Id"]}</columnsID>')
                     lines.append('\t\t\t<empty>true</empty>')
                     lines.append('\t\t</row>')
                     lines.append('\t</rowsItem>')
@@ -715,7 +947,7 @@ def main():
                         col_num = int(str(raw))
                     except ValueError:
                         col_num = 0
-                    if col_num < 1 or col_num > total_columns:
+                    if col_num < 1 or col_num > row_columns:
                         print(f'Invalid \'col\' value "{raw}": area "{area_name}", row {local_row + 1}, cell {cell_no}', file=sys.stderr)
                         sys.exit(1)
                 if 0 < with_col < len(row["cells"]):
@@ -741,8 +973,8 @@ def main():
                     # начиналась в свободной колонке и накрывала занятую соседнюю.
                     while any(claimed.get(c) for c in range(cursor, cursor + sp)):
                         cursor += 1
-                    if cursor + sp - 1 > total_columns:
-                        print(f'Row exceeds \'columns\' ({total_columns}): area "{area_name}", row {local_row + 1}', file=sys.stderr)
+                    if cursor + sp - 1 > row_columns:
+                        print(f'Row exceeds \'columns\' ({row_columns}): area "{area_name}", row {local_row + 1}', file=sys.stderr)
                         sys.exit(1)
                     cell['col'] = cursor
                     for c in range(cursor, cursor + sp):
@@ -795,7 +1027,7 @@ def main():
                 # Generate gap-fill cells for rowStyle
                 if row.get('rowStyle'):
                     gap_fmt_idx = register_cell_format(row['rowStyle'], '')
-                    for c in range(1, total_columns + 1):
+                    for c in range(1, row_columns + 1):
                         if c not in occupied_cols:
                             row_cells.append({
                                 'Col': c - 1,
@@ -813,7 +1045,7 @@ def main():
                 # Row with only rowStyle, no explicit cells
                 row_has_content = True
                 gap_fmt_idx = register_cell_format(row['rowStyle'], '')
-                for c in range(1, total_columns + 1):
+                for c in range(1, row_columns + 1):
                     if c in rowspan_occupied:
                         continue
                     row_cells.append({
@@ -830,15 +1062,23 @@ def main():
             lines.append(f'\t\t<index>{global_row}</index>')
             lines.append('\t\t<row>')
 
+            if row_column_set:
+                lines.append(f'\t\t\t<columnsID>{column_sets[row_column_set]["Id"]}</columnsID>')
+
             if row_format_idx > 0:
                 lines.append(f'\t\t\t<formatIndex>{row_format_idx}</formatIndex>')
 
             if not row_has_content:
                 lines.append('\t\t\t<empty>true</empty>')
             else:
+                # Индекс колонки платформа пишет только при разрыве: ячейки, идущие подряд от
+                # начала строки, нумеруются по порядку следования.
+                expected_col = 0
                 for cell_info in row_cells:
                     lines.append('\t\t\t<c>')
-                    lines.append(f'\t\t\t\t<i>{cell_info["Col"]}</i>')
+                    if int(cell_info['Col']) != expected_col:
+                        lines.append(f'\t\t\t\t<i>{cell_info["Col"]}</i>')
+                    expected_col = int(cell_info['Col']) + 1
                     lines.append('\t\t\t\t<c>')
                     lines.append(f'\t\t\t\t\t<f>{cell_info["FormatIdx"]}</f>')
 
@@ -849,18 +1089,20 @@ def main():
 
                     if cell_info['Text']:
                         lines.append('\t\t\t\t\t<tl>')
-                        lines.append('\t\t\t\t\t\t<v8:item>')
-                        lines.append('\t\t\t\t\t\t\t<v8:lang>ru</v8:lang>')
-                        lines.append(f'\t\t\t\t\t\t\t<v8:content>{esc_xml(cell_info["Text"])}</v8:content>')
-                        lines.append('\t\t\t\t\t\t</v8:item>')
+                        for ti_lang, ti_content in text_items(cell_info['Text']):
+                            lines.append('\t\t\t\t\t\t<v8:item>')
+                            lines.append(f'\t\t\t\t\t\t\t<v8:lang>{ti_lang}</v8:lang>')
+                            lines.append(f'\t\t\t\t\t\t\t<v8:content>{esc_xml(ti_content)}</v8:content>')
+                            lines.append('\t\t\t\t\t\t</v8:item>')
                         lines.append('\t\t\t\t\t</tl>')
 
                     if cell_info['Template']:
                         lines.append('\t\t\t\t\t<tl>')
-                        lines.append('\t\t\t\t\t\t<v8:item>')
-                        lines.append('\t\t\t\t\t\t\t<v8:lang>ru</v8:lang>')
-                        lines.append(f'\t\t\t\t\t\t\t<v8:content>{esc_xml(cell_info["Template"])}</v8:content>')
-                        lines.append('\t\t\t\t\t\t</v8:item>')
+                        for ti_lang, ti_content in text_items(cell_info['Template']):
+                            lines.append('\t\t\t\t\t\t<v8:item>')
+                            lines.append(f'\t\t\t\t\t\t\t<v8:lang>{ti_lang}</v8:lang>')
+                            lines.append(f'\t\t\t\t\t\t\t<v8:content>{esc_xml(ti_content)}</v8:content>')
+                            lines.append('\t\t\t\t\t\t</v8:item>')
                         lines.append('\t\t\t\t\t</tl>')
 
                     lines.append('\t\t\t\t</c>')
@@ -873,10 +1115,41 @@ def main():
             global_row += 1
 
         area_end_row = global_row - 1
+        # Безымянная область - это строки самого документа: именованной области у них нет.
+        if area_name:
+            named_items.append({
+                'Name': area_name,
+                'Type': 'Rows',
+                'BeginRow': area_start_row,
+                'EndRow': area_end_row,
+                'BeginColumn': -1,
+                'EndColumn': -1,
+            })
+
+    # Именованная область задается и координатами: вид выводится из того, какие оси заданы.
+    for na_index, na in enumerate(defn.get('namedAreas') or [], start=1):
+        na_name = str(na.get('name') or '')
+        has_rows = na.get('rows') is not None and str(na.get('rows')) != ''
+        has_cols = na.get('cols') is not None and str(na.get('cols')) != ''
+        if not has_rows and not has_cols:
+            print('namedAreas: at least one of %srows%s/%scols%s is required: namedAreas[%d] "%s"'
+                  % (chr(39), chr(39), chr(39), chr(39), na_index, na_name), file=sys.stderr)
+            sys.exit(1)
+        row_range = named_area_range(na['rows'], 'rows', na_index, na_name) if has_rows else None
+        col_range = named_area_range(na['cols'], 'cols', na_index, na_name) if has_cols else None
+        if row_range and col_range:
+            na_type = 'Rectangle'
+        elif row_range:
+            na_type = 'Rows'
+        else:
+            na_type = 'Columns'
         named_items.append({
-            'Name': area_name,
-            'BeginRow': area_start_row,
-            'EndRow': area_end_row,
+            'Name': na_name,
+            'Type': na_type,
+            'BeginRow': row_range[0] - 1 if row_range else -1,
+            'EndRow': row_range[1] - 1 if row_range else -1,
+            'BeginColumn': col_range[0] - 1 if col_range else -1,
+            'EndColumn': col_range[1] - 1 if col_range else -1,
         })
 
     total_row_count = global_row
@@ -899,14 +1172,14 @@ def main():
 
     # 7g. Named items
     for ni in named_items:
-        lines.append('\t<namedItem xsi:type="NamedItemCells">')
-        lines.append(f'\t\t<name>{ni["Name"]}</name>')
+        lines.append('\t<namedItem xsi:type=\"NamedItemCells\">')
+        lines.append(f'\t\t<name>{esc_xml(ni["Name"])}</name>')
         lines.append('\t\t<area>')
-        lines.append('\t\t\t<type>Rows</type>')
+        lines.append(f'\t\t\t<type>{ni["Type"]}</type>')
         lines.append(f'\t\t\t<beginRow>{ni["BeginRow"]}</beginRow>')
         lines.append(f'\t\t\t<endRow>{ni["EndRow"]}</endRow>')
-        lines.append('\t\t\t<beginColumn>-1</beginColumn>')
-        lines.append('\t\t\t<endColumn>-1</endColumn>')
+        lines.append(f'\t\t\t<beginColumn>{ni["BeginColumn"]}</beginColumn>')
+        lines.append(f'\t\t\t<endColumn>{ni["EndColumn"]}</endColumn>')
         lines.append('\t\t</area>')
         lines.append('\t</namedItem>')
 

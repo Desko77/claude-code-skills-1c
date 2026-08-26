@@ -119,21 +119,21 @@
 	<height>2</height>
 	<vgRows>2</vgRows>
 	<namedItem xsi:type="NamedItemCells">
-		<name>ТабличнаяЧасть</name>
-		<area>
-			<type>Rows</type>
-			<beginRow>1</beginRow>
-			<endRow>1</endRow>
-			<beginColumn>-1</beginColumn>
-			<endColumn>-1</endColumn>
-		</area>
-	</namedItem>
-	<namedItem xsi:type="NamedItemCells">
 		<name>Шапка</name>
 		<area>
 			<type>Rows</type>
 			<beginRow>0</beginRow>
 			<endRow>0</endRow>
+			<beginColumn>-1</beginColumn>
+			<endColumn>-1</endColumn>
+		</area>
+	</namedItem>
+	<namedItem xsi:type="NamedItemCells">
+		<name>ТабличнаяЧасть</name>
+		<area>
+			<type>Rows</type>
+			<beginRow>1</beginRow>
+			<endRow>1</endRow>
 			<beginColumn>-1</beginColumn>
 			<endColumn>-1</endColumn>
 		</area>

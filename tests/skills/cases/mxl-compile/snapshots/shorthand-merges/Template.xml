@@ -15,25 +15,120 @@
 	<rowsItem>
 		<index>0</index>
 		<row>
-			<empty>true</empty>
+			<c>
+				<c>
+					<f>0</f>
+					<tl>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Вид</v8:content>
+						</v8:item>
+					</tl>
+				</c>
+			</c>
+			<c>
+				<c>
+					<f>0</f>
+					<tl>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Остаток</v8:content>
+						</v8:item>
+					</tl>
+				</c>
+			</c>
+			<c>
+				<i>3</i>
+				<c>
+					<f>0</f>
+					<tl>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Итог</v8:content>
+						</v8:item>
+					</tl>
+				</c>
+			</c>
 		</row>
 	</rowsItem>
 	<rowsItem>
 		<index>1</index>
 		<row>
-			<empty>true</empty>
+			<c>
+				<i>1</i>
+				<c>
+					<f>0</f>
+					<tl>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>начало</v8:content>
+						</v8:item>
+					</tl>
+				</c>
+			</c>
+			<c>
+				<c>
+					<f>0</f>
+					<tl>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>конец</v8:content>
+						</v8:item>
+					</tl>
+				</c>
+			</c>
 		</row>
 	</rowsItem>
 	<rowsItem>
 		<index>2</index>
 		<row>
-			<empty>true</empty>
+			<c>
+				<c>
+					<f>1</f>
+					<parameter>Вид</parameter>
+				</c>
+			</c>
+			<c>
+				<c>
+					<f>1</f>
+					<parameter>Нач</parameter>
+				</c>
+			</c>
+			<c>
+				<c>
+					<f>1</f>
+					<parameter>Кон</parameter>
+				</c>
+			</c>
+			<c>
+				<c>
+					<f>1</f>
+					<parameter>Итог</parameter>
+				</c>
+			</c>
 		</row>
 	</rowsItem>
 	<templateMode>true</templateMode>
-	<defaultFormatIndex>1</defaultFormatIndex>
+	<defaultFormatIndex>2</defaultFormatIndex>
 	<height>3</height>
 	<vgRows>3</vgRows>
+	<merge>
+		<r>0</r>
+		<c>0</c>
+		<h>1</h>
+		<w>0</w>
+	</merge>
+	<merge>
+		<r>0</r>
+		<c>1</c>
+		<w>1</w>
+	</merge>
+	<merge>
+		<r>0</r>
+		<c>3</c>
+		<h>1</h>
+		<w>0</w>
+	</merge>
 	<namedItem xsi:type="NamedItemCells">
 		<name>Шапка</name>
 		<area>
@@ -44,7 +139,9 @@
 			<endColumn>-1</endColumn>
 		</area>
 	</namedItem>
-	<font faceName="Arial" height="10" bold="false" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
+	<format>
+		<fillType>Parameter</fillType>
+	</format>
 	<format>
 		<width>10</width>
 	</format>

@@ -66,7 +66,7 @@ if ($Set) { $chosen++ }
 if ($Capability) { $chosen++ }
 if ($chosen -eq 0) { $Get = $true }
 elseif ($chosen -gt 1) {
-    Write-Host "Error: specify only one of -Get, -Set, -Capability" -ForegroundColor Red
+    [Console]::Error.WriteLine("Error: specify only one of -Get, -Set, -Capability")
     exit 1
 }
 
@@ -91,7 +91,7 @@ function Save-Bin([string]$BinFile, [string]$Content) {
 
 # --- Resolve target: object uuid + configuration root + bin path ---
 if (-not (Test-Path -LiteralPath $Path)) {
-    Write-Host "Error: path not found: $Path" -ForegroundColor Red
+    [Console]::Error.WriteLine("Error: path not found: $Path")
     exit 1
 }
 $rp = (Resolve-Path -LiteralPath $Path).Path
@@ -116,7 +116,7 @@ for ($i = 0; $i -lt 12; $i++) {
     $d = $parent
 }
 if (-not $cfgDir) {
-    Write-Host "Error: configuration root (Configuration.xml) not found above: $rp" -ForegroundColor Red
+    [Console]::Error.WriteLine("Error: configuration root (Configuration.xml) not found above: $rp")
     exit 1
 }
 if (-not $elemUuid) { $elemUuid = Get-RootUuid (Join-Path $cfgDir "Configuration.xml") }
@@ -144,13 +144,13 @@ $bomOffset = 0
 if ($raw.Length -ge 3 -and $raw[0] -eq 0xEF -and $raw[1] -eq 0xBB -and $raw[2] -eq 0xBF) { $bomOffset = 3 }
 $text = [System.Text.Encoding]::UTF8.GetString($raw, $bomOffset, $raw.Length - $bomOffset)
 if ($text.IndexOf([char]0xFFFD) -ge 0) {
-    Write-Host "Error: неизвестный формат ParentConfigurations.bin" -ForegroundColor Red
+    [Console]::Error.WriteLine("Error: неизвестный формат ParentConfigurations.bin")
     exit 1
 }
 
 $m = [regex]::Match($text, "^\{6,(\d+),(\d+),")
 if (-not $m.Success) {
-    Write-Host "Error: неизвестный формат ParentConfigurations.bin" -ForegroundColor Red
+    [Console]::Error.WriteLine("Error: неизвестный формат ParentConfigurations.bin")
     exit 1
 }
 $g = $m.Groups[1].Value
@@ -212,12 +212,12 @@ if ($Capability) {
 
 # --- Mode: -Set ---
 if ($g -eq "1") {
-    Write-Host "Возможность изменения конфигурации выключена - пообъектное переключение недоступно." -ForegroundColor Red
-    Write-Host "Сначала: support-state.ps1 -Path `"$Path`" -Capability on"
+    [Console]::Error.WriteLine("Возможность изменения конфигурации выключена - пообъектное переключение недоступно.")
+    [Console]::Error.WriteLine("Сначала: support-state.ps1 -Path `"$Path`" -Capability on")
     exit 1
 }
 if (-not $elemUuid) {
-    Write-Host "Error: не удалось определить объект по пути: $rp" -ForegroundColor Red
+    [Console]::Error.WriteLine("Error: не удалось определить объект по пути: $rp")
     exit 1
 }
 $uLow = $elemUuid.ToLower()

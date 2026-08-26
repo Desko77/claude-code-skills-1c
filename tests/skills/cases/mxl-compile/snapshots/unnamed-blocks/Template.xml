@@ -99,21 +99,21 @@
 		<w>2</w>
 	</merge>
 	<namedItem xsi:type="NamedItemCells">
-		<name>Строка</name>
-		<area>
-			<type>Rows</type>
-			<beginRow>2</beginRow>
-			<endRow>2</endRow>
-			<beginColumn>-1</beginColumn>
-			<endColumn>-1</endColumn>
-		</area>
-	</namedItem>
-	<namedItem xsi:type="NamedItemCells">
 		<name>Шапка</name>
 		<area>
 			<type>Rows</type>
 			<beginRow>0</beginRow>
 			<endRow>0</endRow>
+			<beginColumn>-1</beginColumn>
+			<endColumn>-1</endColumn>
+		</area>
+	</namedItem>
+	<namedItem xsi:type="NamedItemCells">
+		<name>Строка</name>
+		<area>
+			<type>Rows</type>
+			<beginRow>2</beginRow>
+			<endRow>2</endRow>
 			<beginColumn>-1</beginColumn>
 			<endColumn>-1</endColumn>
 		</area>

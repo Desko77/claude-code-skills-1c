@@ -5,6 +5,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 from collections import OrderedDict
 from lxml import etree
@@ -27,6 +28,129 @@ def find(node, xpath):
 
 def findall(node, xpath):
     return node.findall(xpath, NSMAP)
+
+
+# --- Черновой JSON (общий блок, версия 1) ---
+def is_compact_json(value):
+    """Компактно пишется все, кроме массива объектов длиннее одного элемента.
+
+    Признак рекурсивный: контейнер разворачивается, если разворачивается хоть что-то внутри.
+    """
+    if value is None or isinstance(value, str) or not isinstance(value, (list, tuple, dict)):
+        return True
+    if isinstance(value, dict):
+        return all(is_compact_json(v) for v in value.values())
+    if len(value) <= 1:
+        return all(is_compact_json(v) for v in value)
+    if any(isinstance(v, dict) for v in value):
+        return False
+    return all(is_compact_json(v) for v in value)
+
+
+def to_inline_json(value):
+    if value is None:
+        return 'null'
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, (int, float)):
+        return json.dumps(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        if not value:
+            return '{}'
+        parts = [json.dumps(str(k), ensure_ascii=False) + ': ' + to_inline_json(v)
+                 for k, v in value.items()]
+        return '{ ' + ', '.join(parts) + ' }'
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return '[]'
+        return '[' + ', '.join(to_inline_json(v) for v in value) + ']'
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def to_draft_json(value, indent=''):
+    """Описание пишется в том виде, в каком его удобно править руками."""
+    if is_compact_json(value):
+        return to_inline_json(value)
+    inner = indent + '  '
+    if isinstance(value, dict):
+        parts = []
+        for k, v in value.items():
+            rendered = to_inline_json(v) if is_compact_json(v) else to_draft_json(v, inner)
+            parts.append(inner + json.dumps(str(k), ensure_ascii=False) + ': ' + rendered)
+        return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
+    parts = [inner + to_inline_json(v) for v in value]
+    return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
+# --- Конец общего блока чернового JSON ---
+
+
+# Строка, у которой все ячейки простые, записывается массивом значений по колонкам - так
+# описание читается и правится быстрее, чем набором объектов.
+def row_to_shorthand(row):
+    if set(row.keys()) != {"cells"} or not row["cells"]:
+        return None
+    slots = {}
+    max_col = 0
+    for c in row["cells"]:
+        if not set(c.keys()) <= {"col", "span", "text", "param", "template"}:
+            return None
+        content = [k for k in ("text", "param", "template") if k in c]
+        if len(content) != 1:
+            return None
+        kind = content[0]
+        value = c[kind]
+        if not isinstance(value, str):
+            return None
+        if kind == "param":
+            if "{" in value or "}" in value:
+                return None
+            token = "{" + value + "}"
+        elif kind == "template":
+            if not re.search(r"\[.+\]", value):
+                return None
+            token = value
+        else:
+            if (value in (">", "|") or re.match(r"^\{.+\}$", value)
+                    or re.search(r"\[.+\]", value)):
+                return None
+            token = value
+        col = int(c.get("col") or 0)
+        span = int(c.get("span") or 1)
+        if col < 1 or span < 1 or col in slots:
+            return None
+        slots[col] = token
+        for k in range(1, span):
+            if col + k in slots:
+                return None
+            slots[col + k] = ">"
+        if col + span - 1 > max_col:
+            max_col = col + span - 1
+    return [slots.get(i) for i in range(1, max_col + 1)]
+
+
+def rows_to_shorthand(compressed_rows):
+    """Область с вертикальными объединениями не сокращается: они выражаются знаком | и
+    связывают соседние строки, а посвязной разбор здесь не окупается."""
+    for r in compressed_rows:
+        for c in (r.get("cells") or []):
+            if c.get("rowspan"):
+                return compressed_rows
+    out = []
+    for r in compressed_rows:
+        short = row_to_shorthand(r)
+        out.append(r if short is None else short)
+    return out
+
+
+# Имя набора колонок выводится из его порядка: в файле у набора есть идентификатор, но нет
+# имени, а описанию имя нужно.
+SET_NAME_PREFIX = 'nabor'
+
+
+def font_size_value(raw):
+    value = float(raw or 0)
+    return int(value) if value == int(value) else value
 
 
 def text_of(node):
@@ -70,7 +194,9 @@ def main():
     for f_node in findall(root, "d:font"):
         raw_fonts.append({
             "Face": f_node.get("faceName", ""),
-            "Size": int(f_node.get("height", "0")),
+            # Размер шрифта бывает дробным: целое сохраняется целым, чтобы описание
+            # не менялось на ровном месте.
+            "Size": font_size_value(f_node.get("height", "0")),
             "Bold": f_node.get("bold") == "true",
             "Italic": f_node.get("italic") == "true",
             "Underline": f_node.get("underline") == "true",
@@ -146,7 +272,8 @@ def main():
 
     # --- 5. Extract columns and default width ---
 
-    col_node = find(root, "d:columns")
+    col_nodes = findall(root, "d:columns")
+    col_node = col_nodes[0]
     total_columns = int_of(find(col_node, "d:size"))
 
     col_format_indices = {}
@@ -174,6 +301,27 @@ def main():
             col1 = str(col0 + 1)
             col_width_map[col1] = fmt["Width"]
 
+    # Блок колонок с идентификатором - это набор: своя раскладка ширин для части строк.
+    column_sets_out = OrderedDict()
+    set_name_by_id = {}
+    for set_index, cn in enumerate(col_nodes[1:], start=1):
+        id_node = find(cn, "d:id")
+        if id_node is None or not id_node.text:
+            continue
+        set_id = id_node.text.strip()
+        set_name = "%s%d" % (SET_NAME_PREFIX, set_index)
+        entry = OrderedDict([("id", set_id), ("columns", int_of(find(cn, "d:size")))])
+        set_widths = OrderedDict()
+        for ci in findall(cn, "d:columnsItem"):
+            c0 = int_of(find(ci, "d:index"))
+            fmt = get_format(int_of(find(ci, "d:column/d:formatIndex")))
+            if fmt and fmt["Width"] > 0:
+                set_widths[str(c0 + 1)] = fmt["Width"]
+        if set_widths:
+            entry["columnWidths"] = set_widths
+        column_sets_out[set_name] = entry
+        set_name_by_id[set_id] = set_name
+
     # --- 6. Extract merges ---
 
     merge_map = {}
@@ -188,6 +336,7 @@ def main():
     # --- 7. Extract named items ---
 
     named_areas = []
+    coord_areas = []
     for ni_node in findall(root, "d:namedItem"):
         xsi_type = ni_node.get(f"{{{XSI_NS}}}type", "")
         if xsi_type != "NamedItemCells":
@@ -196,18 +345,36 @@ def main():
         area_node = find(ni_node, "d:area")
         area_type_node = find(area_node, "d:type")
         area_type = text_of(area_type_node) or ""
-        if area_type != "Rows":
+        ni_name = text_of(find(ni_node, "d:name")) or ""
+        begin_row = int_of(find(area_node, "d:beginRow"))
+        end_row = int_of(find(area_node, "d:endRow"))
+        begin_col = int_of(find(area_node, "d:beginColumn"))
+        end_col = int_of(find(area_node, "d:endColumn"))
+
+        # Область строк без колоночных границ описывает содержимое; все прочие виды - это
+        # координатные области, они сохраняются отдельным разделом описания.
+        if area_type == "Rows" and begin_col < 0 and end_col < 0:
+            named_areas.append({
+                "Name": ni_name,
+                "BeginRow": begin_row,
+                "EndRow": end_row,
+            })
             continue
 
-        named_areas.append({
-            "Name": text_of(find(ni_node, "d:name")) or "",
-            "BeginRow": int_of(find(area_node, "d:beginRow")),
-            "EndRow": int_of(find(area_node, "d:endRow")),
-        })
+        coord_area = OrderedDict([("name", ni_name)])
+        if begin_row >= 0:
+            coord_area["rows"] = (str(begin_row + 1) if begin_row == end_row
+                                  else f"{begin_row + 1}-{end_row + 1}")
+        if begin_col >= 0:
+            coord_area["cols"] = (str(begin_col + 1) if begin_col == end_col
+                                  else f"{begin_col + 1}-{end_col + 1}")
+        coord_areas.append(coord_area)
 
     # --- 8. Extract rows ---
 
     row_data = {}
+    # Языки, встреченные в тексте ячеек, в порядке первого появления.
+    text_languages_seen = []
     for ri_node in findall(root, "d:rowsItem"):
         row_idx = int_of(find(ri_node, "d:index"))
         row_node = find(ri_node, "d:row")
@@ -221,6 +388,11 @@ def main():
         fmt_node = find(row_node, "d:formatIndex")
         if fmt_node is not None and fmt_node.text:
             row_fmt_idx = int(fmt_node.text)
+
+        row_set_name = None
+        cid_node = find(row_node, "d:columnsID")
+        if cid_node is not None and cid_node.text:
+            row_set_name = set_name_by_id.get(cid_node.text.strip())
 
         is_empty = False
         empty_node = find(row_node, "d:empty")
@@ -256,10 +428,21 @@ def main():
                 if d_node is not None and d_node.text:
                     detail = d_node.text
 
+                # Текст хранится по языкам: одноязычный вариант вернется строкой, разноязычный -
+                # объектом, поэтому берутся все элементы, а не первый.
                 text = None
-                t_node = find(c_content, "d:tl/v8:item/v8:content")
-                if t_node is not None and t_node.text:
-                    text = t_node.text
+                text_by_lang = OrderedDict()
+                for t_item in findall(c_content, "d:tl/v8:item"):
+                    content_node = find(t_item, "v8:content")
+                    if content_node is None or not content_node.text:
+                        continue
+                    lang_node = find(t_item, "v8:lang")
+                    lang = lang_node.text if lang_node is not None and lang_node.text else "ru"
+                    text_by_lang[lang] = content_node.text
+                    if text is None:
+                        text = content_node.text
+                    if lang not in text_languages_seen:
+                        text_languages_seen.append(lang)
 
                 cells.append({
                     "Col": col,
@@ -267,11 +450,13 @@ def main():
                     "Param": param,
                     "Detail": detail,
                     "Text": text,
+                    "TextByLang": text_by_lang,
                 })
 
         for r in range(row_idx, index_to + 1):
             row_data[r] = {
                 "FormatIdx": row_fmt_idx,
+                "ColumnSet": row_set_name,
                 "Cells": cells,
                 "Empty": is_empty,
             }
@@ -451,12 +636,13 @@ def main():
         if fi in font_names and font_names[fi] != "default":
             s_def["font"] = font_names[fi]
         if fmt["HA"]:
-            a_map = {"Left": "left", "Center": "center", "Right": "right"}
+            a_map = {"Left": "left", "Center": "center", "Right": "right",
+                     "Justify": "justify"}
             a = a_map.get(fmt["HA"])
             if a:
                 s_def["align"] = a
         if fmt["VA"]:
-            va_map = {"Top": "top", "Center": "center"}
+            va_map = {"Top": "top", "Center": "center", "Bottom": "bottom"}
             a = va_map.get(fmt["VA"])
             if a:
                 s_def["valign"] = a
@@ -478,11 +664,39 @@ def main():
             return style_names[key]
         return "default"
 
+    # Одноязычный текст возвращается строкой, разноязычный - объектом "язык: текст".
+    # Одинаковый текст на всех встреченных языках - это тоже строка: ее развернет обратно
+    # textLanguages при сборке.
+    def text_value(cell):
+        by_lang = cell.get("TextByLang") or {}
+        if not by_lang:
+            return cell["Text"]
+        # Строкой текст записывается только тогда, когда он одинаков и покрывает ВЕСЬ состав
+        # языков вывода: иначе обратная сборка добавит ячейке язык, которого в ней не было.
+        if (len(set(by_lang.values())) == 1
+                and set(by_lang) == set(text_languages_seen)):
+            return cell["Text"]
+        return OrderedDict(by_lang)
+
     # --- 12. Build areas ---
 
     dsl_areas = []
+    sheet_rows = None
 
-    for area in named_areas:
+    # Строки, не попавшие ни в одну именованную область, тоже принадлежат документу.
+    # Они разбиваются на отрезки между областями, чтобы порядок строк сохранился.
+    last_row = max((int(k) for k in row_data), default=-1)
+    sheet_areas = []
+    cursor = 0
+    for area in sorted(named_areas, key=lambda a: (a["BeginRow"], a["EndRow"])):
+        if area["BeginRow"] > cursor:
+            sheet_areas.append({"Name": "", "BeginRow": cursor, "EndRow": area["BeginRow"] - 1})
+        sheet_areas.append(area)
+        cursor = max(cursor, area["EndRow"] + 1)
+    if cursor <= last_row:
+        sheet_areas.append({"Name": "", "BeginRow": cursor, "EndRow": last_row})
+
+    for area in sheet_areas:
         area_rows = []
 
         for global_row in range(area["BeginRow"], area["EndRow"] + 1):
@@ -493,6 +707,8 @@ def main():
                 continue
 
             dsl_row = OrderedDict()
+            if rd.get("ColumnSet"):
+                dsl_row["columnSet"] = rd["ColumnSet"]
 
             # Row height
             if rd["FormatIdx"] > 0:
@@ -554,9 +770,12 @@ def main():
                 if row_style_key and cell_style_key == row_style_key:
                     pass  # Inherits rowStyle
                 else:
-                    sn = get_style_name(cell["FormatIdx"])
-                    if sn != "default" or not row_style_name:
-                        dsl_cell["style"] = sn
+                    # Нулевой формат означает, что оформление у ячейки не задано: стиль ей не
+                    # нужен, иначе обратная сборка завела бы формат, которого в исходнике нет.
+                    if int(cell["FormatIdx"]) > 0:
+                        sn = get_style_name(cell["FormatIdx"])
+                        if sn != "default" or not row_style_name:
+                            dsl_cell["style"] = sn
 
                 # Content
                 fill_type = cell_fmt["FillType"] if cell_fmt else ""
@@ -566,9 +785,9 @@ def main():
                     if cell["Detail"]:
                         dsl_cell["detail"] = cell["Detail"]
                 elif fill_type == "Template" and cell["Text"]:
-                    dsl_cell["template"] = cell["Text"]
+                    dsl_cell["template"] = text_value(cell)
                 elif cell["Text"]:
-                    dsl_cell["text"] = cell["Text"]
+                    dsl_cell["text"] = text_value(cell)
 
                 dsl_cells.append(dsl_cell)
 
@@ -596,10 +815,18 @@ def main():
             else:
                 compressed_rows.append(OrderedDict([("empty", empty_run)]))
 
-        dsl_areas.append(OrderedDict([
-            ("name", area["Name"]),
-            ("rows", compressed_rows),
-        ]))
+        # Без единой именованной области строки документа выносятся на верхний уровень;
+        # иначе безымянный отрезок остается областью без имени и держит свое место.
+        compressed_rows = rows_to_shorthand(compressed_rows)
+        if not named_areas:
+            sheet_rows = compressed_rows
+        elif area["Name"]:
+            dsl_areas.append(OrderedDict([
+                ("name", area["Name"]),
+                ("rows", compressed_rows),
+            ]))
+        else:
+            dsl_areas.append(OrderedDict([("rows", compressed_rows)]))
 
     # --- 13. Compress columnWidths ---
 
@@ -655,11 +882,44 @@ def main():
 
     # --- 15. Assemble result ---
 
+    # Состав языков сохраняется: у макета их бывает несколько, и обратная сборка обязана
+    # воспроизвести тот же список.
+    languages_out = []
+    current_language = ""
+    default_language = ""
+    lang_settings = find(root, "d:languageSettings")
+    if lang_settings is not None:
+        current_language = text_of(find(lang_settings, "d:currentLanguage")) or ""
+        default_language = text_of(find(lang_settings, "d:defaultLanguage")) or ""
+        for li in findall(lang_settings, "d:languageInfo"):
+            languages_out.append(OrderedDict([
+                ("id", text_of(find(li, "d:id")) or ""),
+                ("code", text_of(find(li, "d:code")) or ""),
+                ("description", text_of(find(li, "d:description")) or ""),
+            ]))
+
     result = OrderedDict()
     result["columns"] = total_columns
     result["defaultWidth"] = default_width
     if len(compressed_widths) > 0:
         result["columnWidths"] = compressed_widths
+    # Умолчание навыка - один русский язык; всякий иной состав записывается.
+    if text_languages_seen and text_languages_seen != ["ru"]:
+        result["textLanguages"] = text_languages_seen
+    # В описание не выносится ровно то, что навык подставит сам: один русский язык. Любой
+    # другой одиночный язык записывается, иначе обратная сборка сделает макет русским.
+    russian_default = (len(languages_out) == 1
+                       and languages_out[0]["id"] == "ru"
+                       and languages_out[0]["code"] == "Русский"
+                       and languages_out[0]["description"] == "Русский"
+                       and current_language in ("", "ru")
+                       and default_language in ("", "ru"))
+    if languages_out and not russian_default:
+        result["languages"] = languages_out
+        if current_language:
+            result["currentLanguage"] = current_language
+        if default_language:
+            result["defaultLanguage"] = default_language
 
     # Remove empty "default" style
     if "default" in style_defs and len(style_defs["default"]) == 0:
@@ -667,25 +927,38 @@ def main():
 
     # Remove unused styles
     used_styles = set()
+    style_scan_rows = []
     for a in dsl_areas:
-        for r in a["rows"]:
-            if "rowStyle" in r:
-                used_styles.add(r["rowStyle"])
-            if "cells" in r:
-                for c in r["cells"]:
-                    if "style" in c:
-                        used_styles.add(c["style"])
+        style_scan_rows.extend(a["rows"])
+    if sheet_rows:
+        style_scan_rows.extend(sheet_rows)
+    for r in style_scan_rows:
+        if "rowStyle" in r:
+            used_styles.add(r["rowStyle"])
+        if "cells" in r:
+            for c in r["cells"]:
+                if "style" in c:
+                    used_styles.add(c["style"])
     to_remove = [s for s in style_defs if s not in used_styles]
     for s in to_remove:
         del style_defs[s]
 
     result["fonts"] = fonts_out
     result["styles"] = style_defs
-    result["areas"] = dsl_areas
+    if dsl_areas:
+        result["areas"] = dsl_areas
+    if sheet_rows is not None:
+        result["rows"] = sheet_rows
+    if coord_areas:
+        result["namedAreas"] = coord_areas
+    if column_sets_out:
+        result["columnSets"] = column_sets_out
 
     # --- 16. Convert to JSON ---
 
-    json_str = json.dumps(result, ensure_ascii=False, indent=2)
+    # Описание пишется в том виде, в каком его удобно править руками: компактно там, где
+    # это не мешает читать.
+    json_str = to_draft_json(result)
 
     # --- 17. Output ---
 

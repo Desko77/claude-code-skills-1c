@@ -16,9 +16,8 @@
 		<index>0</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
-					<f>3</f>
+					<f>1</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -28,9 +27,8 @@
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
-					<f>3</f>
+					<f>1</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -40,9 +38,8 @@
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
-					<f>3</f>
+					<f>1</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -52,9 +49,8 @@
 				</c>
 			</c>
 			<c>
-				<i>3</i>
 				<c>
-					<f>3</f>
+					<f>1</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -69,37 +65,33 @@
 		<index>1</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
-					<f>5</f>
+					<f>3</f>
 					<parameter>Дата</parameter>
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
-					<f>6</f>
+					<f>4</f>
 					<parameter>Товар</parameter>
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
-					<f>7</f>
+					<f>5</f>
 					<parameter>Количество</parameter>
 				</c>
 			</c>
 			<c>
-				<i>3</i>
 				<c>
-					<f>7</f>
+					<f>5</f>
 					<parameter>Цена</parameter>
 				</c>
 			</c>
 		</row>
 	</rowsItem>
 	<templateMode>true</templateMode>
-	<defaultFormatIndex>1</defaultFormatIndex>
+	<defaultFormatIndex>6</defaultFormatIndex>
 	<height>2</height>
 	<vgRows>2</vgRows>
 	<namedItem xsi:type="NamedItemCells">
@@ -125,12 +117,7 @@
 	<line width="1" gap="false">
 		<v8ui:style xsi:type="v8ui:SpreadsheetDocumentCellLineType">Solid</v8ui:style>
 	</line>
-	<font faceName="Arial" height="10" bold="false" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<format>
-		<width>10</width>
-	</format>
-	<format>
-		<font>0</font>
 		<leftBorder>0</leftBorder>
 		<topBorder>0</topBorder>
 		<rightBorder>0</rightBorder>
@@ -138,23 +125,12 @@
 		<horizontalAlignment>Center</horizontalAlignment>
 	</format>
 	<format>
-		<font>0</font>
-		<leftBorder>0</leftBorder>
-		<topBorder>0</topBorder>
-		<rightBorder>0</rightBorder>
-		<bottomBorder>0</bottomBorder>
-		<horizontalAlignment>Center</horizontalAlignment>
-		<fillType>Text</fillType>
-	</format>
-	<format>
-		<font>0</font>
 		<leftBorder>0</leftBorder>
 		<topBorder>0</topBorder>
 		<rightBorder>0</rightBorder>
 		<bottomBorder>0</bottomBorder>
 	</format>
 	<format>
-		<font>0</font>
 		<leftBorder>0</leftBorder>
 		<topBorder>0</topBorder>
 		<rightBorder>0</rightBorder>
@@ -169,7 +145,6 @@
 		</format>
 	</format>
 	<format>
-		<font>0</font>
 		<leftBorder>0</leftBorder>
 		<topBorder>0</topBorder>
 		<rightBorder>0</rightBorder>
@@ -177,7 +152,6 @@
 		<fillType>Parameter</fillType>
 	</format>
 	<format>
-		<font>0</font>
 		<leftBorder>0</leftBorder>
 		<topBorder>0</topBorder>
 		<rightBorder>0</rightBorder>
@@ -190,5 +164,8 @@
 				<v8:content>ЧЦ=15; ЧДЦ=2</v8:content>
 			</v8:item>
 		</format>
+	</format>
+	<format>
+		<width>10</width>
 	</format>
 </document>

@@ -1441,6 +1441,7 @@ def safe_query_file_name(name):
     return candidate
 
 
+# --- Черновой JSON (общий блок, версия 1) ---
 def is_compact_json(value):
     """Компактно пишется все, кроме массива объектов длиннее одного элемента.
 
@@ -1492,6 +1493,7 @@ def to_draft_json(value, indent=''):
         return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
     parts = [inner + to_inline_json(v) for v in value]
     return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
+# --- Конец общего блока чернового JSON ---
 
 
 external_queries = {}

@@ -16,9 +16,8 @@
 		<index>0</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
-					<f>3</f>
+					<f>2</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -28,9 +27,8 @@
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
-					<f>3</f>
+					<f>2</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -47,7 +45,7 @@
 			<c>
 				<i>1</i>
 				<c>
-					<f>4</f>
+					<f>1</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -57,9 +55,8 @@
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
-					<f>4</f>
+					<f>1</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -71,7 +68,7 @@
 		</row>
 	</rowsItem>
 	<templateMode>true</templateMode>
-	<defaultFormatIndex>1</defaultFormatIndex>
+	<defaultFormatIndex>3</defaultFormatIndex>
 	<height>2</height>
 	<vgRows>2</vgRows>
 	<merge>
@@ -101,9 +98,6 @@
 	<font faceName="Arial" height="10" bold="false" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<font faceName="Arial" height="12" bold="true" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<format>
-		<width>10</width>
-	</format>
-	<format>
 		<font>0</font>
 		<leftBorder>0</leftBorder>
 		<topBorder>0</topBorder>
@@ -117,14 +111,8 @@
 		<rightBorder>0</rightBorder>
 		<bottomBorder>0</bottomBorder>
 		<horizontalAlignment>Center</horizontalAlignment>
-		<fillType>Text</fillType>
 	</format>
 	<format>
-		<font>0</font>
-		<leftBorder>0</leftBorder>
-		<topBorder>0</topBorder>
-		<rightBorder>0</rightBorder>
-		<bottomBorder>0</bottomBorder>
-		<fillType>Text</fillType>
+		<width>10</width>
 	</format>
 </document>

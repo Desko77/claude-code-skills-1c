@@ -15,11 +15,10 @@
 	<rowsItem>
 		<index>0</index>
 		<row>
-			<formatIndex>2</formatIndex>
+			<formatIndex>1</formatIndex>
 			<c>
-				<i>0</i>
 				<c>
-					<f>3</f>
+					<f>2</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -34,9 +33,8 @@
 		<index>1</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
-					<f>3</f>
+					<f>2</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -46,15 +44,13 @@
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
-					<f>4</f>
+					<f>2</f>
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
-					<f>4</f>
+					<f>2</f>
 				</c>
 			</c>
 		</row>
@@ -63,9 +59,8 @@
 		<index>2</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
-					<f>3</f>
+					<f>2</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -75,15 +70,13 @@
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
-					<f>4</f>
+					<f>2</f>
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
-					<f>4</f>
+					<f>2</f>
 				</c>
 			</c>
 		</row>
@@ -92,9 +85,8 @@
 		<index>3</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
-					<f>3</f>
+					<f>2</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -104,21 +96,19 @@
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
-					<f>4</f>
+					<f>2</f>
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
-					<f>4</f>
+					<f>2</f>
 				</c>
 			</c>
 		</row>
 	</rowsItem>
 	<templateMode>true</templateMode>
-	<defaultFormatIndex>1</defaultFormatIndex>
+	<defaultFormatIndex>3</defaultFormatIndex>
 	<height>4</height>
 	<vgRows>4</vgRows>
 	<namedItem xsi:type="NamedItemCells">
@@ -137,16 +127,12 @@
 	<font faceName="Arial" height="10" bold="false" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<font faceName="Arial" height="10" bold="true" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<format>
-		<width>20</width>
-	</format>
-	<format>
 		<height>20</height>
 	</format>
 	<format>
 		<font>0</font>
-		<fillType>Text</fillType>
 	</format>
 	<format>
-		<font>0</font>
+		<width>20</width>
 	</format>
 </document>

@@ -34,7 +34,12 @@ $rawFonts = @()
 foreach ($fNode in $root.SelectNodes("d:font", $ns)) {
 	$rawFonts += @{
 		Face      = $fNode.GetAttribute("faceName")
-		Size      = [int]$fNode.GetAttribute("height")
+		# Размер шрифта бывает дробным: целое сохраняется целым, чтобы описание
+		# не менялось на ровном месте.
+		Size      = $(
+			$raw = [double]("0" + $fNode.GetAttribute("height"))
+			if ($raw -eq [math]::Truncate($raw)) { [int]$raw } else { $raw }
+		)
 		Bold      = $fNode.GetAttribute("bold") -eq "true"
 		Italic    = $fNode.GetAttribute("italic") -eq "true"
 		Underline = $fNode.GetAttribute("underline") -eq "true"
@@ -100,9 +105,12 @@ function Get-Format {
 	return $rawFormats[$idx - 1]
 }
 
+$script:SetNamePrefix = 'nabor'
+
 # --- 5. Extract columns and default width ---
 
-$colNode = $root.SelectSingleNode("d:columns", $ns)
+$colNodes = @($root.SelectNodes("d:columns", $ns))
+$colNode = $colNodes[0]
 $totalColumns = [int]$colNode.SelectSingleNode("d:size", $ns).InnerText
 
 $colFormatIndices = @{}
@@ -132,6 +140,29 @@ foreach ($col0 in ($colFormatIndices.Keys | Sort-Object)) {
 	}
 }
 
+# Блок колонок с идентификатором - это набор: своя раскладка ширин для части строк.
+# Имя набора выводится из его порядка: в файле у набора есть идентификатор, но нет имени,
+# а описанию имя нужно.
+$columnSetsOut = [ordered]@{}
+$setNameById = @{}
+for ($si = 1; $si -lt $colNodes.Count; $si++) {
+	$cn = $colNodes[$si]
+	$idNode = $cn.SelectSingleNode("d:id", $ns)
+	if (-not $idNode) { continue }
+	$setId = $idNode.InnerText.Trim()
+	$setName = "$($script:SetNamePrefix)$si"
+	$entry = [ordered]@{ id = $setId; columns = [int]$cn.SelectSingleNode("d:size", $ns).InnerText }
+	$setWidths = [ordered]@{}
+	foreach ($ci in $cn.SelectNodes("d:columnsItem", $ns)) {
+		$c0 = [int]$ci.SelectSingleNode("d:index", $ns).InnerText
+		$fmt = Get-Format ([int]$ci.SelectSingleNode("d:column/d:formatIndex", $ns).InnerText)
+		if ($fmt -and $fmt.Width -gt 0) { $setWidths["$($c0 + 1)"] = $fmt.Width }
+	}
+	if ($setWidths.Count -gt 0) { $entry["columnWidths"] = $setWidths }
+	$columnSetsOut[$setName] = $entry
+	$setNameById[$setId] = $setName
+}
+
 # --- 6. Extract merges ---
 
 $mergeMap = @{}
@@ -147,24 +178,47 @@ foreach ($mNode in $root.SelectNodes("d:merge", $ns)) {
 # --- 7. Extract named items ---
 
 $namedAreas = @()
+$coordAreas = @()
 foreach ($niNode in $root.SelectNodes("d:namedItem", $ns)) {
 	$xsiType = $niNode.GetAttribute("type", "http://www.w3.org/2001/XMLSchema-instance")
 	if ($xsiType -ne "NamedItemCells") { continue }
 
 	$areaNode = $niNode.SelectSingleNode("d:area", $ns)
 	$areaType = $areaNode.SelectSingleNode("d:type", $ns).InnerText
-	if ($areaType -ne "Rows") { continue }
+	$niName = $niNode.SelectSingleNode("d:name", $ns).InnerText
+	$beginRow = [int]$areaNode.SelectSingleNode("d:beginRow", $ns).InnerText
+	$endRow = [int]$areaNode.SelectSingleNode("d:endRow", $ns).InnerText
+	$beginColNode = $areaNode.SelectSingleNode("d:beginColumn", $ns)
+	$endColNode = $areaNode.SelectSingleNode("d:endColumn", $ns)
+	$beginCol = if ($beginColNode) { [int]$beginColNode.InnerText } else { -1 }
+	$endCol = if ($endColNode) { [int]$endColNode.InnerText } else { -1 }
 
-	$namedAreas += @{
-		Name     = $niNode.SelectSingleNode("d:name", $ns).InnerText
-		BeginRow = [int]$areaNode.SelectSingleNode("d:beginRow", $ns).InnerText
-		EndRow   = [int]$areaNode.SelectSingleNode("d:endRow", $ns).InnerText
+	# Область строк без колоночных границ описывает содержимое; все прочие виды - это
+	# координатные области, они сохраняются отдельным разделом описания.
+	if ($areaType -eq "Rows" -and $beginCol -lt 0 -and $endCol -lt 0) {
+		$namedAreas += @{
+			Name     = $niName
+			BeginRow = $beginRow
+			EndRow   = $endRow
+		}
+		continue
 	}
+
+	$coordArea = [ordered]@{ name = $niName }
+	if ($beginRow -ge 0) {
+		$coordArea["rows"] = if ($beginRow -eq $endRow) { "$($beginRow + 1)" } else { "$($beginRow + 1)-$($endRow + 1)" }
+	}
+	if ($beginCol -ge 0) {
+		$coordArea["cols"] = if ($beginCol -eq $endCol) { "$($beginCol + 1)" } else { "$($beginCol + 1)-$($endCol + 1)" }
+	}
+	$coordAreas += $coordArea
 }
 
 # --- 8. Extract rows ---
 
 $rowData = @{}
+# Языки, встреченные в тексте ячеек, в порядке первого появления.
+$textLanguagesSeen = New-Object System.Collections.Generic.List[string]
 foreach ($riNode in $root.SelectNodes("d:rowsItem", $ns)) {
 	$rowIdx = [int]$riNode.SelectSingleNode("d:index", $ns).InnerText
 	$rowNode = $riNode.SelectSingleNode("d:row", $ns)
@@ -176,6 +230,10 @@ foreach ($riNode in $root.SelectNodes("d:rowsItem", $ns)) {
 	$rowFmtIdx = 0
 	$fmtNode = $rowNode.SelectSingleNode("d:formatIndex", $ns)
 	if ($fmtNode) { $rowFmtIdx = [int]$fmtNode.InnerText }
+
+	$rowSetName = $null
+	$cidNode = $rowNode.SelectSingleNode("d:columnsID", $ns)
+	if ($cidNode) { $rowSetName = $setNameById[$cidNode.InnerText.Trim()] }
 
 	$isEmpty = $false
 	$emptyNode = $rowNode.SelectSingleNode("d:empty", $ns)
@@ -204,16 +262,27 @@ foreach ($riNode in $root.SelectNodes("d:rowsItem", $ns)) {
 			$dNode = $cContent.SelectSingleNode("d:detailParameter", $ns)
 			if ($dNode) { $detail = $dNode.InnerText }
 
+			# Текст хранится по языкам: одноязычный вариант вернется строкой, разноязычный -
+			# объектом, поэтому берутся все элементы, а не первый.
 			$text = $null
-			$tNode = $cContent.SelectSingleNode("d:tl/v8:item/v8:content", $ns)
-			if ($tNode) { $text = $tNode.InnerText }
+			$textByLang = [ordered]@{}
+			foreach ($tItem in $cContent.SelectNodes("d:tl/v8:item", $ns)) {
+				$langNode = $tItem.SelectSingleNode("v8:lang", $ns)
+				$contentNode = $tItem.SelectSingleNode("v8:content", $ns)
+				if (-not $contentNode) { continue }
+				$lang = if ($langNode) { $langNode.InnerText } else { "ru" }
+				$textByLang[$lang] = $contentNode.InnerText
+				if ($null -eq $text) { $text = $contentNode.InnerText }
+				if (-not $textLanguagesSeen.Contains($lang)) { $textLanguagesSeen.Add($lang) | Out-Null }
+			}
 
 			$cells += @{
-				Col       = $col
-				FormatIdx = $cellFmtIdx
-				Param     = $param
-				Detail    = $detail
-				Text      = $text
+				Col        = $col
+				FormatIdx  = $cellFmtIdx
+				Param      = $param
+				Detail     = $detail
+				Text       = $text
+				TextByLang = $textByLang
 			}
 		}
 	}
@@ -221,6 +290,7 @@ foreach ($riNode in $root.SelectNodes("d:rowsItem", $ns)) {
 	for ($r = $rowIdx; $r -le $indexTo; $r++) {
 		$rowData[$r] = @{
 			FormatIdx = $rowFmtIdx
+			ColumnSet = $rowSetName
 			Cells     = $cells
 			Empty     = $isEmpty
 		}
@@ -392,11 +462,11 @@ foreach ($key in $styleKeys.Keys) {
 		$sDef["font"] = $fontNames[$fi]
 	}
 	if ($fmt.HA) {
-		$a = switch ($fmt.HA) { "Left" { "left" } "Center" { "center" } "Right" { "right" } }
+		$a = switch ($fmt.HA) { "Left" { "left" } "Center" { "center" } "Right" { "right" } "Justify" { "justify" } }
 		if ($a) { $sDef["align"] = $a }
 	}
 	if ($fmt.VA) {
-		$a = switch ($fmt.VA) { "Top" { "top" } "Center" { "center" } }
+		$a = switch ($fmt.VA) { "Top" { "top" } "Center" { "center" } "Bottom" { "bottom" } }
 		if ($a) { $sDef["valign"] = $a }
 	}
 	$bd = Get-BorderDesc $fmt
@@ -417,11 +487,109 @@ function Get-StyleName {
 	return "default"
 }
 
+# Одноязычный текст возвращается строкой, разноязычный - объектом "язык: текст".
+# Одинаковый текст на всех встреченных языках - это тоже строка: ее развернет обратно
+# textLanguages при сборке.
+function Get-TextValue {
+	param($cell)
+	$byLang = $cell.TextByLang
+	if (-not $byLang -or $byLang.Count -eq 0) { return $cell.Text }
+	# Строкой текст записывается только тогда, когда он одинаков и покрывает ВЕСЬ состав
+	# языков вывода: иначе обратная сборка добавит ячейке язык, которого в ней не было.
+	$distinct = @($byLang.Values | Sort-Object -Unique)
+	$cellLangs = @($byLang.Keys | Sort-Object) -join ","
+	$allLangs = @($textLanguagesSeen | Sort-Object) -join ","
+	if ($distinct.Count -eq 1 -and $cellLangs -eq $allLangs) { return $cell.Text }
+	$obj = [ordered]@{}
+	foreach ($k in $byLang.Keys) { $obj[$k] = $byLang[$k] }
+	return $obj
+}
+
+# Строка, у которой все ячейки простые, записывается массивом значений по колонкам - так
+# описание читается и правится быстрее, чем набором объектов.
+function ConvertTo-ShorthandRow($row) {
+	$keys = @($row.Keys)
+	if ($keys.Count -ne 1 -or $keys[0] -ne "cells") { return $null }
+	$cells = @($row["cells"])
+	if ($cells.Count -eq 0) { return $null }
+	$slots = @{}
+	$maxCol = 0
+	foreach ($c in $cells) {
+		foreach ($k in @($c.Keys)) {
+			if ($k -notin @("col", "span", "text", "param", "template")) { return $null }
+		}
+		$content = @(@("text", "param", "template") | Where-Object { $c.Contains($_) })
+		if ($content.Count -ne 1) { return $null }
+		$kind = $content[0]
+		$value = $c[$kind]
+		if ($value -isnot [string]) { return $null }
+		if ($kind -eq "param") {
+			if ($value.Contains("{") -or $value.Contains("}")) { return $null }
+			$token = "{" + $value + "}"
+		} elseif ($kind -eq "template") {
+			if ($value -notmatch '\[.+\]') { return $null }
+			$token = $value
+		} else {
+			if ($value -eq ">" -or $value -eq "|" -or $value -match '^\{.+\}$' -or $value -match '\[.+\]') { return $null }
+			$token = $value
+		}
+		$col = [int]$c["col"]
+		$span = if ($c.Contains("span")) { [int]$c["span"] } else { 1 }
+		if ($col -lt 1 -or $span -lt 1 -or $slots.ContainsKey($col)) { return $null }
+		$slots[$col] = $token
+		for ($k = 1; $k -lt $span; $k++) {
+			if ($slots.ContainsKey($col + $k)) { return $null }
+			$slots[$col + $k] = ">"
+		}
+		if ($col + $span - 1 -gt $maxCol) { $maxCol = $col + $span - 1 }
+	}
+	$out = New-Object System.Collections.Generic.List[object]
+	for ($i = 1; $i -le $maxCol; $i++) {
+		if ($slots.ContainsKey($i)) { [void]$out.Add($slots[$i]) } else { [void]$out.Add($null) }
+	}
+	return ,$out.ToArray()
+}
+
+# Область с вертикальными объединениями не сокращается: они выражаются знаком | и связывают
+# соседние строки, а посвязной разбор здесь не окупается.
+function ConvertTo-ShorthandRows($compressedRows) {
+	foreach ($r in $compressedRows) {
+		if (-not $r.Contains("cells")) { continue }
+		foreach ($c in @($r["cells"])) {
+			if ($c.Contains("rowspan")) { return ,$compressedRows }
+		}
+	}
+	$out = New-Object System.Collections.Generic.List[object]
+	foreach ($r in $compressedRows) {
+		$short = ConvertTo-ShorthandRow $r
+		if ($null -eq $short) { [void]$out.Add($r) } else { [void]$out.Add($short) }
+	}
+	return ,$out.ToArray()
+}
+
 # --- 12. Build areas ---
 
 $dslAreas = @()
+$sheetRows = $null
 
-foreach ($area in $namedAreas) {
+# Строки, не попавшие ни в одну именованную область, тоже принадлежат документу.
+# Они разбиваются на отрезки между областями, чтобы порядок строк сохранился.
+$lastRow = -1
+foreach ($rowIndex in $rowData.Keys) { if ([int]$rowIndex -gt $lastRow) { $lastRow = [int]$rowIndex } }
+$sheetAreas = @()
+$cursor = 0
+foreach ($area in @($namedAreas | Sort-Object @{ Expression = { $_.BeginRow } }, @{ Expression = { $_.EndRow } })) {
+	if ($area.BeginRow -gt $cursor) {
+		$sheetAreas += [pscustomobject]@{ Name = ''; BeginRow = $cursor; EndRow = $area.BeginRow - 1 }
+	}
+	$sheetAreas += [pscustomobject]@{ Name = $area.Name; BeginRow = $area.BeginRow; EndRow = $area.EndRow }
+	if ($area.EndRow + 1 -gt $cursor) { $cursor = $area.EndRow + 1 }
+}
+if ($cursor -le $lastRow) {
+	$sheetAreas += [pscustomobject]@{ Name = ''; BeginRow = $cursor; EndRow = $lastRow }
+}
+
+foreach ($area in $sheetAreas) {
 	$areaRows = @()
 
 	for ($globalRow = $area.BeginRow; $globalRow -le $area.EndRow; $globalRow++) {
@@ -433,6 +601,7 @@ foreach ($area in $namedAreas) {
 		}
 
 		$dslRow = [ordered]@{}
+		if ($rd.ColumnSet) { $dslRow["columnSet"] = $rd.ColumnSet }
 
 		# Row height
 		if ($rd.FormatIdx -gt 0) {
@@ -497,9 +666,13 @@ foreach ($area in $namedAreas) {
 			if ($rowStyleKey -and $cellStyleKey -eq $rowStyleKey) {
 				# Inherits rowStyle
 			} else {
-				$sn = Get-StyleName $cell.FormatIdx
-				if ($sn -ne "default" -or -not $rowStyleName) {
-					$dslCell["style"] = $sn
+				# Нулевой формат означает, что оформление у ячейки не задано: стиль ей не нужен,
+				# иначе обратная сборка завела бы формат, которого в исходнике нет.
+				if ([int]$cell.FormatIdx -gt 0) {
+					$sn = Get-StyleName $cell.FormatIdx
+					if ($sn -ne "default" -or -not $rowStyleName) {
+						$dslCell["style"] = $sn
+					}
 				}
 			}
 
@@ -510,9 +683,9 @@ foreach ($area in $namedAreas) {
 				$dslCell["param"] = $cell.Param
 				if ($cell.Detail) { $dslCell["detail"] = $cell.Detail }
 			} elseif ($fillType -eq "Template" -and $cell.Text) {
-				$dslCell["template"] = $cell.Text
+				$dslCell["template"] = Get-TextValue $cell
 			} elseif ($cell.Text) {
-				$dslCell["text"] = $cell.Text
+				$dslCell["text"] = Get-TextValue $cell
 			}
 
 			$dslCells += $dslCell
@@ -542,9 +715,18 @@ foreach ($area in $namedAreas) {
 		else { $compressedRows += [ordered]@{ empty = $emptyRun } }
 	}
 
-	$dslAreas += [ordered]@{
-		name = $area.Name
-		rows = [array]$compressedRows
+	# Без единой именованной области строки документа выносятся на верхний уровень;
+	# иначе безымянный отрезок остается областью без имени и держит свое место.
+	$compressedRows = ConvertTo-ShorthandRows $compressedRows
+	if ($namedAreas.Count -eq 0) {
+		$sheetRows = [array]$compressedRows
+	} elseif ($area.Name) {
+		$dslAreas += [ordered]@{
+			name = $area.Name
+			rows = [array]$compressedRows
+		}
+	} else {
+		$dslAreas += [ordered]@{ rows = [array]$compressedRows }
 	}
 }
 
@@ -591,11 +773,49 @@ foreach ($name in $fontDefs.Keys) {
 
 # --- 15. Assemble result ---
 
+# Состав языков сохраняется: у макета их бывает несколько, и обратная сборка обязана
+# воспроизвести тот же список.
+$languagesOut = @()
+$langSettings = $root.SelectSingleNode("d:languageSettings", $ns)
+$currentLanguage = ""
+$defaultLanguage = ""
+if ($langSettings) {
+	$curNode = $langSettings.SelectSingleNode("d:currentLanguage", $ns)
+	if ($curNode) { $currentLanguage = $curNode.InnerText.Trim() }
+	$defNode = $langSettings.SelectSingleNode("d:defaultLanguage", $ns)
+	if ($defNode) { $defaultLanguage = $defNode.InnerText.Trim() }
+	foreach ($li in $langSettings.SelectNodes("d:languageInfo", $ns)) {
+		$idNode = $li.SelectSingleNode("d:id", $ns)
+		$codeNode = $li.SelectSingleNode("d:code", $ns)
+		$descNode = $li.SelectSingleNode("d:description", $ns)
+		$languagesOut += [ordered]@{
+			id = if ($idNode) { $idNode.InnerText.Trim() } else { "" }
+			code = if ($codeNode) { $codeNode.InnerText.Trim() } else { "" }
+			description = if ($descNode) { $descNode.InnerText.Trim() } else { "" }
+		}
+	}
+}
+
 $result = [ordered]@{
 	columns      = $totalColumns
 	defaultWidth = $defaultWidth
 }
 if ($compressedWidths.Count -gt 0) { $result["columnWidths"] = $compressedWidths }
+# Умолчание навыка - один русский язык; всякий иной состав записывается.
+$onlyRussianText = ($textLanguagesSeen.Count -eq 1 -and $textLanguagesSeen[0] -eq "ru")
+if ($textLanguagesSeen.Count -gt 0 -and -not $onlyRussianText) { $result["textLanguages"] = @($textLanguagesSeen) }
+# В описание не выносится ровно то, что навык подставит сам: один русский язык. Любой
+# другой одиночный язык записывается, иначе обратная сборка сделает макет русским.
+$russianDefault = ($languagesOut.Count -eq 1 -and
+	$languagesOut[0].id -eq "ru" -and $languagesOut[0].code -eq "Русский" -and
+	$languagesOut[0].description -eq "Русский" -and
+	($currentLanguage -eq "" -or $currentLanguage -eq "ru") -and
+	($defaultLanguage -eq "" -or $defaultLanguage -eq "ru"))
+if ($languagesOut.Count -gt 0 -and -not $russianDefault) {
+	$result["languages"] = [array]$languagesOut
+	if ($currentLanguage) { $result["currentLanguage"] = $currentLanguage }
+	if ($defaultLanguage) { $result["defaultLanguage"] = $defaultLanguage }
+}
 # Remove empty "default" style
 if ($styleDefs.Contains("default") -and $styleDefs["default"].Count -eq 0) {
 	$styleDefs.Remove("default")
@@ -603,11 +823,12 @@ if ($styleDefs.Contains("default") -and $styleDefs["default"].Count -eq 0) {
 
 # Remove unused styles
 $usedStyles = @{}
-foreach ($a in $dslAreas) {
-	foreach ($r in $a.rows) {
-		if ($r.rowStyle) { $usedStyles[$r.rowStyle] = $true }
-		if ($r.cells) { foreach ($c in $r.cells) { if ($c.style) { $usedStyles[$c.style] = $true } } }
-	}
+$styleScanRows = @()
+foreach ($a in $dslAreas) { $styleScanRows += @($a.rows) }
+if ($sheetRows) { $styleScanRows += @($sheetRows) }
+foreach ($r in $styleScanRows) {
+	if ($r.rowStyle) { $usedStyles[$r.rowStyle] = $true }
+	if ($r.cells) { foreach ($c in $r.cells) { if ($c.style) { $usedStyles[$c.style] = $true } } }
 }
 $toRemove = @($styleDefs.Keys | Where-Object { -not $usedStyles.ContainsKey($_) })
 foreach ($s in $toRemove) { $styleDefs.Remove($s)
@@ -615,27 +836,123 @@ foreach ($s in $toRemove) { $styleDefs.Remove($s)
 
 $result["fonts"] = $fontsOut
 $result["styles"] = $styleDefs
-$result["areas"] = [array]$dslAreas
+if ($dslAreas.Count -gt 0) { $result["areas"] = [array]$dslAreas }
+if ($sheetRows) { $result["rows"] = $sheetRows }
+if ($coordAreas.Count -gt 0) { $result["namedAreas"] = [array]$coordAreas }
+if ($columnSetsOut.Count -gt 0) { $result["columnSets"] = $columnSetsOut }
 
-# --- 16. Convert to JSON and fix Unicode ---
+# --- 16. Convert to JSON ---
 
-$json = $result | ConvertTo-Json -Depth 10
+# Описание пишется в том виде, в каком его удобно править руками: компактно там, где
+# это не мешает читать.
 
-# PS 5.1 escapes non-ASCII as \uXXXX — unescape back to UTF-8
-$json = [regex]::Replace($json, '\\u([0-9A-Fa-f]{4})', {
-	param($m)
-	[char][int]("0x" + $m.Groups[1].Value)
-})
+# --- Черновой JSON (общий блок, версия 1) ---
+function ConvertTo-JsonStringLiteral($s) {
+	$sb = New-Object System.Text.StringBuilder
+	[void]$sb.Append('"')
+	foreach ($ch in ([string]$s).ToCharArray()) {
+		if ($ch -eq '"') { [void]$sb.Append('\"') }
+		elseif ($ch -eq '\') { [void]$sb.Append('\\') }
+		elseif ($ch -eq "`n") { [void]$sb.Append('\n') }
+		elseif ($ch -eq "`r") { [void]$sb.Append('\r') }
+		elseif ($ch -eq "`t") { [void]$sb.Append('\t') }
+		elseif ([int]$ch -lt 32) { [void]$sb.Append('\u' + ([int]$ch).ToString('x4')) }
+		else { [void]$sb.Append($ch) }
+	}
+	[void]$sb.Append('"')
+	return $sb.ToString()
+}
+
+# Описание пишется в том же виде, в каком его удобно править руками: словарь идет по
+# ключу на строку, а массив разворачивается только когда в нем есть объекты и элементов
+# больше одного. Массив строк и одиночный объект остаются в строке.
+function Test-CompactJson($v) {
+	if ($null -eq $v -or $v -is [string] -or $v -isnot [System.Collections.IEnumerable]) { return $true }
+	if ($v -is [System.Collections.IDictionary]) {
+		foreach ($k in $v.Keys) {
+			if (-not (Test-CompactJson $v[$k])) { return $false }
+		}
+		return $true
+	}
+	$count = 0
+	$hasDictionary = $false
+	foreach ($it in $v) {
+		$count++
+		if ($it -is [System.Collections.IDictionary]) { $hasDictionary = $true }
+		if (-not (Test-CompactJson $it)) { return $false }
+	}
+	if ($count -le 1) { return $true }
+	return (-not $hasDictionary)
+}
+
+function ConvertTo-InlineJson($v) {
+	if ($null -eq $v) { return 'null' }
+	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
+	if ($v -is [int] -or $v -is [int64] -or $v -is [double] -or $v -is [decimal]) {
+		return [System.Convert]::ToString($v, [System.Globalization.CultureInfo]::InvariantCulture)
+	}
+	if ($v -is [string]) { return ConvertTo-JsonStringLiteral $v }
+	if ($v -is [System.Collections.IDictionary]) {
+		if ($v.Count -eq 0) { return '{}' }
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($k in $v.Keys) {
+			[void]$parts.Add((ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + (ConvertTo-InlineJson $v[$k]))
+		}
+		return '{ ' + ($parts -join ', ') + ' }'
+	}
+	if ($v -is [System.Collections.IEnumerable]) {
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($it in $v) { [void]$parts.Add((ConvertTo-InlineJson $it)) }
+		if ($parts.Count -eq 0) { return '[]' }
+		return '[' + ($parts -join ', ') + ']'
+	}
+	return ConvertTo-JsonStringLiteral ([string]$v)
+}
+
+function ConvertTo-DraftJson($v, $indent) {
+	# Компактное значение не разворачивается и на верхнем уровне: иначе описание из
+	# одной строки печаталось бы деревом.
+	if (Test-CompactJson $v) { return ConvertTo-InlineJson $v }
+	if ($null -eq $v) { return 'null' }
+	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
+	if ($v -is [int] -or $v -is [int64] -or $v -is [double] -or $v -is [decimal]) {
+		return [System.Convert]::ToString($v, [System.Globalization.CultureInfo]::InvariantCulture)
+	}
+	if ($v -is [string]) { return ConvertTo-JsonStringLiteral $v }
+	if ($v -is [System.Collections.IDictionary]) {
+		if ($v.Count -eq 0) { return '{}' }
+		$inner = $indent + '  '
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($k in $v.Keys) {
+			$value = $v[$k]
+			$rendered = if (Test-CompactJson $value) { ConvertTo-InlineJson $value } else { ConvertTo-DraftJson $value $inner }
+			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + $rendered)
+		}
+		return "{`n" + ($parts -join ",`n") + "`n" + $indent + '}'
+	}
+	if ($v -is [System.Collections.IEnumerable]) {
+		$inner = $indent + '  '
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($it in $v) {
+			[void]$parts.Add($inner + (ConvertTo-InlineJson $it))
+		}
+		if ($parts.Count -eq 0) { return '[]' }
+		return "[`n" + ($parts -join ",`n") + "`n" + $indent + ']'
+	}
+	return ConvertTo-JsonStringLiteral ([string]$v)
+}
+# --- Конец общего блока чернового JSON ---
+
+$json = ConvertTo-DraftJson $result ''
 
 # --- 17. Output ---
 
 if ($OutputPath) {
 	$enc = New-Object System.Text.UTF8Encoding($false)
-	[System.IO.File]::WriteAllText(
-		(Join-Path (Get-Location) $OutputPath),
-		$json,
-		$enc
-	)
+	# Абсолютный путь берется как есть: приклеивание текущего каталога давало
+	# несуществующий путь вида "E:\проект\C:\каталог\файл.json".
+	$outResolved = if ([System.IO.Path]::IsPathRooted($OutputPath)) { $OutputPath } else { Join-Path (Get-Location) $OutputPath }
+	[System.IO.File]::WriteAllText($outResolved, $json, $enc)
 	Write-Host "[OK] Decompiled: $OutputPath"
 } else {
 	Write-Output $json

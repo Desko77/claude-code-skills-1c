@@ -47,7 +47,6 @@
 		<row>
 			<formatIndex>3</formatIndex>
 			<c>
-				<i>0</i>
 				<c>
 					<f>4</f>
 					<parameter>Заголовок</parameter>
@@ -59,35 +58,30 @@
 		<index>1</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
 					<f>6</f>
 					<parameter>Номер</parameter>
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
 					<f>6</f>
 					<parameter>Товар</parameter>
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
 					<f>6</f>
 					<parameter>ЕдИзм</parameter>
 				</c>
 			</c>
 			<c>
-				<i>3</i>
 				<c>
 					<f>7</f>
 					<parameter>Кол</parameter>
 				</c>
 			</c>
 			<c>
-				<i>4</i>
 				<c>
 					<f>7</f>
 					<parameter>Сумма</parameter>
@@ -111,7 +105,6 @@
 				</c>
 			</c>
 			<c>
-				<i>4</i>
 				<c>
 					<f>9</f>
 					<parameter>Всего</parameter>
@@ -206,7 +199,6 @@
 		<font>1</font>
 		<topBorder>0</topBorder>
 		<horizontalAlignment>Right</horizontalAlignment>
-		<fillType>Text</fillType>
 	</format>
 	<format>
 		<font>1</font>

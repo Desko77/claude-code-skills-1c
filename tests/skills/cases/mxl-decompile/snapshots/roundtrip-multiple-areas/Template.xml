@@ -15,11 +15,10 @@
 	<rowsItem>
 		<index>0</index>
 		<row>
-			<formatIndex>2</formatIndex>
+			<formatIndex>1</formatIndex>
 			<c>
-				<i>0</i>
 				<c>
-					<f>3</f>
+					<f>2</f>
 					<parameter>Заголовок</parameter>
 				</c>
 			</c>
@@ -29,30 +28,26 @@
 		<index>1</index>
 		<row>
 			<c>
-				<i>0</i>
 				<c>
-					<f>5</f>
+					<f>4</f>
 					<parameter>Номер</parameter>
 				</c>
 			</c>
 			<c>
-				<i>1</i>
 				<c>
-					<f>5</f>
+					<f>4</f>
 					<parameter>Товар</parameter>
 				</c>
 			</c>
 			<c>
-				<i>2</i>
 				<c>
-					<f>6</f>
+					<f>5</f>
 					<parameter>Количество</parameter>
 				</c>
 			</c>
 			<c>
-				<i>3</i>
 				<c>
-					<f>6</f>
+					<f>5</f>
 					<parameter>Сумма</parameter>
 				</c>
 			</c>
@@ -64,7 +59,7 @@
 			<c>
 				<i>2</i>
 				<c>
-					<f>7</f>
+					<f>6</f>
 					<tl>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
@@ -74,16 +69,15 @@
 				</c>
 			</c>
 			<c>
-				<i>3</i>
 				<c>
-					<f>8</f>
+					<f>7</f>
 					<parameter>Всего</parameter>
 				</c>
 			</c>
 		</row>
 	</rowsItem>
 	<templateMode>true</templateMode>
-	<defaultFormatIndex>1</defaultFormatIndex>
+	<defaultFormatIndex>8</defaultFormatIndex>
 	<height>3</height>
 	<vgRows>3</vgRows>
 	<merge>
@@ -127,9 +121,6 @@
 	<font faceName="Arial" height="10" bold="false" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<font faceName="Arial" height="10" bold="true" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<format>
-		<width>30</width>
-	</format>
-	<format>
 		<height>20</height>
 	</format>
 	<format>
@@ -164,12 +155,14 @@
 		<font>1</font>
 		<topBorder>0</topBorder>
 		<horizontalAlignment>Right</horizontalAlignment>
-		<fillType>Text</fillType>
 	</format>
 	<format>
 		<font>1</font>
 		<topBorder>0</topBorder>
 		<horizontalAlignment>Right</horizontalAlignment>
 		<fillType>Parameter</fillType>
+	</format>
+	<format>
+		<width>30</width>
 	</format>
 </document>
