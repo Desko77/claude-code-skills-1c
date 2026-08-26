@@ -363,7 +363,14 @@ function Build-DataSet($el, $defaultSource) {
 	$src = Get-Text (Get-Kid $el 'dataSource')
 	if ($xt -ceq 'DataSetQuery') {
 		if ($src -cne '' -and $src -cne $defaultSource) { $node['source'] = $src }
-		$node['query'] = Get-Text (Get-Kid $el 'query')
+		$queryText = Get-Text (Get-Kid $el 'query')
+		if ($queryText -match "`r?`n") {
+			$safeName = Get-SafeQueryFileName ([string]$node['name'])
+			$script:externalQueries[$safeName] = $queryText
+			$node['query'] = '@' + $script:queryFilePrefix + '-' + $safeName + '.sql'
+		} else {
+			$node['query'] = $queryText
+		}
 		$aff = Get-Kid $el 'autoFillFields'
 		if ($null -ne $aff -and (Get-Text $aff).Trim() -ceq 'false') {
 			$node['autoFillFields'] = $false
@@ -1531,6 +1538,23 @@ function Build-GroupTemplateNode($el, $ttypeOverride) {
 
 # === JSON writer (PS 5.1 ConvertTo-Json mangles unicode and layout) ===
 
+# Имя набора приходит из чужого файла и идет в имя файла запроса: разделители пути и
+# недопустимые символы в нем сделали бы запись мимо каталога назначения.
+function Get-SafeQueryFileName {
+	param([string]$Name)
+	$safe = [regex]::Replace($Name, '[^\p{L}\p{Nd}_-]', '_')
+	$safe = $safe.Trim('.', '_')
+	if (-not $safe) { $safe = 'query' }
+	if ($safe.Length -gt 64) { $safe = $safe.Substring(0, 64) }
+	$candidate = $safe
+	$suffix = 2
+	while ($script:externalQueries.Contains($candidate)) {
+		$candidate = $safe + '_' + $suffix
+		$suffix++
+	}
+	return $candidate
+}
+
 function ConvertTo-JsonStringLiteral($s) {
 	$sb = New-Object System.Text.StringBuilder
 	[void]$sb.Append('"')
@@ -1547,6 +1571,52 @@ function ConvertTo-JsonStringLiteral($s) {
 	return $sb.ToString()
 }
 
+# Описание пишется в том же виде, в каком его удобно править руками: словарь идет по
+# ключу на строку, а массив разворачивается только когда в нем есть объекты и элементов
+# больше одного. Массив строк и одиночный объект остаются в строке.
+function Test-CompactJson($v) {
+	if ($null -eq $v -or $v -is [string] -or $v -isnot [System.Collections.IEnumerable]) { return $true }
+	if ($v -is [System.Collections.IDictionary]) {
+		foreach ($k in $v.Keys) {
+			if (-not (Test-CompactJson $v[$k])) { return $false }
+		}
+		return $true
+	}
+	$count = 0
+	$hasDictionary = $false
+	foreach ($it in $v) {
+		$count++
+		if ($it -is [System.Collections.IDictionary]) { $hasDictionary = $true }
+		if (-not (Test-CompactJson $it)) { return $false }
+	}
+	if ($count -le 1) { return $true }
+	return (-not $hasDictionary)
+}
+
+function ConvertTo-InlineJson($v) {
+	if ($null -eq $v) { return 'null' }
+	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
+	if ($v -is [int] -or $v -is [int64] -or $v -is [double] -or $v -is [decimal]) {
+		return [System.Convert]::ToString($v, [System.Globalization.CultureInfo]::InvariantCulture)
+	}
+	if ($v -is [string]) { return ConvertTo-JsonStringLiteral $v }
+	if ($v -is [System.Collections.IDictionary]) {
+		if ($v.Count -eq 0) { return '{}' }
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($k in $v.Keys) {
+			[void]$parts.Add((ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + (ConvertTo-InlineJson $v[$k]))
+		}
+		return '{ ' + ($parts -join ', ') + ' }'
+	}
+	if ($v -is [System.Collections.IEnumerable]) {
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($it in $v) { [void]$parts.Add((ConvertTo-InlineJson $it)) }
+		if ($parts.Count -eq 0) { return '[]' }
+		return '[' + ($parts -join ', ') + ']'
+	}
+	return ConvertTo-JsonStringLiteral ([string]$v)
+}
+
 function ConvertTo-DraftJson($v, $indent) {
 	if ($null -eq $v) { return 'null' }
 	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
@@ -1559,7 +1629,9 @@ function ConvertTo-DraftJson($v, $indent) {
 		$inner = $indent + '  '
 		$parts = New-Object System.Collections.Generic.List[object]
 		foreach ($k in $v.Keys) {
-			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + (ConvertTo-DraftJson $v[$k] $inner))
+			$value = $v[$k]
+			$rendered = if (Test-CompactJson $value) { ConvertTo-InlineJson $value } else { ConvertTo-DraftJson $value $inner }
+			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + $rendered)
 		}
 		return "{`n" + ($parts -join ",`n") + "`n" + $indent + '}'
 	}
@@ -1567,7 +1639,7 @@ function ConvertTo-DraftJson($v, $indent) {
 		$inner = $indent + '  '
 		$parts = New-Object System.Collections.Generic.List[object]
 		foreach ($it in $v) {
-			[void]$parts.Add($inner + (ConvertTo-DraftJson $it $inner))
+			[void]$parts.Add($inner + (ConvertTo-InlineJson $it))
 		}
 		if ($parts.Count -eq 0) { return '[]' }
 		return "[`n" + ($parts -join ",`n") + "`n" + $indent + ']'
@@ -1604,6 +1676,7 @@ if ($null -eq $root -or $root.LocalName -cne 'DataCompositionSchema') {
 	exit 1
 }
 
+$script:externalQueries = [ordered]@{}
 $outPath = $OutputPath
 if ([string]::IsNullOrEmpty($outPath)) {
 	$dir = [System.IO.Path]::GetDirectoryName($inPath)
@@ -1613,6 +1686,8 @@ if ([string]::IsNullOrEmpty($outPath)) {
 if (-not [System.IO.Path]::IsPathRooted($outPath)) {
 	$outPath = [System.IO.Path]::Combine((Get-Location).Path, $outPath)
 }
+# Имя внешнего файла запроса берется от имени описания: рядом с ним он и лежит.
+$script:queryFilePrefix = [System.IO.Path]::GetFileNameWithoutExtension($outPath)
 
 $rootTodos = New-Object System.Collections.Generic.List[object]
 function Add-RootTodo($msg) {
@@ -1717,8 +1792,14 @@ $outDir = [System.IO.Path]::GetDirectoryName($outPath)
 if ($outDir -and -not (Test-Path -LiteralPath $outDir)) {
 	[void][System.IO.Directory]::CreateDirectory($outDir)
 }
-$json = (ConvertTo-DraftJson $result '') + "`n"
+# Хвостового перевода строки в описании нет.
+$json = if (Test-CompactJson $result) { ConvertTo-InlineJson $result } else { ConvertTo-DraftJson $result '' }
 [System.IO.File]::WriteAllText($outPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+
+foreach ($queryName in $script:externalQueries.Keys) {
+	$queryPath = [System.IO.Path]::Combine($outDir, $script:queryFilePrefix + '-' + $queryName + '.sql')
+	[System.IO.File]::WriteAllText($queryPath, $script:externalQueries[$queryName], (New-Object System.Text.UTF8Encoding($false)))
+}
 
 foreach ($w in $script:Warnings) {
 	[Console]::Error.WriteLine('TODO: ' + $w)

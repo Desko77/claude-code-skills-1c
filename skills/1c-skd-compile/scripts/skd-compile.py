@@ -872,7 +872,7 @@ def emit_field(lines, field_def, indent):
 
 # === DataSets ===
 
-def emit_data_set(lines, ds, indent, default_source):
+def emit_data_set(lines, ds, indent, default_source, as_union_item=False):
     # Determine type
     if ds.get('items'):
         ds_type = 'DataSetUnion'
@@ -881,7 +881,9 @@ def emit_data_set(lines, ds, indent, default_source):
     else:
         ds_type = 'DataSetQuery'
 
-    lines.append(f'{indent}<dataSet xsi:type="{ds_type}">')
+    # Вложенный набор объединения платформа выгружает тегом item.
+    ds_tag = 'item' if as_union_item else 'dataSet'
+    lines.append(f'{indent}<{ds_tag} xsi:type="{ds_type}">')
     lines.append(f'{indent}\t<name>{esc_xml(str(ds.get("name", "")))}</name>')
 
     # Fields
@@ -904,9 +906,9 @@ def emit_data_set(lines, ds, indent, default_source):
         lines.append(f'{indent}\t<objectName>{esc_xml(str(ds["objectName"]))}</objectName>')
     elif ds_type == 'DataSetUnion':
         for item in ds['items']:
-            emit_data_set(lines, item, f'{indent}\t', default_source)
+            emit_data_set(lines, item, f'{indent}\t', default_source, as_union_item=True)
 
-    lines.append(f'{indent}</dataSet>')
+    lines.append(f'{indent}</{ds_tag}>')
 
 
 def emit_data_sets(lines, defn, default_source):
@@ -1567,7 +1569,10 @@ def emit_selection(lines, items, indent, skip_auto=False):
     if not items or len(items) == 0:
         return
 
-    lines.append(f'{indent}<dcsset:selection>')
+    # Отбор пишется в свой буфер: если после пропуска автополей не осталось ни одного
+    # элемента, блок выгружается одним тегом, а не пустой парой.
+    outer = lines
+    lines = []
     for item in items:
         if isinstance(item, str):
             if item == 'Auto':
@@ -1603,7 +1608,12 @@ def emit_selection(lines, items, indent, skip_auto=False):
                 lines.append(f'{indent}\t\t\t</v8:item>')
                 lines.append(f'{indent}\t\t</dcsset:lwsTitle>')
             lines.append(f'{indent}\t</dcsset:item>')
-    lines.append(f'{indent}</dcsset:selection>')
+    if lines:
+        outer.append(f'{indent}<dcsset:selection>')
+        outer.extend(lines)
+        outer.append(f'{indent}</dcsset:selection>')
+    else:
+        outer.append(f'{indent}<dcsset:selection/>')
 
 
 def emit_filter_item(lines, item, indent):
@@ -2099,7 +2109,7 @@ def emit_settings_variants(lines, defn):
 
         # Selection
         if s.get('selection'):
-            emit_selection(lines, s['selection'], '\t\t\t', skip_auto=True)
+            emit_selection(lines, s['selection'], '\t\t\t')
 
         # Filter
         if s.get('filter'):
@@ -2116,6 +2126,18 @@ def emit_settings_variants(lines, defn):
         # OutputParameters
         if s.get('outputParameters'):
             emit_output_parameters(lines, s['outputParameters'], '\t\t\t')
+
+        # Дополнительные свойства: имя идет в атрибут и требует экранирования кавычки,
+        # значение - в содержимое, где кавычка допустима.
+        if s.get('additionalProperties'):
+            lines.append('\t\t\t<dcsset:additionalProperties>')
+            for prop_name, prop_value in s['additionalProperties'].items():
+                lines.append(f'\t\t\t\t<v8:Property name="{esc_xml(str(prop_name))}">')
+                prop_text = (str(prop_value).replace('&', '&amp;')
+                             .replace('<', '&lt;').replace('>', '&gt;'))
+                lines.append(f'\t\t\t\t\t<v8:Value xsi:type="xs:string">{prop_text}</v8:Value>')
+                lines.append('\t\t\t\t</v8:Property>')
+            lines.append('\t\t\t</dcsset:additionalProperties>')
 
         # DataParameters
         if s.get('dataParameters') == 'auto':
@@ -2243,14 +2265,8 @@ def main():
     lines = []
 
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<DataCompositionSchema xmlns="http://v8.1c.ru/8.1/data-composition-system/schema"')
-    lines.append('\t\txmlns:dcscom="http://v8.1c.ru/8.1/data-composition-system/common"')
-    lines.append('\t\txmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core"')
-    lines.append('\t\txmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings"')
-    lines.append('\t\txmlns:v8="http://v8.1c.ru/8.1/data/core"')
-    lines.append('\t\txmlns:v8ui="http://v8.1c.ru/8.1/data/ui"')
-    lines.append('\t\txmlns:xs="http://www.w3.org/2001/XMLSchema"')
-    lines.append('\t\txmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
+    # Платформа пишет шапку схемы одной строкой.
+    lines.append('<DataCompositionSchema xmlns="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcscom="http://v8.1c.ru/8.1/data-composition-system/common" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
 
     emit_data_sources(lines, data_sources)
     emit_data_sets(lines, defn, default_source)
@@ -2274,7 +2290,8 @@ def main():
     if parent_dir and not os.path.exists(parent_dir):
         os.makedirs(parent_dir, exist_ok=True)
 
-    content = '\n'.join(lines) + '\n'
+    # Платформа не оставляет перевод строки после закрывающего тега.
+    content = '\n'.join(lines)
     write_utf8_bom(output_path, content)
 
     # --- 5. Statistics ---

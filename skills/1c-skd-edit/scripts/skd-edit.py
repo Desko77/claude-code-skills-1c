@@ -1578,7 +1578,7 @@ if operation == "add-field":
 
         existing = find_element_by_child_value(ds_node, "field", "dataPath", parsed["dataPath"], SCH_NS)
         if existing is not None:
-            print(f'[WARN] Field "{parsed["dataPath"]}" already exists in dataset "{ds_name}" -- skipped')
+            print(f'[WARN] Field "{parsed["dataPath"]}" already exists in dataset "{ds_name}" - skipped')
             continue
 
         frag_xml = build_field_fragment(parsed, child_indent)
@@ -1596,7 +1596,7 @@ if operation == "add-field":
             selection = ensure_settings_child(settings, "selection", [])
             existing_sel = find_element_by_child_value(selection, "item", "field", parsed["dataPath"], SET_NS)
             if existing_sel is not None:
-                print(f'[INFO] Field "{parsed["dataPath"]}" already in selection -- skipped')
+                print(f'[INFO] Field "{parsed["dataPath"]}" already in selection - skipped')
             else:
                 sel_indent = get_container_child_indent(selection)
                 sel_xml = build_selection_item_fragment(parsed["dataPath"], sel_indent)
@@ -1612,7 +1612,7 @@ elif operation == "add-total":
 
         existing = find_element_by_child_value(xml_doc, "totalField", "dataPath", parsed["dataPath"], SCH_NS)
         if existing is not None:
-            print(f'[WARN] TotalField "{parsed["dataPath"]}" already exists -- skipped')
+            print(f'[WARN] TotalField "{parsed["dataPath"]}" already exists - skipped')
             continue
 
         frag_xml = build_total_fragment(parsed, child_indent)
@@ -1644,7 +1644,7 @@ elif operation == "add-calculated-field":
 
         existing = find_element_by_child_value(xml_doc, "calculatedField", "dataPath", parsed["dataPath"], SCH_NS)
         if existing is not None:
-            print(f'[WARN] CalculatedField "{parsed["dataPath"]}" already exists -- skipped')
+            print(f'[WARN] CalculatedField "{parsed["dataPath"]}" already exists - skipped')
             continue
 
         frag_xml = build_calc_field_fragment(parsed, child_indent)
@@ -1674,7 +1674,7 @@ elif operation == "add-calculated-field":
             selection = ensure_settings_child(settings, "selection", [])
             existing_sel = find_element_by_child_value(selection, "item", "field", parsed["dataPath"], SET_NS)
             if existing_sel is not None:
-                print(f'[INFO] Field "{parsed["dataPath"]}" already in selection -- skipped')
+                print(f'[INFO] Field "{parsed["dataPath"]}" already in selection - skipped')
             else:
                 sel_indent = get_container_child_indent(selection)
                 sel_xml = build_selection_item_fragment(parsed["dataPath"], sel_indent)
@@ -1690,7 +1690,7 @@ elif operation == "add-parameter":
 
         existing = find_element_by_child_value(xml_doc, "parameter", "name", parsed["name"], SCH_NS)
         if existing is not None:
-            print(f'[WARN] Parameter "{parsed["name"]}" already exists -- skipped')
+            print(f'[WARN] Parameter "{parsed["name"]}" already exists - skipped')
             continue
 
         fragments = build_param_fragment(parsed, child_indent)
@@ -1732,7 +1732,7 @@ elif operation == "modify-parameter":
 
         param_el = find_element_by_child_value(xml_doc, "parameter", "name", param_name, SCH_NS)
         if param_el is None:
-            print(f'[WARN] Parameter "{param_name}" not found -- skipped')
+            print(f'[WARN] Parameter "{param_name}" not found - skipped')
             continue
 
         child_indent = get_child_indent(param_el)
@@ -1826,13 +1826,13 @@ elif operation == "rename-parameter":
         new_name = m_rn.group(2).strip()
 
         if old_name == new_name:
-            print('[WARN] rename-parameter: old and new names are equal -- skipped')
+            print('[WARN] rename-parameter: old and new names are equal - skipped')
             continue
 
         # 1. Rename <parameter><name>OldName</name>
         param_el = find_element_by_child_value(root, "parameter", "name", old_name, SCH_NS)
         if param_el is None:
-            print(f'[WARN] Parameter "{old_name}" not found -- skipped')
+            print(f'[WARN] Parameter "{old_name}" not found - skipped')
             continue
         for ch in param_el:
             if isinstance(ch.tag, str) and local_name(ch) == "name" and etree.QName(ch.tag).namespace == SCH_NS:
@@ -1883,7 +1883,7 @@ elif operation == "reorder-parameters":
     for val in values:
         order = [s.strip() for s in val.split(",") if s.strip()]
         if not order:
-            print('[WARN] reorder-parameters: empty list -- skipped')
+            print('[WARN] reorder-parameters: empty list - skipped')
             continue
 
         all_params = []
@@ -1910,7 +1910,7 @@ elif operation == "reorder-parameters":
                 new_order.append(by_name[name])
                 used.add(name)
             else:
-                print(f'[WARN] reorder-parameters: parameter "{name}" not found -- skipped')
+                print(f'[WARN] reorder-parameters: parameter "{name}" not found - skipped')
 
         for pe in all_params:
             pe_name = None
@@ -1978,12 +1978,12 @@ elif operation == "add-order":
                         is_dup = True
                         break
             if is_dup:
-                print(f'[WARN] OrderItemAuto already exists in variant "{var_name}" -- skipped')
+                print(f'[WARN] OrderItemAuto already exists in variant "{var_name}" - skipped')
                 continue
         else:
             existing_ord = find_element_by_child_value(order_el, "item", "field", parsed["field"], SET_NS)
             if existing_ord is not None:
-                print(f'[WARN] Order "{parsed["field"]}" already exists in variant "{var_name}" -- skipped')
+                print(f'[WARN] Order "{parsed["field"]}" already exists in variant "{var_name}" - skipped')
                 continue
 
         frag_xml = build_order_item_fragment(parsed, order_indent)
@@ -2036,7 +2036,7 @@ elif operation == "add-selection":
                         break
             if is_dup:
                 target = f'group "{group_name}"' if group_name else f'variant "{var_name}"'
-                print(f'[WARN] SelectedItemAuto already exists in {target} -- skipped')
+                print(f'[WARN] SelectedItemAuto already exists in {target} - skipped')
                 continue
 
         sel_indent = get_container_child_indent(selection)
@@ -2159,7 +2159,7 @@ elif operation == "add-dataSet":
 
     existing = find_element_by_child_value(xml_doc, "dataSet", "name", parsed["name"], SCH_NS)
     if existing is not None:
-        print(f'[WARN] DataSet "{parsed["name"]}" already exists -- skipped')
+        print(f'[WARN] DataSet "{parsed["name"]}" already exists - skipped')
     else:
         ds_source_el = find_first_element(xml_doc, ["dataSource"], SCH_NS)
         ds_source_name = "\u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0414\u0430\u043d\u043d\u044b\u04451"
@@ -2205,7 +2205,7 @@ elif operation == "add-variant":
                 if is_dup:
                     break
         if is_dup:
-            print(f'[WARN] Variant "{parsed["name"]}" already exists -- skipped')
+            print(f'[WARN] Variant "{parsed["name"]}" already exists - skipped')
             continue
 
         frag_xml = build_variant_fragment(parsed, child_indent)

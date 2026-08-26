@@ -881,7 +881,7 @@ function Emit-Field {
 
 # === DataSets ===
 function Emit-DataSet {
-	param($ds, [string]$indent)
+	param($ds, [string]$indent, [switch]$AsUnionItem)
 
 	# Determine type
 	if ($ds.items) {
@@ -892,7 +892,9 @@ function Emit-DataSet {
 		$dsType = "DataSetQuery"
 	}
 
-	X "$indent<dataSet xsi:type=`"$dsType`">"
+	# Вложенный набор объединения платформа выгружает тегом item.
+	$dsTag = if ($AsUnionItem) { "item" } else { "dataSet" }
+	X "$indent<$dsTag xsi:type=`"$dsType`">"
 	X "$indent`t<name>$(Esc-Xml "$($ds.name)")</name>"
 
 	# Fields
@@ -920,11 +922,11 @@ function Emit-DataSet {
 	} elseif ($dsType -eq "DataSetUnion") {
 		foreach ($item in $ds.items) {
 			# Union items are nested dataSets
-			Emit-DataSet -ds $item -indent "$indent`t" | Out-Null
+			Emit-DataSet -ds $item -indent "$indent`t" -AsUnionItem | Out-Null
 		}
 	}
 
-	X "$indent</dataSet>"
+	X "$indent</$dsTag>"
 }
 
 function Emit-DataSets {
@@ -1655,7 +1657,10 @@ function Emit-Selection {
 
 	if (-not $items -or $items.Count -eq 0) { return }
 
-	X "$indent<dcsset:selection>"
+	# Отбор пишется в свой буфер: если после пропуска автополей не осталось ни одного
+	# элемента, блок выгружается одним тегом, а не пустой парой.
+	$outerXml = $script:xml
+	$script:xml = New-Object System.Text.StringBuilder 1024
 	foreach ($item in $items) {
 		if ($item -is [string]) {
 			if ($item -eq "Auto") {
@@ -1697,7 +1702,15 @@ function Emit-Selection {
 			X "$indent`t</dcsset:item>"
 		}
 	}
-	X "$indent</dcsset:selection>"
+	$inner = $script:xml.ToString()
+	$script:xml = $outerXml
+	if ($inner.Trim()) {
+		X "$indent<dcsset:selection>"
+		$script:xml.Append($inner) | Out-Null
+		X "$indent</dcsset:selection>"
+	} else {
+		X "$indent<dcsset:selection/>"
+	}
 }
 
 function Emit-FilterItem {
@@ -2303,9 +2316,9 @@ function Emit-SettingsVariants {
 
 		$s = $v.settings
 
-		# Selection (Auto items only belong at group level, not top-level settings)
+		# Автополе выбора платформа пишет и на верхнем уровне настроек, и в группе.
 		if ($s.selection) {
-			Emit-Selection -items $s.selection -indent "`t`t`t" -skipAuto
+			Emit-Selection -items $s.selection -indent "`t`t`t"
 		}
 
 		# Filter
@@ -2326,6 +2339,18 @@ function Emit-SettingsVariants {
 		# OutputParameters
 		if ($s.outputParameters) {
 			Emit-OutputParameters -params $s.outputParameters -indent "`t`t`t"
+		}
+
+		if ($s.additionalProperties) {
+			X "`t`t`t<dcsset:additionalProperties>"
+			foreach ($prop in $s.additionalProperties.PSObject.Properties) {
+				X "`t`t`t`t<v8:Property name=`"$(Esc-Xml $prop.Name)`">"
+				$propValue = "$($prop.Value)"
+				$escapedValue = $propValue.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;')
+				X "`t`t`t`t`t<v8:Value xsi:type=`"xs:string`">$escapedValue</v8:Value>"
+				X "`t`t`t`t</v8:Property>"
+			}
+			X "`t`t`t</dcsset:additionalProperties>"
 		}
 
 		# DataParameters
@@ -2396,14 +2421,8 @@ function Emit-SettingsVariants {
 # --- 12. Assemble XML ---
 
 X "<?xml version=`"1.0`" encoding=`"UTF-8`"?>"
-X "<DataCompositionSchema xmlns=`"http://v8.1c.ru/8.1/data-composition-system/schema`""
-X "`t`txmlns:dcscom=`"http://v8.1c.ru/8.1/data-composition-system/common`""
-X "`t`txmlns:dcscor=`"http://v8.1c.ru/8.1/data-composition-system/core`""
-X "`t`txmlns:dcsset=`"http://v8.1c.ru/8.1/data-composition-system/settings`""
-X "`t`txmlns:v8=`"http://v8.1c.ru/8.1/data/core`""
-X "`t`txmlns:v8ui=`"http://v8.1c.ru/8.1/data/ui`""
-X "`t`txmlns:xs=`"http://www.w3.org/2001/XMLSchema`""
-X "`t`txmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`">"
+# Платформа пишет шапку схемы одной строкой.
+X '<DataCompositionSchema xmlns="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcscom="http://v8.1c.ru/8.1/data-composition-system/common" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
 
 Emit-DataSources
 Emit-DataSets
@@ -2424,7 +2443,8 @@ if ($parentDir -and -not (Test-Path $parentDir)) {
 	New-Item -ItemType Directory -Force $parentDir | Out-Null
 }
 
-$content = $script:xml.ToString()
+# Платформа не оставляет перевод строки после закрывающего тега.
+$content = $script:xml.ToString().TrimEnd("`r", "`n")
 $utf8Bom = New-Object System.Text.UTF8Encoding $true
 [System.IO.File]::WriteAllText($OutputPath, $content, $utf8Bom)
 

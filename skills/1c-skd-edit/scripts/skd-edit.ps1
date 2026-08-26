@@ -1730,7 +1730,7 @@ switch ($Operation) {
 			# Duplicate check
 			$existing = Find-ElementByChildValue $dsNode "field" "dataPath" $parsed.dataPath $schNs
 			if ($existing) {
-				Write-Host "[WARN] Field `"$($parsed.dataPath)`" already exists in dataset `"$dsName`" — skipped"
+				Write-Host "[WARN] Field `"$($parsed.dataPath)`" already exists in dataset `"$dsName`" - skipped"
 				continue
 			}
 
@@ -1750,7 +1750,7 @@ switch ($Operation) {
 				$selection = Ensure-SettingsChild $settings "selection" @()
 				$existingSel = Find-ElementByChildValue $selection "item" "field" $parsed.dataPath $setNs
 				if ($existingSel) {
-					Write-Host "[INFO] Field `"$($parsed.dataPath)`" already in selection — skipped"
+					Write-Host "[INFO] Field `"$($parsed.dataPath)`" already in selection - skipped"
 				} else {
 					$selIndent = Get-ContainerChildIndent $selection
 					$selXml = Build-SelectionItemFragment -fieldName $parsed.dataPath -indent $selIndent
@@ -1772,7 +1772,7 @@ switch ($Operation) {
 			# Duplicate check
 			$existing = Find-ElementByChildValue $xmlDoc.DocumentElement "totalField" "dataPath" $parsed.dataPath $schNs
 			if ($existing) {
-				Write-Host "[WARN] TotalField `"$($parsed.dataPath)`" already exists — skipped"
+				Write-Host "[WARN] TotalField `"$($parsed.dataPath)`" already exists - skipped"
 				continue
 			}
 
@@ -1806,7 +1806,7 @@ switch ($Operation) {
 			# Duplicate check
 			$existing = Find-ElementByChildValue $xmlDoc.DocumentElement "calculatedField" "dataPath" $parsed.dataPath $schNs
 			if ($existing) {
-				Write-Host "[WARN] CalculatedField `"$($parsed.dataPath)`" already exists — skipped"
+				Write-Host "[WARN] CalculatedField `"$($parsed.dataPath)`" already exists - skipped"
 				continue
 			}
 
@@ -1836,7 +1836,7 @@ switch ($Operation) {
 				$selection = Ensure-SettingsChild $settings "selection" @()
 				$existingSel = Find-ElementByChildValue $selection "item" "field" $parsed.dataPath $setNs
 				if ($existingSel) {
-					Write-Host "[INFO] Field `"$($parsed.dataPath)`" already in selection — skipped"
+					Write-Host "[INFO] Field `"$($parsed.dataPath)`" already in selection - skipped"
 				} else {
 					$selIndent = Get-ContainerChildIndent $selection
 					$selXml = Build-SelectionItemFragment -fieldName $parsed.dataPath -indent $selIndent
@@ -1858,7 +1858,7 @@ switch ($Operation) {
 			# Duplicate check
 			$existing = Find-ElementByChildValue $xmlDoc.DocumentElement "parameter" "name" $parsed.name $schNs
 			if ($existing) {
-				Write-Host "[WARN] Parameter `"$($parsed.name)`" already exists — skipped"
+				Write-Host "[WARN] Parameter `"$($parsed.name)`" already exists - skipped"
 				continue
 			}
 
@@ -1906,7 +1906,7 @@ switch ($Operation) {
 			# Find parameter element
 			$paramEl = Find-ElementByChildValue $xmlDoc.DocumentElement "parameter" "name" $paramName $schNs
 			if (-not $paramEl) {
-				Write-Host "[WARN] Parameter `"$paramName`" not found — skipped"
+				Write-Host "[WARN] Parameter `"$paramName`" not found - skipped"
 				continue
 			}
 
@@ -2041,7 +2041,7 @@ switch ($Operation) {
 			$newName = $Matches[2].Trim()
 
 			if ($oldName -eq $newName) {
-				Write-Host "[WARN] rename-parameter: old and new names are equal — skipped"
+				Write-Host "[WARN] rename-parameter: old and new names are equal - skipped"
 				continue
 			}
 
@@ -2049,7 +2049,7 @@ switch ($Operation) {
 			$root = $xmlDoc.DocumentElement
 			$paramEl = Find-ElementByChildValue $root "parameter" "name" $oldName $schNs
 			if (-not $paramEl) {
-				Write-Host "[WARN] Parameter `"$oldName`" not found — skipped"
+				Write-Host "[WARN] Parameter `"$oldName`" not found - skipped"
 				continue
 			}
 			foreach ($ch in $paramEl.ChildNodes) {
@@ -2112,7 +2112,7 @@ switch ($Operation) {
 			# Shorthand: "Name1, Name2, Name3" — partial list, listed names go first in order, rest preserve original order
 			$order = @($val -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 			if ($order.Count -eq 0) {
-				Write-Host "[WARN] reorder-parameters: empty list — skipped"
+				Write-Host "[WARN] reorder-parameters: empty list - skipped"
 				continue
 			}
 
@@ -2151,7 +2151,7 @@ switch ($Operation) {
 					$newOrder += $byName[$name]
 					$used[$name] = $true
 				} else {
-					Write-Host "[WARN] reorder-parameters: parameter `"$name`" not found — skipped"
+					Write-Host "[WARN] reorder-parameters: parameter `"$name`" not found - skipped"
 				}
 			}
 			foreach ($pe in $allParams) {
@@ -2244,13 +2244,13 @@ switch ($Operation) {
 					}
 				}
 				if ($isDup) {
-					Write-Host "[WARN] OrderItemAuto already exists in variant `"$varName`" — skipped"
+					Write-Host "[WARN] OrderItemAuto already exists in variant `"$varName`" - skipped"
 					continue
 				}
 			} else {
 				$existingOrd = Find-ElementByChildValue $orderEl "item" "field" $parsed.field $setNs
 				if ($existingOrd) {
-					Write-Host "[WARN] Order `"$($parsed.field)`" already exists in variant `"$varName`" — skipped"
+					Write-Host "[WARN] Order `"$($parsed.field)`" already exists in variant `"$varName`" - skipped"
 					continue
 				}
 			}
@@ -2311,7 +2311,7 @@ switch ($Operation) {
 				}
 				if ($isDup) {
 					$target = if ($groupName) { "group `"$groupName`"" } else { "variant `"$varName`"" }
-					Write-Host "[WARN] SelectedItemAuto already exists in $target — skipped"
+					Write-Host "[WARN] SelectedItemAuto already exists in $target - skipped"
 					continue
 				}
 			}
@@ -2483,7 +2483,7 @@ switch ($Operation) {
 		# Duplicate check
 		$existing = Find-ElementByChildValue $root "dataSet" "name" $parsed.name $schNs
 		if ($existing) {
-			Write-Host "[WARN] DataSet `"$($parsed.name)`" already exists — skipped"
+			Write-Host "[WARN] DataSet `"$($parsed.name)`" already exists - skipped"
 		} else {
 			# Get dataSource name from first existing <dataSource>
 			$dsSourceEl = Find-FirstElement $root @("dataSource") $schNs
@@ -2536,7 +2536,7 @@ switch ($Operation) {
 				}
 			}
 			if ($isDup) {
-				Write-Host "[WARN] Variant `"$($parsed.name)`" already exists — skipped"
+				Write-Host "[WARN] Variant `"$($parsed.name)`" already exists - skipped"
 				continue
 			}
 
@@ -3002,7 +3002,7 @@ switch ($Operation) {
 
 				# Idempotency: check if already exists
 				if ($tplText.Contains($drillName)) {
-					Write-Host "[INFO] $drillName already exists in $tplName — skipped"
+					Write-Host "[INFO] $drillName already exists in $tplName - skipped"
 					continue
 				}
 
@@ -3011,7 +3011,7 @@ switch ($Operation) {
 				if ($exprMap.ContainsKey($resource)) {
 					$paramName = $exprMap[$resource]
 				} else {
-					Write-Host "[WARN] Expression `"$resource`" not found in template $tplName — skipped"
+					Write-Host "[WARN] Expression `"$resource`" not found in template $tplName - skipped"
 					continue
 				}
 

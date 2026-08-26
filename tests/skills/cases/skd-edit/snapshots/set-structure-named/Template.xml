@@ -105,6 +105,7 @@
 				</dcsset:selection>
 			</dcsset:item>
 			<dcsset:selection>
+				<dcsset:item xsi:type="dcsset:SelectedItemAuto"/>
 			</dcsset:selection>
 		</dcsset:settings>
 	</settingsVariant>

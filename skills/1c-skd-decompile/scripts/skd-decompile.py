@@ -329,7 +329,13 @@ def build_data_set(el, default_source):
     if xt == 'DataSetQuery':
         if src and src != default_source:
             node['source'] = src
-        node['query'] = text_of(kid(el, 'query'))
+        query_text = text_of(kid(el, 'query'))
+        if '\n' in query_text:
+            safe_name = safe_query_file_name(str(node['name']))
+            external_queries[safe_name] = query_text
+            node['query'] = '@' + query_file_prefix[0] + '-' + safe_name + '.sql'
+        else:
+            node['query'] = query_text
         aff = kid(el, 'autoFillFields')
         if aff is not None and text_of(aff).strip() == 'false':
             node['autoFillFields'] = False
@@ -1418,6 +1424,80 @@ def build_group_template(el, ttype_override):
 
 # === Main ===
 
+def safe_query_file_name(name):
+    """Имя набора приходит из чужого файла и идет в имя файла запроса.
+
+    Разделители пути и недопустимые символы в нем сделали бы запись мимо каталога назначения.
+    """
+    safe = re.sub(r'[^\w-]', '_', name, flags=re.UNICODE).strip('._')
+    if not safe:
+        safe = 'query'
+    safe = safe[:64]
+    candidate = safe
+    suffix = 2
+    while candidate in external_queries:
+        candidate = f'{safe}_{suffix}'
+        suffix += 1
+    return candidate
+
+
+def is_compact_json(value):
+    """Компактно пишется все, кроме массива объектов длиннее одного элемента.
+
+    Признак рекурсивный: контейнер разворачивается, если разворачивается хоть что-то внутри.
+    """
+    if value is None or isinstance(value, str) or not isinstance(value, (list, tuple, dict)):
+        return True
+    if isinstance(value, dict):
+        return all(is_compact_json(v) for v in value.values())
+    if len(value) <= 1:
+        return all(is_compact_json(v) for v in value)
+    if any(isinstance(v, dict) for v in value):
+        return False
+    return all(is_compact_json(v) for v in value)
+
+
+def to_inline_json(value):
+    if value is None:
+        return 'null'
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, (int, float)):
+        return json.dumps(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        if not value:
+            return '{}'
+        parts = [json.dumps(str(k), ensure_ascii=False) + ': ' + to_inline_json(v)
+                 for k, v in value.items()]
+        return '{ ' + ', '.join(parts) + ' }'
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return '[]'
+        return '[' + ', '.join(to_inline_json(v) for v in value) + ']'
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def to_draft_json(value, indent=''):
+    """Описание пишется в том виде, в каком его удобно править руками."""
+    if is_compact_json(value):
+        return to_inline_json(value)
+    inner = indent + '  '
+    if isinstance(value, dict):
+        parts = []
+        for k, v in value.items():
+            rendered = to_inline_json(v) if is_compact_json(v) else to_draft_json(v, inner)
+            parts.append(inner + json.dumps(str(k), ensure_ascii=False) + ': ' + rendered)
+        return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
+    parts = [inner + to_inline_json(v) for v in value]
+    return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
+
+
+external_queries = {}
+query_file_prefix = ['']
+
+
 def main():
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
@@ -1466,6 +1546,8 @@ def main():
         base = os.path.splitext(in_path)[0]
         out_path = base + '.skd.json'
     out_path = os.path.abspath(out_path)
+    # Имя внешнего файла запроса берется от имени описания: рядом с ним он и лежит.
+    query_file_prefix[0] = os.path.splitext(os.path.basename(out_path))[0]
 
     root_todos = []
 
@@ -1551,7 +1633,12 @@ def main():
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
     with open(out_path, 'w', encoding='utf-8', newline='\n') as f:
-        f.write(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+        f.write(to_draft_json(result))
+
+    for query_name, query_text in external_queries.items():
+        query_path = os.path.join(out_dir, query_file_prefix[0] + '-' + query_name + '.sql')
+        with open(query_path, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(query_text)
 
     for w in warnings_list:
         print('TODO: ' + w, file=sys.stderr)
