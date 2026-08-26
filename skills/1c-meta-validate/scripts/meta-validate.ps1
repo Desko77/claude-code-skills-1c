@@ -727,7 +727,15 @@ $reservedAttrNames = @(
 	"IsFolder","Predefined","PredefinedDataName","Recorder","Period","LineNumber","Active",
 	"Order","Type","OffBalance","Started","Completed","HeadTask","Executed","RoutePoint",
 	"BusinessProcess","ThisNode","SentNo","ReceivedNo","CalculationType","RegistrationPeriod",
-	"ReversingEntry","Account","ValueType","ActionPeriodIsBasic"
+	"ReversingEntry","Account","ValueType","ActionPeriodIsBasic",
+	# Русские формы тех же имен: выгрузка ведется на языке конфигурации, и реквизит с именем
+	# стандартного платформа отвергает независимо от того, каким языком оно записано.
+	"Ссылка","ПометкаУдаления","Код","Наименование","Дата","Номер","Проведен","Родитель",
+	"Владелец","ЭтоГруппа","Предопределенный","ИмяПредопределенныхДанных","Регистратор",
+	"Период","НомерСтроки","Активность","Порядок","Тип","Забалансовый","Стартован",
+	"Завершен","ВедущаяЗадача","Выполнена","ТочкаМаршрута","БизнесПроцесс","ЭтотУзел",
+	"НомерОтправленного","НомерПринятого","ВидРасчета","ПериодРегистрации","СторноЗапись",
+	"Счет","ТипЗначения","БазовыйПериодЯвляетсяОсновным"
 )
 
 if ($childObjNode) {
@@ -739,8 +747,10 @@ if ($childObjNode) {
 			$attrNameNode = $attrProps.SelectSingleNode("md:Name", $ns)
 			if ($attrNameNode -and $attrNameNode.InnerText) {
 				$an = $attrNameNode.InnerText
-				if ($reservedAttrNames -contains $an) {
-					Report-Warn "7b. Attribute '$an' conflicts with a standard attribute name"
+				# Написание с точками над е и без них - одно и то же имя для платформы.
+				$anNormalized = $an.Replace([char]0x451, [char]0x435).Replace([char]0x401, [char]0x415)
+				if ($reservedAttrNames -contains $anNormalized) {
+					Report-Error "7b. Реквизит '$an' повторяет имя стандартного реквизита"
 					$check7bOk = $false
 				}
 			}
@@ -1489,6 +1499,130 @@ if ($typeRefs.Count -eq 0) {
 		$source = if ($null -ne $indexTypes) { "index" } else { "configuration files" }
 		Report-OK "16. Reference types: $($seenRefs.Count) checked against $source, all resolve"
 	}
+}
+
+if ($script:stopped) { & $finalize; exit 1 }
+
+# --- Check 17: MDObjectRef указывает на объект метаданных, а не на тип ссылки ---
+
+# Владельцы, подчиненные объекты и подобные ссылки записываются полным именем объекта
+# (Catalog.Валюты). Имя типа ссылки (CatalogRef.Валюты) там же платформа не разрешает: тип
+# существует, объекта с таким именем нет, и загрузка обрывается.
+$check17Bad = 0
+$mdObjectRefs = $root.SelectNodes("//*[local-name()='Item']", $ns)
+foreach ($item in $mdObjectRefs) {
+	$xsiType = $item.GetAttribute("type", "http://www.w3.org/2001/XMLSchema-instance")
+	if ($xsiType -notmatch 'MDObjectRef$') { continue }
+	$refValue = $item.InnerText.Trim()
+	if (-not $refValue) { continue }
+	if ($refValue -match '^([A-Za-z]+)Ref\.') {
+		$baseType = $Matches[1]
+		Report-Error "17. MDObjectRef '$refValue' указывает на тип ссылки, ожидается объект метаданных: $baseType.$($refValue.Split('.')[1])"
+		$check17Bad++
+	}
+}
+if ($check17Bad -eq 0) {
+	Report-OK "17. MDObjectRef: ссылок на типы вместо объектов нет"
+}
+
+if ($script:stopped) { & $finalize; exit 1 }
+
+# --- Check 18: свойства новых версий формата в файле со старым штампом ---
+
+# Платформа читает файл по версии из его штампа: свойство, которого в этой версии еще не было,
+# она не понимает. Проверка сверяет найденные свойства с версией, в которой они появились.
+$propertyMinVersion = @{
+	"TypeReductionMode" = "2.18"
+	"LineNumberLength" = "2.20"
+	"MinClientPlatformVersion" = "2.19"
+	"UseMultilanguage" = "2.21"
+}
+
+$check18Bad = 0
+if ($version) {
+	foreach ($propName in $propertyMinVersion.Keys) {
+		$minVersion = $propertyMinVersion[$propName]
+		if ([version]$version -ge [version]$minVersion) { continue }
+		$found = $root.SelectNodes("//*[local-name()='$propName']", $ns)
+		if ($found.Count -gt 0) {
+			Report-Error "18. <$propName> появился в формате $minVersion, а файл объявлен как $version"
+			$check18Bad++
+		}
+	}
+}
+if ($check18Bad -eq 0) {
+	Report-OK "18. Свойства формата: несовместимых с версией файла нет"
+}
+
+if ($script:stopped) { & $finalize; exit 1 }
+
+# --- Check 19: длина номера строки табличной части ---
+
+# Диапазон задан платформой: значение вне 5..9 она отвергает при загрузке.
+$check19Bad = 0
+$lnlNodes = $root.SelectNodes("//*[local-name()='LineNumberLength']", $ns)
+foreach ($lnl in $lnlNodes) {
+	$lnlText = $lnl.InnerText.Trim()
+	$lnlValue = 0
+	if (-not [int]::TryParse($lnlText, [ref]$lnlValue)) {
+		Report-Error "19. LineNumberLength='$lnlText' не число"
+		$check19Bad++
+		continue
+	}
+	if ($lnlValue -lt 5 -or $lnlValue -gt 9) {
+		Report-Error "19. LineNumberLength=$lnlValue вне допустимого диапазона 5..9"
+		$check19Bad++
+	}
+}
+if ($check19Bad -eq 0) {
+	Report-OK "19. LineNumberLength: значения в допустимом диапазоне"
+}
+
+if ($script:stopped) { & $finalize; exit 1 }
+
+# --- Check 20: корневой тип и группы команд ---
+
+# Корневой тип плана видов характеристик - структура из элементов v8:Type, а не строка. Текст
+# вида "Boolean + String(20)" читается человеком, но платформой не разбирается.
+$check20Bad = 0
+# Свойства объекта лежат в узле типа, а команды - в ChildObjects: это разные узлы.
+if ($typeNode) {
+	$rootTypeNode = $typeNode.SelectSingleNode("md:Properties/md:Type", $ns)
+	if ($rootTypeNode) {
+		$hasTypeChildren = $rootTypeNode.SelectNodes("*").Count -gt 0
+		if (-not $hasTypeChildren -and $rootTypeNode.InnerText.Trim()) {
+			Report-Error "20. Корневой <Type> задан текстом '$($rootTypeNode.InnerText.Trim())', ожидается структура из элементов v8:Type"
+			$check20Bad++
+		}
+	}
+
+	# Команда без группы не попадает ни в один раздел интерфейса: платформа отвергает пустую
+	# группу при загрузке.
+	$commandNodes = if ($childObjNode) { $childObjNode.SelectNodes("md:Command", $ns) } else { @() }
+	foreach ($cmd in $commandNodes) {
+		$cmdProps = $cmd.SelectSingleNode("md:Properties", $ns)
+		if (-not $cmdProps) { continue }
+		$cmdNameNode = $cmdProps.SelectSingleNode("md:Name", $ns)
+		$cmdName = if ($cmdNameNode) { $cmdNameNode.InnerText } else { "?" }
+		$groupNode = $cmdProps.SelectSingleNode("md:Group", $ns)
+		if (-not $groupNode -or -not $groupNode.InnerText.Trim()) {
+			Report-Error "20. Команда '$cmdName': группа не задана"
+			$check20Bad++
+			continue
+		}
+		# Параметризуемая команда становится в группу формы, а не в раздел командного
+		# интерфейса: раздел не знает, откуда взять значение параметра.
+		$groupValue = $groupNode.InnerText.Trim()
+		$paramTypeNode = $cmdProps.SelectSingleNode("md:CommandParameterType", $ns)
+		$hasParamType = $paramTypeNode -and $paramTypeNode.SelectNodes("*").Count -gt 0
+		if ($hasParamType -and $groupValue -match '^(ActionsPanel|NavigationPanel)') {
+			Report-Error "20. Команда '$cmdName': группа '$groupValue' относится к разделу интерфейса, а у команды задан параметр - параметризуемой команде нужна группа формы"
+			$check20Bad++
+		}
+	}
+}
+if ($check20Bad -eq 0) {
+	Report-OK "20. Корневой тип и группы команд: замечаний нет"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }

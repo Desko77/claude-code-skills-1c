@@ -709,6 +709,14 @@ RESERVED_ATTR_NAMES = {
     'Started', 'Completed', 'HeadTask', 'Executed', 'RoutePoint', 'BusinessProcess',
     'ThisNode', 'SentNo', 'ReceivedNo', 'CalculationType', 'RegistrationPeriod',
     'ReversingEntry', 'Account', 'ValueType', 'ActionPeriodIsBasic',
+    # Русские формы тех же имен: выгрузка ведется на языке конфигурации, и реквизит с именем
+    # стандартного платформа отвергает независимо от того, каким языком оно записано.
+    'Ссылка', 'ПометкаУдаления', 'Код', 'Наименование', 'Дата', 'Номер', 'Проведен',
+    'Родитель', 'Владелец', 'ЭтоГруппа', 'Предопределенный', 'ИмяПредопределенныхДанных',
+    'Регистратор', 'Период', 'НомерСтроки', 'Активность', 'Порядок', 'Тип', 'Забалансовый',
+    'Стартован', 'Завершен', 'ВедущаяЗадача', 'Выполнена', 'ТочкаМаршрута', 'БизнесПроцесс',
+    'ЭтотУзел', 'НомерОтправленного', 'НомерПринятого', 'ВидРасчета', 'ПериодРегистрации',
+    'СторноЗапись', 'Счет', 'ТипЗначения', 'БазовыйПериодЯвляетсяОсновным',
 }
 
 if child_obj_node is not None:
@@ -719,8 +727,10 @@ if child_obj_node is not None:
             attr_name_node = find(attr_props, 'md:Name')
             if attr_name_node is not None and inner_text(attr_name_node):
                 an = inner_text(attr_name_node)
-                if an in RESERVED_ATTR_NAMES:
-                    report_warn(f"7b. Attribute '{an}' conflicts with a standard attribute name")
+                # Написание с точками над е и без них - одно и то же имя для платформы.
+                an_normalized = an.replace('\u0451', '\u0435').replace('\u0401', '\u0415')
+                if an_normalized in RESERVED_ATTR_NAMES:
+                    report_error(f"7b. Реквизит '{an}' повторяет имя стандартного реквизита")
                     check7b_ok = False
     if check7b_ok:
         report_ok("7b. Reserved attribute names: no conflicts")
@@ -1398,6 +1408,139 @@ else:
         source = "index" if index_types is not None else "configuration files"
         report_ok("16. Reference types: %d checked against %s, all resolve"
                   % (len(seen_refs), source))
+
+if stopped:
+    finalize()
+    sys.exit(1)
+
+# ── Check 17: MDObjectRef указывает на объект метаданных, а не на тип ссылки ──
+
+# Владельцы, подчиненные объекты и подобные ссылки записываются полным именем объекта
+# (Catalog.Валюты). Имя типа ссылки (CatalogRef.Валюты) там же платформа не разрешает: тип
+# существует, объекта с таким именем нет, и загрузка обрывается.
+check17_bad = 0
+XSI_TYPE = "{http://www.w3.org/2001/XMLSchema-instance}type"
+for item in root.iter():
+    if not item.tag.endswith("}Item") and item.tag != "Item":
+        continue
+    xsi_type = item.get(XSI_TYPE, "")
+    if not xsi_type.endswith("MDObjectRef"):
+        continue
+    ref_value = (item.text or "").strip()
+    m = re.match(r"^([A-Za-z]+)Ref\.(.+)$", ref_value)
+    if m:
+        report_error(f"17. MDObjectRef '{ref_value}' указывает на тип ссылки, ожидается "
+                     f"объект метаданных: {m.group(1)}.{m.group(2)}")
+        check17_bad += 1
+if check17_bad == 0:
+    report_ok("17. MDObjectRef: ссылок на типы вместо объектов нет")
+
+if stopped:
+    finalize()
+    sys.exit(1)
+
+# ── Check 18: свойства новых версий формата в файле со старым штампом ──
+
+# Платформа читает файл по версии из его штампа: свойство, которого в этой версии еще не было,
+# она не понимает. Проверка сверяет найденные свойства с версией, в которой они появились.
+PROPERTY_MIN_VERSION = {
+    "TypeReductionMode": "2.18",
+    "LineNumberLength": "2.20",
+    "MinClientPlatformVersion": "2.19",
+    "UseMultilanguage": "2.21",
+}
+
+
+def _version_tuple(value):
+    try:
+        return tuple(int(p) for p in value.split("."))
+    except ValueError:
+        return None
+
+
+check18_bad = 0
+file_version = _version_tuple(version) if version else None
+if file_version:
+    present = {el.tag.split("}")[-1] for el in root.iter()}
+    for prop_name in sorted(PROPERTY_MIN_VERSION):
+        min_version = _version_tuple(PROPERTY_MIN_VERSION[prop_name])
+        if file_version >= min_version:
+            continue
+        if prop_name in present:
+            report_error(f"18. <{prop_name}> появился в формате "
+                         f"{PROPERTY_MIN_VERSION[prop_name]}, а файл объявлен как {version}")
+            check18_bad += 1
+if check18_bad == 0:
+    report_ok("18. Свойства формата: несовместимых с версией файла нет")
+
+if stopped:
+    finalize()
+    sys.exit(1)
+
+# ── Check 19: длина номера строки табличной части ──
+
+# Диапазон задан платформой: значение вне 5..9 она отвергает при загрузке.
+check19_bad = 0
+for el in root.iter():
+    if el.tag.split("}")[-1] != "LineNumberLength":
+        continue
+    raw_value = (el.text or "").strip()
+    try:
+        lnl_value = int(raw_value)
+    except ValueError:
+        report_error(f"19. LineNumberLength='{raw_value}' не число")
+        check19_bad += 1
+        continue
+    if lnl_value < 5 or lnl_value > 9:
+        report_error(f"19. LineNumberLength={lnl_value} вне допустимого диапазона 5..9")
+        check19_bad += 1
+if check19_bad == 0:
+    report_ok("19. LineNumberLength: значения в допустимом диапазоне")
+
+if stopped:
+    finalize()
+    sys.exit(1)
+
+# ── Check 20: корневой тип и группы команд ──
+
+# Корневой тип плана видов характеристик - структура из элементов v8:Type, а не строка. Текст
+# вида "Boolean + String(20)" читается человеком, но платформой не разбирается.
+check20_bad = 0
+if type_node is not None:
+    root_type_node = find(type_node, "md:Properties/md:Type")
+    if root_type_node is not None and len(root_type_node) == 0:
+        root_type_text = (root_type_node.text or "").strip()
+        if root_type_text:
+            report_error(f"20. Корневой <Type> задан текстом '{root_type_text}', ожидается "
+                         f"структура из элементов v8:Type")
+            check20_bad += 1
+
+    commands = find_all(child_obj_node, "md:Command") if child_obj_node is not None else []
+    for cmd in commands:
+        cmd_props = find(cmd, "md:Properties")
+        if cmd_props is None:
+            continue
+        cmd_name_node = find(cmd_props, "md:Name")
+        cmd_name = inner_text(cmd_name_node) if cmd_name_node is not None else "?"
+        group_node = find(cmd_props, "md:Group")
+        group_value = inner_text(group_node).strip() if group_node is not None else ""
+        if not group_value:
+            # Команда без группы не попадает ни в один раздел интерфейса: платформа отвергает
+            # пустую группу при загрузке.
+            report_error(f"20. Команда '{cmd_name}': группа не задана")
+            check20_bad += 1
+            continue
+        # Параметризуемая команда становится в группу формы, а не в раздел командного
+        # интерфейса: раздел не знает, откуда взять значение параметра.
+        param_type_node = find(cmd_props, "md:CommandParameterType")
+        has_param_type = param_type_node is not None and len(param_type_node) > 0
+        if has_param_type and re.match(r"^(ActionsPanel|NavigationPanel)", group_value):
+            report_error(f"20. Команда '{cmd_name}': группа '{group_value}' относится к "
+                         f"разделу интерфейса, а у команды задан параметр - параметризуемой "
+                         f"команде нужна группа формы")
+            check20_bad += 1
+if check20_bad == 0:
+    report_ok("20. Корневой тип и группы команд: замечаний нет")
 
 if stopped:
     finalize()

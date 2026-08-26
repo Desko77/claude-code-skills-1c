@@ -785,6 +785,98 @@ if stopped:
     finalize()
     sys.exit(1)
 
+# ── Типы и квалификаторы полей ──
+
+# Имя встроенного типа записывается с префиксом схемы XML: без него платформа считает тип
+# неизвестным и поле теряет тип. Числовой квалификатор рядом со строковым типом (и наоборот)
+# платформа отвергает: набор квалификаторов привязан к типу.
+XS_BUILTIN_TYPES = {"string", "decimal", "boolean", "dateTime", "date", "time",
+                    "base64Binary", "integer", "double"}
+
+
+def _local(el):
+    return el.tag.split("}")[-1]
+
+
+def _child(parent, name):
+    for el in parent:
+        if _local(el) == name:
+            return el
+    return None
+
+
+type_issues = 0
+parent_by_child = {child: parent for parent in root.iter() for child in parent}
+
+for type_node in root.iter():
+    if _local(type_node) != "Type":
+        continue
+    type_text = (type_node.text or "").strip()
+    if not type_text:
+        continue
+
+    if type_text in XS_BUILTIN_TYPES:
+        report_error(f"Тип '{type_text}' записан без префикса схемы XML, "
+                     f"ожидается 'xs:{type_text}'")
+        type_issues += 1
+        continue
+    if not type_text.startswith("xs:"):
+        continue
+
+    parent = parent_by_child.get(type_node)
+    if parent is None:
+        continue
+    number_q = _child(parent, "NumberQualifiers")
+    string_q = _child(parent, "StringQualifiers")
+    short_type = type_text[3:]
+
+    if short_type == "decimal":
+        if number_q is None:
+            report_error(f"Тип '{type_text}' без NumberQualifiers: платформа не знает "
+                         f"разрядность числа")
+            type_issues += 1
+        else:
+            for required in ("Digits", "FractionDigits"):
+                if _child(number_q, required) is None:
+                    report_error(f"NumberQualifiers у типа '{type_text}' без <{required}>")
+                    type_issues += 1
+        if string_q is not None:
+            report_error(f"Тип '{type_text}' несет StringQualifiers: квалификаторы не "
+                         f"соответствуют типу")
+            type_issues += 1
+    elif short_type == "string":
+        if number_q is not None:
+            report_error(f"Тип '{type_text}' несет NumberQualifiers: квалификаторы не "
+                         f"соответствуют типу")
+            type_issues += 1
+    elif number_q is not None or string_q is not None:
+        report_error(f"Тип '{type_text}' не принимает квалификаторы, а они заданы")
+        type_issues += 1
+
+    # Знак числа задается перечислением платформы: иное значение она не разбирает.
+    if number_q is not None:
+        sign_node = _child(number_q, "AllowedSign")
+        if sign_node is not None:
+            sign_value = (sign_node.text or "").strip()
+            if sign_value not in ("Any", "Nonnegative", "Negative"):
+                report_error(f"AllowedSign='{sign_value}' вне набора Any, Nonnegative, Negative")
+                type_issues += 1
+
+# Значение времени разработки для ссылочного типа - представление ссылки, а не подчеркивание.
+# Подчеркивание платформа читает как пустую ссылку и молча теряет заданное значение.
+XSI_TYPE_ATTR = "{http://www.w3.org/2001/XMLSchema-instance}type"
+for value_node in root.iter():
+    if _local(value_node) != "value":
+        continue
+    if not value_node.get(XSI_TYPE_ATTR, "").endswith("DesignTimeValue"):
+        continue
+    if (value_node.text or "").strip() == "_":
+        report_error("DesignTimeValue задан подчеркиванием: ссылочное значение так не записывается")
+        type_issues += 1
+
+if type_issues == 0:
+    report_ok("Типы и квалификаторы полей: замечаний нет")
+
 # ── Final output ──────────────────────────────────────────────
 
 finalize()

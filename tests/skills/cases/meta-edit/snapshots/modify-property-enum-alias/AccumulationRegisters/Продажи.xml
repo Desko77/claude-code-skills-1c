@@ -39,7 +39,7 @@
 			<UseStandardCommands>true</UseStandardCommands>
 			<DefaultListForm/>
 			<AuxiliaryListForm/>
-			<RegisterType>обороты</RegisterType>
+			<RegisterType>Turnovers</RegisterType>
 			<IncludeHelpInContents>false</IncludeHelpInContents>
 			<StandardAttributes>
 				<xr:StandardAttribute name="Active">

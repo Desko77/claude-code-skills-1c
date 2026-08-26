@@ -1425,11 +1425,20 @@ def main():
     parser = argparse.ArgumentParser(
         description='Decompile 1C DCS XML (DataCompositionSchema) to JSON DSL draft',
         allow_abbrev=False)
-    parser.add_argument('-InputFile', type=str, required=True)
+    # Имена параметров общие для семейства навыков по схемам компоновки и макетам;
+    # прежние приняты как синонимы: по ним написаны вызовы в чужих сценариях.
+    parser.add_argument('-TemplatePath', type=str, default=None)
+    parser.add_argument('-OutputPath', type=str, default=None)
+    parser.add_argument('-InputFile', type=str, default=None)
     parser.add_argument('-OutputFile', type=str, default=None)
     args = parser.parse_args()
 
-    in_path = os.path.abspath(args.InputFile)
+    template_path = args.TemplatePath or args.InputFile
+    if not template_path:
+        print('Параметр -TemplatePath обязателен', file=sys.stderr)
+        sys.exit(1)
+
+    in_path = os.path.abspath(template_path)
     if not os.path.isfile(in_path):
         print('Файл не найден: ' + in_path, file=sys.stderr)
         sys.exit(1)
@@ -1452,7 +1461,7 @@ def main():
         print('Корневой элемент не DataCompositionSchema: ' + found, file=sys.stderr)
         sys.exit(1)
 
-    out_path = args.OutputFile
+    out_path = args.OutputPath or args.OutputFile
     if not out_path:
         base = os.path.splitext(in_path)[0]
         out_path = base + '.skd.json'

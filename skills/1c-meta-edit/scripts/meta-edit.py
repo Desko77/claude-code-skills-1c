@@ -361,6 +361,85 @@ def lookup_ci(table, key):
     return None
 
 
+# Расстояние редактирования: сколько правок нужно, чтобы получить одно имя из другого.
+# Опечатка отличается от осмысленно другого имени именно малым расстоянием.
+def edit_distance(a, b):
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        curr = [i] + [0] * len(b)
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            curr[j] = min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost)
+        prev = curr
+    return prev[len(b)]
+
+
+def find_typo_candidate(name, candidates):
+    """Имя из списка, отличающееся не более чем на две правки.
+
+    Порог выбран так, чтобы ловить перестановку и пропуск буквы, но не считать опечаткой
+    другое свойство.
+    """
+    best = None
+    best_distance = 3
+    for candidate in candidates:
+        if candidate.lower() == name.lower():
+            return None
+        if abs(len(candidate) - len(name)) >= 3:
+            continue
+        distance = edit_distance(name.lower(), candidate.lower())
+        if distance < best_distance:
+            best_distance = distance
+            best = candidate
+    return best
+
+
+# Стандартные реквизиты платформы по типу объекта: реквизит с таким именем она отвергает при
+# загрузке. Набор зависит от типа - "Тип" стандартен у плана видов характеристик и плана
+# счетов, а у справочника такого реквизита нет и имя законно.
+STANDARD_ATTRIBUTES_COMMON = [
+    "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Predefined", "Предопределенный",
+    "PredefinedDataName", "ИмяПредопределенныхДанных",
+]
+
+STANDARD_ATTRIBUTES_BY_TYPE = {
+    "Catalog": ["Code", "Код", "Description", "Наименование", "Parent", "Родитель", "Owner", "Владелец", "IsFolder", "ЭтоГруппа"],
+    "Document": ["Date", "Дата", "Number", "Номер", "Posted", "Проведен"],
+    "ChartOfCharacteristicTypes": ["Code", "Код", "Description", "Наименование", "Parent", "Родитель", "IsFolder", "ЭтоГруппа", "Type", "Тип", "ValueType", "ТипЗначения"],
+    "ChartOfAccounts": ["Code", "Код", "Description", "Наименование", "Type", "Тип", "OffBalance", "Забалансовый", "Order", "Порядок"],
+    "ChartOfCalculationTypes": ["Code", "Код", "Description", "Наименование", "ActionPeriodIsBasic", "БазовыйПериодЯвляетсяОсновным"],
+    "BusinessProcess": ["Date", "Дата", "Number", "Номер", "Started", "Стартован", "Completed", "Завершен", "HeadTask", "ВедущаяЗадача"],
+    "Task": ["Date", "Дата", "Number", "Номер", "Description", "Наименование", "Executed", "Выполнена", "RoutePoint", "ТочкаМаршрута", "BusinessProcess", "БизнесПроцесс"],
+    "ExchangePlan": ["Code", "Код", "Description", "Наименование", "ThisNode", "ЭтотУзел", "SentNo", "НомерОтправленного", "ReceivedNo", "НомерПринятого"],
+    "InformationRegister": ["Period", "Период", "Recorder", "Регистратор", "Active", "Активность"],
+    "AccumulationRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность"],
+    "AccountingRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность", "Account", "Счет"],
+    "CalculationRegister": ["RegistrationPeriod", "ПериодРегистрации", "CalculationType", "ВидРасчета", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность", "ReversingEntry", "СторноЗапись"],
+    # У табличной части стандартный реквизит один - номер строки.
+    "TabularSection": ["LineNumber", "НомерСтроки"],
+}
+
+
+def assert_attribute_name_allowed(name, owner_type):
+    if not name:
+        return
+    normalized = name.replace('\u0451', '\u0435').replace('\u0401', '\u0415')
+    if owner_type == "TabularSection":
+        forbidden = STANDARD_ATTRIBUTES_BY_TYPE["TabularSection"]
+    else:
+        forbidden = list(STANDARD_ATTRIBUTES_COMMON)
+        forbidden += STANDARD_ATTRIBUTES_BY_TYPE.get(owner_type, [])
+    for standard in forbidden:
+        if standard.lower() == normalized.lower():
+            print(f"Имя '{name}' зарезервировано стандартным реквизитом платформы "
+                  f"у типа '{owner_type}'", file=sys.stderr)
+            sys.exit(1)
+
+
 def normalize_enum_value(prop_name, value):
     # 1. Check alias dictionary - silent auto-correct. Поиск без учета регистра: хеш-таблица
     # PowerShell находит "обороты" по ключу "Обороты", словарь python - нет.
@@ -1903,6 +1982,7 @@ def process_add(add_def):
         if child_type == "attributes":
             for item in items:
                 parsed = parse_attribute_shorthand(item)
+                assert_attribute_name_allowed(parsed["name"], obj_type)
                 if parsed["name"] in existing_names:
                     warn(f"Attribute '{parsed['name']}' already exists, skipping")
                     continue
@@ -2074,6 +2154,15 @@ def modify_properties(props_def):
                 break
 
         if prop_el is None:
+            # Имя, близкое к уже присутствующему в файле, - опечатка, а не новое свойство.
+            # Создание такого свойства уводило в конфигурацию тег, которого у платформы нет.
+            existing_names = [localname(child) for child in properties_el]
+            typo_of = find_typo_candidate(prop_name, existing_names)
+            if typo_of:
+                print(f"Свойство '{prop_name}' не найдено. Возможно, опечатка: '{typo_of}'",
+                      file=sys.stderr)
+                sys.exit(1)
+
             # Свойство создается заново, а не пропускается: конфигурация могла прийти
             # из выгрузки, где отсутствующее свойство означает значение по умолчанию.
             # Порядок внутри Properties платформе безразличен - замерено на 8.5.
@@ -2097,6 +2186,11 @@ def modify_properties(props_def):
             warn(f"Property '{prop_name}' was missing and has been created")
             modify_count += 1
             continue
+
+        # Значение свойства-перечисления проверяется и здесь: тот же набор значений, что и в
+        # остальных путях правки, иначе через modify-properties проходило любое слово.
+        if not isinstance(prop_value, bool) and prop_name in valid_enum_values:
+            prop_value = normalize_enum_value(prop_name, ps_str(prop_value))
 
         # Complex property: Owners, RegisterRecords, BasedOn, InputByString
         if prop_name in complex_property_map:
@@ -2167,6 +2261,7 @@ def modify_child_elements(modify_def, child_type):
                     attr_defs = change_value if isinstance(change_value, list) else [change_value]
                     for attr_def in attr_defs:
                         parsed = parse_attribute_shorthand(attr_def)
+                        assert_attribute_name_allowed(parsed["name"], "TabularSection")
                         existing = find_element_by_name(ts_child_obj_el, "Attribute", parsed["name"])
                         if existing is not None:
                             warn(f"Attribute '{parsed['name']}' already exists in TS '{elem_name}', skipping")
@@ -2324,7 +2419,9 @@ def modify_child_elements(modify_def, child_type):
                         struct_el = gc
                         break
                 if struct_el is None:
-                    warn(f"{xml_tag} '{elem_name}': property '{change_prop}' not found")
+                    print(f"{xml_tag} '{elem_name}': свойство '{change_prop}' не найдено",
+                          file=sys.stderr)
+                    sys.exit(1)
                 else:
                     struct_indent = get_child_indent(props_el)
                     struct_xml = build_structural_xml(
@@ -2359,7 +2456,15 @@ def modify_child_elements(modify_def, child_type):
                     info(f"Modified {xml_tag} '{elem_name}'.{change_prop} = {value_str}")
                     modify_count += 1
                 else:
-                    warn(f"{xml_tag} '{elem_name}': property '{change_prop}' not found")
+                    # modify правит существующее свойство. Отсутствие имени означает ошибку
+                    # ввода: прежнее предупреждение оставляло правку невыполненной, а код
+                    # возврата нулевым, и вызывающий считал ее примененной.
+                    existing_names = [localname(gc) for gc in props_el]
+                    typo_of = find_typo_candidate(change_prop, existing_names)
+                    hint = f" Возможно, опечатка: '{typo_of}'" if typo_of else ""
+                    print(f"{xml_tag} '{elem_name}': свойство '{change_prop}' не найдено.{hint}",
+                          file=sys.stderr)
+                    sys.exit(1)
 
 
 def process_modify(modify_def):

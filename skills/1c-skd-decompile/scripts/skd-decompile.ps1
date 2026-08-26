@@ -2,9 +2,18 @@
 # Source: https://github.com/Desko77/claude-code-skills-1c
 # Canonical implementation; skd-decompile.py is the structural mirror (same algorithm).
 param(
+	# Имена параметров общие для семейства навыков по схемам компоновки и макетам:
+	# skd-info, skd-edit, mxl-decompile принимают TemplatePath и OutputPath.
+	[string]$TemplatePath,
+	[string]$OutputPath,
+
+	# Прежние имена приняты как синонимы: по ним написаны вызовы в чужих сценариях.
 	[string]$InputFile,
 	[string]$OutputFile
 )
+
+if (-not $TemplatePath -and $InputFile) { $TemplatePath = $InputFile }
+if (-not $OutputPath -and $OutputFile) { $OutputPath = $OutputFile }
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -1568,15 +1577,15 @@ function ConvertTo-DraftJson($v, $indent) {
 
 # === Main ===
 
-if ([string]::IsNullOrEmpty($InputFile)) {
-	[Console]::Error.WriteLine('Параметр -InputFile обязателен')
+if ([string]::IsNullOrEmpty($TemplatePath)) {
+	[Console]::Error.WriteLine('Параметр -TemplatePath обязателен')
 	exit 1
 }
-if (-not (Test-Path -LiteralPath $InputFile)) {
-	[Console]::Error.WriteLine('Файл не найден: ' + $InputFile)
+if (-not (Test-Path -LiteralPath $TemplatePath)) {
+	[Console]::Error.WriteLine('Файл не найден: ' + $TemplatePath)
 	exit 1
 }
-$inPath = (Resolve-Path -LiteralPath $InputFile).Path
+$inPath = (Resolve-Path -LiteralPath $TemplatePath).Path
 
 $xmlDoc = New-Object System.Xml.XmlDocument
 $xmlDoc.PreserveWhitespace = $false
@@ -1595,7 +1604,7 @@ if ($null -eq $root -or $root.LocalName -cne 'DataCompositionSchema') {
 	exit 1
 }
 
-$outPath = $OutputFile
+$outPath = $OutputPath
 if ([string]::IsNullOrEmpty($outPath)) {
 	$dir = [System.IO.Path]::GetDirectoryName($inPath)
 	$base = [System.IO.Path]::GetFileNameWithoutExtension($inPath)

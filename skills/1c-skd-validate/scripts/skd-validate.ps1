@@ -830,6 +830,86 @@ if (-not $script:stopped -and $IndexPath) {
 	}
 }
 
+# --- Типы и квалификаторы полей ---
+
+# Имя встроенного типа записывается с префиксом схемы XML: без него платформа считает тип
+# неизвестным и поле теряет тип. Числовой квалификатор рядом со строковым типом (и наоборот)
+# платформа отвергает: набор квалификаторов привязан к типу.
+$xsBuiltinTypes = @("string","decimal","boolean","dateTime","date","time","base64Binary","integer","double")
+
+$typeIssues = 0
+$typeNodes = $root.SelectNodes("//*[local-name()='Type']", $ns)
+foreach ($typeNode in $typeNodes) {
+	$typeText = $typeNode.InnerText.Trim()
+	if (-not $typeText) { continue }
+
+	if ($typeText -in $xsBuiltinTypes) {
+		Report-Error "Тип '$typeText' записан без префикса схемы XML, ожидается 'xs:$typeText'"
+		$typeIssues++
+		continue
+	}
+	if ($typeText -notlike "xs:*") { continue }
+
+	$parent = $typeNode.ParentNode
+	$numberQ = $parent.SelectSingleNode("*[local-name()='NumberQualifiers']", $ns)
+	$stringQ = $parent.SelectSingleNode("*[local-name()='StringQualifiers']", $ns)
+	$shortType = $typeText.Substring(3)
+
+	if ($shortType -eq "decimal") {
+		if (-not $numberQ) {
+			Report-Error "Тип '$typeText' без NumberQualifiers: платформа не знает разрядность числа"
+			$typeIssues++
+		} else {
+			foreach ($required in @("Digits","FractionDigits")) {
+				if (-not $numberQ.SelectSingleNode("*[local-name()='$required']", $ns)) {
+					Report-Error "NumberQualifiers у типа '$typeText' без <$required>"
+					$typeIssues++
+				}
+			}
+		}
+		if ($stringQ) {
+			Report-Error "Тип '$typeText' несет StringQualifiers: квалификаторы не соответствуют типу"
+			$typeIssues++
+		}
+	} elseif ($shortType -eq "string") {
+		if ($numberQ) {
+			Report-Error "Тип '$typeText' несет NumberQualifiers: квалификаторы не соответствуют типу"
+			$typeIssues++
+		}
+	} elseif ($numberQ -or $stringQ) {
+		Report-Error "Тип '$typeText' не принимает квалификаторы, а они заданы"
+		$typeIssues++
+	}
+
+	# Знак числа задается перечислением платформы: иное значение она не разбирает.
+	if ($numberQ) {
+		$signNode = $numberQ.SelectSingleNode("*[local-name()='AllowedSign']", $ns)
+		if ($signNode) {
+			$signValue = $signNode.InnerText.Trim()
+			if ($signValue -notin @("Any","Nonnegative","Negative")) {
+				Report-Error "AllowedSign='$signValue' вне набора Any, Nonnegative, Negative"
+				$typeIssues++
+			}
+		}
+	}
+}
+
+# Значение времени разработки для ссылочного типа - представление ссылки, а не подчеркивание.
+# Подчеркивание платформа читает как пустую ссылку и молча теряет заданное значение.
+$designTimeNodes = $root.SelectNodes("//*[local-name()='value']", $ns)
+foreach ($valueNode in $designTimeNodes) {
+	$xsiType = $valueNode.GetAttribute("type", "http://www.w3.org/2001/XMLSchema-instance")
+	if ($xsiType -notmatch 'DesignTimeValue$') { continue }
+	if ($valueNode.InnerText.Trim() -eq "_") {
+		Report-Error "DesignTimeValue задан подчеркиванием: ссылочное значение так не записывается"
+		$typeIssues++
+	}
+}
+
+if ($typeIssues -eq 0) {
+	Report-OK "Типы и квалификаторы полей: замечаний нет"
+}
+
 # --- Final output ---
 
 & $finalize

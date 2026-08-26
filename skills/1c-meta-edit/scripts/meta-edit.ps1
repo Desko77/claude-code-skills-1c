@@ -222,6 +222,89 @@ $script:validEnumValues = @{
 	"Indexing"                       = @("DontIndex","Index","IndexWithAdditionalOrder")
 }
 
+# Расстояние редактирования: сколько правок нужно, чтобы получить одно имя из другого.
+# Опечатка отличается от осмысленно другого имени именно малым расстоянием.
+function Get-EditDistance {
+	param([string]$A, [string]$B)
+	$lenA = $A.Length
+	$lenB = $B.Length
+	if ($lenA -eq 0) { return $lenB }
+	if ($lenB -eq 0) { return $lenA }
+	$prev = 0..$lenB
+	for ($i = 1; $i -le $lenA; $i++) {
+		$curr = @($i) + (1..$lenB | ForEach-Object { 0 })
+		for ($j = 1; $j -le $lenB; $j++) {
+			$cost = if ($A[$i - 1] -eq $B[$j - 1]) { 0 } else { 1 }
+			$curr[$j] = [Math]::Min([Math]::Min($curr[$j - 1] + 1, $prev[$j] + 1), $prev[$j - 1] + $cost)
+		}
+		$prev = $curr
+	}
+	return $prev[$lenB]
+}
+
+# Имя из списка, отличающееся от заданного не более чем на две правки. Порог выбран так, чтобы
+# ловить перестановку и пропуск буквы, но не считать опечаткой другое свойство.
+function Find-TypoCandidate {
+	param([string]$Name, [string[]]$Candidates)
+	$best = $null
+	$bestDistance = 3
+	foreach ($candidate in $Candidates) {
+		if ($candidate -ieq $Name) { return $null }
+		if ([Math]::Abs($candidate.Length - $Name.Length) -ge 3) { continue }
+		$distance = Get-EditDistance $Name.ToLower() $candidate.ToLower()
+		if ($distance -lt $bestDistance) { $bestDistance = $distance; $best = $candidate }
+	}
+	return $best
+}
+
+# Стандартные реквизиты платформы по типу объекта: реквизит с таким именем она отвергает при
+# загрузке. Набор зависит от типа - "Тип" стандартен у плана видов характеристик и плана
+# счетов, а у справочника такого реквизита нет и имя законно.
+$script:standardAttributesCommon = @(
+	"Ref","Ссылка","DeletionMark","ПометкаУдаления","Predefined","Предопределенный",
+	"PredefinedDataName","ИмяПредопределенныхДанных"
+)
+
+$script:standardAttributesByType = @{
+	"Catalog" = @("Code","Код","Description","Наименование","Parent","Родитель","Owner","Владелец","IsFolder","ЭтоГруппа")
+	"Document" = @("Date","Дата","Number","Номер","Posted","Проведен")
+	"ChartOfCharacteristicTypes" = @("Code","Код","Description","Наименование","Parent","Родитель","IsFolder","ЭтоГруппа","Type","Тип","ValueType","ТипЗначения")
+	"ChartOfAccounts" = @("Code","Код","Description","Наименование","Type","Тип","OffBalance","Забалансовый","Order","Порядок")
+	"ChartOfCalculationTypes" = @("Code","Код","Description","Наименование","ActionPeriodIsBasic","БазовыйПериодЯвляетсяОсновным")
+	"BusinessProcess" = @("Date","Дата","Number","Номер","Started","Стартован","Completed","Завершен","HeadTask","ВедущаяЗадача")
+	"Task" = @("Date","Дата","Number","Номер","Description","Наименование","Executed","Выполнена","RoutePoint","ТочкаМаршрута","BusinessProcess","БизнесПроцесс")
+	"ExchangePlan" = @("Code","Код","Description","Наименование","ThisNode","ЭтотУзел","SentNo","НомерОтправленного","ReceivedNo","НомерПринятого")
+	"InformationRegister" = @("Period","Период","Recorder","Регистратор","Active","Активность")
+	"AccumulationRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность")
+	"AccountingRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность","Account","Счет")
+	"CalculationRegister" = @("RegistrationPeriod","ПериодРегистрации","CalculationType","ВидРасчета","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность","ReversingEntry","СторноЗапись")
+	# У табличной части стандартный реквизит один - номер строки.
+	"TabularSection" = @("LineNumber","НомерСтроки")
+}
+
+function Assert-AttributeNameAllowed {
+	param([string]$Name, [string]$OwnerType)
+	if (-not $Name) { return }
+	$normalized = $Name.Replace([char]0x451, [char]0x435).Replace([char]0x401, [char]0x415)
+
+	$forbidden = @()
+	if ($OwnerType -eq "TabularSection") {
+		$forbidden = $script:standardAttributesByType["TabularSection"]
+	} else {
+		$forbidden = $script:standardAttributesCommon
+		if ($script:standardAttributesByType.ContainsKey($OwnerType)) {
+			$forbidden += $script:standardAttributesByType[$OwnerType]
+		}
+	}
+
+	foreach ($standard in $forbidden) {
+		if ($standard -ieq $normalized) {
+			Write-Error "Имя '$Name' зарезервировано стандартным реквизитом платформы у типа '$OwnerType'"
+			exit 1
+		}
+	}
+}
+
 function Normalize-EnumValue {
 	param([string]$propName, [string]$value)
 	# 1. Check alias dictionary — silent auto-correct
@@ -994,6 +1077,7 @@ function Collapse-ChildObjectsIfEmpty {
 
 function Parse-AttributeShorthand {
 	param($val)
+
 
 	if ($val -is [string]) {
 		$str = "$val"
@@ -1977,6 +2061,7 @@ function Process-Add($addDef) {
 			"attributes" {
 				foreach ($item in $items) {
 					$parsed = Parse-AttributeShorthand $item
+					Assert-AttributeNameAllowed $parsed.name $script:objType
 					if ($existingNames.ContainsKey($parsed.name)) {
 						Warn "Attribute '$($parsed.name)' already exists, skipping"
 						continue
@@ -2169,6 +2254,18 @@ function Modify-Properties($propsDef) {
 		}
 
 		if (-not $propEl) {
+			# Имя, близкое к уже присутствующему в файле, - опечатка, а не новое свойство.
+			# Создание такого свойства уводило в конфигурацию тег, которого у платформы нет.
+			$existingNames = @()
+			foreach ($child in $script:propertiesEl.ChildNodes) {
+				if ($child.NodeType -eq 'Element') { $existingNames += $child.LocalName }
+			}
+			$typoOf = Find-TypoCandidate $propName $existingNames
+			if ($typoOf) {
+				Write-Error "Свойство '$propName' не найдено. Возможно, опечатка: '$typoOf'"
+				exit 1
+			}
+
 			# Свойство создается заново, а не пропускается: конфигурация могла прийти из
 			# выгрузки, где отсутствующее свойство означает значение по умолчанию.
 			# Порядок внутри Properties платформе безразличен - замерено на 8.5.
@@ -2194,6 +2291,12 @@ function Modify-Properties($propsDef) {
 			Warn "Property '$propName' was missing and has been created"
 			$script:modifyCount++
 			return
+		}
+
+		# Значение свойства-перечисления проверяется и здесь: тот же набор значений, что и в
+		# остальных путях правки, иначе через modify-properties проходило любое слово.
+		if ($propValue -isnot [bool] -and $script:validEnumValues.ContainsKey($propName)) {
+			$propValue = Normalize-EnumValue $propName "$propValue"
 		}
 
 		# Complex property: Owners, RegisterRecords, BasedOn, InputByString
@@ -2281,6 +2384,7 @@ function Modify-ChildElements($modifyDef, [string]$childType) {
 						}
 						foreach ($attrDef in @($changeValue)) {
 							$parsed = Parse-AttributeShorthand $attrDef
+							Assert-AttributeNameAllowed $parsed.name "TabularSection"
 							$existing = Find-ElementByName $tsChildObjEl "Attribute" $parsed.name
 							if ($existing) {
 								Warn "Attribute '$($parsed.name)' already exists in TS '$elemName', skipping"
@@ -2455,7 +2559,8 @@ function Modify-ChildElements($modifyDef, [string]$childType) {
 						}
 					}
 					if (-not $structEl) {
-						Warn "$xmlTag '$elemName': property '$changeProp' not found"
+						Write-Error "$xmlTag '$elemName': свойство '$changeProp' не найдено"
+						exit 1
 					} else {
 						$structIndent = Get-ChildIndent $propsEl
 						$structXml = Build-StructuralXml $structIndent $changeProp $changeValue (Get-AttributeTypeString $propsEl)
@@ -2494,7 +2599,20 @@ function Modify-ChildElements($modifyDef, [string]$childType) {
 						Info "Modified $xmlTag '$elemName'.$changeProp = $valueStr"
 						$script:modifyCount++
 					} else {
-						Warn "$xmlTag '$elemName': property '$changeProp' not found"
+						# Имя, близкое к уже присутствующему, - опечатка, а не свойство со
+						# значением по умолчанию. Прежнее предупреждение оставляло правку
+						# невыполненной, а код возврата - нулевым.
+						$existingNames = @()
+						foreach ($gc in $propsEl.ChildNodes) {
+							if ($gc.NodeType -eq 'Element') { $existingNames += $gc.LocalName }
+						}
+						$typoOf = Find-TypoCandidate $changeProp $existingNames
+						$hint = if ($typoOf) { " Возможно, опечатка: '$typoOf'" } else { "" }
+						# modify правит существующее свойство. Отсутствие имени означает
+						# ошибку ввода: прежнее предупреждение оставляло правку невыполненной,
+						# а код возврата нулевым, и вызывающий считал ее примененной.
+						Write-Error "$xmlTag '$elemName': свойство '$changeProp' не найдено.$hint"
+						exit 1
 					}
 				}
 			}
