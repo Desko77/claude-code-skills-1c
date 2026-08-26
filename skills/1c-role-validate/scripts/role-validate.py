@@ -13,6 +13,15 @@ GUID_PATTERN = re.compile(
 RIGHTS_NS = 'http://v8.1c.ru/8.2/roles'
 
 # --- Known rights per object type ---
+# Типы метаданных, у которых прав в роли нет вовсе (таблица типов, docs/1c-configuration-spec.md).
+# Блок прав на такой тип платформа не примет, поэтому это ошибка, а не предупреждение.
+TYPES_WITHOUT_RIGHTS = [
+    "CommandGroup", "CommonModule", "CommonPicture", "CommonTemplate", "DefinedType",
+    "DocumentNumerator", "Enum", "EventSubscription", "FunctionalOption",
+    "FunctionalOptionsParameter", "Language", "Role", "ScheduledJob", "SettingsStorage",
+    "Style", "StyleItem", "WSReference", "XDTOPackage",
+]
+
 KNOWN_RIGHTS = {
     'Configuration': [
         'Administration', 'DataAdministration', 'UpdateDataBaseConfiguration',
@@ -126,6 +135,27 @@ KNOWN_RIGHTS = {
 }
 
 NESTED_RIGHTS = ['View', 'Edit']
+
+# Права вложенных объектов зависят от вида: у операции веб-сервиса и метода HTTP-сервиса это
+# Use, у реквизита - View и Edit, у перерасчета - Read и Update. Карта совпадает с role-compile.
+NESTED_RIGHTS_BY_KIND = {
+    'Attribute': ['View', 'Edit'],
+    'TabularSection': ['View', 'Edit'],
+    'Field': ['View', 'Edit'],
+    'Command': ['View'],
+    'Subsystem': ['View'],
+    'Operation': ['Use'],
+    'Method': ['Use'],
+    'URLTemplate': ['Use'],
+    'IntegrationServiceChannel': ['Use'],
+    'Recalculation': ['Read', 'Update'],
+}
+
+# Виды, набор прав которых этим навыком не замерен: имя признается, права не проверяются.
+NESTED_KINDS_RIGHTS_NOT_CHECKED = ['Table', 'Cube', 'Dimension', 'ResourceField', 'Function']
+
+# Типы, права которых не замерены: имя признается, набор прав не проверяется.
+TYPES_RIGHTS_NOT_CHECKED = ['ExternalDataSource']
 CHANNEL_RIGHTS = ['Use']
 COMMAND_RIGHTS = ['View']
 
@@ -321,8 +351,12 @@ def main():
         is_nested = is_nested_object(obj_name)
 
         # Check object type is known
-        if not is_nested and object_type not in KNOWN_RIGHTS:
-            report_warn(f"{obj_name}: unknown object type '{object_type}'")
+        if (not is_nested and object_type not in KNOWN_RIGHTS
+                and object_type not in TYPES_RIGHTS_NOT_CHECKED):
+            if object_type in TYPES_WITHOUT_RIGHTS:
+                report_error(f"{obj_name}: тип '{object_type}' не имеет прав в роли")
+            else:
+                report_warn(f"{obj_name}: неизвестный тип объекта '{object_type}'")
 
         # Check rights
         for child in obj:
@@ -367,15 +401,13 @@ def main():
 
             # Validate right name
             if is_nested:
-                if '.Command.' in obj_name:
-                    if r_name not in COMMAND_RIGHTS:
-                        report_warn(f"{obj_name}: '{r_name}' not valid for commands (only: View)")
-                elif '.IntegrationServiceChannel.' in obj_name:
-                    if r_name not in CHANNEL_RIGHTS:
-                        report_warn(f"{obj_name}: '{r_name}' not valid for channels (only: Use)")
-                else:
-                    if r_name not in NESTED_RIGHTS:
-                        report_warn(f"{obj_name}: '{r_name}' not valid for nested objects (only: View, Edit)")
+                # Вид вложенности - предпоследний сегмент имени: пары идут как "вид.имя".
+                kind = obj_name.split('.')[-2]
+                allowed_nested = NESTED_RIGHTS_BY_KIND.get(kind)
+                if kind not in NESTED_KINDS_RIGHTS_NOT_CHECKED and allowed_nested is not None:
+                    if r_name not in allowed_nested:
+                        report_warn(f"{obj_name}: право '{r_name}' не существует у вида "
+                                    f"'{kind}' (допустимо: {', '.join(allowed_nested)})")
             elif object_type in KNOWN_RIGHTS:
                 valid_rights = KNOWN_RIGHTS[object_type]
                 if r_name not in valid_rights:

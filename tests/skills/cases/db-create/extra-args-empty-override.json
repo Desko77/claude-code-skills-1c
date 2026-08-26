@@ -1,0 +1,34 @@
+{
+  "name": "Пустое значение аргумента снимает v8args из настроек проекта (fake platform)",
+  "_note": "Только python: пустая строка не доезжает до скрипта через powershell -File, ее теряет разбор командной строки самой оболочки - и в 5.1, и в 7.",
+  "runtimeOnly": "python",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\necho ARGS: %*\r\nexit /b 0\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": ".v8-project.json",
+        "content": "{\n  \"v8path\": \"fake\",\n  \"v8args\": [\"/UseHwLicenses+\"]\n}\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBasePath",
+    "{workDir}\\ib",
+    "-AdditionalV8Arguments",
+    ""
+  ],
+  "expect": {
+    "stdoutContains": "ARGS: CREATEINFOBASE",
+    "stdoutNotContains": "/UseHwLicenses+"
+  },
+  "expectError": true,
+  "noSnapshot": "проверяется командная строка в stdout, файлов на выходе нет",
+  "osOnly": "win32"
+}

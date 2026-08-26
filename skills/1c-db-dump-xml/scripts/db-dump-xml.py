@@ -74,6 +74,11 @@ def hide_platform_secret(text):
     keys = r'(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     masked = re.sub(keys + r'"[^"]*"', r'\g<1>"***"', text)
     masked = re.sub(keys + r'([^\s"]\S*)', r'\g<1>***', masked)
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    long_keys = r'(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    masked = re.sub(long_keys + r'"[^"]*"', r'\g<1>"***"', masked)
+    masked = re.sub(long_keys + r'([^\s"]\S*)', r'\g<1>***', masked)
     return masked
 
 
@@ -219,9 +224,17 @@ def main():
         if args.Mode == "Full":
             print("Executing full configuration dump...")
         elif args.Mode == "Changes":
-            print("Executing incremental configuration dump...")
-            arguments.append("-update")
-            arguments.append("-force")
+            # Инкрементальная выгрузка сверяется с файлом версий рядом с исходниками. При
+            # первой выгрузке в пустой каталог его нет, и платформа отказывает сообщением
+            # "Не удалось найти файл версий". Первый раз выгружаем полностью.
+            dump_info = os.path.join(args.ConfigDir, "ConfigDumpInfo.xml")
+            if not os.path.isfile(dump_info):
+                print(f"Инкремент невозможен: файл версий не найден ({dump_info})")
+                print("Executing full configuration dump...")
+            else:
+                print("Executing incremental configuration dump...")
+                arguments.append("-update")
+                arguments.append("-force")
         elif args.Mode == "Partial":
             print("Executing partial configuration dump...")
             object_list = [obj.strip() for obj in args.Objects.split(",") if obj.strip()]

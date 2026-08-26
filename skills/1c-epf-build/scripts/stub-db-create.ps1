@@ -7,10 +7,20 @@ param(
 	[Parameter(Mandatory)]
 	[string]$V8Path,
 
-	[string]$TempBasePath
+	[string]$TempBasePath,
+
+	[string]$AdditionalV8Arguments
 )
 
 $ErrorActionPreference = "Stop"
+
+# Дополнительные аргументы приходят от вызывающего скрипта одной строкой через запятую и
+# подмешиваются в каждый запуск платформы: лицензионный ключ нужен и созданию базы, и
+# загрузке конфигурации, иначе цепочка обрывается на первом же шаге.
+$extraSuffix = ""
+foreach ($extraArg in @($AdditionalV8Arguments -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })) {
+	$extraSuffix += " $extraArg"
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Вердикт платформы (общий блок, версия 1) ---
@@ -26,6 +36,11 @@ function Hide-PlatformSecret {
     $keys = '(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     $masked = $Text -replace ($keys + '"[^"]*"'), '$1"***"'
     $masked = $masked -replace ($keys + '([^\s"]\S*)'), '$1***'
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    $longKeys = '(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    $masked = $masked -replace ($longKeys + '"[^"]*"'), '$1"***"'
+    $masked = $masked -replace ($longKeys + '([^\s"]\S*)'), '$1***'
     return $masked
 }
 
@@ -1369,7 +1384,7 @@ $propsXml		</Properties>$childObjLine
 Write-Host "Creating infobase: $TempBasePath"
 $createLog = "$TempBasePath.create.log"
 $createResult = "$TempBasePath.create.result"
-$createArgs = "CREATEINFOBASE File=`"$TempBasePath`" /Out `"$createLog`" /DumpResult `"$createResult`" /DisableStartupDialogs"
+$createArgs = "CREATEINFOBASE File=`"$TempBasePath`" /Out `"$createLog`" /DumpResult `"$createResult`" /DisableStartupDialogs$extraSuffix"
 $proc = Start-Process -FilePath $V8Path -ArgumentList $createArgs -NoNewWindow -Wait -PassThru
 $createLogText = $null
 if (Test-Path $createLog) { $createLogText = Get-Content $createLog -Raw -ErrorAction SilentlyContinue }
@@ -1388,7 +1403,7 @@ if ($hasRefTypes) {
 	Write-Host "Loading configuration from files..."
 	$loadLog = "$TempBasePath.load.log"
 	$loadResult = "$TempBasePath.load.result"
-	$loadArgs = "DESIGNER /F`"$TempBasePath`" /LoadConfigFromFiles `"$cfgDir`" /Out `"$loadLog`" /DumpResult `"$loadResult`" /DisableStartupDialogs"
+	$loadArgs = "DESIGNER /F`"$TempBasePath`" /LoadConfigFromFiles `"$cfgDir`" /Out `"$loadLog`" /DumpResult `"$loadResult`" /DisableStartupDialogs$extraSuffix"
 	$proc = Start-Process -FilePath $V8Path -ArgumentList $loadArgs -NoNewWindow -Wait -PassThru
 	$loadLogText = $null
 	if (Test-Path $loadLog) { $loadLogText = Get-Content $loadLog -Raw -ErrorAction SilentlyContinue }
@@ -1403,7 +1418,7 @@ if ($hasRefTypes) {
 	Write-Host "Updating database configuration..."
 	$updateLog = "$TempBasePath.update.log"
 	$updateResult = "$TempBasePath.update.result"
-	$updateArgs = "DESIGNER /F`"$TempBasePath`" /UpdateDBCfg /Out `"$updateLog`" /DumpResult `"$updateResult`" /DisableStartupDialogs"
+	$updateArgs = "DESIGNER /F`"$TempBasePath`" /UpdateDBCfg /Out `"$updateLog`" /DumpResult `"$updateResult`" /DisableStartupDialogs$extraSuffix"
 	$proc = Start-Process -FilePath $V8Path -ArgumentList $updateArgs -NoNewWindow -Wait -PassThru
 	$updateLogText = $null
 	if (Test-Path $updateLog) { $updateLogText = Get-Content $updateLog -Raw -ErrorAction SilentlyContinue }

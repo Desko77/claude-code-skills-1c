@@ -18,6 +18,15 @@ $ErrorActionPreference = "Stop"
 
 # --- 1. Known rights per object type ---
 
+# Типы метаданных, у которых прав в роли нет вовсе (таблица типов, docs/1c-configuration-spec.md).
+# Блок прав на такой тип платформа не примет, поэтому это ошибка, а не предупреждение.
+$script:typesWithoutRights = @(
+	"CommandGroup","CommonModule","CommonPicture","CommonTemplate","DefinedType",
+	"DocumentNumerator","Enum","EventSubscription","FunctionalOption",
+	"FunctionalOptionsParameter","Language","Role","ScheduledJob","SettingsStorage",
+	"Style","StyleItem","WSReference","XDTOPackage"
+)
+
 $script:knownRights = @{
 	"Configuration" = @(
 		"Administration","DataAdministration","UpdateDataBaseConfiguration",
@@ -131,6 +140,27 @@ $script:knownRights = @{
 }
 
 $script:nestedRights = @("View","Edit")
+
+# Права вложенных объектов зависят от вида: у операции веб-сервиса и метода HTTP-сервиса это
+# Use, у реквизита - View и Edit, у перерасчета - Read и Update. Карта совпадает с role-compile.
+$script:nestedRightsByKind = @{
+	"Attribute" = @("View","Edit")
+	"TabularSection" = @("View","Edit")
+	"Field" = @("View","Edit")
+	"Command" = @("View")
+	"Subsystem" = @("View")
+	"Operation" = @("Use")
+	"Method" = @("Use")
+	"URLTemplate" = @("Use")
+	"IntegrationServiceChannel" = @("Use")
+	"Recalculation" = @("Read","Update")
+}
+
+# Виды, набор прав которых этим навыком не замерен: имя признается, права не проверяются.
+$script:nestedKindsRightsNotChecked = @("Table","Cube","Dimension","ResourceField","Function")
+
+# Типы, права которых не замерены: имя признается, набор прав не проверяется.
+$script:typesRightsNotChecked = @("ExternalDataSource")
 $script:channelRights = @("Use")
 $script:commandRights = @("View")
 
@@ -307,8 +337,12 @@ foreach ($obj in $objects) {
 	$isNested = Is-NestedObject $objName
 
 	# Check object type is known
-	if (-not $isNested -and -not $script:knownRights.ContainsKey($objectType)) {
-		Report-Warn "${objName}: unknown object type '$objectType'"
+	if (-not $isNested -and -not $script:knownRights.ContainsKey($objectType) -and $objectType -notin $script:typesRightsNotChecked) {
+		if ($objectType -in $script:typesWithoutRights) {
+			Report-Error "${objName}: тип '$objectType' не имеет прав в роли"
+		} else {
+			Report-Warn "${objName}: неизвестный тип объекта '$objectType'"
+		}
 	}
 
 	# Check rights
@@ -350,17 +384,12 @@ foreach ($obj in $objects) {
 
 		# Validate right name
 		if ($isNested) {
-			if ($objName -match '\.Command\.') {
-				if ($rName -notin $script:commandRights) {
-					Report-Warn "${objName}: '$rName' not valid for commands (only: View)"
-				}
-			} elseif ($objName -match '\.IntegrationServiceChannel\.') {
-				if ($rName -notin $script:channelRights) {
-					Report-Warn "${objName}: '$rName' not valid for channels (only: Use)"
-				}
-			} else {
-				if ($rName -notin $script:nestedRights) {
-					Report-Warn "${objName}: '$rName' not valid for nested objects (only: View, Edit)"
+			# Вид вложенности - предпоследний сегмент имени: пары идут как "вид.имя".
+			$kind = $objName.Split(".")[-2]
+			if ($kind -notin $script:nestedKindsRightsNotChecked -and $script:nestedRightsByKind.ContainsKey($kind)) {
+				$allowedNested = $script:nestedRightsByKind[$kind]
+				if ($rName -notin $allowedNested) {
+					Report-Warn "${objName}: право '$rName' не существует у вида '$kind' (допустимо: $($allowedNested -join ', '))"
 				}
 			}
 		} elseif ($script:knownRights.ContainsKey($objectType)) {

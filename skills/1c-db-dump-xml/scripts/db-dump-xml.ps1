@@ -114,6 +114,11 @@ function Hide-PlatformSecret {
     $keys = '(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     $masked = $Text -replace ($keys + '"[^"]*"'), '$1"***"'
     $masked = $masked -replace ($keys + '([^\s"]\S*)'), '$1***'
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    $longKeys = '(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    $masked = $masked -replace ($longKeys + '"[^"]*"'), '$1"***"'
+    $masked = $masked -replace ($longKeys + '([^\s"]\S*)'), '$1***'
     return $masked
 }
 
@@ -273,9 +278,18 @@ try {
             Write-Host "Executing full configuration dump..."
         }
         "Changes" {
-            Write-Host "Executing incremental configuration dump..."
-            $arguments += "-update"
-            $arguments += "-force"
+            # Инкрементальная выгрузка сверяется с файлом версий рядом с исходниками. При
+            # первой выгрузке в пустой каталог его нет, и платформа отказывает сообщением
+            # "Не удалось найти файл версий". Первый раз выгружаем полностью.
+            $dumpInfo = Join-Path $ConfigDir "ConfigDumpInfo.xml"
+            if (Test-Path $dumpInfo) {
+                Write-Host "Executing incremental configuration dump..."
+                $arguments += "-update"
+                $arguments += "-force"
+            } else {
+                Write-Host "Инкремент невозможен: файл версий не найден ($dumpInfo)"
+                Write-Host "Executing full configuration dump..."
+            }
         }
         "Partial" {
             Write-Host "Executing partial configuration dump..."

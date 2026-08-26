@@ -74,6 +74,11 @@ def hide_platform_secret(text):
     keys = r'(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     masked = re.sub(keys + r'"[^"]*"', r'\g<1>"***"', text)
     masked = re.sub(keys + r'([^\s"]\S*)', r'\g<1>***', masked)
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    long_keys = r'(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    masked = re.sub(long_keys + r'"[^"]*"', r'\g<1>"***"', masked)
+    masked = re.sub(long_keys + r'([^\s"]\S*)', r'\g<1>***', masked)
     return masked
 
 

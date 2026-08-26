@@ -1,0 +1,27 @@
+{
+  "name": "Отказ: -UseTemplate при выбранном движке ibcmd",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "ibcmd.cmd",
+        "content": "@echo off\r\necho ARGS: %*\r\nexit /b 0\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "tpl.cf",
+        "content": "fake template\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\ibcmd.cmd",
+    "-InfoBasePath",
+    "{workDir}\\ib",
+    "-UseTemplate",
+    "{workDir}\\tpl.cf"
+  ],
+  "expectError": "не поддерживается движком ibcmd",
+  "noSnapshot": "негативный кейс: платформа не запускается"
+}

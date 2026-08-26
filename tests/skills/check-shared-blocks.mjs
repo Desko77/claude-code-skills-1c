@@ -20,7 +20,7 @@
 // Выход 1 при расхождении.
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)));
 const SKILLS = resolve(ROOT, '../..', 'skills');
@@ -46,20 +46,25 @@ function skillScript(skill, ext) {
   return files.length ? files.map((f) => join(dir, f)) : null;
 }
 
-// Файл скила, в котором лежит блок. У скила бывает несколько скриптов одного порта
-// (epf-build плюс stub-db-create), поэтому берется тот, где найден маркер.
-function findBlock(skill, ext, marker, endMarker) {
+// ВСЕ файлы скила, где лежит блок. У скила бывает несколько скриптов одного порта
+// (epf-build плюс stub-db-create), и проверяется каждая копия: остановка на первой оставляла
+// вторую непроверенной, и правка эталона до нее молча не доезжала.
+function findBlocks(skill, ext, marker, endMarker) {
   const files = skillScript(skill, ext);
-  if (!files) return null;
+  if (!files) return [];
+  const found = [];
   for (const file of files) {
     const text = readFileSync(file, 'utf8').replace(/^﻿/, '');
     const from = text.indexOf(marker);
     if (from < 0) continue;
     const to = text.indexOf(endMarker, from + marker.length);
-    if (to < 0) return { file, text, body: null, broken: 'не найден конец блока' };
-    return { file, text, body: normalize(text.slice(from, to)) };
+    if (to < 0) {
+      found.push({ file, text, body: null, broken: 'не найден конец блока' });
+      continue;
+    }
+    found.push({ file, text, body: normalize(text.slice(from, to)) });
   }
-  return null;
+  return found;
 }
 
 // Скилы, где маркер есть фактически - для сверки со списком потребителей.
@@ -91,25 +96,28 @@ for (const [blockName, ports] of Object.entries(manifest)) {
     const { маркер: marker, конец: endMarker, вызов: call, эталон: reference } = spec;
     const consumers = spec['потребители'];
 
-    const referenceBlock = findBlock(reference, suffix, marker, endMarker);
+    const referenceBlock = findBlocks(reference, suffix, marker, endMarker)[0];
     if (!referenceBlock || !referenceBlock.body) {
       problems.push(`${blockName}/${ext}: у эталона ${reference} блок не найден`);
       continue;
     }
 
     for (const skill of consumers) {
-      checked++;
-      const found = findBlock(skill, suffix, marker, endMarker);
-      if (!found) {
+      const copies = findBlocks(skill, suffix, marker, endMarker);
+      if (copies.length === 0) {
+        checked++;
         problems.push(`${blockName}/${ext}: ${skill} - блока нет, а он в списке потребителей`);
         continue;
       }
+      for (const found of copies) {
+      checked++;
+      const where = copies.length > 1 ? `${skill} (${basename(found.file)})` : skill;
       if (found.broken) {
-        problems.push(`${blockName}/${ext}: ${skill} - ${found.broken}`);
+        problems.push(`${blockName}/${ext}: ${where} - ${found.broken}`);
         continue;
       }
       if (found.body !== referenceBlock.body) {
-        problems.push(`${blockName}/${ext}: ${skill} - блок разошелся с эталоном ${reference}`);
+        problems.push(`${blockName}/${ext}: ${where} - блок разошелся с эталоном ${reference}`);
       }
       // Вызов ищется вне самого блока: внутри блока имя встречается в объявлении.
       // По границе имени, а не подстрокой: Write-PlatformVerdictDisabled содержит
@@ -123,7 +131,8 @@ for (const [blockName, ports] of Object.entries(manifest)) {
       const escaped = call.replace(/[^A-Za-z0-9_-]/g, (c) => '\\' + c);
       const callRe = new RegExp('(?<![A-Za-z0-9_-])' + escaped + '(?![A-Za-z0-9_-])');
       if (!callRe.test(outside)) {
-        problems.push(`${blockName}/${ext}: ${skill} - блок есть, но ${call} не вызывается`);
+        problems.push(`${blockName}/${ext}: ${where} - блок есть, но ${call} не вызывается`);
+      }
       }
     }
 

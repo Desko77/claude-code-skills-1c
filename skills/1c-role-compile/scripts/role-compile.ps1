@@ -262,8 +262,11 @@ function Translate-ObjectName {
 	$parts = $name.Split(".")
 	$result = @()
 	foreach ($p in $parts) {
-		if ($script:typeAliases.ContainsKey($p)) {
-			$result += $script:typeAliases[$p]
+		# Написание с точками над е и без них равноправно: пользователь пишет как привык, а в
+		# карте алиасов ключ один. Имя самого объекта не нормализуется - оно идет как есть.
+		$normalized = $p.Replace('ё', 'е').Replace('Ё', 'Е')
+		if ($script:typeAliases.ContainsKey($normalized)) {
+			$result += $script:typeAliases[$normalized]
 		} else {
 			$result += $p
 		}
@@ -398,6 +401,142 @@ $script:knownRights = @{
 $script:nestedRights = @("View","Edit")
 $script:commandRights = @("View")
 
+# Права вложенных объектов зависят от вида: у операции веб-сервиса и метода HTTP-сервиса это
+# Use, у реквизита - View и Edit, у перерасчета - Read и Update.
+$script:nestedRightsByKind = @{
+	"Attribute" = @("View","Edit")
+	"TabularSection" = @("View","Edit")
+	"Field" = @("View","Edit")
+	"Command" = @("View")
+	"Subsystem" = @("View")
+	"Operation" = @("Use")
+	"Method" = @("Use")
+	"URLTemplate" = @("Use")
+	"IntegrationServiceChannel" = @("Use")
+	"Recalculation" = @("Read","Update")
+}
+
+# Виды, набор прав которых этим навыком не замерен: имя признается, права не проверяются.
+$script:nestedKindsRightsNotChecked = @("Table","Cube","Dimension","ResourceField","Function")
+
+# Типы метаданных, у которых прав в роли нет вовсе (таблица типов, docs/1c-configuration-spec.md).
+# Блок прав на такой тип платформа не примет, поэтому это отказ, а не предупреждение.
+$script:typesWithoutRights = @(
+	"CommandGroup","CommonModule","CommonPicture","CommonTemplate","DefinedType",
+	"DocumentNumerator","Enum","EventSubscription","FunctionalOption",
+	"FunctionalOptionsParameter","Language","Role","ScheduledJob","SettingsStorage",
+	"Style","StyleItem","WSReference","XDTOPackage"
+)
+
+# Типы, права которых этим навыком не замерены: имя признается, набор прав не проверяется.
+$script:typesRightsNotChecked = @("ExternalDataSource")
+
+# Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
+# внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
+$script:defaultNestedKinds = @("Attribute","TabularSection","Command")
+$script:nestedKindsByOwner = @{
+	"WebService" = @("Operation")
+	"HTTPService" = @("URLTemplate")
+	"URLTemplate" = @("Method")
+	"IntegrationService" = @("IntegrationServiceChannel")
+	"Subsystem" = @("Subsystem")
+	"CalculationRegister" = @("Recalculation")
+	"ExternalDataSource" = @("Table","Cube","Function")
+	"Table" = @("Field")
+	"Cube" = @("Dimension","ResourceField")
+}
+
+# Ошибки ввода копятся до конца разбора: пользователь видит весь список сразу, а не по одной
+# ошибке за прогон.
+$script:inputErrors = @()
+
+function Add-InputError {
+	param([string]$Message)
+	$script:inputErrors += $Message
+}
+
+# Ближайшее по написанию имя из списка - для подсказки при опечатке. Сравнение по общему
+# префиксу и вхождению: этого хватает на реальные опечатки (Catalogg, Cataog).
+function Find-SimilarName {
+	param([string]$Name, [string[]]$Candidates)
+	$best = $null
+	$bestScore = 0
+	foreach ($candidate in $Candidates) {
+		$score = 0
+		$limit = [Math]::Min($Name.Length, $candidate.Length)
+		for ($i = 0; $i -lt $limit; $i++) {
+			if ($Name[$i] -eq $candidate[$i]) { $score++ } else { break }
+		}
+		if ($candidate -like "*$Name*" -or $Name -like "*$candidate*") { $score += 2 }
+		if ($score -gt $bestScore) { $bestScore = $score; $best = $candidate }
+	}
+	if ($bestScore -ge 3) { return $best }
+	return $null
+}
+
+function Test-ObjectTypeKnown {
+	param([string]$ObjectName)
+
+	$objectType = Get-ObjectType $ObjectName
+	if ($script:knownRights.ContainsKey($objectType) -or $objectType -in $script:typesRightsNotChecked) {
+		return $true
+	}
+	if ($objectType -in $script:typesWithoutRights) {
+		Add-InputError "${ObjectName}: тип '$objectType' не имеет прав в роли"
+		return $false
+	}
+	$known = @($script:knownRights.Keys) + $script:typesWithoutRights + $script:typesRightsNotChecked
+	$similar = Find-SimilarName -Name $objectType -Candidates $known
+	$hint = if ($similar) { " Возможно: $($similar)?" } else { "" }
+	Add-InputError "${ObjectName}: неизвестный тип объекта '$objectType'.$hint"
+	return $false
+}
+
+# Владелец, у которого такой вид вложенности законен, - для подсказки в сообщении об ошибке.
+function Find-KindOwner {
+	param([string]$Kind)
+	foreach ($owner in $script:nestedKindsByOwner.Keys) {
+		if ($Kind -in $script:nestedKindsByOwner[$owner]) { return $owner }
+	}
+	return $null
+}
+
+function Test-NestedKind {
+	param([string]$ObjectName)
+
+	$parts = $ObjectName.Split(".")
+	# Имя идет парами "вид.имя", поэтому виды стоят на четных позициях начиная с третьей.
+	for ($i = 2; $i -lt $parts.Count; $i += 2) {
+		$kind = $parts[$i]
+		$owner = if ($i -eq 2) { $parts[0] } else { $parts[$i - 2] }
+
+		$allowed = if ($script:nestedKindsByOwner.ContainsKey($owner)) {
+			$script:nestedKindsByOwner[$owner]
+		} else {
+			$script:defaultNestedKinds
+		}
+		if ($kind -in $allowed) { continue }
+
+		$realOwner = Find-KindOwner $kind
+		if ($realOwner) {
+			# Владелец вида сам бывает видом: поле лежит в таблице, а таблица - во внешнем
+			# источнике данных. В сообщении называется корень цепочки, он же тип объекта.
+			$rootOwner = $realOwner
+			$guard = 0
+			while ((Find-KindOwner $rootOwner) -and $guard -lt 10) {
+				$rootOwner = Find-KindOwner $rootOwner
+				$guard++
+			}
+			$chain = if ($rootOwner -ne $realOwner) { " (внутри $realOwner)" } else { "" }
+			Add-InputError "${ObjectName}: вид вложенности '$kind' бывает только у $rootOwner$chain, а здесь владелец '$owner'"
+		} else {
+			Add-InputError "${ObjectName}: неизвестный вид вложенности '$kind' у '$owner'"
+		}
+		return $false
+	}
+	return $true
+}
+
 # --- 4. Presets (@view, @edit) ---
 
 $script:presets = @{
@@ -493,32 +632,29 @@ function Validate-RightName {
 	$objectType = Get-ObjectType $objectName
 
 	if (Is-NestedObject $objectName) {
-		if ($objectName -match '\.Command\.') {
-			if ($rightName -notin $script:commandRights) {
-				Write-Warning "${objectName}: '$rightName' not valid for commands (only: View)"
-				return $false
-			}
-		} else {
-			if ($rightName -notin $script:nestedRights) {
-				Write-Warning "${objectName}: '$rightName' not valid for nested objects (only: View, Edit)"
-				return $false
-			}
+		# Вид вложенности - предпоследний сегмент имени: пары идут как "вид.имя".
+		$parts = $objectName.Split(".")
+		$kind = $parts[$parts.Count - 2]
+		if ($kind -in $script:nestedKindsRightsNotChecked) { return $true }
+		if (-not $script:nestedRightsByKind.ContainsKey($kind)) { return $true }
+		$allowed = $script:nestedRightsByKind[$kind]
+		if ($rightName -notin $allowed) {
+			Add-InputError "${objectName}: право '$rightName' не существует у вида '$kind' (допустимо: $($allowed -join ', '))"
+			return $false
 		}
 		return $true
 	}
 
 	if (-not $script:knownRights.ContainsKey($objectType)) {
-		Write-Warning "${objectName}: unknown object type '$objectType'"
+		# Тип уже разобран отдельной проверкой: здесь либо он без прав, либо права не замерены.
 		return $true
 	}
 
 	$validRights = $script:knownRights[$objectType]
 	if ($rightName -notin $validRights) {
-		$suggestions = @($validRights | Where-Object {
-			$_ -like "*$rightName*" -or $rightName -like "*$_*"
-		})
-		$sugStr = if ($suggestions.Count -gt 0) { " Did you mean: $($suggestions -join ', ')?" } else { "" }
-		Write-Warning "${objectName}: unknown right '$rightName'.$sugStr"
+		$similar = Find-SimilarName -Name $rightName -Candidates $validRights
+		$hint = if ($similar) { " Возможно: $($similar)?" } else { "" }
+		Add-InputError "${objectName}: право '$rightName' не существует у типа '$objectType'.$hint"
 		return $false
 	}
 
@@ -540,6 +676,9 @@ function Parse-ObjectEntry {
 		$objName = Translate-ObjectName ($entry.Substring(0, $colonIdx).Trim())
 		$rightsStr = $entry.Substring($colonIdx + 1).Trim()
 		$objectType = Get-ObjectType $objName
+		$typeOk = Test-ObjectTypeKnown $objName
+		$kindOk = Test-NestedKind $objName
+		if (-not $typeOk -or -not $kindOk) { return $null }
 
 		if ($rightsStr.StartsWith('@')) {
 			$rightNames = @(Resolve-Preset -objectType $objectType -presetName $rightsStr)
@@ -565,6 +704,9 @@ function Parse-ObjectEntry {
 	}
 
 	$objectType = Get-ObjectType $objName
+	$typeOk = Test-ObjectTypeKnown $objName
+	$kindOk = Test-NestedKind $objName
+	if (-not $typeOk -or -not $kindOk) { return $null }
 	$rightsMap = [ordered]@{}
 
 	# 1) Start with preset
@@ -635,6 +777,16 @@ if ($def.objects) {
 			$parsedObjects += ,$parsed
 		}
 	}
+}
+
+# Отказ до первой записи: ни файла роли, ни записи в Configuration.xml. Иначе на диске
+# оставалась бы роль с неполным набором прав, и ошибка ввода превращалась бы в порчу выгрузки.
+if ($script:inputErrors.Count -gt 0) {
+	foreach ($inputError in $script:inputErrors) {
+		[Console]::Error.WriteLine("Ошибка: $inputError")
+	}
+	[Console]::Error.WriteLine("Файлы не созданы: исправьте описание роли и повторите.")
+	exit 1
 }
 
 # --- Detect format version ---

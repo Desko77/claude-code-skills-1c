@@ -14,7 +14,9 @@
     "-InfoBasePath",
     "{workDir}\\ib",
     "-AdditionalV8Arguments",
-    "/ClearCache,/UseHwLicenses+"
+    "/ClearCache,/UseHwLicenses+",
+    "-StartupCheckSeconds",
+    "20"
   ],
   "expect": {
     "stdoutContains": "/DisableStartupDialogs /ClearCache /UseHwLicenses+"

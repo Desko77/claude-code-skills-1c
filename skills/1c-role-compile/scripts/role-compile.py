@@ -548,7 +548,10 @@ def translate_object_name(name):
     parts = name.split('.')
     result = []
     for p in parts:
-        result.append(TYPE_ALIASES.get(p, p))
+        # Написание с точками над е и без них равноправно: пользователь пишет как привык, а в
+        # карте алиасов ключ один. Имя самого объекта не нормализуется - оно идет как есть.
+        normalized = p.replace('ё', 'е').replace('Ё', 'Е')
+        result.append(TYPE_ALIASES.get(normalized, p))
     return '.'.join(result)
 
 
@@ -584,29 +587,160 @@ def resolve_preset(object_type, preset_name):
     return list(type_map[object_type])
 
 
+# Типы метаданных, у которых прав в роли нет вовсе (таблица типов, docs/1c-configuration-spec.md).
+# Блок прав на такой тип платформа не примет, поэтому это отказ, а не предупреждение.
+TYPES_WITHOUT_RIGHTS = [
+    "CommandGroup", "CommonModule", "CommonPicture", "CommonTemplate", "DefinedType",
+    "DocumentNumerator", "Enum", "EventSubscription", "FunctionalOption",
+    "FunctionalOptionsParameter", "Language", "Role", "ScheduledJob", "SettingsStorage",
+    "Style", "StyleItem", "WSReference", "XDTOPackage",
+]
+
+# Типы, права которых этим навыком не замерены: имя признается, набор прав не проверяется.
+TYPES_RIGHTS_NOT_CHECKED = ["ExternalDataSource"]
+
+# Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
+# внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
+DEFAULT_NESTED_KINDS = ["Attribute", "TabularSection", "Command"]
+NESTED_KINDS_BY_OWNER = {
+    "WebService": ["Operation"],
+    "HTTPService": ["URLTemplate"],
+    "URLTemplate": ["Method"],
+    "IntegrationService": ["IntegrationServiceChannel"],
+    "Subsystem": ["Subsystem"],
+    "CalculationRegister": ["Recalculation"],
+    "ExternalDataSource": ["Table", "Cube", "Function"],
+    "Table": ["Field"],
+    "Cube": ["Dimension", "ResourceField"],
+}
+
+# Права вложенных объектов зависят от вида: у операции веб-сервиса и метода HTTP-сервиса это
+# Use, у реквизита - View и Edit, у перерасчета - Read и Update.
+NESTED_RIGHTS_BY_KIND = {
+    "Attribute": ["View", "Edit"],
+    "TabularSection": ["View", "Edit"],
+    "Field": ["View", "Edit"],
+    "Command": ["View"],
+    "Subsystem": ["View"],
+    "Operation": ["Use"],
+    "Method": ["Use"],
+    "URLTemplate": ["Use"],
+    "IntegrationServiceChannel": ["Use"],
+    "Recalculation": ["Read", "Update"],
+}
+
+# Виды, набор прав которых этим навыком не замерен: имя признается, права не проверяются.
+NESTED_KINDS_RIGHTS_NOT_CHECKED = ["Table", "Cube", "Dimension", "ResourceField", "Function"]
+
+# Ошибки ввода копятся до конца разбора: пользователь видит весь список сразу, а не по одной
+# ошибке за прогон.
+INPUT_ERRORS = []
+
+
+def add_input_error(message):
+    INPUT_ERRORS.append(message)
+
+
+def find_similar_name(name, candidates):
+    """Ближайшее по написанию имя - для подсказки при опечатке.
+
+    Сравнение по общему префиксу и вхождению: этого хватает на реальные опечатки.
+    """
+    best = None
+    best_score = 0
+    for candidate in candidates:
+        score = 0
+        for a, b in zip(name, candidate):
+            if a == b:
+                score += 1
+            else:
+                break
+        if name in candidate or candidate in name:
+            score += 2
+        if score > best_score:
+            best_score = score
+            best = candidate
+    return best if best_score >= 3 else None
+
+
+def test_object_type_known(object_name):
+    object_type = get_object_type(object_name)
+    if object_type in KNOWN_RIGHTS or object_type in TYPES_RIGHTS_NOT_CHECKED:
+        return True
+    if object_type in TYPES_WITHOUT_RIGHTS:
+        add_input_error(f"{object_name}: тип '{object_type}' не имеет прав в роли")
+        return False
+    known = list(KNOWN_RIGHTS) + TYPES_WITHOUT_RIGHTS + TYPES_RIGHTS_NOT_CHECKED
+    similar = find_similar_name(object_type, known)
+    hint = f" Возможно: {similar}?" if similar else ""
+    add_input_error(f"{object_name}: неизвестный тип объекта '{object_type}'.{hint}")
+    return False
+
+
+def find_kind_owner(kind):
+    for owner, kinds in NESTED_KINDS_BY_OWNER.items():
+        if kind in kinds:
+            return owner
+    return None
+
+
+def test_nested_kind(object_name):
+    parts = object_name.split(".")
+    # Имя идет парами "вид.имя", поэтому виды стоят на четных позициях начиная с третьей.
+    for i in range(2, len(parts), 2):
+        kind = parts[i]
+        owner = parts[0] if i == 2 else parts[i - 2]
+        allowed = NESTED_KINDS_BY_OWNER.get(owner, DEFAULT_NESTED_KINDS)
+        if kind in allowed:
+            continue
+
+        real_owner = find_kind_owner(kind)
+        if real_owner:
+            # Владелец вида сам бывает видом: поле лежит в таблице, а таблица - во внешнем
+            # источнике данных. В сообщении называется корень цепочки, он же тип объекта.
+            root_owner = real_owner
+            for _ in range(10):
+                upper = find_kind_owner(root_owner)
+                if not upper:
+                    break
+                root_owner = upper
+            chain = f" (внутри {real_owner})" if root_owner != real_owner else ""
+            add_input_error(f"{object_name}: вид вложенности '{kind}' бывает только у "
+                            f"{root_owner}{chain}, а здесь владелец '{owner}'")
+        else:
+            add_input_error(f"{object_name}: неизвестный вид вложенности '{kind}' у '{owner}'")
+        return False
+    return True
+
+
 def validate_right_name(object_name, right_name):
     object_type = get_object_type(object_name)
 
     if is_nested_object(object_name):
-        if '.Command.' in object_name:
-            if right_name not in COMMAND_RIGHTS:
-                print(f"WARNING: {object_name}: '{right_name}' not valid for commands (only: View)", file=sys.stderr)
-                return False
-        else:
-            if right_name not in NESTED_RIGHTS:
-                print(f"WARNING: {object_name}: '{right_name}' not valid for nested objects (only: View, Edit)", file=sys.stderr)
-                return False
+        # Вид вложенности - предпоследний сегмент имени: пары идут как "вид.имя".
+        kind = object_name.split(".")[-2]
+        if kind in NESTED_KINDS_RIGHTS_NOT_CHECKED:
+            return True
+        allowed = NESTED_RIGHTS_BY_KIND.get(kind)
+        if allowed is None:
+            return True
+        if right_name not in allowed:
+            add_input_error(f"{object_name}: право '{right_name}' не существует у вида "
+                            f"'{kind}' (допустимо: {', '.join(allowed)})")
+            return False
         return True
 
+
     if object_type not in KNOWN_RIGHTS:
-        print(f"WARNING: {object_name}: unknown object type '{object_type}'", file=sys.stderr)
+        # Тип уже разобран отдельной проверкой: здесь либо он без прав, либо права не замерены.
         return True
 
     valid_rights = KNOWN_RIGHTS[object_type]
     if right_name not in valid_rights:
-        suggestions = [r for r in valid_rights if right_name in r or r in right_name]
-        sug_str = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-        print(f"WARNING: {object_name}: unknown right '{right_name}'.{sug_str}", file=sys.stderr)
+        similar = find_similar_name(right_name, valid_rights)
+        hint = f" Возможно: {similar}?" if similar else ""
+        add_input_error(f"{object_name}: право '{right_name}' не существует у типа "
+                        f"'{object_type}'.{hint}")
         return False
 
     return True
@@ -622,6 +756,10 @@ def parse_object_entry(entry):
         obj_name = translate_object_name(entry[:colon_idx].strip())
         rights_str = entry[colon_idx + 1:].strip()
         object_type = get_object_type(obj_name)
+        type_ok = test_object_type_known(obj_name)
+        kind_ok = test_nested_kind(obj_name)
+        if not type_ok or not kind_ok:
+            return None
 
         if rights_str.startswith('@'):
             right_names = resolve_preset(object_type, rights_str)
@@ -642,6 +780,10 @@ def parse_object_entry(entry):
         return None
 
     object_type = get_object_type(obj_name)
+    type_ok = test_object_type_known(obj_name)
+    kind_ok = test_nested_kind(obj_name)
+    if not type_ok or not kind_ok:
+        return None
     # Use a list of tuples to preserve insertion order
     rights_map = {}  # name -> {Value, Condition}
     rights_order = []  # preserve order
@@ -732,6 +874,15 @@ def main():
             parsed = parse_object_entry(entry)
             if parsed:
                 parsed_objects.append(parsed)
+
+    # Отказ до первой записи: ни файла роли, ни записи в Configuration.xml. Иначе на диске
+    # оставалась бы роль с неполным набором прав, и ошибка ввода превращалась бы в порчу
+    # выгрузки.
+    if INPUT_ERRORS:
+        for message in INPUT_ERRORS:
+            print(f"Ошибка: {message}", file=sys.stderr)
+        print("Файлы не созданы: исправьте описание роли и повторите.", file=sys.stderr)
+        sys.exit(1)
 
     # --- 3. Generate UUID ---
     uid = new_uuid()

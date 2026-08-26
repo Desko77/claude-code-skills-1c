@@ -53,6 +53,11 @@ def hide_platform_secret(text):
     keys = r'(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     masked = re.sub(keys + r'"[^"]*"', r'\g<1>"***"', text)
     masked = re.sub(keys + r'([^\s"]\S*)', r'\g<1>***', masked)
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    long_keys = r'(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    masked = re.sub(long_keys + r'"[^"]*"', r'\g<1>"***"', masked)
+    masked = re.sub(long_keys + r'([^\s"]\S*)', r'\g<1>***', masked)
     return masked
 
 
@@ -885,6 +890,61 @@ def write_bom(path, content):
         f.write(content)
 
 
+# --- Вывод платформы (общий блок, версия 1) ---
+# Платформа пишет диагностику в кодировке консоли (866 на русской Windows), утилита
+# администрирования и часть сборок - в UTF-8. Байты читаются один раз и декодируются по
+# факту: перепутанная кодировка превращает сообщение об ошибке в нечитаемое.
+def read_platform_text(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return ""
+    if not data:
+        return ""
+    if data.startswith(b"\xef\xbb\xbf"):
+        return data[3:].decode("utf-8", "replace")
+    try:
+        # Строгое декодирование бросает исключение на байтах, недопустимых в UTF-8, - это и
+        # есть признак однобайтовой кодировки. Нестрогое подставило бы символ замены молча.
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("cp866", "replace")
+
+
+def show_platform_output(paths):
+    """Вывод показывается и при успешном завершении: платформа сообщает предупреждения, не
+    меняя код возврата, и потерянное предупреждение обходится дороже лишних строк в протоколе.
+    """
+    chunks = []
+    for path in paths:
+        text = read_platform_text(path).strip()
+        if text:
+            chunks.append(text)
+    if not chunks:
+        return
+    print("--- Вывод платформы ---")
+    for chunk in chunks:
+        print(chunk)
+# --- Конец общего блока вывода платформы ---
+
+def run_platform(command, log_base):
+    """Запуск платформы с перехватом потоков в файлы и показом вывода.
+
+    Готовое декодирование в subprocess портит кириллицу: платформа пишет в кодировке консоли,
+    а перехваченный текст молча разбирается как UTF-8.
+    """
+    import subprocess as _rp_sub
+    stdout_file = log_base + ".stdout"
+    stderr_file = log_base + ".stderr"
+    with open(stdout_file, "wb") as so, open(stderr_file, "wb") as se:
+        result = _rp_sub.run(command, stdout=so, stderr=se)
+    show_platform_output([stdout_file, stderr_file])
+    return result
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
@@ -893,7 +953,11 @@ def main():
     parser.add_argument('-SourceDir', required=True)
     parser.add_argument('-V8Path', required=True)
     parser.add_argument('-TempBasePath', default='')
+    parser.add_argument('-AdditionalV8Arguments', default='')
     args = parser.parse_args()
+    # Дополнительные аргументы приходят одной строкой через запятую и подмешиваются в каждый
+    # запуск платформы: лицензионный ключ нужен и созданию базы, и загрузке конфигурации.
+    extra_args = [p.strip() for p in args.AdditionalV8Arguments.split(',') if p.strip()]
 
     type_map = scan_ref_types(args.SourceDir)
     register_columns = scan_register_columns(args.SourceDir)
@@ -1161,11 +1225,10 @@ def main():
     print(f'Creating infobase: {temp_base}')
     create_log = temp_base + '.create.log'
     create_result = temp_base + '.create.result'
-    result = subprocess.run(
+    result = run_platform(
         [args.V8Path, 'CREATEINFOBASE', f'File={temp_base}',
-         '/Out', create_log, '/DumpResult', create_result, '/DisableStartupDialogs'],
-        capture_output=True, text=True,
-    )
+         '/Out', create_log, '/DumpResult', create_result, '/DisableStartupDialogs'] + extra_args,
+        create_log)
     if write_platform_verdict(result.returncode, create_result, read_log(create_log),
                               'Infobase created', 'Failed to create infobase',
                               artifact_path=os.path.join(temp_base, '1Cv8.1CD')) != 0:
@@ -1177,11 +1240,10 @@ def main():
         print('Loading configuration from files...')
         load_log = temp_base + '.load.log'
         load_result = temp_base + '.load.result'
-        result = subprocess.run(
+        result = run_platform(
             [args.V8Path, 'DESIGNER', f'/F{temp_base}', '/LoadConfigFromFiles', cfg_dir,
-             '/Out', load_log, '/DumpResult', load_result, '/DisableStartupDialogs'],
-            capture_output=True, text=True,
-        )
+             '/Out', load_log, '/DumpResult', load_result, '/DisableStartupDialogs'] + extra_args,
+            load_log)
         if write_platform_verdict(result.returncode, load_result, read_log(load_log),
                                   'Configuration loaded', 'Failed to load config') != 0:
             sys.exit(1)
@@ -1190,11 +1252,10 @@ def main():
         print('Updating database configuration...')
         update_log = temp_base + '.update.log'
         update_result = temp_base + '.update.result'
-        result = subprocess.run(
+        result = run_platform(
             [args.V8Path, 'DESIGNER', f'/F{temp_base}', '/UpdateDBCfg',
-             '/Out', update_log, '/DumpResult', update_result, '/DisableStartupDialogs'],
-            capture_output=True, text=True,
-        )
+             '/Out', update_log, '/DumpResult', update_result, '/DisableStartupDialogs'] + extra_args,
+            update_log)
         if write_platform_verdict(result.returncode, update_result, read_log(update_log),
                                   'Database configuration updated', 'Failed to update DB config') != 0:
             sys.exit(1)

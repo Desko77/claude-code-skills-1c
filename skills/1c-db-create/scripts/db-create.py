@@ -72,6 +72,11 @@ def hide_platform_secret(text):
     keys = r'(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     masked = re.sub(keys + r'"[^"]*"', r'\g<1>"***"', text)
     masked = re.sub(keys + r'([^\s"]\S*)', r'\g<1>***', masked)
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    long_keys = r'(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    masked = re.sub(long_keys + r'"[^"]*"', r'\g<1>"***"', masked)
+    masked = re.sub(long_keys + r'([^\s"]\S*)', r'\g<1>***', masked)
     return masked
 
 
@@ -143,6 +148,128 @@ def write_platform_verdict(exit_code, result_file, log_text, success_message,
 
     return final_code
 # --- Конец общего блока вердикта платформы ---
+
+
+# --- Дополнительные аргументы платформы (общий блок, версия 1) ---
+# Список разделяется запятой, а не пробелом: аргумент платформы несет пробел внутри значения
+# (/C "имя значение", путь с пробелом), и разбор по пробелу разорвал бы такой аргумент.
+def split_platform_arguments(raw):
+    if not raw or not raw.strip():
+        return []
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def find_v8_project_file(start_dir):
+    """Файл настроек проекта вверх по дереву от целевого каталога.
+
+    Существование каталога не требуется: подъем идет по строке пути, а целевого каталога
+    на момент создания базы еще нет.
+    """
+    d = os.path.abspath(start_dir)
+    for _ in range(20):
+        candidate = os.path.join(d, ".v8-project.json")
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return None
+
+
+def project_platform_arguments(start_dir, key):
+    # Импорт внутри функции: блок переносится в скилы с разным набором импортов, и
+    # обращение к неимпортированному имени попадало бы в except ниже - отказ стал бы тихим.
+    import json as _pa_json
+    try:
+        path = find_v8_project_file(start_dir)
+        if not path:
+            return []
+        with open(path, "r", encoding="utf-8-sig") as f:
+            settings = _pa_json.load(f)
+        value = settings.get(key)
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return split_platform_arguments(value)
+        return [str(v) for v in value if str(v)]
+    except Exception:
+        # Непрочитанные настройки не повод отменять запуск: дополнительные аргументы
+        # необязательны, а сам файл проверяет и сообщает о поломке отдельный линтер.
+        return []
+
+
+def resolve_platform_arguments(explicit, start_dir, key):
+    """Аргументы вызова заменяют значение из настроек проекта целиком, а не дополняют его:
+    при сложении снять заданный в проекте аргумент было бы нечем.
+
+    None означает, что параметр не задавали, - тогда действуют настройки проекта. Пустая
+    строка означает заданное пустое значение и снимает аргументы проекта на этот запуск.
+    """
+    if explicit is not None:
+        return split_platform_arguments(explicit)
+    return project_platform_arguments(start_dir, key)
+
+
+def merge_dash_values(argv, keys):
+    """Склеить "-Ключ значение" в "-Ключ=значение" для перечисленных ключей.
+
+    Разбор командной строки принимает значение, начинающееся с дефиса, за новый ключ: строка
+    "--verbose,--token=x" без склейки обрывает разбор подсказкой по использованию.
+    """
+    out = []
+    i = 0
+    while i < len(argv):
+        token = argv[i]
+        if token in keys and i + 1 < len(argv):
+            out.append(token + "=" + argv[i + 1])
+            i += 2
+            continue
+        out.append(token)
+        i += 1
+    return out
+# --- Конец общего блока дополнительных аргументов ---
+
+
+# --- Вывод платформы (общий блок, версия 1) ---
+# Платформа пишет диагностику в кодировке консоли (866 на русской Windows), утилита
+# администрирования и часть сборок - в UTF-8. Байты читаются один раз и декодируются по
+# факту: перепутанная кодировка превращает сообщение об ошибке в нечитаемое.
+def read_platform_text(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return ""
+    if not data:
+        return ""
+    if data.startswith(b"\xef\xbb\xbf"):
+        return data[3:].decode("utf-8", "replace")
+    try:
+        # Строгое декодирование бросает исключение на байтах, недопустимых в UTF-8, - это и
+        # есть признак однобайтовой кодировки. Нестрогое подставило бы символ замены молча.
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("cp866", "replace")
+
+
+def show_platform_output(paths):
+    """Вывод показывается и при успешном завершении: платформа сообщает предупреждения, не
+    меняя код возврата, и потерянное предупреждение обходится дороже лишних строк в протоколе.
+    """
+    chunks = []
+    for path in paths:
+        text = read_platform_text(path).strip()
+        if text:
+            chunks.append(text)
+    if not chunks:
+        return
+    print("--- Вывод платформы ---")
+    for chunk in chunks:
+        print(chunk)
+# --- Конец общего блока вывода платформы ---
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -157,8 +284,13 @@ def main():
     parser.add_argument("-UseTemplate", default="")
     parser.add_argument("-AddToList", action="store_true")
     parser.add_argument("-ListName", default="")
+    # Значение по умолчанию None, а не пустая строка: пустую строку задают, чтобы снять
+    # аргументы из настроек проекта, и от отсутствия параметра ее надо отличать.
+    parser.add_argument("-AdditionalV8Arguments", default=None)
+    parser.add_argument("-AdditionalIbcmdArguments", default=None)
     parser.add_argument("-StrictLog", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(merge_dash_values(
+        sys.argv[1:], ("-AdditionalV8Arguments", "-AdditionalIbcmdArguments")))
 
     v8path = resolve_v8path(args.V8Path)
 
@@ -178,35 +310,76 @@ def main():
 
     try:
         # --- Build arguments ---
-        arguments = ["CREATEINFOBASE"]
+        # Каталог поиска настроек проекта: от места будущей базы вверх по дереву.
+        settings_dir = args.InfoBasePath or os.getcwd()
 
-        if args.InfoBaseServer and args.InfoBaseRef:
-            arguments.append(f'Srvr="{args.InfoBaseServer}";Ref="{args.InfoBaseRef}"')
-        else:
-            arguments.append(f'File="{args.InfoBasePath}"')
+        # Утилита администрирования принимает собственный набор ключей и не понимает ни /Out,
+        # ни /DumpResult, ни /DisableStartupDialogs - у нее отдельная ветка построения команды.
+        is_ibcmd = os.path.splitext(os.path.basename(v8path))[0].lower() == "ibcmd"
 
-        # --- Template ---
-        if args.UseTemplate:
-            arguments.extend(["/UseTemplate", args.UseTemplate])
-
-        # --- Add to list ---
-        if args.AddToList:
-            if args.ListName:
-                arguments.extend(["/AddToList", args.ListName])
-            else:
-                arguments.append("/AddToList")
-
-        # --- Output ---
         # Каталог временный и уникальный на запуск, поэтому лог и файл результата не могут
-        # достаться от прошлого прогона.
+        # достаться от прошлого прогона. Объявлены до ветвления: ветка утилиты
+        # администрирования их не создает.
         out_file = os.path.join(temp_dir, "create_log.txt")
         result_file = os.path.join(temp_dir, "create_result.txt")
-        arguments.extend(["/Out", out_file])
-        arguments.extend(["/DumpResult", result_file])
-        arguments.append("/DisableStartupDialogs")
+
+        if is_ibcmd:
+            if args.InfoBaseServer and args.InfoBaseRef:
+                print("Error: создание серверной базы через ibcmd этим скриптом не поддерживается", file=sys.stderr)
+                sys.exit(1)
+            # Ключи платформы утилита администрирования не понимает. Молча их отбросить
+            # нельзя: вызывающий считает, что аргумент действует, и получит поведение,
+            # которого не просил.
+            # Шаблон и регистрацию в списке баз утилита администрирования делает другими
+            # командами. Молчаливое игнорирование дало бы пустую незарегистрированную базу и
+            # отчет об успехе.
+            if args.UseTemplate:
+                print("Error: -UseTemplate не поддерживается движком ibcmd", file=sys.stderr)
+                sys.exit(1)
+            if args.AddToList:
+                print("Error: -AddToList не поддерживается движком ibcmd", file=sys.stderr)
+                sys.exit(1)
+            if split_platform_arguments(args.AdditionalV8Arguments):
+                print("Error: -AdditionalV8Arguments относится к 1cv8.exe, а выбран движок ibcmd. "
+                      "Используйте -AdditionalIbcmdArguments", file=sys.stderr)
+                sys.exit(1)
+            extra = resolve_platform_arguments(args.AdditionalIbcmdArguments, settings_dir, "ibcmdargs")
+            # Позиционный токен встает в строку как часть команды: "infobase create config" -
+            # это уже другая команда, а не создание базы с дополнительным ключом.
+            positional = [a for a in extra if not a.startswith("-")]
+            if positional:
+                print("Error: позиционный токен в -AdditionalIbcmdArguments меняет команду ibcmd: "
+                      + ", ".join(positional), file=sys.stderr)
+                sys.exit(1)
+            arguments = ["infobase", "create", f'--db-path="{args.InfoBasePath}"'] + extra
+        else:
+            arguments = ["CREATEINFOBASE"]
+
+            if args.InfoBaseServer and args.InfoBaseRef:
+                arguments.append(f'Srvr="{args.InfoBaseServer}";Ref="{args.InfoBaseRef}"')
+            else:
+                arguments.append(f'File="{args.InfoBasePath}"')
+
+            # --- Template ---
+            if args.UseTemplate:
+                arguments.extend(["/UseTemplate", args.UseTemplate])
+
+            # --- Add to list ---
+            if args.AddToList:
+                if args.ListName:
+                    arguments.extend(["/AddToList", args.ListName])
+                else:
+                    arguments.append("/AddToList")
+
+            # --- Output ---
+            arguments.extend(["/Out", out_file])
+            arguments.extend(["/DumpResult", result_file])
+            arguments.append("/DisableStartupDialogs")
+            arguments.extend(resolve_platform_arguments(
+                args.AdditionalV8Arguments, settings_dir, "v8args"))
 
         # --- Execute ---
-        print(f"Running: 1cv8.exe {hide_platform_secret(' '.join(arguments))}")
+        print(f"Running: {os.path.basename(v8path)} {hide_platform_secret(' '.join(arguments))}")
         # Токены платформы уже содержат кавычки: File="путь с пробелом". Список в subprocess
         # на Windows пересобирает такой токен целиком - обрамляет его своими кавычками и
         # экранирует внутренние, и до платформы доезжает искаженный аргумент. PowerShell
@@ -217,20 +390,27 @@ def main():
             # Windows, иначе путь шаблона или журнала с пробелом разъедется на два аргумента.
             parts = [subprocess.list2cmdline([v8path])]
             for a in arguments:
-                ready = a.startswith('File="') or a.startswith('Srvr="')
+                ready = a.startswith('File="') or a.startswith('Srvr="') or a.startswith('--db-path="')
                 parts.append(a if ready else subprocess.list2cmdline([a]))
             command = ' '.join(parts)
         else:
             command = [v8path] + arguments
-        # Вывод платформы не перехватывается: PowerShell запускает процесс с общей консолью,
-        # и его сообщения попадают в вывод навыка. Перехват их прятал, а нужен только код
-        # возврата - подробности навык и так печатает из файла журнала ниже.
-        result = subprocess.run(command)
+        # Потоки процесса уходят в файлы: унаследованная консоль отдала бы вывод платформы
+        # в кодировке 866 как есть, и кириллица в сообщении об ошибке стала бы нечитаемой.
+        stdout_file = os.path.join(temp_dir, "platform_stdout.txt")
+        stderr_file = os.path.join(temp_dir, "platform_stderr.txt")
+        with open(stdout_file, "wb") as so, open(stderr_file, "wb") as se:
+            result = subprocess.run(command, stdout=so, stderr=se)
         exit_code = result.returncode
+        show_platform_output([stdout_file, stderr_file])
 
         # --- Result ---
+        # У утилиты администрирования нет ни файла результата, ни лога платформы: вердикт
+        # опирается на код возврата и постусловие.
+        if is_ibcmd:
+            result_file = None
         log_content = None
-        if os.path.isfile(out_file):
+        if not is_ibcmd and os.path.isfile(out_file):
             try:
                 with open(out_file, "r", encoding="utf-8-sig") as f:
                     log_content = f.read()

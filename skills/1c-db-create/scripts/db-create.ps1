@@ -63,6 +63,12 @@ param(
     [string]$ListName,
 
     [Parameter(Mandatory=$false)]
+    [string]$AdditionalV8Arguments,
+
+    [Parameter(Mandatory=$false)]
+    [string]$AdditionalIbcmdArguments,
+
+    [Parameter(Mandatory=$false)]
     [switch]$StrictLog
 )
 
@@ -82,6 +88,11 @@ function Hide-PlatformSecret {
     $keys = '(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     $masked = $Text -replace ($keys + '"[^"]*"'), '$1"***"'
     $masked = $masked -replace ($keys + '([^\s"]\S*)'), '$1***'
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    $longKeys = '(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    $masked = $masked -replace ($longKeys + '"[^"]*"'), '$1"***"'
+    $masked = $masked -replace ($longKeys + '([^\s"]\S*)'), '$1***'
     return $masked
 }
 
@@ -180,6 +191,112 @@ function Write-PlatformVerdict {
     return $finalCode
 }
 # --- Конец общего блока вердикта платформы ---
+
+# --- Дополнительные аргументы платформы (общий блок, версия 1) ---
+# Список разделяется запятой, а не пробелом: аргумент платформы несет пробел внутри значения
+# (/C "имя значение", путь с пробелом), и разбор по пробелу разорвал бы такой аргумент.
+function Split-PlatformArguments {
+    param([string]$Raw)
+    if ([string]::IsNullOrWhiteSpace($Raw)) { return @() }
+    return @($Raw -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+}
+
+# Настройки проекта ищутся вверх по дереву от целевого каталога: скрипт запускают из любого
+# места, а файл настроек лежит в корне проекта. Существование каталога не требуется - подъем
+# идет по строке пути, а целевого каталога на момент создания базы еще нет.
+function Find-V8ProjectFile {
+    param([string]$StartDir)
+    # Относительный путь приводится к полному: подъем по строке "build\db" упирается в пустую
+    # строку раньше, чем доходит до текущего каталога, и настройки в корне проекта теряются.
+    $d = if ([string]::IsNullOrEmpty($StartDir)) {
+        (Get-Location).Path
+    } elseif ([System.IO.Path]::IsPathRooted($StartDir)) {
+        $StartDir
+    } else {
+        Join-Path (Get-Location).Path $StartDir
+    }
+    $d = [System.IO.Path]::GetFullPath($d)
+    for ($i = 0; $i -lt 20 -and $d; $i++) {
+        $pj = Join-Path $d ".v8-project.json"
+        if (Test-Path $pj) { return $pj }
+        $parent = [System.IO.Path]::GetDirectoryName($d)
+        if ($parent -eq $d) { break }
+        $d = $parent
+    }
+    return $null
+}
+
+function Get-ProjectPlatformArguments {
+    param([string]$StartDir, [string]$Key)
+    try {
+        $pj = Find-V8ProjectFile $StartDir
+        if (-not $pj) { return @() }
+        $settings = Get-Content $pj -Raw -Encoding UTF8 | ConvertFrom-Json
+        $value = $settings.$Key
+        if ($null -eq $value) { return @() }
+        if ($value -is [string]) { return Split-PlatformArguments $value }
+        return @($value | ForEach-Object { [string]$_ } | Where-Object { $_ -ne '' })
+    } catch {
+        # Непрочитанные настройки не повод отменять запуск: дополнительные аргументы
+        # необязательны, а сам файл проверяет и сообщает о поломке отдельный линтер.
+        return @()
+    }
+}
+
+# Аргументы вызова заменяют значение из настроек проекта целиком, а не дополняют его: при
+# сложении снять заданный в проекте аргумент было бы нечем.
+#
+# $null в Explicit означает, что параметр не задавали, - тогда действуют настройки проекта.
+# Пустая строка означает заданное пустое значение и снимает аргументы проекта на этот запуск.
+function Resolve-PlatformArguments {
+    # Тип у Explicit не объявлен намеренно: объявление [string] превращает $null в пустую
+    # строку, и отсутствие параметра стало бы неотличимо от заданного пустого значения.
+    param($Explicit, [string]$StartDir, [string]$Key)
+    if ($null -ne $Explicit) { return Split-PlatformArguments ([string]$Explicit) }
+    return Get-ProjectPlatformArguments -StartDir $StartDir -Key $Key
+}
+# --- Конец общего блока дополнительных аргументов ---
+
+# --- Вывод платформы (общий блок, версия 1) ---
+# Платформа пишет диагностику в кодировке консоли (866 на русской Windows), утилита
+# администрирования и часть сборок - в UTF-8. Байты читаются один раз и декодируются по
+# факту: перепутанная кодировка превращает сообщение об ошибке в нечитаемое.
+function Read-PlatformText {
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path $Path)) { return "" }
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+    } catch {
+        return ""
+    }
+    if ($bytes.Length -eq 0) { return "" }
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        return [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+    }
+    try {
+        # Строгий декодер бросает исключение на байтах, недопустимых в UTF-8, - это и есть
+        # признак однобайтовой кодировки. Нестрогий подставил бы символ замены молча.
+        $strict = New-Object System.Text.UTF8Encoding($false, $true)
+        return $strict.GetString($bytes)
+    } catch {
+        return [System.Text.Encoding]::GetEncoding(866).GetString($bytes)
+    }
+}
+
+# Вывод показывается и при успешном завершении: платформа сообщает предупреждения, не меняя
+# код возврата, и потерянное предупреждение обходится дороже лишних строк в протоколе.
+function Show-PlatformOutput {
+    param([string[]]$Path)
+    $chunks = @()
+    foreach ($p in $Path) {
+        $text = (Read-PlatformText $p).Trim()
+        if ($text) { $chunks += $text }
+    }
+    if ($chunks.Count -eq 0) { return }
+    Write-Host "--- Вывод платформы ---"
+    foreach ($chunk in $chunks) { Write-Host $chunk }
+}
+# --- Конец общего блока вывода платформы ---
 # --- Resolve V8Path ---
 if (-not $V8Path) {
     $found = Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
@@ -216,6 +333,58 @@ New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
 try {
     # --- Build arguments ---
+    # Каталог поиска настроек проекта: от места будущей базы вверх по дереву.
+    $settingsDir = if ($InfoBasePath) { $InfoBasePath } else { (Get-Location).Path }
+
+    # Утилита администрирования принимает собственный набор ключей и не понимает ни /Out,
+    # ни /DumpResult, ни /DisableStartupDialogs - у нее отдельная ветка построения команды.
+    $isIbcmd = [System.IO.Path]::GetFileNameWithoutExtension($V8Path) -match '^ibcmd$'
+
+    # Незаданный параметр и заданный пустым - разные случаи: первый оставляет в силе настройки
+    # проекта, второй снимает их на этот запуск.
+    $explicitV8Args = if ($PSBoundParameters.ContainsKey('AdditionalV8Arguments')) { $AdditionalV8Arguments } else { $null }
+    $explicitIbcmdArgs = if ($PSBoundParameters.ContainsKey('AdditionalIbcmdArguments')) { $AdditionalIbcmdArguments } else { $null }
+
+    # Каталог временный и уникальный на запуск, поэтому лог и файл результата не могут
+    # достаться от прошлого прогона. Объявлены до ветвления: ветка утилиты администрирования
+    # их не создает, а проверка по неинициализированному пути бросает исключение.
+    $outFile = Join-Path $tempDir "create_log.txt"
+    $resultFile = Join-Path $tempDir "create_result.txt"
+
+    if ($isIbcmd) {
+        if ($InfoBaseServer -and $InfoBaseRef) {
+            [Console]::Error.WriteLine("Error: создание серверной базы через ibcmd этим скриптом не поддерживается")
+            exit 1
+        }
+        # Ключи платформы утилита администрирования не понимает. Молча их отбросить нельзя:
+        # вызывающий считает, что аргумент действует, и получит поведение, которого не просил.
+        # Ключи платформы утилита администрирования не понимает, а шаблон и регистрацию в
+        # списке баз она делает другими командами. Молчаливое игнорирование дало бы пустую
+        # незарегистрированную базу и отчет об успехе.
+        if ($UseTemplate) {
+            [Console]::Error.WriteLine("Error: -UseTemplate не поддерживается движком ibcmd")
+            exit 1
+        }
+        if ($AddToList) {
+            [Console]::Error.WriteLine("Error: -AddToList не поддерживается движком ibcmd")
+            exit 1
+        }
+        if (Split-PlatformArguments $AdditionalV8Arguments) {
+            [Console]::Error.WriteLine("Error: -AdditionalV8Arguments относится к 1cv8.exe, а выбран движок ibcmd. Используйте -AdditionalIbcmdArguments")
+            exit 1
+        }
+        $extra = Resolve-PlatformArguments -Explicit $explicitIbcmdArgs -StartDir $settingsDir -Key "ibcmdargs"
+        # Позиционный токен встает в строку как часть команды: "infobase create config" -
+        # это уже другая команда, а не создание базы с дополнительным ключом.
+        $positional = @($extra | Where-Object { -not $_.StartsWith("-") })
+        if ($positional.Count -gt 0) {
+            [Console]::Error.WriteLine("Error: позиционный токен в -AdditionalIbcmdArguments меняет команду ibcmd: $($positional -join ', ')")
+            exit 1
+        }
+        $arguments = @("infobase", "create", "--db-path=`"$InfoBasePath`"")
+        $arguments += $extra
+    } else {
+
     $arguments = @("CREATEINFOBASE")
 
     if ($InfoBaseServer -and $InfoBaseRef) {
@@ -239,18 +408,23 @@ try {
     }
 
     # --- Output ---
-    # Каталог временный и уникальный на запуск, поэтому лог и файл результата не могут
-    # достаться от прошлого прогона.
-    $outFile = Join-Path $tempDir "create_log.txt"
-    $resultFile = Join-Path $tempDir "create_result.txt"
     $arguments += "/Out", "`"$outFile`""
     $arguments += "/DumpResult", "`"$resultFile`""
     $arguments += "/DisableStartupDialogs"
+    $arguments += Resolve-PlatformArguments -Explicit $explicitV8Args -StartDir $settingsDir -Key "v8args"
+
+    }
 
     # --- Execute ---
-    Write-Host "Running: 1cv8.exe $(Hide-PlatformSecret ($arguments -join ' '))"
-    $process = Start-Process -FilePath $V8Path -ArgumentList $arguments -NoNewWindow -Wait -PassThru
+    # Потоки процесса уходят в файлы: унаследованная консоль отдала бы вывод платформы в
+    # кодировке 866 как есть, и кириллица в сообщении об ошибке стала бы нечитаемой.
+    $stdoutFile = Join-Path $tempDir "platform_stdout.txt"
+    $stderrFile = Join-Path $tempDir "platform_stderr.txt"
+    Write-Host "Running: $([System.IO.Path]::GetFileName($V8Path)) $(Hide-PlatformSecret ($arguments -join ' '))"
+    $process = Start-Process -FilePath $V8Path -ArgumentList $arguments -NoNewWindow -Wait -PassThru `
+        -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
     $exitCode = $process.ExitCode
+    Show-PlatformOutput @($stdoutFile, $stderrFile)
 
     # --- Result ---
     $logContent = $null
@@ -267,6 +441,9 @@ try {
         $artifactPath = Join-Path $InfoBasePath "1Cv8.1CD"
     }
 
+    # У утилиты администрирования нет ни файла результата, ни лога платформы: вердикт
+    # опирается на код возврата и постусловие.
+    if ($isIbcmd) { $resultFile = $null; $logContent = $null }
     $exitCode = Write-PlatformVerdict -ExitCode $exitCode -ResultFile $resultFile -LogText $logContent `
         -ArtifactPath $artifactPath `
         -SuccessMessage $successMessage `

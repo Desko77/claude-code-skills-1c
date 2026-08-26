@@ -74,6 +74,11 @@ def hide_platform_secret(text):
     keys = r'(?:^|(?<=\s))(/ConfigurationRepositoryP|/UC|/P)'
     masked = re.sub(keys + r'"[^"]*"', r'\g<1>"***"', text)
     masked = re.sub(keys + r'([^\s"]\S*)', r'\g<1>***', masked)
+    # Утилита администрирования принимает секрет длинным ключом со знаком равенства:
+    # --token=, --password=, --db-pwd=. Правило для ключей платформы их не покрывает.
+    long_keys = r'(?:^|(?<=\s))(--(?:token|password|db-pwd|pwd)=)'
+    masked = re.sub(long_keys + r'"[^"]*"', r'\g<1>"***"', masked)
+    masked = re.sub(long_keys + r'([^\s"]\S*)', r'\g<1>***', masked)
     return masked
 
 
@@ -145,6 +150,128 @@ def write_platform_verdict(exit_code, result_file, log_text, success_message,
 
     return final_code
 # --- Конец общего блока вердикта платформы ---
+
+
+# --- Дополнительные аргументы платформы (общий блок, версия 1) ---
+# Список разделяется запятой, а не пробелом: аргумент платформы несет пробел внутри значения
+# (/C "имя значение", путь с пробелом), и разбор по пробелу разорвал бы такой аргумент.
+def split_platform_arguments(raw):
+    if not raw or not raw.strip():
+        return []
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
+def find_v8_project_file(start_dir):
+    """Файл настроек проекта вверх по дереву от целевого каталога.
+
+    Существование каталога не требуется: подъем идет по строке пути, а целевого каталога
+    на момент создания базы еще нет.
+    """
+    d = os.path.abspath(start_dir)
+    for _ in range(20):
+        candidate = os.path.join(d, ".v8-project.json")
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return None
+
+
+def project_platform_arguments(start_dir, key):
+    # Импорт внутри функции: блок переносится в скилы с разным набором импортов, и
+    # обращение к неимпортированному имени попадало бы в except ниже - отказ стал бы тихим.
+    import json as _pa_json
+    try:
+        path = find_v8_project_file(start_dir)
+        if not path:
+            return []
+        with open(path, "r", encoding="utf-8-sig") as f:
+            settings = _pa_json.load(f)
+        value = settings.get(key)
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return split_platform_arguments(value)
+        return [str(v) for v in value if str(v)]
+    except Exception:
+        # Непрочитанные настройки не повод отменять запуск: дополнительные аргументы
+        # необязательны, а сам файл проверяет и сообщает о поломке отдельный линтер.
+        return []
+
+
+def resolve_platform_arguments(explicit, start_dir, key):
+    """Аргументы вызова заменяют значение из настроек проекта целиком, а не дополняют его:
+    при сложении снять заданный в проекте аргумент было бы нечем.
+
+    None означает, что параметр не задавали, - тогда действуют настройки проекта. Пустая
+    строка означает заданное пустое значение и снимает аргументы проекта на этот запуск.
+    """
+    if explicit is not None:
+        return split_platform_arguments(explicit)
+    return project_platform_arguments(start_dir, key)
+
+
+def merge_dash_values(argv, keys):
+    """Склеить "-Ключ значение" в "-Ключ=значение" для перечисленных ключей.
+
+    Разбор командной строки принимает значение, начинающееся с дефиса, за новый ключ: строка
+    "--verbose,--token=x" без склейки обрывает разбор подсказкой по использованию.
+    """
+    out = []
+    i = 0
+    while i < len(argv):
+        token = argv[i]
+        if token in keys and i + 1 < len(argv):
+            out.append(token + "=" + argv[i + 1])
+            i += 2
+            continue
+        out.append(token)
+        i += 1
+    return out
+# --- Конец общего блока дополнительных аргументов ---
+
+
+# --- Вывод платформы (общий блок, версия 1) ---
+# Платформа пишет диагностику в кодировке консоли (866 на русской Windows), утилита
+# администрирования и часть сборок - в UTF-8. Байты читаются один раз и декодируются по
+# факту: перепутанная кодировка превращает сообщение об ошибке в нечитаемое.
+def read_platform_text(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError:
+        return ""
+    if not data:
+        return ""
+    if data.startswith(b"\xef\xbb\xbf"):
+        return data[3:].decode("utf-8", "replace")
+    try:
+        # Строгое декодирование бросает исключение на байтах, недопустимых в UTF-8, - это и
+        # есть признак однобайтовой кодировки. Нестрогое подставило бы символ замены молча.
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("cp866", "replace")
+
+
+def show_platform_output(paths):
+    """Вывод показывается и при успешном завершении: платформа сообщает предупреждения, не
+    меняя код возврата, и потерянное предупреждение обходится дороже лишних строк в протоколе.
+    """
+    chunks = []
+    for path in paths:
+        text = read_platform_text(path).strip()
+        if text:
+            chunks.append(text)
+    if not chunks:
+        return
+    print("--- Вывод платформы ---")
+    for chunk in chunks:
+        print(chunk)
+# --- Конец общего блока вывода платформы ---
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -161,7 +288,8 @@ def main():
     parser.add_argument("-SourceFile", required=True, help="Path to root XML source file")
     parser.add_argument("-OutputFile", required=True, help="Path to output EPF/ERF file")
     parser.add_argument("-StrictLog", action="store_true")
-    args = parser.parse_args()
+    parser.add_argument("-AdditionalV8Arguments", default=None)
+    args = parser.parse_args(merge_dash_values(sys.argv[1:], ("-AdditionalV8Arguments",)))
 
     # --- Resolve V8Path ---
     v8path = resolve_v8path(args.V8Path)
@@ -174,7 +302,13 @@ def main():
         stub_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stub-db-create.py")
         print("No database specified. Creating temporary stub database...")
         result = subprocess.run(
-            [sys.executable, stub_script, "-SourceDir", source_dir, "-V8Path", v8path, "-TempBasePath", auto_base_path],
+            [sys.executable, stub_script, "-SourceDir", source_dir, "-V8Path", v8path,
+             "-TempBasePath", auto_base_path,
+             # Аргументы разрешаются ДО цепочки: заданные только в настройках проекта иначе не
+             # дошли бы до создания временной базы.
+             "-AdditionalV8Arguments=" + ",".join(resolve_platform_arguments(
+                 args.AdditionalV8Arguments,
+                 os.path.dirname(os.path.abspath(args.SourceFile)), "v8args"))],
             capture_output=False,
         )
         if result.returncode != 0:
@@ -221,15 +355,20 @@ def main():
         arguments.extend(["/Out", out_file])
         arguments.extend(["/DumpResult", result_file])
         arguments.append("/DisableStartupDialogs")
+        settings_dir = os.path.dirname(os.path.abspath(args.SourceFile))
+        arguments.extend(resolve_platform_arguments(
+            args.AdditionalV8Arguments, settings_dir, "v8args"))
 
         # --- Execute ---
+        # Потоки процесса уходят в файлы: перехват с готовым декодированием портит кириллицу,
+        # а платформа пишет диагностику в кодировке консоли.
         print(f"Running: 1cv8.exe {hide_platform_secret(' '.join(arguments))}")
-        result = subprocess.run(
-            [v8path] + arguments,
-            capture_output=True,
-            text=True,
-        )
+        stdout_file = os.path.join(temp_dir, "platform_stdout.txt")
+        stderr_file = os.path.join(temp_dir, "platform_stderr.txt")
+        with open(stdout_file, "wb") as so, open(stderr_file, "wb") as se:
+            result = subprocess.run([v8path] + arguments, stdout=so, stderr=se)
         exit_code = result.returncode
+        show_platform_output([stdout_file, stderr_file])
 
         # --- Result ---
         log_content = None

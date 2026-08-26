@@ -1,0 +1,34 @@
+{
+  "name": "Первая выгрузка в пустой каталог идет полной, без ключа инкремента (fake platform)",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\necho ARGS: %*\r\nexit /b 0\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "ib/1Cv8.1CD",
+        "content": "fake infobase\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBasePath",
+    "{workDir}\\ib",
+    "-ConfigDir",
+    "{workDir}\\src"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "файл версий не найден",
+      "Executing full configuration dump"
+    ],
+    "stdoutNotContains": "-update"
+  },
+  "noSnapshot": "проверяется выбор режима по stdout, выгрузка не выполняется",
+  "osOnly": "win32"
+}
