@@ -505,6 +505,11 @@ def main():
         idx = len(font_entries)
         font_map[name] = idx
         font_entries.append({
+            # Шрифт задается либо своими свойствами, либо ссылкой на элемент стиля или
+            # системный шрифт - тогда своих свойств у него нет.
+            'Ref': str(font_def.get('ref')) if font_def and font_def.get('ref') else '',
+            'Kind': str(font_def.get('kind')) if font_def and font_def.get('kind') else 'Absolute',
+            'Namespace': font_def.get('namespace') if font_def else None,
             'Face': face,
             'Size': size,
             'Bold': bold,
@@ -656,6 +661,7 @@ def main():
         font_idx = font_map.get('default', -1)
         lb = -1; tb = -1; rb = -1; bb = -1
         ha = ''; va = ''; nf = ''
+        text_color = ''
         wrap = False
 
         if style_name and defn.get('styles'):
@@ -700,6 +706,10 @@ def main():
                 if style.get('format'):
                     nf = style['format']
 
+                # Цвет текста задается ссылкой на элемент стиля платформы.
+                if style.get('textColor'):
+                    text_color = str(style['textColor'])
+
         return {
             'FontIdx': font_idx,
             'LB': lb, 'TB': tb, 'RB': rb, 'BB': bb,
@@ -707,6 +717,7 @@ def main():
             'Wrap': wrap,
             'FillType': fill_type,
             'NumberFormat': nf,
+            'TextColor': text_color,
         }
 
     # --- 6. Format palette builder ---
@@ -714,8 +725,11 @@ def main():
     format_order = []       # ordered keys for index assignment
 
     def get_format_key(font_idx=-1, lb=-1, tb=-1, rb=-1, bb=-1, ha='', va='',
-                       wrap=False, fill_type='', number_format='', width=-1, height=-1):
-        return f'f={font_idx}|lb={lb}|tb={tb}|rb={rb}|bb={bb}|ha={ha}|va={va}|wr={wrap}|ft={fill_type}|nf={number_format}|w={width}|h={height}'
+                       wrap=False, fill_type='', number_format='', width=-1, height=-1,
+                       text_color='', hidden=False):
+        return (f'f={font_idx}|lb={lb}|tb={tb}|rb={rb}|bb={bb}|ha={ha}|va={va}|wr={wrap}'
+                f'|ft={fill_type}|nf={number_format}|w={width}|h={height}'
+                f'|tc={text_color}|hd={hidden}')
 
     def register_format(key, props):
         if key not in format_registry:
@@ -759,7 +773,8 @@ def main():
             lb=resolved['LB'], tb=resolved['TB'], rb=resolved['RB'], bb=resolved['BB'],
             ha=resolved['HA'], va=resolved['VA'],
             wrap=resolved['Wrap'], fill_type=resolved['FillType'],
-            number_format=resolved['NumberFormat'])
+            number_format=resolved['NumberFormat'],
+            text_color=resolved['TextColor'])
         props = {
             'FontIdx': resolved['FontIdx'],
             'LB': resolved['LB'], 'TB': resolved['TB'],
@@ -768,10 +783,36 @@ def main():
             'Wrap': resolved['Wrap'],
             'FillType': resolved['FillType'],
             'NumberFormat': resolved['NumberFormat'],
+            'TextColor': resolved['TextColor'],
         }
         if key == get_format_key(font_idx=-1):
             return 0
         return register_format(key, props)
+
+    # Формат строки собирается из высоты, скрытия и собственного стиля строки: платформа
+    # держит их одним форматом.
+    def get_row_format(row):
+        row_height = int(row['height']) if row.get('height') else -1
+        row_hidden = row.get('hidden') is True
+        props = {'Hidden': row_hidden}
+        if row_height >= 0:
+            props['Height'] = row_height
+        if not row.get('style'):
+            return get_format_key(height=row_height, hidden=row_hidden), props
+        r = resolve_style(row['style'], '')
+        props.update({
+            'FontIdx': r['FontIdx'],
+            'LB': r['LB'], 'TB': r['TB'], 'RB': r['RB'], 'BB': r['BB'],
+            'HA': r['HA'], 'VA': r['VA'],
+            'Wrap': r['Wrap'],
+            'NumberFormat': r['NumberFormat'],
+            'TextColor': r['TextColor'],
+        })
+        key = get_format_key(
+            font_idx=r['FontIdx'], lb=r['LB'], tb=r['TB'], rb=r['RB'], bb=r['BB'],
+            ha=r['HA'], va=r['VA'], wrap=r['Wrap'], number_format=r['NumberFormat'],
+            text_color=r['TextColor'], height=row_height, hidden=row_hidden)
+        return key, props
 
     # Pre-register all formats from areas
     for area in sheet_areas:
@@ -784,9 +825,9 @@ def main():
                 continue
 
             # Row height format
-            if row.get('height'):
-                h_key = get_format_key(height=int(row['height']))
-                register_format(h_key, {'Height': int(row['height'])})
+            if row.get('height') or row.get('hidden') is True or row.get('style'):
+                h_key, h_props = get_row_format(row)
+                register_format(h_key, h_props)
 
             # rowStyle gap-fill format
             if row.get('rowStyle'):
@@ -927,8 +968,8 @@ def main():
 
             # Determine row height format
             row_format_idx = 0
-            if row.get('height'):
-                h_key = get_format_key(height=int(row['height']))
+            if row.get('height') or row.get('hidden') is True or row.get('style'):
+                h_key = get_row_format(row)[0]
                 if h_key in format_registry:
                     row_format_idx = format_order.index(h_key) + 1
 
@@ -1195,6 +1236,13 @@ def main():
 
     # 7i. Font palette
     for fe in font_entries:
+        if fe.get('Ref'):
+            # Объявление пространства имен идет первым атрибутом - так пишет платформа.
+            ns_attr = ''
+            for ns_prefix, ns_uri in (fe.get('Namespace') or {}).items():
+                ns_attr += f' xmlns:{ns_prefix}="{esc_xml(str(ns_uri))}"'
+            lines.append(f'\t<font{ns_attr} ref="{esc_xml(fe["Ref"])}" kind="{fe["Kind"]}"/>')
+            continue
         lines.append(f'\t<font faceName="{fe["Face"]}" height="{fe["Size"]}" bold="{fe["Bold"]}" italic="{fe["Italic"]}" underline="{fe["Underline"]}" strikeout="{fe["Strikeout"]}" kind="Absolute" scale="100"/>')
 
     # 7j. Format palette
@@ -1202,15 +1250,24 @@ def main():
         fmt = format_registry[key]
         lines.append('\t<format>')
 
+        if fmt.get('Hidden') is True:
+            lines.append('\t\t<hidden>true</hidden>')
         if fmt.get('FontIdx') is not None and fmt.get('FontIdx', -1) >= 0:
             lines.append(f'\t\t<font>{fmt["FontIdx"]}</font>')
-        if fmt.get('LB') is not None and fmt.get('LB', -1) >= 0:
+        if fmt.get('TextColor'):
+            lines.append(f'\t\t<textColor>{esc_xml(fmt["TextColor"])}</textColor>')
+        # Рамка со всех сторон одной линией пишется одним тегом - так делает платформа.
+        same_border = (fmt.get('LB') is not None and fmt.get('LB', -1) >= 0
+                       and fmt.get('LB') == fmt.get('TB') == fmt.get('RB') == fmt.get('BB'))
+        if same_border:
+            lines.append(f'\t\t<border>{fmt["LB"]}</border>')
+        if not same_border and fmt.get('LB') is not None and fmt.get('LB', -1) >= 0:
             lines.append(f'\t\t<leftBorder>{fmt["LB"]}</leftBorder>')
-        if fmt.get('TB') is not None and fmt.get('TB', -1) >= 0:
+        if not same_border and fmt.get('TB') is not None and fmt.get('TB', -1) >= 0:
             lines.append(f'\t\t<topBorder>{fmt["TB"]}</topBorder>')
-        if fmt.get('RB') is not None and fmt.get('RB', -1) >= 0:
+        if not same_border and fmt.get('RB') is not None and fmt.get('RB', -1) >= 0:
             lines.append(f'\t\t<rightBorder>{fmt["RB"]}</rightBorder>')
-        if fmt.get('BB') is not None and fmt.get('BB', -1) >= 0:
+        if not same_border and fmt.get('BB') is not None and fmt.get('BB', -1) >= 0:
             lines.append(f'\t\t<bottomBorder>{fmt["BB"]}</bottomBorder>')
         if fmt.get('Width'):
             lines.append(f'\t\t<width>{fmt["Width"]}</width>')

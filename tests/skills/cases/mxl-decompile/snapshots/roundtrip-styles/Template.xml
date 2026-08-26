@@ -72,10 +72,7 @@
 	<font faceName="Arial" height="10" bold="false" italic="true" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<format>
 		<font>1</font>
-		<leftBorder>0</leftBorder>
-		<topBorder>0</topBorder>
-		<rightBorder>0</rightBorder>
-		<bottomBorder>0</bottomBorder>
+		<border>0</border>
 		<horizontalAlignment>Center</horizontalAlignment>
 	</format>
 	<format>
@@ -84,10 +81,7 @@
 	</format>
 	<format>
 		<font>0</font>
-		<leftBorder>0</leftBorder>
-		<topBorder>0</topBorder>
-		<rightBorder>0</rightBorder>
-		<bottomBorder>0</bottomBorder>
+		<border>0</border>
 	</format>
 	<format>
 		<width>10</width>

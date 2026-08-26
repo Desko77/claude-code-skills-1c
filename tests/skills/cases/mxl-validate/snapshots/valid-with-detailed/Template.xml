@@ -47,16 +47,10 @@
 		<v8ui:style xsi:type="v8ui:SpreadsheetDocumentCellLineType">Solid</v8ui:style>
 	</line>
 	<format>
-		<leftBorder>0</leftBorder>
-		<topBorder>0</topBorder>
-		<rightBorder>0</rightBorder>
-		<bottomBorder>0</bottomBorder>
+		<border>0</border>
 	</format>
 	<format>
-		<leftBorder>0</leftBorder>
-		<topBorder>0</topBorder>
-		<rightBorder>0</rightBorder>
-		<bottomBorder>0</bottomBorder>
+		<border>0</border>
 		<fillType>Parameter</fillType>
 	</format>
 	<format>

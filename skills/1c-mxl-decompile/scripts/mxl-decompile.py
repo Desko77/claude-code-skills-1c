@@ -153,6 +153,10 @@ def font_size_value(raw):
     return int(value) if value == int(value) else value
 
 
+# Префиксы, объявленные на корне: у элемента шрифта они не свои и в описание не идут.
+INHERITED_PREFIXES = ('style', 'v8', 'v8ui', 'xs', 'xsi', 'pal')
+
+
 def text_of(node):
     if node is not None and node.text:
         return node.text
@@ -192,7 +196,16 @@ def main():
 
     raw_fonts = []
     for f_node in findall(root, "d:font"):
+        font_ns = OrderedDict()
+        for ns_prefix, ns_uri in (f_node.nsmap or {}).items():
+            if ns_prefix and ns_prefix not in INHERITED_PREFIXES:
+                font_ns[ns_prefix] = ns_uri
         raw_fonts.append({
+            # Шрифт задается либо своими свойствами, либо ссылкой на элемент стиля или
+            # системный шрифт - тогда у него есть ref, kind и объявление префикса.
+            "Ref": f_node.get("ref", ""),
+            "Kind": f_node.get("kind", ""),
+            "Namespace": font_ns,
             "Face": f_node.get("faceName", ""),
             # Размер шрифта бывает дробным: целое сохраняется целым, чтобы описание
             # не менялось на ровном месте.
@@ -219,11 +232,20 @@ def main():
             "Width": 0, "Height": 0,
             "HA": "", "VA": "",
             "Wrap": False, "FillType": "", "DataFormat": "",
+            "TextColor": "", "Hidden": False,
         }
 
         n = find(fmt_node, "d:font")
         if n is not None and n.text:
             fmt["FontIdx"] = int(n.text)
+        # Рамка со всех сторон одной линией записана одним тегом.
+        n = find(fmt_node, "d:border")
+        if n is not None and n.text:
+            all_sides = int(n.text)
+            fmt["LB"] = all_sides
+            fmt["TB"] = all_sides
+            fmt["RB"] = all_sides
+            fmt["BB"] = all_sides
         n = find(fmt_node, "d:leftBorder")
         if n is not None and n.text:
             fmt["LB"] = int(n.text)
@@ -237,6 +259,12 @@ def main():
         if n is not None and n.text:
             fmt["BB"] = int(n.text)
 
+        n = find(fmt_node, "d:textColor")
+        if n is not None and n.text:
+            fmt["TextColor"] = n.text
+        n = find(fmt_node, "d:hidden")
+        if n is not None and n.text == "true":
+            fmt["Hidden"] = True
         n = find(fmt_node, "d:width")
         if n is not None and n.text:
             fmt["Width"] = int(n.text)
@@ -499,27 +527,42 @@ def main():
     def get_style_key(fmt):
         if not fmt:
             return "empty"
-        fi = fmt["FontIdx"] if fmt["FontIdx"] >= 0 else 0
+        # Формат без шрифта - это отсутствие шрифта, а не первый шрифт палитры: подмена
+        # навязывала бы его ячейкам, у которых шрифта не было.
+        fi = fmt["FontIdx"] if fmt["FontIdx"] >= 0 else -1
         bd = get_border_desc(fmt)
-        return f"f={fi}|b={bd['Border']}|bw={bd['Thick']}|ha={fmt['HA']}|va={fmt['VA']}|wr={fmt['Wrap']}|df={fmt['DataFormat']}"
+        return (f"f={fi}|b={bd['Border']}|bw={bd['Thick']}|ha={fmt['HA']}|va={fmt['VA']}"
+                f"|wr={fmt['Wrap']}|df={fmt['DataFormat']}|tc={fmt['TextColor']}")
 
     # --- 10. Name fonts ---
 
     font_names = {}
     font_defs = OrderedDict()
 
-    if len(raw_fonts) > 0:
-        font_names[0] = "default"
-        font_defs["default"] = raw_fonts[0]
+    # Имя default означает шрифт, который сборка подставит стилю без явного шрифта. Если в
+    # макете есть оформленный формат БЕЗ шрифта, такого умолчания у документа нет: первый
+    # шрифт палитры именуется как остальные, иначе сборка навяжет его тем ячейкам, у которых
+    # шрифта не было.
+    has_fontless_format = any(
+        fmt["FontIdx"] < 0 and (fmt["LB"] >= 0 or fmt["TB"] >= 0 or fmt["RB"] >= 0
+                                or fmt["BB"] >= 0 or fmt["HA"] or fmt["VA"] or fmt["Wrap"]
+                                or fmt["FillType"] or fmt["DataFormat"] or fmt["TextColor"]
+                                or fmt["Hidden"])
+        for fmt in raw_formats)
+
+    # Шрифт-ссылка именуется по самой ссылке: свойств, из которых собирается имя, у него нет.
+    def ref_font_name(f):
+        value = str(f["Ref"])
+        return value.split(":", 1)[1] if ":" in value else value
 
     def get_font_key(f):
-        return f"{f['Face']}|{f['Size']}|{f['Bold']}|{f['Italic']}|{f['Underline']}|{f['Strikeout']}"
+        ns = ";".join(f"{k}={v}" for k, v in sorted((f["Namespace"] or {}).items()))
+        return (f"{f['Ref']}|{f['Kind']}|{ns}|{f['Face']}|{f['Size']}"
+                f"|{f['Bold']}|{f['Italic']}|{f['Underline']}|{f['Strikeout']}")
 
     font_key_map = {}
-    if len(raw_fonts) > 0:
-        font_key_map[get_font_key(raw_fonts[0])] = "default"
 
-    for i in range(1, len(raw_fonts)):
+    for i in range(0, len(raw_fonts)):
         f = raw_fonts[i]
         df = raw_fonts[0]
 
@@ -531,7 +574,10 @@ def main():
 
         name = None
 
-        if f["Face"] == df["Face"] and f["Size"] == df["Size"]:
+        if f["Ref"]:
+            name = ref_font_name(f)
+
+        if not name and f["Face"] == df["Face"] and f["Size"] == df["Size"]:
             if f["Bold"] and not df["Bold"] and not f["Italic"] and not f["Underline"] and not f["Strikeout"]:
                 name = "bold"
             elif f["Italic"] and not df["Italic"] and not f["Bold"]:
@@ -542,6 +588,9 @@ def main():
             name = "header"
         elif f["Face"] == df["Face"] and f["Size"] < df["Size"]:
             name = "small"
+
+        if not name and i == 0 and not has_fontless_format:
+            name = "default"
 
         if not name:
             parts = []
@@ -573,7 +622,22 @@ def main():
     style_keys = OrderedDict()
     format_to_style_key = {}
 
+    # Собственный формат строки тоже дает стиль: высота и скрытие в стиль не входят, а шрифт
+    # и оформление - входят.
+    def row_format_styled(fmt):
+        if not fmt:
+            return False
+        return bool(fmt["FontIdx"] >= 0 or fmt["LB"] >= 0 or fmt["TB"] >= 0 or fmt["RB"] >= 0
+                    or fmt["BB"] >= 0 or fmt["HA"] or fmt["VA"] or fmt["Wrap"]
+                    or fmt["DataFormat"] or fmt["TextColor"])
+
     for rd in row_data.values():
+        row_fmt_own = get_format(rd["FormatIdx"])
+        if row_format_styled(row_fmt_own):
+            row_key = get_style_key(row_fmt_own)
+            if row_key not in style_keys:
+                style_keys[row_key] = row_fmt_own
+            format_to_style_key[rd["FormatIdx"]] = row_key
         for cell in rd["Cells"]:
             fmt = get_format(cell["FormatIdx"])
             if not fmt:
@@ -588,7 +652,8 @@ def main():
             return "default"
         parts = []
 
-        fi = fmt["FontIdx"] if fmt["FontIdx"] >= 0 else 0
+        # Формат без шрифта - это отсутствие шрифта, а не первый шрифт палитры.
+        fi = fmt["FontIdx"] if fmt["FontIdx"] >= 0 else -1
         if fi in font_names and font_names[fi] != "default":
             parts.append(font_names[fi])
 
@@ -609,6 +674,8 @@ def main():
             parts.append("vtop")
         if fmt["Wrap"]:
             parts.append("wrap")
+        if fmt["TextColor"] and not parts:
+            parts.append("colored")
         if fmt["DataFormat"]:
             parts.append("fmt")
 
@@ -632,7 +699,8 @@ def main():
         style_names[key] = name
 
         s_def = OrderedDict()
-        fi = fmt["FontIdx"] if fmt["FontIdx"] >= 0 else 0
+        # Формат без шрифта - это отсутствие шрифта, а не первый шрифт палитры.
+        fi = fmt["FontIdx"] if fmt["FontIdx"] >= 0 else -1
         if fi in font_names and font_names[fi] != "default":
             s_def["font"] = font_names[fi]
         if fmt["HA"]:
@@ -646,6 +714,8 @@ def main():
             a = va_map.get(fmt["VA"])
             if a:
                 s_def["valign"] = a
+        if fmt["TextColor"]:
+            s_def["textColor"] = fmt["TextColor"]
         bd = get_border_desc(fmt)
         if bd["Border"] != "none":
             s_def["border"] = bd["Border"]
@@ -702,19 +772,29 @@ def main():
         for global_row in range(area["BeginRow"], area["EndRow"] + 1):
             rd = row_data.get(global_row)
 
+            # Свой формат есть и у строки без ячеек: высота, скрытие и стиль строки от
+            # отсутствия содержимого не пропадают.
+            def row_own_properties(rd_local):
+                out = OrderedDict()
+                if rd_local.get("ColumnSet"):
+                    out["columnSet"] = rd_local["ColumnSet"]
+                if rd_local["FormatIdx"] > 0:
+                    row_fmt_local = get_format(rd_local["FormatIdx"])
+                    if row_fmt_local and row_fmt_local["Height"] > 0:
+                        out["height"] = row_fmt_local["Height"]
+                    if row_fmt_local and row_fmt_local["Hidden"]:
+                        out["hidden"] = True
+                    if row_format_styled(row_fmt_local):
+                        key_local = format_to_style_key.get(rd_local["FormatIdx"])
+                        if key_local and key_local in style_names:
+                            out["style"] = style_names[key_local]
+                return out
+
             if not rd or rd["Empty"]:
-                area_rows.append(OrderedDict())
+                area_rows.append(row_own_properties(rd) if rd else OrderedDict())
                 continue
 
-            dsl_row = OrderedDict()
-            if rd.get("ColumnSet"):
-                dsl_row["columnSet"] = rd["ColumnSet"]
-
-            # Row height
-            if rd["FormatIdx"] > 0:
-                row_fmt = get_format(rd["FormatIdx"])
-                if row_fmt and row_fmt["Height"] > 0:
-                    dsl_row["height"] = row_fmt["Height"]
+            dsl_row = row_own_properties(rd)
 
             # Separate content cells from gap-fill cells
             content_cells = []
@@ -868,6 +948,13 @@ def main():
     fonts_out = OrderedDict()
     for name, f in font_defs.items():
         f_out = OrderedDict()
+        if f["Ref"]:
+            if f["Namespace"]:
+                f_out["namespace"] = OrderedDict(f["Namespace"])
+            f_out["ref"] = f["Ref"]
+            f_out["kind"] = f["Kind"]
+            fonts_out[name] = f_out
+            continue
         f_out["face"] = f["Face"]
         f_out["size"] = f["Size"]
         if f["Bold"]:
@@ -933,8 +1020,13 @@ def main():
     if sheet_rows:
         style_scan_rows.extend(sheet_rows)
     for r in style_scan_rows:
+        # Строка, записанная массивом, стилей не несет.
+        if not isinstance(r, dict):
+            continue
         if "rowStyle" in r:
             used_styles.add(r["rowStyle"])
+        if "style" in r:
+            used_styles.add(r["style"])
         if "cells" in r:
             for c in r["cells"]:
                 if "style" in c:

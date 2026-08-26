@@ -127,6 +127,7 @@
 	<font faceName="Arial" height="10" bold="false" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<font faceName="Arial" height="10" bold="true" italic="false" underline="false" strikeout="false" kind="Absolute" scale="100"/>
 	<format>
+		<hidden>true</hidden>
 		<height>20</height>
 	</format>
 	<format>

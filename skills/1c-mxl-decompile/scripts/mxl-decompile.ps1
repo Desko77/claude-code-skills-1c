@@ -32,7 +32,16 @@ $ns.AddNamespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
 
 $rawFonts = @()
 foreach ($fNode in $root.SelectNodes("d:font", $ns)) {
+	$fontNs = @{}
+	foreach ($attr in $fNode.Attributes) {
+		if ($attr.Prefix -eq "xmlns") { $fontNs[$attr.LocalName] = $attr.Value }
+	}
 	$rawFonts += @{
+		# Шрифт задается либо своими свойствами, либо ссылкой на элемент стиля или
+		# системный шрифт - тогда у него есть ref, kind и объявление префикса.
+		Ref       = $fNode.GetAttribute("ref")
+		Kind      = $fNode.GetAttribute("kind")
+		Namespace = $fontNs
 		Face      = $fNode.GetAttribute("faceName")
 		# Размер шрифта бывает дробным: целое сохраняется целым, чтобы описание
 		# не менялось на ровном месте.
@@ -64,10 +73,17 @@ foreach ($fmtNode in $root.SelectNodes("d:format", $ns)) {
 		Width = 0; Height = 0
 		HA = ""; VA = ""
 		Wrap = $false; FillType = ""; DataFormat = ""
+		TextColor = ""; Hidden = $false
 	}
 
 	$n = $fmtNode.SelectSingleNode("d:font", $ns)
 	if ($n) { $fmt.FontIdx = [int]$n.InnerText }
+	# Рамка со всех сторон одной линией записана одним тегом.
+	$n = $fmtNode.SelectSingleNode("d:border", $ns)
+	if ($n) {
+		$all = [int]$n.InnerText
+		$fmt.LB = $all; $fmt.TB = $all; $fmt.RB = $all; $fmt.BB = $all
+	}
 	$n = $fmtNode.SelectSingleNode("d:leftBorder", $ns)
 	if ($n) { $fmt.LB = [int]$n.InnerText }
 	$n = $fmtNode.SelectSingleNode("d:topBorder", $ns)
@@ -77,6 +93,10 @@ foreach ($fmtNode in $root.SelectNodes("d:format", $ns)) {
 	$n = $fmtNode.SelectSingleNode("d:bottomBorder", $ns)
 	if ($n) { $fmt.BB = [int]$n.InnerText }
 
+	$n = $fmtNode.SelectSingleNode("d:textColor", $ns)
+	if ($n) { $fmt.TextColor = $n.InnerText }
+	$n = $fmtNode.SelectSingleNode("d:hidden", $ns)
+	if ($n -and $n.InnerText -eq "true") { $fmt.Hidden = $true }
 	$n = $fmtNode.SelectSingleNode("d:width", $ns)
 	if ($n) { $fmt.Width = [int]$n.InnerText }
 	$n = $fmtNode.SelectSingleNode("d:height", $ns)
@@ -333,9 +353,11 @@ function Get-BorderDesc {
 function Get-StyleKey {
 	param($fmt)
 	if (-not $fmt) { return "empty" }
-	$fi = if ($fmt.FontIdx -ge 0) { $fmt.FontIdx } else { 0 }
+	# Формат без шрифта - это отсутствие шрифта, а не первый шрифт палитры: подмена
+	# навязывала бы его ячейкам, у которых шрифта не было.
+	$fi = if ($fmt.FontIdx -ge 0) { $fmt.FontIdx } else { -1 }
 	$bd = Get-BorderDesc $fmt
-	return "f=$fi|b=$($bd.Border)|bw=$($bd.Thick)|ha=$($fmt.HA)|va=$($fmt.VA)|wr=$($fmt.Wrap)|df=$($fmt.DataFormat)"
+	return "f=$fi|b=$($bd.Border)|bw=$($bd.Thick)|ha=$($fmt.HA)|va=$($fmt.VA)|wr=$($fmt.Wrap)|df=$($fmt.DataFormat)|tc=$($fmt.TextColor)"
 }
 
 # --- 10. Name fonts ---
@@ -343,20 +365,40 @@ function Get-StyleKey {
 $fontNames = @{}
 $fontDefs = [ordered]@{}
 
-if ($rawFonts.Count -gt 0) {
-	$fontNames[0] = "default"
-	$fontDefs["default"] = $rawFonts[0]
+# Шрифт-ссылка именуется по самой ссылке: свойств, из которых собирается имя, у него нет.
+function Get-RefFontName {
+	param($f)
+	$v = "$($f.Ref)"
+	$i = $v.IndexOf(":")
+	if ($i -ge 0) { return $v.Substring($i + 1) }
+	return $v
 }
+
+# Имя default означает шрифт, который сборка подставит стилю без явного шрифта. Если в
+# макете есть оформленный формат БЕЗ шрифта, такого умолчания у документа нет: первый
+# шрифт палитры именуется как остальные, иначе сборка навяжет его тем ячейкам, у которых
+# шрифта не было.
+$hasFontlessFormat = $false
+foreach ($fmt in $rawFormats) {
+	if ($fmt.FontIdx -ge 0) { continue }
+	if ($fmt.LB -ge 0 -or $fmt.TB -ge 0 -or $fmt.RB -ge 0 -or $fmt.BB -ge 0 -or
+		$fmt.HA -or $fmt.VA -or $fmt.Wrap -or $fmt.FillType -or
+		$fmt.DataFormat -or $fmt.TextColor -or $fmt.Hidden) {
+		$hasFontlessFormat = $true
+		break
+	}
+}
+
 
 function Get-FontKey {
 	param($f)
-	return "$($f.Face)|$($f.Size)|$($f.Bold)|$($f.Italic)|$($f.Underline)|$($f.Strikeout)"
+	$ns = (@($f.Namespace.Keys | Sort-Object | ForEach-Object { "$_=$($f.Namespace[$_])" }) -join ";")
+	return "$($f.Ref)|$($f.Kind)|$ns|$($f.Face)|$($f.Size)|$($f.Bold)|$($f.Italic)|$($f.Underline)|$($f.Strikeout)"
 }
 
 $fontKeyMap = @{}
-$fontKeyMap[(Get-FontKey $rawFonts[0])] = "default"
 
-for ($i = 1; $i -lt $rawFonts.Count; $i++) {
+for ($i = 0; $i -lt $rawFonts.Count; $i++) {
 	$f = $rawFonts[$i]
 	$df = $rawFonts[0]
 
@@ -369,7 +411,9 @@ for ($i = 1; $i -lt $rawFonts.Count; $i++) {
 
 	$name = $null
 
-	if ($f.Face -eq $df.Face -and $f.Size -eq $df.Size) {
+	if ($f.Ref) { $name = Get-RefFontName $f }
+
+	if (-not $name -and $f.Face -eq $df.Face -and $f.Size -eq $df.Size) {
 		if ($f.Bold -and -not $df.Bold -and -not $f.Italic -and -not $f.Underline -and -not $f.Strikeout) {
 			$name = "bold"
 		} elseif ($f.Italic -and -not $df.Italic -and -not $f.Bold) {
@@ -382,6 +426,8 @@ for ($i = 1; $i -lt $rawFonts.Count; $i++) {
 	} elseif ($f.Face -eq $df.Face -and $f.Size -lt $df.Size) {
 		$name = "small"
 	}
+
+	if (-not $name -and $i -eq 0 -and -not $hasFontlessFormat) { $name = "default" }
 
 	if (-not $name) {
 		$parts = @()
@@ -407,7 +453,23 @@ for ($i = 1; $i -lt $rawFonts.Count; $i++) {
 $styleKeys = [ordered]@{}
 $formatToStyleKey = @{}
 
+# Собственный формат строки тоже дает стиль: высота и скрытие в стиль не входят, а шрифт
+# и оформление - входят.
+function Test-RowFormatStyled {
+	param($fmt)
+	if (-not $fmt) { return $false }
+	return ($fmt.FontIdx -ge 0 -or $fmt.LB -ge 0 -or $fmt.TB -ge 0 -or $fmt.RB -ge 0 -or
+		$fmt.BB -ge 0 -or $fmt.HA -or $fmt.VA -or $fmt.Wrap -or
+		$fmt.DataFormat -or $fmt.TextColor)
+}
+
 foreach ($r in $rowData.Values) {
+	$rowFmtOwn = Get-Format $r.FormatIdx
+	if (Test-RowFormatStyled $rowFmtOwn) {
+		$rowKey = Get-StyleKey $rowFmtOwn
+		if (-not $styleKeys.Contains($rowKey)) { $styleKeys[$rowKey] = $rowFmtOwn }
+		$formatToStyleKey[$r.FormatIdx] = $rowKey
+	}
 	foreach ($cell in $r.Cells) {
 		$fmt = Get-Format $cell.FormatIdx
 		if (-not $fmt) { continue }
@@ -422,7 +484,9 @@ function Name-Style {
 	if (-not $fmt) { return "default" }
 	$parts = @()
 
-	$fi = if ($fmt.FontIdx -ge 0) { $fmt.FontIdx } else { 0 }
+	# Формат без шрифта - это отсутствие шрифта, а не первый шрифт палитры: подмена
+	# навязывала бы его ячейкам, у которых шрифта не было.
+	$fi = if ($fmt.FontIdx -ge 0) { $fmt.FontIdx } else { -1 }
 	if ($fontNames.ContainsKey($fi) -and $fontNames[$fi] -ne "default") {
 		$parts += $fontNames[$fi]
 	}
@@ -438,6 +502,7 @@ function Name-Style {
 	if ($fmt.VA -eq "Center") { $parts += "vcenter" }
 	elseif ($fmt.VA -eq "Top") { $parts += "vtop" }
 	if ($fmt.Wrap) { $parts += "wrap" }
+	if ($fmt.TextColor -and $parts.Count -eq 0) { $parts += "colored" }
 	if ($fmt.DataFormat) { $parts += "fmt" }
 
 	if ($parts.Count -eq 0) { return "default" }
@@ -457,7 +522,9 @@ foreach ($key in $styleKeys.Keys) {
 	$styleNames[$key] = $name
 
 	$sDef = [ordered]@{}
-	$fi = if ($fmt.FontIdx -ge 0) { $fmt.FontIdx } else { 0 }
+	# Формат без шрифта - это отсутствие шрифта, а не первый шрифт палитры: подмена
+	# навязывала бы его ячейкам, у которых шрифта не было.
+	$fi = if ($fmt.FontIdx -ge 0) { $fmt.FontIdx } else { -1 }
 	if ($fontNames.ContainsKey($fi) -and $fontNames[$fi] -ne "default") {
 		$sDef["font"] = $fontNames[$fi]
 	}
@@ -469,6 +536,7 @@ foreach ($key in $styleKeys.Keys) {
 		$a = switch ($fmt.VA) { "Top" { "top" } "Center" { "center" } "Bottom" { "bottom" } }
 		if ($a) { $sDef["valign"] = $a }
 	}
+	if ($fmt.TextColor) { $sDef["textColor"] = $fmt.TextColor }
 	$bd = Get-BorderDesc $fmt
 	if ($bd.Border -ne "none") {
 		$sDef["border"] = $bd.Border
@@ -567,6 +635,27 @@ function ConvertTo-ShorthandRows($compressedRows) {
 	return ,$out.ToArray()
 }
 
+# Свой формат есть и у строки без ячеек: высота, скрытие и стиль строки от отсутствия
+# содержимого не пропадают.
+function Get-RowOwnProperties {
+	param($rd)
+	$out = [ordered]@{}
+	if (-not $rd) { return $out }
+	if ($rd.ColumnSet) { $out["columnSet"] = $rd.ColumnSet }
+	if ($rd.FormatIdx -gt 0) {
+		$fmtOwn = Get-Format $rd.FormatIdx
+		if ($fmtOwn -and $fmtOwn.Height -gt 0) { $out["height"] = $fmtOwn.Height }
+		if ($fmtOwn -and $fmtOwn.Hidden) { $out["hidden"] = $true }
+		if (Test-RowFormatStyled $fmtOwn) {
+			$keyOwn = $formatToStyleKey[$rd.FormatIdx]
+			if ($keyOwn -and $styleNames.Contains($keyOwn)) {
+				$out["style"] = $styleNames[$keyOwn]
+			}
+		}
+	}
+	return $out
+}
+
 # --- 12. Build areas ---
 
 $dslAreas = @()
@@ -596,18 +685,11 @@ foreach ($area in $sheetAreas) {
 		$rd = $rowData[$globalRow]
 
 		if (-not $rd -or $rd.Empty) {
-			$areaRows += [ordered]@{}
+			$areaRows += (Get-RowOwnProperties $rd)
 			continue
 		}
 
-		$dslRow = [ordered]@{}
-		if ($rd.ColumnSet) { $dslRow["columnSet"] = $rd.ColumnSet }
-
-		# Row height
-		if ($rd.FormatIdx -gt 0) {
-			$rowFmt = Get-Format $rd.FormatIdx
-			if ($rowFmt -and $rowFmt.Height -gt 0) { $dslRow["height"] = $rowFmt.Height }
-		}
+		$dslRow = Get-RowOwnProperties $rd
 
 		# Separate content cells from gap-fill cells
 		$contentCells = @()
@@ -763,6 +845,18 @@ if ($colWidthMap.Count -gt 0) {
 $fontsOut = [ordered]@{}
 foreach ($name in $fontDefs.Keys) {
 	$f = $fontDefs[$name]
+	if ($f.Ref) {
+		$fOut = [ordered]@{}
+		if ($f.Namespace -and $f.Namespace.Count -gt 0) {
+			$nsOut = [ordered]@{}
+			foreach ($k in $f.Namespace.Keys) { $nsOut[$k] = $f.Namespace[$k] }
+			$fOut["namespace"] = $nsOut
+		}
+		$fOut["ref"] = $f.Ref
+		$fOut["kind"] = $f.Kind
+		$fontsOut[$name] = $fOut
+		continue
+	}
 	$fOut = [ordered]@{ face = $f.Face; size = $f.Size }
 	if ($f.Bold) { $fOut["bold"] = $true }
 	if ($f.Italic) { $fOut["italic"] = $true }
@@ -827,7 +921,10 @@ $styleScanRows = @()
 foreach ($a in $dslAreas) { $styleScanRows += @($a.rows) }
 if ($sheetRows) { $styleScanRows += @($sheetRows) }
 foreach ($r in $styleScanRows) {
+	# Строка, записанная массивом, стилей не несет.
+	if ($r -isnot [System.Collections.IDictionary]) { continue }
 	if ($r.rowStyle) { $usedStyles[$r.rowStyle] = $true }
+	if ($r.style) { $usedStyles[$r.style] = $true }
 	if ($r.cells) { foreach ($c in $r.cells) { if ($c.style) { $usedStyles[$c.style] = $true } } }
 }
 $toRemove = @($styleDefs.Keys | Where-Object { -not $usedStyles.ContainsKey($_) })

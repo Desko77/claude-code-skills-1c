@@ -368,6 +368,11 @@ function Add-Font {
 	$idx = $script:fontEntries.Count
 	$script:fontMap[$name] = $idx
 	$script:fontEntries += @{
+		# Шрифт задается либо своими свойствами, либо ссылкой на элемент стиля или
+		# системный шрифт - тогда своих свойств у него нет.
+		Ref       = if ($fontDef.ref) { "$($fontDef.ref)" } else { "" }
+		Kind      = if ($fontDef.kind) { "$($fontDef.kind)" } else { "Absolute" }
+		Namespace = $fontDef.namespace
 		Face      = $face
 		Size      = $size
 		Bold      = $bold
@@ -553,6 +558,7 @@ function Resolve-Style {
 	$fontIdx = if ($fontMap.Contains("default")) { $fontMap["default"] } else { -1 }
 	$lb = -1; $tb = -1; $rb = -1; $bb = -1
 	$ha = ""; $va = ""; $nf = ""
+	$textColor = ""
 	$wrap = $false
 
 	if ($styleName -and $def.styles) {
@@ -601,6 +607,9 @@ function Resolve-Style {
 
 			# Number format
 			if ($style.format) { $nf = $style.format }
+
+			# Цвет текста задается ссылкой на элемент стиля платформы.
+			if ($style.textColor) { $textColor = "$($style.textColor)" }
 		}
 	}
 
@@ -611,6 +620,7 @@ function Resolve-Style {
 		Wrap         = $wrap
 		FillType     = $fillType
 		NumberFormat = $nf
+		TextColor    = $textColor
 	}
 }
 
@@ -628,9 +638,11 @@ function Get-FormatKey {
 		[string]$fillType = "",
 		[string]$numberFormat = "",
 		[int]$width = -1,
-		[int]$height = -1
+		[int]$height = -1,
+		[string]$textColor = "",
+		[bool]$hidden = $false
 	)
-	return "f=$fontIdx|lb=$lb|tb=$tb|rb=$rb|bb=$bb|ha=$ha|va=$va|wr=$wrap|ft=$fillType|nf=$numberFormat|w=$width|h=$height"
+	return "f=$fontIdx|lb=$lb|tb=$tb|rb=$rb|bb=$bb|ha=$ha|va=$va|wr=$wrap|ft=$fillType|nf=$numberFormat|w=$width|h=$height|tc=$textColor|hd=$hidden"
 }
 
 function Register-Format {
@@ -707,7 +719,7 @@ function Register-CellFormat {
 		-lb $resolved.LB -tb $resolved.TB -rb $resolved.RB -bb $resolved.BB `
 		-ha $resolved.HA -va $resolved.VA `
 		-wrap $resolved.Wrap -fillType $resolved.FillType `
-		-numberFormat $resolved.NumberFormat
+		-numberFormat $resolved.NumberFormat -textColor $resolved.TextColor
 	if ($key -eq (Get-FormatKey -fontIdx -1)) { return 0 }
 	$props = @{
 		FontIdx      = $resolved.FontIdx
@@ -717,8 +729,34 @@ function Register-CellFormat {
 		Wrap         = $resolved.Wrap
 		FillType     = $resolved.FillType
 		NumberFormat = $resolved.NumberFormat
+		TextColor    = $resolved.TextColor
 	}
 	return Register-Format -key $key -props $props
+}
+
+# Формат строки собирается из высоты, скрытия и собственного стиля строки: платформа
+# держит их одним форматом.
+function Get-RowFormat {
+	param($row)
+	$rowHeight = if ($row.height) { [int]$row.height } else { -1 }
+	$rowHidden = ($row.hidden -eq $true)
+	$props = @{ Hidden = $rowHidden }
+	if ($rowHeight -ge 0) { $props["Height"] = $rowHeight }
+	if (-not $row.style) {
+		return @{ Key = (Get-FormatKey -height $rowHeight -hidden $rowHidden); Props = $props }
+	}
+	$r = Resolve-Style -styleName $row.style -fillType ""
+	$props["FontIdx"] = $r.FontIdx
+	$props["LB"] = $r.LB; $props["TB"] = $r.TB
+	$props["RB"] = $r.RB; $props["BB"] = $r.BB
+	$props["HA"] = $r.HA; $props["VA"] = $r.VA
+	$props["Wrap"] = $r.Wrap
+	$props["NumberFormat"] = $r.NumberFormat
+	$props["TextColor"] = $r.TextColor
+	$key = Get-FormatKey -fontIdx $r.FontIdx -lb $r.LB -tb $r.TB -rb $r.RB -bb $r.BB `
+		-ha $r.HA -va $r.VA -wrap $r.Wrap -numberFormat $r.NumberFormat `
+		-textColor $r.TextColor -height $rowHeight -hidden $rowHidden
+	return @{ Key = $key; Props = $props }
 }
 
 # Pre-register all formats from areas
@@ -728,9 +766,9 @@ foreach ($area in $sheetAreas) {
 		if ($row.empty) { continue }
 
 		# Row height format
-		if ($row.height) {
-			$hKey = Get-FormatKey -height ([int]$row.height)
-			Register-Format -key $hKey -props @{ Height = [int]$row.height } | Out-Null
+		if ($row.height -or $row.hidden -eq $true -or $row.style) {
+			$rf = Get-RowFormat $row
+			Register-Format -key $rf.Key -props $rf.Props | Out-Null
 		}
 
 		# rowStyle gap-fill format (no content → no fillType)
@@ -898,8 +936,8 @@ foreach ($area in $sheetAreas) {
 
 		# Determine row height format
 		$rowFormatIdx = 0
-		if ($row.height) {
-			$hKey = Get-FormatKey -height ([int]$row.height)
+		if ($row.height -or $row.hidden -eq $true -or $row.style) {
+			$hKey = (Get-RowFormat $row).Key
 			# Find format index for this key
 			$rIdx = 0
 			foreach ($k in $formatRegistry.Keys) {
@@ -1194,6 +1232,17 @@ if ($hasThickBorders) {
 
 # 7i. Font palette
 foreach ($fe in $fontEntries) {
+	if ($fe.Ref) {
+		# Объявление пространства имен идет первым атрибутом - так пишет платформа.
+		$nsAttr = ""
+		if ($fe.Namespace) {
+			foreach ($np in $fe.Namespace.PSObject.Properties) {
+				$nsAttr += " xmlns:$($np.Name)=`"$(Esc-Xml "$($np.Value)")`""
+			}
+		}
+		X "`t<font$nsAttr ref=`"$(Esc-Xml $fe.Ref)`" kind=`"$($fe.Kind)`"/>"
+		continue
+	}
 	X "`t<font faceName=`"$($fe.Face)`" height=`"$($fe.Size)`" bold=`"$($fe.Bold)`" italic=`"$($fe.Italic)`" underline=`"$($fe.Underline)`" strikeout=`"$($fe.Strikeout)`" kind=`"Absolute`" scale=`"100`"/>"
 }
 
@@ -1202,19 +1251,31 @@ foreach ($key in $formatRegistry.Keys) {
 	$fmt = $formatRegistry[$key]
 	X "`t<format>"
 
+	if ($fmt.Hidden -eq $true) {
+		X "`t`t<hidden>true</hidden>"
+	}
 	if ($fmt.FontIdx -ne $null -and $fmt.FontIdx -ge 0) {
 		X "`t`t<font>$($fmt.FontIdx)</font>"
 	}
-	if ($fmt.LB -ne $null -and $fmt.LB -ge 0) {
+	if ($fmt.TextColor) {
+		X "`t`t<textColor>$(Esc-Xml $fmt.TextColor)</textColor>"
+	}
+	# Рамка со всех сторон одной линией пишется одним тегом - так делает платформа.
+	$sameBorder = ($fmt.LB -ne $null -and $fmt.LB -ge 0 -and
+		$fmt.LB -eq $fmt.TB -and $fmt.LB -eq $fmt.RB -and $fmt.LB -eq $fmt.BB)
+	if ($sameBorder) {
+		X "`t`t<border>$($fmt.LB)</border>"
+	}
+	if (-not $sameBorder -and $fmt.LB -ne $null -and $fmt.LB -ge 0) {
 		X "`t`t<leftBorder>$($fmt.LB)</leftBorder>"
 	}
-	if ($fmt.TB -ne $null -and $fmt.TB -ge 0) {
+	if (-not $sameBorder -and $fmt.TB -ne $null -and $fmt.TB -ge 0) {
 		X "`t`t<topBorder>$($fmt.TB)</topBorder>"
 	}
-	if ($fmt.RB -ne $null -and $fmt.RB -ge 0) {
+	if (-not $sameBorder -and $fmt.RB -ne $null -and $fmt.RB -ge 0) {
 		X "`t`t<rightBorder>$($fmt.RB)</rightBorder>"
 	}
-	if ($fmt.BB -ne $null -and $fmt.BB -ge 0) {
+	if (-not $sameBorder -and $fmt.BB -ne $null -and $fmt.BB -ge 0) {
 		X "`t`t<bottomBorder>$($fmt.BB)</bottomBorder>"
 	}
 	if ($fmt.Width) {
