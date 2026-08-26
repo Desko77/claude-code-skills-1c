@@ -3,21 +3,6 @@
   "name": "ДоговорыЭДО",
   "synonym": "Договоры эдо",
   "hierarchical": true,
-  "quickChoice": true,
-  "dataLockControlMode": "Automatic",
-  "createOnInput": "DontUse",
-  "standardAttributes": {
-    "Owner": {
-      "fillChecking": "DontCheck",
-      "fillFromFillingValue": false
-    },
-    "Parent": {
-      "fillFromFillingValue": false
-    },
-    "Description": {
-      "fillChecking": "DontCheck"
-    }
-  },
   "attributes": [
     {
       "name": "СтавкаНДС",

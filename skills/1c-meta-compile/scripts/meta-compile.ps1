@@ -957,6 +957,9 @@ function Emit-StandardAttributes {
 	param([string]$indent, [string]$objectType)
 	$attrs = $script:standardAttributesByType[$objectType]
 	if (-not $attrs) { return }
+	# Платформа выгружает блок, только когда у стандартного реквизита изменено хотя бы одно
+	# свойство. Без настроек блока в выгрузке нет, и писать его - расходиться с платформой.
+	if (-not $def.standardAttributes) { return }
 	X "$indent<StandardAttributes>"
 	foreach ($a in $attrs) {
 		Emit-StandardAttribute "$indent`t" $a
@@ -1361,7 +1364,8 @@ function Emit-CatalogProperties {
 	X "$i<Characteristics/>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
 	X "$i<EditType>InDialog</EditType>"
-	$quickChoice = if ($def.quickChoice -eq $false) { "false" } else { "true" }
+	# Быстрый выбор у справочника по умолчанию выключен - так его выгружает платформа.
+	$quickChoice = if ($def.quickChoice -eq $true) { "true" } else { "false" }
 	$choiceMode = Get-EnumProp "ChoiceMode" "choiceMode" "BothWays"
 	X "$i<QuickChoice>$quickChoice</QuickChoice>"
 	X "$i<ChoiceMode>$choiceMode</ChoiceMode>"
@@ -1386,7 +1390,8 @@ function Emit-CatalogProperties {
 	X "$i<BasedOn/>"
 	X "$i<DataLockFields/>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Automatic"
+	# Управляемые блокировки - режим по умолчанию у нового справочника в выгрузке платформы.
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
 	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
@@ -1397,7 +1402,7 @@ function Emit-CatalogProperties {
 	X "$i<ListPresentation/>"
 	X "$i<ExtendedListPresentation/>"
 	X "$i<Explanation/>"
-	X "$i<CreateOnInput>DontUse</CreateOnInput>"
+	X "$i<CreateOnInput>Use</CreateOnInput>"
 	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 	X "$i<DataHistory>DontUse</DataHistory>"
 	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"

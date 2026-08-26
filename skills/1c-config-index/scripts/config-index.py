@@ -34,6 +34,25 @@ CHILD_TYPE_DIR_MAP = {
 
 # Child elements of ChildObjects that carry a name and a type, grouped by the index bucket
 # they fill. Everything not listed here is recorded by name only or ignored on purpose.
+# Стандартные реквизиты по типу объекта: платформа знает их по типу, а в выгрузке они
+# появляются только при измененных свойствах.
+IDX_STANDARD_BY_TYPE = {
+    "Catalog": ["PredefinedDataName", "Predefined", "Ref", "DeletionMark", "IsFolder", "Owner", "Parent", "Description", "Code"],
+    "Document": ["Posted", "Ref", "DeletionMark", "Date", "Number"],
+    "Enum": ["Order", "Ref"],
+    "InformationRegister": ["Active", "LineNumber", "Recorder", "Period"],
+    "AccumulationRegister": ["Active", "LineNumber", "Recorder", "Period"],
+    "AccountingRegister": ["Active", "Period", "Recorder", "LineNumber", "Account"],
+    "CalculationRegister": ["Active", "Recorder", "LineNumber", "RegistrationPeriod", "CalculationType", "ReversingEntry"],
+    "ChartOfAccounts": ["PredefinedDataName", "Predefined", "Ref", "DeletionMark", "Description", "Code", "Parent", "Order", "Type", "OffBalance"],
+    "ChartOfCharacteristicTypes": ["PredefinedDataName", "Predefined", "Ref", "DeletionMark", "Description", "Code", "Parent", "ValueType"],
+    "ChartOfCalculationTypes": ["PredefinedDataName", "Predefined", "Ref", "DeletionMark", "Description", "Code", "ActionPeriodIsBasic"],
+    "BusinessProcess": ["Ref", "DeletionMark", "Date", "Number", "Started", "Completed", "HeadTask"],
+    "Task": ["Ref", "DeletionMark", "Date", "Number", "Executed", "Description", "RoutePoint", "BusinessProcess"],
+    "ExchangePlan": ["Ref", "DeletionMark", "Code", "Description", "ThisNode", "SentNo", "ReceivedNo"],
+    "DocumentJournal": ["Type", "Ref", "Date", "Posted", "DeletionMark", "Number"],
+}
+
 IDX_TYPED_BUCKETS = {
     'Attribute': 'attributes', 'Dimension': 'dimensions', 'Resource': 'resources',
     'AddressingAttribute': 'addressingAttributes', 'AccountingFlag': 'accountingFlags',
@@ -269,7 +288,12 @@ def idx_read_object(path, kind, types_sink):
     # thousands of empty braces.
     if typed['attributes']:
         entry['attributes'] = typed['attributes']
-    std = idx_standard_names(idx_child(props, 'StandardAttributes'))
+    # Имена из блока дополняют набор по типу: в блоке лежат реквизиты с измененными
+    # свойствами, а не полный список.
+    std = list(IDX_STANDARD_BY_TYPE.get(kind, []))
+    for name in idx_standard_names(idx_child(props, 'StandardAttributes')):
+        if name not in std:
+            std.append(name)
     if std:
         entry['standardAttributes'] = std
     if tabular:

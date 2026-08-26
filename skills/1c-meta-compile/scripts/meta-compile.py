@@ -1084,6 +1084,10 @@ def emit_standard_attributes(indent, object_type):
     attrs = standard_attributes_by_type.get(object_type)
     if not attrs:
         return
+    # Платформа выгружает блок, только когда у стандартного реквизита изменено хотя бы одно
+    # свойство. Без настроек блока в выгрузке нет, и писать его - расходиться с платформой.
+    if not defn.get('standardAttributes'):
+        return
     X(f'{indent}<StandardAttributes>')
     for a in attrs:
         emit_standard_attribute(f'{indent}\t', a)
@@ -1429,7 +1433,8 @@ def emit_catalog_properties(indent):
     X(f'{i}<Characteristics/>')
     X(f'{i}<PredefinedDataUpdate>Auto</PredefinedDataUpdate>')
     X(f'{i}<EditType>InDialog</EditType>')
-    quick_choice = 'false' if defn.get('quickChoice') is False else 'true'
+    # Быстрый выбор у справочника по умолчанию выключен - так его выгружает платформа.
+    quick_choice = 'true' if defn.get('quickChoice') is True else 'false'
     choice_mode = get_enum_prop('ChoiceMode', 'choiceMode', 'BothWays')
     X(f'{i}<QuickChoice>{quick_choice}</QuickChoice>')
     X(f'{i}<ChoiceMode>{choice_mode}</ChoiceMode>')
@@ -1453,7 +1458,8 @@ def emit_catalog_properties(indent):
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<BasedOn/>')
     X(f'{i}<DataLockFields/>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Automatic')
+    # Управляемые блокировки - режим по умолчанию у нового справочника в выгрузке платформы.
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
     X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
@@ -1462,7 +1468,7 @@ def emit_catalog_properties(indent):
     X(f'{i}<ListPresentation/>')
     X(f'{i}<ExtendedListPresentation/>')
     X(f'{i}<Explanation/>')
-    X(f'{i}<CreateOnInput>DontUse</CreateOnInput>')
+    X(f'{i}<CreateOnInput>Use</CreateOnInput>')
     X(f'{i}<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
     X(f'{i}<DataHistory>DontUse</DataHistory>')
     X(f'{i}<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>')

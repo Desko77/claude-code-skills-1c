@@ -36,6 +36,25 @@ $childTypeDirMap = @{
 
 # Child elements of ChildObjects that carry a name and a type, grouped by the index bucket
 # they fill. Everything not listed here is recorded by name only or ignored on purpose.
+# Стандартные реквизиты по типу объекта: платформа знает их по типу, а в выгрузке они
+# появляются только при измененных свойствах.
+$script:idxStandardByType = @{
+	"Catalog" = @("PredefinedDataName","Predefined","Ref","DeletionMark","IsFolder","Owner","Parent","Description","Code")
+	"Document" = @("Posted","Ref","DeletionMark","Date","Number")
+	"Enum" = @("Order","Ref")
+	"InformationRegister" = @("Active","LineNumber","Recorder","Period")
+	"AccumulationRegister" = @("Active","LineNumber","Recorder","Period")
+	"AccountingRegister" = @("Active","Period","Recorder","LineNumber","Account")
+	"CalculationRegister" = @("Active","Recorder","LineNumber","RegistrationPeriod","CalculationType","ReversingEntry")
+	"ChartOfAccounts" = @("PredefinedDataName","Predefined","Ref","DeletionMark","Description","Code","Parent","Order","Type","OffBalance")
+	"ChartOfCharacteristicTypes" = @("PredefinedDataName","Predefined","Ref","DeletionMark","Description","Code","Parent","ValueType")
+	"ChartOfCalculationTypes" = @("PredefinedDataName","Predefined","Ref","DeletionMark","Description","Code","ActionPeriodIsBasic")
+	"BusinessProcess" = @("Ref","DeletionMark","Date","Number","Started","Completed","HeadTask")
+	"Task" = @("Ref","DeletionMark","Date","Number","Executed","Description","RoutePoint","BusinessProcess")
+	"ExchangePlan" = @("Ref","DeletionMark","Code","Description","ThisNode","SentNo","ReceivedNo")
+	"DocumentJournal" = @("Type","Ref","Date","Posted","DeletionMark","Number")
+}
+
 $idxTypedBuckets = @{
 	"Attribute"="attributes"; "Dimension"="dimensions"; "Resource"="resources"
 	"AddressingAttribute"="addressingAttributes"; "AccountingFlag"="accountingFlags"
@@ -272,7 +291,13 @@ function Read-IdxObject([string]$path, [string]$kind, $typesSink) {
 	# Only non-empty buckets are written: an index of thousands of objects should not carry
 	# thousands of empty braces.
 	foreach ($b in @("attributes")) { if ($typed[$b].Count) { $entry[$b] = $typed[$b] } }
-	$std = Get-IdxStandardNames $propsMap["StandardAttributes"]
+	# Имена из блока дополняют набор по типу: в блоке лежат реквизиты с измененными
+	# свойствами, а не полный список.
+	$std = New-Object System.Collections.Generic.List[string]
+	foreach ($n in $script:idxStandardByType[$kind]) { $std.Add($n) }
+	foreach ($n in (Get-IdxStandardNames $propsMap["StandardAttributes"])) {
+		if (-not $std.Contains([string]$n)) { $std.Add([string]$n) }
+	}
 	if ($std.Count) { $entry["standardAttributes"] = $std }
 	if ($tabular.Count) { $entry["tabularSections"] = $tabular }
 	$stdTabular = [ordered]@{}
