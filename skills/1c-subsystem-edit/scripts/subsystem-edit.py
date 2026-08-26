@@ -302,6 +302,9 @@ def write_child_subsystem_stub(child_path, child_name, format_version):
         'xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" '
         'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" '
         'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" '
+        # Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style.
+        + ('xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette" '
+           if float(format_version) >= 2.21 else '') +
         'xmlns:style="http://v8.1c.ru/8.1/data/ui/style" '
         'xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" '
         'xmlns:v8="http://v8.1c.ru/8.1/data/core" '
@@ -330,7 +333,8 @@ def write_child_subsystem_stub(child_path, child_name, format_version):
     lines.append('\t\t<ChildObjects/>')
     lines.append('\t</Subsystem>')
     lines.append('</MetaDataObject>')
-    write_utf8_bom(child_path, '\n'.join(lines) + '\n')
+    # Платформа не оставляет перевод строки после закрывающего тега.
+    write_utf8_bom(child_path, '\n'.join(lines))
 
 MD_NS = "http://v8.1c.ru/8.3/MDClasses"
 XR_NS = "http://v8.1c.ru/8.3/xcf/readable"

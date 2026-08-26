@@ -15,6 +15,30 @@ import sys
 # default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
 # ============================================================
 
+# Версия формата берется из Configuration.xml вверх по дереву от каталога вывода: от нее
+# зависит состав шапки макета.
+def template_format_version(start_path):
+    d = start_path if os.path.isdir(start_path) else os.path.dirname(os.path.abspath(start_path))
+    if not d:
+        d = os.getcwd()
+    for _ in range(20):
+        cfg_path = os.path.join(d, "Configuration.xml")
+        if os.path.isfile(cfg_path):
+            try:
+                with open(cfg_path, "r", encoding="utf-8-sig") as f:
+                    head = f.read()
+            except OSError:
+                head = ""
+            m = re.search(r'<MetaDataObject[^>]+version="(\d+\.\d+)"', head)
+            if m:
+                return m.group(1)
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return "2.17"
+
+
 def _sg_parse(xml_path):
     """Разбор XML средствами стандартной библиотеки.
 
@@ -589,7 +613,11 @@ def main():
 
     # 7a. Header
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<document xmlns="http://v8.1c.ru/8.2/data/spreadsheet" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
+    # Палитра появляется в шапке макета с формата 2.21 (8.5) и встает после основного
+    # пространства имен.
+    mxl_pal = (' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
+               if float(template_format_version(args.OutputPath)) >= 2.21 else '')
+    lines.append(f'<document xmlns="http://v8.1c.ru/8.2/data/spreadsheet"{mxl_pal} xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">')
 
     # 7b. Language settings
     lines.append('\t<languageSettings>')

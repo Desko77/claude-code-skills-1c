@@ -9,6 +9,25 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Версия формата берется из Configuration.xml вверх по дереву от каталога вывода: от нее
+# зависит состав шапки макета.
+function Get-TemplateFormatVersion([string]$startPath) {
+	$d = if (Test-Path $startPath -PathType Container) { $startPath } else { Split-Path $startPath -Parent }
+	if (-not $d) { $d = (Get-Location).Path }
+	for ($i = 0; $i -lt 20 -and $d; $i++) {
+		$cfgPath = Join-Path $d "Configuration.xml"
+		if (Test-Path $cfgPath) {
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8)
+			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
+		}
+		$parent = Split-Path $d -Parent
+		if ($parent -eq $d) { break }
+		$d = $parent
+	}
+	return "2.17"
+}
+
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Support guard (Ext/ParentConfigurations.bin) ---
@@ -511,7 +530,11 @@ function X {
 
 # 7a. Header
 X '<?xml version="1.0" encoding="UTF-8"?>'
-X '<document xmlns="http://v8.1c.ru/8.2/data/spreadsheet" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+# Палитра появляется в шапке макета с формата 2.21 (8.5) и встает после основного
+# пространства имен.
+$mxlTemplateVersion = Get-TemplateFormatVersion $OutputPath
+$mxlPal = if ([double]::Parse($mxlTemplateVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) { ' xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"' } else { '' }
+X "<document xmlns=`"http://v8.1c.ru/8.2/data/spreadsheet`"$mxlPal xmlns:style=`"http://v8.1c.ru/8.1/data/ui/style`" xmlns:v8=`"http://v8.1c.ru/8.1/data/core`" xmlns:v8ui=`"http://v8.1c.ru/8.1/data/ui`" xmlns:xs=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`">"
 
 # 7b. Language settings
 X "`t<languageSettings>"

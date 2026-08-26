@@ -890,39 +890,48 @@ def main():
     # --- 4. Emit metadata XML (Roles/Name.xml) ---
     lines = []
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses"')
-    lines.append('        xmlns:app="http://v8.1c.ru/8.2/managed-application/core"')
-    lines.append('        xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"')
-    lines.append('        xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi"')
-    lines.append('        xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"')
-    lines.append('        xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"')
-    lines.append('        xmlns:style="http://v8.1c.ru/8.1/data/ui/style"')
-    lines.append('        xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system"')
-    lines.append('        xmlns:v8="http://v8.1c.ru/8.1/data/core"')
-    lines.append('        xmlns:v8ui="http://v8.1c.ru/8.1/data/ui"')
-    lines.append('        xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web"')
-    lines.append('        xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows"')
-    lines.append('        xmlns:xen="http://v8.1c.ru/8.3/xcf/enums"')
-    lines.append('        xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef"')
-    lines.append('        xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"')
-    lines.append('        xmlns:xs="http://www.w3.org/2001/XMLSchema"')
-    lines.append('        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
-    lines.append(f'        version="{format_version}">')
-    lines.append(f'    <Role uuid="{uid}">')
-    lines.append('        <Properties>')
-    lines.append(f'            <Name>{role_name}</Name>')
-    lines.append('            <Synonym>')
-    lines.append('                <v8:item>')
-    lines.append('                    <v8:lang>ru</v8:lang>')
-    lines.append(f'                    <v8:content>{esc_xml(synonym)}</v8:content>')
-    lines.append('                </v8:item>')
-    lines.append('            </Synonym>')
+    # Пространства имен идут одной строкой - так их пишет платформа. Палитра появляется с
+    # формата 2.21 (8.5) и встает между lf и style; в файле прав ее нет: у него своя схема.
+    ns_parts = [
+        'xmlns="http://v8.1c.ru/8.3/MDClasses"',
+        'xmlns:app="http://v8.1c.ru/8.2/managed-application/core"',
+        'xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"',
+        'xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi"',
+        'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"',
+        'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"',
+    ]
+    if float(format_version) >= 2.21:
+        ns_parts.append('xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"')
+    ns_parts += [
+        'xmlns:style="http://v8.1c.ru/8.1/data/ui/style"',
+        'xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system"',
+        'xmlns:v8="http://v8.1c.ru/8.1/data/core"',
+        'xmlns:v8ui="http://v8.1c.ru/8.1/data/ui"',
+        'xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web"',
+        'xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows"',
+        'xmlns:xen="http://v8.1c.ru/8.3/xcf/enums"',
+        'xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef"',
+        'xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"',
+        'xmlns:xs="http://www.w3.org/2001/XMLSchema"',
+        'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+        f'version="{format_version}"',
+    ]
+    lines.append("<MetaDataObject " + " ".join(ns_parts) + ">")
+    lines.append(f'	<Role uuid="{uid}">')
+    lines.append('		<Properties>')
+    lines.append(f'			<Name>{role_name}</Name>')
+    lines.append('			<Synonym>')
+    lines.append('				<v8:item>')
+    lines.append('					<v8:lang>ru</v8:lang>')
+    lines.append(f'					<v8:content>{esc_xml(synonym)}</v8:content>')
+    lines.append('				</v8:item>')
+    lines.append('			</Synonym>')
     if comment:
-        lines.append(f'            <Comment>{esc_xml(comment)}</Comment>')
+        lines.append(f'			<Comment>{esc_xml(comment)}</Comment>')
     else:
-        lines.append('            <Comment/>')
-    lines.append('        </Properties>')
-    lines.append('    </Role>')
+        lines.append('			<Comment/>')
+    lines.append('		</Properties>')
+    lines.append('	</Role>')
     lines.append('</MetaDataObject>')
 
     # Платформа не оставляет перевод строки после закрывающего тега.
@@ -931,50 +940,52 @@ def main():
     # --- 5. Emit Rights XML (Roles/Name/Ext/Rights.xml) ---
     lines = []
     lines.append('<?xml version="1.0" encoding="UTF-8"?>')
-    lines.append('<Rights xmlns="http://v8.1c.ru/8.2/roles"')
-    lines.append('        xmlns:xs="http://www.w3.org/2001/XMLSchema"')
-    lines.append('        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
-    lines.append(f'        xsi:type="Rights" version="{format_version}">')
+    lines.append('<Rights xmlns="http://v8.1c.ru/8.2/roles" '
+                 'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+                 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+                 f'xsi:type="Rights" version="{format_version}">')
 
     # Global flags
     sfno = str(defn['setForNewObjects']).lower() if defn.get('setForNewObjects') is not None else 'false'
     sfab = str(defn['setForAttributesByDefault']).lower() if defn.get('setForAttributesByDefault') is not None else 'true'
     irco = str(defn['independentRightsOfChildObjects']).lower() if defn.get('independentRightsOfChildObjects') is not None else 'false'
 
-    lines.append(f'    <setForNewObjects>{sfno}</setForNewObjects>')
-    lines.append(f'    <setForAttributesByDefault>{sfab}</setForAttributesByDefault>')
-    lines.append(f'    <independentRightsOfChildObjects>{irco}</independentRightsOfChildObjects>')
+    lines.append(f'	<setForNewObjects>{sfno}</setForNewObjects>')
+    lines.append(f'	<setForAttributesByDefault>{sfab}</setForAttributesByDefault>')
+    lines.append(f'	<independentRightsOfChildObjects>{irco}</independentRightsOfChildObjects>')
 
     # Object blocks
     total_rights = 0
     for obj in parsed_objects:
-        lines.append('    <object>')
-        lines.append(f'        <name>{obj["Name"]}</name>')
+        lines.append('	<object>')
+        lines.append(f'		<name>{obj["Name"]}</name>')
         for right in obj['Rights']:
-            lines.append('        <right>')
-            lines.append(f'            <name>{right["Name"]}</name>')
-            lines.append(f'            <value>{right["Value"]}</value>')
+            lines.append('		<right>')
+            lines.append(f'			<name>{right["Name"]}</name>')
+            lines.append(f'			<value>{right["Value"]}</value>')
             if right['Condition']:
-                lines.append('            <restrictionByCondition>')
-                lines.append(f'                <condition>{esc_xml(right["Condition"])}</condition>')
-                lines.append('            </restrictionByCondition>')
-            lines.append('        </right>')
+                lines.append('			<restrictionByCondition>')
+                lines.append(f'				<condition>{esc_xml(right["Condition"])}</condition>')
+                lines.append('			</restrictionByCondition>')
+            lines.append('		</right>')
             total_rights += 1
-        lines.append('    </object>')
+        lines.append('	</object>')
 
     # RLS restriction templates
     template_count = 0
     if defn.get('templates'):
         for tpl in defn['templates']:
-            lines.append('    <restrictionTemplate>')
-            lines.append(f'        <name>{esc_xml(str(tpl["name"]))}</name>')
-            lines.append(f'        <condition>{esc_xml(str(tpl["condition"]))}</condition>')
-            lines.append('    </restrictionTemplate>')
+            lines.append('	<restrictionTemplate>')
+            lines.append(f'		<name>{esc_xml(str(tpl["name"]))}</name>')
+            lines.append(f'		<condition>{esc_xml(str(tpl["condition"]))}</condition>')
+            lines.append('	</restrictionTemplate>')
             template_count += 1
 
     lines.append('</Rights>')
 
-    rights_xml = '\n'.join(lines) + '\n'
+    # Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
+    # дает расхождение в первой же сверке с выгрузкой Конфигуратора.
+    rights_xml = '\n'.join(lines)
 
     # --- 6. Write output files ---
     out_dir = args.OutputDir

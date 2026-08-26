@@ -1243,6 +1243,10 @@ def emit_enum_value(indent, parsed):
     X(f'{indent}\t\t<Name>{esc_xml(parsed["name"])}</Name>')
     emit_mltext(f'{indent}\t\t', 'Synonym', parsed['synonym'])
     X(f'{indent}\t\t<Comment/>')
+    # Цвет значения перечисления появился в формате 2.21 (8.5); значение auto означает,
+    # что цвет выбирает платформа.
+    if float(format_version) >= 2.21:
+        X(f'{indent}\t\t<Color>auto</Color>')
     X(f'{indent}\t</Properties>')
     X(f'{indent}</EnumValue>')
 
@@ -2916,6 +2920,14 @@ def emit_addressing_attribute(indent, addr_def):
 
 xmlns_decl = 'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
 
+# Палитра появляется в шапке с формата 2.21 (8.5) и встает между lf и style.
+def get_xmlns_decl():
+    if float(format_version) >= 2.21:
+        return xmlns_decl.replace(
+            'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style=',
+            'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette" xmlns:style=')
+    return xmlns_decl
+
 # ---------------------------------------------------------------------------
 # 14a. Detect format version from existing Configuration.xml
 # ---------------------------------------------------------------------------
@@ -2944,7 +2956,7 @@ format_version = detect_format_version(output_dir)
 obj_uuid = new_uuid()
 
 X('<?xml version="1.0" encoding="UTF-8"?>')
-X(f'<MetaDataObject {xmlns_decl} version="{format_version}">')
+X(f'<MetaDataObject {get_xmlns_decl()} version="{format_version}">')
 X(f'\t<{obj_type} uuid="{obj_uuid}">')
 
 # InternalInfo

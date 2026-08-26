@@ -819,40 +819,50 @@ $uuid = [guid]::NewGuid().ToString()
 $script:xmlBuf = New-Object System.Text.StringBuilder 4096
 
 X '<?xml version="1.0" encoding="UTF-8"?>'
-X '<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses"'
-X '        xmlns:app="http://v8.1c.ru/8.2/managed-application/core"'
-X '        xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"'
-X '        xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi"'
-X '        xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"'
-X '        xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
-X '        xmlns:style="http://v8.1c.ru/8.1/data/ui/style"'
-X '        xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system"'
-X '        xmlns:v8="http://v8.1c.ru/8.1/data/core"'
-X '        xmlns:v8ui="http://v8.1c.ru/8.1/data/ui"'
-X '        xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web"'
-X '        xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows"'
-X '        xmlns:xen="http://v8.1c.ru/8.3/xcf/enums"'
-X '        xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef"'
-X '        xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"'
-X '        xmlns:xs="http://www.w3.org/2001/XMLSchema"'
-X '        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-X "        version=`"$formatVersion`">"
-X "    <Role uuid=`"$uuid`">"
-X '        <Properties>'
-X "            <Name>$roleName</Name>"
-X '            <Synonym>'
-X '                <v8:item>'
-X '                    <v8:lang>ru</v8:lang>'
-X "                    <v8:content>$(Esc-Xml $synonym)</v8:content>"
-X '                </v8:item>'
-X '            </Synonym>'
-if ($comment) {
-	X "            <Comment>$(Esc-Xml $comment)</Comment>"
-} else {
-	X '            <Comment/>'
+# Пространства имен идут одной строкой - так их пишет платформа. Палитра появляется с формата
+# 2.21 (8.5) и встает между lf и style; в файле прав ее нет: у него своя схема.
+$nsParts = @(
+	'xmlns="http://v8.1c.ru/8.3/MDClasses"',
+	'xmlns:app="http://v8.1c.ru/8.2/managed-application/core"',
+	'xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config"',
+	'xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi"',
+	'xmlns:ent="http://v8.1c.ru/8.1/data/enterprise"',
+	'xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform"'
+)
+if ([double]::Parse($formatVersion, [System.Globalization.CultureInfo]::InvariantCulture) -ge 2.21) {
+	$nsParts += 'xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"'
 }
-X '        </Properties>'
-X '    </Role>'
+$nsParts += @(
+	'xmlns:style="http://v8.1c.ru/8.1/data/ui/style"',
+	'xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system"',
+	'xmlns:v8="http://v8.1c.ru/8.1/data/core"',
+	'xmlns:v8ui="http://v8.1c.ru/8.1/data/ui"',
+	'xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web"',
+	'xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows"',
+	'xmlns:xen="http://v8.1c.ru/8.3/xcf/enums"',
+	'xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef"',
+	'xmlns:xr="http://v8.1c.ru/8.3/xcf/readable"',
+	'xmlns:xs="http://www.w3.org/2001/XMLSchema"',
+	'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+	"version=`"$formatVersion`""
+)
+X "<MetaDataObject $($nsParts -join ' ')>"
+X "	<Role uuid=`"$uuid`">"
+X '		<Properties>'
+X "			<Name>$roleName</Name>"
+X '			<Synonym>'
+X '				<v8:item>'
+X '					<v8:lang>ru</v8:lang>'
+X "					<v8:content>$(Esc-Xml $synonym)</v8:content>"
+X '				</v8:item>'
+X '			</Synonym>'
+if ($comment) {
+	X "			<Comment>$(Esc-Xml $comment)</Comment>"
+} else {
+	X '			<Comment/>'
+}
+X '		</Properties>'
+X '	</Role>'
 X '</MetaDataObject>'
 
 $metadataXml = $script:xmlBuf.ToString()
@@ -862,48 +872,46 @@ $metadataXml = $script:xmlBuf.ToString()
 $script:xmlBuf = New-Object System.Text.StringBuilder 8192
 
 X '<?xml version="1.0" encoding="UTF-8"?>'
-X '<Rights xmlns="http://v8.1c.ru/8.2/roles"'
-X '        xmlns:xs="http://www.w3.org/2001/XMLSchema"'
-X '        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
-X "        xsi:type=`"Rights`" version=`"$formatVersion`">"
+# Шапка файла прав тоже идет одной строкой; палитры в ней нет - у файла своя схема.
+X "<Rights xmlns=`"http://v8.1c.ru/8.2/roles`" xmlns:xs=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`" xsi:type=`"Rights`" version=`"$formatVersion`">"
 
 # Global flags (defaults match typical 1C roles)
 $sfno = if ($null -ne $def.setForNewObjects) { "$($def.setForNewObjects)".ToLower() } else { "false" }
 $sfab = if ($null -ne $def.setForAttributesByDefault) { "$($def.setForAttributesByDefault)".ToLower() } else { "true" }
 $irco = if ($null -ne $def.independentRightsOfChildObjects) { "$($def.independentRightsOfChildObjects)".ToLower() } else { "false" }
 
-X "    <setForNewObjects>$sfno</setForNewObjects>"
-X "    <setForAttributesByDefault>$sfab</setForAttributesByDefault>"
-X "    <independentRightsOfChildObjects>$irco</independentRightsOfChildObjects>"
+X "	<setForNewObjects>$sfno</setForNewObjects>"
+X "	<setForAttributesByDefault>$sfab</setForAttributesByDefault>"
+X "	<independentRightsOfChildObjects>$irco</independentRightsOfChildObjects>"
 
 # Object blocks
 $totalRights = 0
 foreach ($obj in $parsedObjects) {
-	X '    <object>'
-	X "        <name>$($obj.Name)</name>"
+	X '	<object>'
+	X "		<name>$($obj.Name)</name>"
 	foreach ($right in $obj.Rights) {
-		X '        <right>'
-		X "            <name>$($right.Name)</name>"
-		X "            <value>$($right.Value)</value>"
+		X '		<right>'
+		X "			<name>$($right.Name)</name>"
+		X "			<value>$($right.Value)</value>"
 		if ($right.Condition) {
-			X '            <restrictionByCondition>'
-			X "                <condition>$(Esc-Xml $right.Condition)</condition>"
-			X '            </restrictionByCondition>'
+			X '			<restrictionByCondition>'
+			X "				<condition>$(Esc-Xml $right.Condition)</condition>"
+			X '			</restrictionByCondition>'
 		}
-		X '        </right>'
+		X '		</right>'
 		$totalRights++
 	}
-	X '    </object>'
+	X '	</object>'
 }
 
 # RLS restriction templates
 $templateCount = 0
 if ($def.templates) {
 	foreach ($tpl in $def.templates) {
-		X '    <restrictionTemplate>'
-		X "        <name>$(Esc-Xml "$($tpl.name)")</name>"
-		X "        <condition>$(Esc-Xml "$($tpl.condition)")</condition>"
-		X '    </restrictionTemplate>'
+		X '	<restrictionTemplate>'
+		X "		<name>$(Esc-Xml "$($tpl.name)")</name>"
+		X "		<condition>$(Esc-Xml "$($tpl.condition)")</condition>"
+		X '	</restrictionTemplate>'
 		$templateCount++
 	}
 }
@@ -949,7 +957,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)
 # Платформа не оставляет перевод строки после закрывающего тега - лишний перевод
 # дает расхождение в первой же сверке с выгрузкой Конфигуратора.
 [System.IO.File]::WriteAllText($metadataPath, $metadataXml.TrimEnd("`r", "`n"), $enc)
-[System.IO.File]::WriteAllText($rightsPath, $rightsXml, $enc)
+[System.IO.File]::WriteAllText($rightsPath, $rightsXml.TrimEnd("`r", "`n"), $enc)
 
 # --- 12. Register in Configuration.xml ---
 
