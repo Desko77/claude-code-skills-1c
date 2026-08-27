@@ -199,6 +199,13 @@
 | `@balance` | `"role": "balance"` или `{"balance": true}` | `<dcscom:balance>true</dcscom:balance>` |
 | `@period` | `"role": "period"` или `{"period": true}` | `<dcscom:periodNumber>1</dcscom:periodNumber>` + `<dcscom:periodType>Main</dcscom:periodType>` |
 
+Признак роли может нести значение. В шорткате он пишется парой `имя=значение` рядом с самим
+признаком:
+
+```json
+"fields": ["СуммаНач: decimal(15,2) @balance balanceGroupName=Сумма balanceType=OpeningBalance"]
+```
+
 Объектная форма с доп. полями:
 ```json
 "role": {
@@ -206,6 +213,16 @@
   "accountTypeExpression": "Счёт.ВидСчёта",
   "balanceGroup": "/Остатки"
 }
+```
+
+### Сортировка по выражению
+
+У поля бывает свой порядок, отличный от порядка по значению:
+
+```json
+{ "field": "ВидРасчета", "type": "CatalogRef.ВидыРасчета",
+  "orderExpression": { "expression": "ЕстьNULL(ВидРасчета.Порядок, 10000)",
+                       "orderType": "Asc", "autoOrder": false } }
 ```
 
 ### Ограничения

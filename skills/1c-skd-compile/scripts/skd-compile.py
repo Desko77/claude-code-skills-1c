@@ -472,6 +472,12 @@ def parse_field_shorthand(s):
         'roles': [], 'restrict': [], 'appearance': {},
     }
 
+    # Признак роли может нести значение: @balance balanceGroupName=Сумма.
+    kv_matches = re.findall(r'(\w+)=([^\s]+)', s)
+    for key, value in kv_matches:
+        result.setdefault('roleExtra', {})[key] = value
+    s = re.sub(r'\s*\w+=[^\s]+', '', s)
+
     # Extract @roles
     role_matches = re.findall(r'@(\w+)', s)
     for m in role_matches:
@@ -787,7 +793,8 @@ def emit_field(lines, field_def, indent):
         # Parse appearance
         if field_def.get('appearance'):
             for k, v in field_def['appearance'].items():
-                f['appearance'][k] = str(v)
+                # Значение сохраняется как есть: многоязычное приходит объектом.
+                f['appearance'][k] = v if isinstance(v, dict) else str(v)
         if field_def.get('presentationExpression'):
             f['presentationExpression'] = str(field_def['presentationExpression'])
         # attrRestrict
@@ -828,7 +835,7 @@ def emit_field(lines, field_def, indent):
         lines.append(f'{indent}\t</attributeUseRestriction>')
 
     # Role
-    if (f.get('roles') and len(f['roles']) > 0) or f.get('roleObj'):
+    if (f.get('roles') and len(f['roles']) > 0) or f.get('roleObj') or f.get('roleExtra'):
         lines.append(f'{indent}\t<role>')
         for role in f.get('roles', []):
             if role == 'period':
@@ -836,13 +843,23 @@ def emit_field(lines, field_def, indent):
                 lines.append(f'{indent}\t\t<dcscom:periodType>Main</dcscom:periodType>')
             else:
                 lines.append(f'{indent}\t\t<dcscom:{role}>true</dcscom:{role}>')
-        if f.get('roleObj'):
-            ro = f['roleObj']
-            if ro.get('accountTypeExpression'):
-                lines.append(f'{indent}\t\t<dcscom:accountTypeExpression>{esc_xml(str(ro["accountTypeExpression"]))}</dcscom:accountTypeExpression>')
-            if ro.get('balanceGroup'):
-                lines.append(f'{indent}\t\t<dcscom:balanceGroup>{esc_xml(str(ro["balanceGroup"]))}</dcscom:balanceGroup>')
+        role_extra = dict(f.get('roleObj') or {})
+        role_extra.update(f.get('roleExtra') or {})
+        for extra_key, extra_value in role_extra.items():
+            if extra_value is True or extra_value is False or extra_value is None:
+                continue
+            lines.append(f'{indent}\t\t<dcscom:{extra_key}>{esc_xml(str(extra_value))}</dcscom:{extra_key}>')
         lines.append(f'{indent}\t</role>')
+
+    # Сортировка по выражению: у поля свой порядок, отличный от порядка по значению.
+    order_expr = field_def.get('orderExpression') if isinstance(field_def, dict) else None
+    if order_expr:
+        lines.append(f'{indent}\t<orderExpression>')
+        lines.append(f'{indent}\t\t<dcscom:expression>{esc_xml(str(order_expr.get("expression", "")))}</dcscom:expression>')
+        lines.append(f'{indent}\t\t<dcscom:orderType>{esc_xml(str(order_expr.get("orderType", "Asc")))}</dcscom:orderType>')
+        auto_order = 'true' if order_expr.get('autoOrder') else 'false'
+        lines.append(f'{indent}\t\t<dcscom:autoOrder>{auto_order}</dcscom:autoOrder>')
+        lines.append(f'{indent}\t</orderExpression>')
 
     # ValueType
     if f.get('type'):
@@ -854,13 +871,8 @@ def emit_field(lines, field_def, indent):
     if f.get('appearance') and len(f['appearance']) > 0:
         lines.append(f'{indent}\t<appearance>')
         for key, val in f['appearance'].items():
-            lines.append(f'{indent}\t\t<dcscor:item xsi:type="dcsset:SettingsParameterValue">')
-            lines.append(f'{indent}\t\t\t<dcscor:parameter>{esc_xml(key)}</dcscor:parameter>')
-            if key == '\u0413\u043e\u0440\u0438\u0437\u043e\u043d\u0442\u0430\u043b\u044c\u043d\u043e\u0435\u041f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0435':
-                lines.append(f'{indent}\t\t\t<dcscor:value xsi:type="v8ui:HorizontalAlign">{esc_xml(val)}</dcscor:value>')
-            else:
-                lines.append(f'{indent}\t\t\t<dcscor:value xsi:type="xs:string">{esc_xml(val)}</dcscor:value>')
-            lines.append(f'{indent}\t\t</dcscor:item>')
+            # Оформление поля пишется тем же кодом, что и условное: значение бывает многоязычным.
+            emit_appearance_value(lines, key, val, f'{indent}\t\t')
         lines.append(f'{indent}\t</appearance>')
 
     # PresentationExpression
@@ -1604,6 +1616,16 @@ def emit_selection(lines, items, indent, skip_auto=False):
     # элемента, блок выгружается одним тегом, а не пустой парой.
     outer = lines
     lines = []
+    emit_selection_items(lines, items, indent, skip_auto)
+    if lines:
+        outer.append(f'{indent}<dcsset:selection>')
+        outer.extend(lines)
+        outer.append(f'{indent}</dcsset:selection>')
+    else:
+        outer.append(f'{indent}<dcsset:selection/>')
+
+
+def emit_selection_items(lines, items, indent, skip_auto=False):
     for item in items:
         if isinstance(item, str):
             if item == 'Auto':
@@ -1621,11 +1643,7 @@ def emit_selection(lines, items, indent, skip_auto=False):
             lines.append(f'{indent}\t\t\t\t<v8:content>{esc_xml(str(item["folder"]))}</v8:content>')
             lines.append(f'{indent}\t\t\t</v8:item>')
             lines.append(f'{indent}\t\t</dcsset:lwsTitle>')
-            for sub in (item.get('items') or []):
-                sub_name = str(sub.get('field', sub)) if isinstance(sub, dict) else str(sub)
-                lines.append(f'{indent}\t\t<dcsset:item xsi:type="dcsset:SelectedItemField">')
-                lines.append(f'{indent}\t\t\t<dcsset:field>{esc_xml(sub_name)}</dcsset:field>')
-                lines.append(f'{indent}\t\t</dcsset:item>')
+            emit_selection_items(lines, item.get('items') or [], f'{indent}\t', skip_auto)
             lines.append(f'{indent}\t\t<dcsset:placement>Auto</dcsset:placement>')
             lines.append(f'{indent}\t</dcsset:item>')
         else:
@@ -1639,12 +1657,6 @@ def emit_selection(lines, items, indent, skip_auto=False):
                 lines.append(f'{indent}\t\t\t</v8:item>')
                 lines.append(f'{indent}\t\t</dcsset:lwsTitle>')
             lines.append(f'{indent}\t</dcsset:item>')
-    if lines:
-        outer.append(f'{indent}<dcsset:selection>')
-        outer.extend(lines)
-        outer.append(f'{indent}</dcsset:selection>')
-    else:
-        outer.append(f'{indent}<dcsset:selection/>')
 
 
 def emit_filter_item(lines, item, indent):
@@ -1785,16 +1797,36 @@ def emit_order(lines, items, indent, skip_auto=False):
 def emit_appearance_value(lines, key, val, indent):
     lines.append(f'{indent}<dcscor:item xsi:type="dcsset:SettingsParameterValue">')
 
+    # Значение оформления бывает многоязычным: объект "язык: текст" вместо строки.
+    ml_value = None
     if isinstance(val, dict) and val.get('use') is False:
         lines.append(f'{indent}\t<dcscor:use>false</dcscor:use>')
         lines.append(f'{indent}\t<dcscor:parameter>{esc_xml(key)}</dcscor:parameter>')
-        actual_val = str(val.get('value', ''))
+        inner = val.get('value', '')
+        if isinstance(inner, dict):
+            ml_value = inner
+        actual_val = str(inner)
     else:
         lines.append(f'{indent}\t<dcscor:parameter>{esc_xml(key)}</dcscor:parameter>')
+        if isinstance(val, dict):
+            ml_value = val
         actual_val = str(val)
 
+    if ml_value is not None:
+        lines.append(f'{indent}\t<dcscor:value xsi:type="v8:LocalStringType">')
+        for lang, content in ml_value.items():
+            lines.append(f'{indent}\t\t<v8:item>')
+            lines.append(f'{indent}\t\t\t<v8:lang>{esc_xml(str(lang))}</v8:lang>')
+            lines.append(f'{indent}\t\t\t<v8:content>{esc_xml(str(content))}</v8:content>')
+            lines.append(f'{indent}\t\t</v8:item>')
+        lines.append(f'{indent}\t</dcscor:value>')
+        lines.append(f'{indent}</dcscor:item>')
+        return
+
     # Auto-detect value type
-    if re.match(r'^(style|web|win):', actual_val):
+    if key == 'ГоризонтальноеПоложение':
+        lines.append(f'{indent}\t<dcscor:value xsi:type="v8ui:HorizontalAlign">{esc_xml(actual_val)}</dcscor:value>')
+    elif re.match(r'^(style|web|win):', actual_val):
         lines.append(f'{indent}\t<dcscor:value xsi:type="v8ui:Color">{esc_xml(actual_val)}</dcscor:value>')
     elif actual_val == 'true' or actual_val == 'false':
         lines.append(f'{indent}\t<dcscor:value xsi:type="xs:boolean">{actual_val}</dcscor:value>')
@@ -1829,9 +1861,11 @@ def emit_conditional_appearance(lines, items, indent):
         else:
             lines.append(f'{indent}\t\t<dcsset:selection/>')
 
-        # Filter
+        # Отбор пишется всегда: без него платформа не читает элемент оформления.
         if ca.get('filter'):
             emit_filter(lines, ca['filter'], f'{indent}\t\t')
+        else:
+            lines.append(f'{indent}\t\t<dcsset:filter/>')
 
         # Appearance
         if ca.get('appearance'):
@@ -2040,6 +2074,21 @@ def emit_structure_item(lines, item, indent):
             for child in item['children']:
                 emit_structure_item(lines, child, f'{indent}\t')
 
+        lines.append(f'{indent}</dcsset:item>')
+
+    elif item_type == 'nestedObject':
+        # Вложенный объект: своя выборка поверх набора данных, названного objectID.
+        lines.append(f'{indent}<dcsset:item xsi:type="dcsset:StructureItemNestedObject">')
+        lines.append(f'{indent}\t<dcsset:objectID>{esc_xml(str(item.get("objectID", "")))}</dcsset:objectID>')
+        nested = item.get('settings') or {}
+        lines.append(f'{indent}\t<dcsset:settings>')
+        emit_selection(lines, nested.get('selection'), f'{indent}\t\t')
+        if nested.get('order'):
+            emit_order(lines, nested['order'], f'{indent}\t\t')
+        emit_filter(lines, nested.get('filter'), f'{indent}\t\t')
+        if nested.get('outputParameters'):
+            emit_output_parameters(lines, nested['outputParameters'], f'{indent}\t\t')
+        lines.append(f'{indent}\t</dcsset:settings>')
         lines.append(f'{indent}</dcsset:item>')
 
     elif item_type == 'table':

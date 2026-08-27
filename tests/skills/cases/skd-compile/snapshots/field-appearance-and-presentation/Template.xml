@@ -29,7 +29,7 @@
 				</dcscor:item>
 				<dcscor:item xsi:type="dcsset:SettingsParameterValue">
 					<dcscor:parameter>РастягиватьПоГоризонтали</dcscor:parameter>
-					<dcscor:value xsi:type="xs:string">true</dcscor:value>
+					<dcscor:value xsi:type="xs:boolean">true</dcscor:value>
 				</dcscor:item>
 			</appearance>
 		</field>

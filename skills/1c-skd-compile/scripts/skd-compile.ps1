@@ -411,6 +411,14 @@ function Parse-FieldShorthand {
 		roles = @(); restrict = @(); appearance = [ordered]@{}
 	}
 
+	# Признак роли может нести значение: @balance balanceGroupName=Сумма.
+	$kvMatches = [regex]::Matches($s, '(\w+)=([^\s]+)')
+	foreach ($m in $kvMatches) {
+		if (-not $result.Contains('roleExtra')) { $result['roleExtra'] = [ordered]@{} }
+		$result['roleExtra'][$m.Groups[1].Value] = $m.Groups[2].Value
+	}
+	$s = [regex]::Replace($s, '\s*\w+=[^\s]+', '')
+
 	# Extract @roles
 	$roleMatches = [regex]::Matches($s, '@(\w+)')
 	foreach ($m in $roleMatches) {
@@ -770,7 +778,12 @@ function Emit-Field {
 		# Parse appearance
 		if ($fieldDef.appearance) {
 			foreach ($prop in $fieldDef.appearance.PSObject.Properties) {
-				$f.appearance[$prop.Name] = "$($prop.Value)"
+				# Значение сохраняется как есть: многоязычное приходит объектом.
+				if ($prop.Value -is [PSCustomObject]) {
+					$f.appearance[$prop.Name] = $prop.Value
+				} else {
+					$f.appearance[$prop.Name] = "$($prop.Value)"
+				}
 			}
 		}
 		if ($fieldDef.presentationExpression) {
@@ -824,7 +837,7 @@ function Emit-Field {
 	}
 
 	# Role
-	if ($f.roles.Count -gt 0 -or $f["roleObj"]) {
+	if ($f.roles.Count -gt 0 -or $f["roleObj"] -or $f["roleExtra"]) {
 		X "$indent`t<role>"
 		foreach ($role in $f.roles) {
 			if ($role -eq "period") {
@@ -835,16 +848,32 @@ function Emit-Field {
 				X "$indent`t`t<dcscom:$role>true</dcscom:$role>"
 			}
 		}
+		# Признак роли со значением пишется своим тегом рядом с самой ролью.
+		$roleExtra = [ordered]@{}
 		if ($f["roleObj"]) {
-			$ro = $f["roleObj"]
-			if ($ro.accountTypeExpression) {
-				X "$indent`t`t<dcscom:accountTypeExpression>$(Esc-Xml "$($ro.accountTypeExpression)")</dcscom:accountTypeExpression>"
-			}
-			if ($ro.balanceGroup) {
-				X "$indent`t`t<dcscom:balanceGroup>$(Esc-Xml "$($ro.balanceGroup)")</dcscom:balanceGroup>"
-			}
+			foreach ($prop in $f["roleObj"].PSObject.Properties) { $roleExtra[$prop.Name] = $prop.Value }
+		}
+		if ($f["roleExtra"]) {
+			foreach ($k in $f["roleExtra"].Keys) { $roleExtra[$k] = $f["roleExtra"][$k] }
+		}
+		foreach ($entry in $roleExtra.GetEnumerator()) {
+			$ev = $entry.Value
+			if ($ev -is [bool] -or $null -eq $ev) { continue }
+			X "$indent`t`t<dcscom:$($entry.Key)>$(Esc-Xml "$ev")</dcscom:$($entry.Key)>"
 		}
 		X "$indent`t</role>"
+	}
+
+	# Сортировка по выражению: у поля свой порядок, отличный от порядка по значению.
+	$orderExpr = $fieldDef.orderExpression
+	if ($orderExpr) {
+		X "$indent`t<orderExpression>"
+		X "$indent`t`t<dcscom:expression>$(Esc-Xml "$($orderExpr.expression)")</dcscom:expression>"
+		$orderType = if ($orderExpr.orderType) { "$($orderExpr.orderType)" } else { 'Asc' }
+		X "$indent`t`t<dcscom:orderType>$(Esc-Xml $orderType)</dcscom:orderType>"
+		$autoOrder = if ($orderExpr.autoOrder -eq $true) { 'true' } else { 'false' }
+		X "$indent`t`t<dcscom:autoOrder>$autoOrder</dcscom:autoOrder>"
+		X "$indent`t</orderExpression>"
 	}
 
 	# ValueType
@@ -859,14 +888,8 @@ function Emit-Field {
 		X "$indent`t<appearance>"
 		foreach ($key in $f.appearance.Keys) {
 			$val = $f.appearance[$key]
-			X "$indent`t`t<dcscor:item xsi:type=`"dcsset:SettingsParameterValue`">"
-			X "$indent`t`t`t<dcscor:parameter>$(Esc-Xml $key)</dcscor:parameter>"
-			if ($key -eq "ГоризонтальноеПоложение") {
-				X "$indent`t`t`t<dcscor:value xsi:type=`"v8ui:HorizontalAlign`">$(Esc-Xml $val)</dcscor:value>"
-			} else {
-				X "$indent`t`t`t<dcscor:value xsi:type=`"xs:string`">$(Esc-Xml $val)</dcscor:value>"
-			}
-			X "$indent`t`t</dcscor:item>"
+			# Оформление поля пишется тем же кодом, что и условное: значение бывает многоязычным.
+			Emit-AppearanceValue -key $key -val $val -indent "$indent`t`t"
 		}
 		X "$indent`t</appearance>"
 	}
@@ -1699,6 +1722,21 @@ function Emit-Selection {
 	# элемента, блок выгружается одним тегом, а не пустой парой.
 	$outerXml = $script:xml
 	$script:xml = New-Object System.Text.StringBuilder 1024
+	Emit-SelectionItems $items $indent -skipAuto:$skipAuto
+	$inner = $script:xml.ToString()
+	$script:xml = $outerXml
+	if ($inner.Trim()) {
+		X "$indent<dcsset:selection>"
+		$script:xml.Append($inner) | Out-Null
+		X "$indent</dcsset:selection>"
+	} else {
+		X "$indent<dcsset:selection/>"
+	}
+}
+
+# Элементы выборки собираются отдельно: папка зовет эту же сборку для своего содержимого.
+function Emit-SelectionItems {
+	param($items, [string]$indent, [switch]$skipAuto)
 	foreach ($item in $items) {
 		if ($item -is [string]) {
 			if ($item -eq "Auto") {
@@ -1718,12 +1756,7 @@ function Emit-Selection {
 			X "$indent`t`t`t`t<v8:content>$(Esc-Xml "$($item.folder)")</v8:content>"
 			X "$indent`t`t`t</v8:item>"
 			X "$indent`t`t</dcsset:lwsTitle>"
-			foreach ($sub in $item.items) {
-				$subName = if ($sub -is [string]) { $sub } else { "$($sub.field)" }
-				X "$indent`t`t<dcsset:item xsi:type=`"dcsset:SelectedItemField`">"
-				X "$indent`t`t`t<dcsset:field>$(Esc-Xml $subName)</dcsset:field>"
-				X "$indent`t`t</dcsset:item>"
-			}
+			Emit-SelectionItems $item.items "$indent`t" -skipAuto:$skipAuto
 			X "$indent`t`t<dcsset:placement>Auto</dcsset:placement>"
 			X "$indent`t</dcsset:item>"
 		} else {
@@ -1739,15 +1772,6 @@ function Emit-Selection {
 			}
 			X "$indent`t</dcsset:item>"
 		}
-	}
-	$inner = $script:xml.ToString()
-	$script:xml = $outerXml
-	if ($inner.Trim()) {
-		X "$indent<dcsset:selection>"
-		$script:xml.Append($inner) | Out-Null
-		X "$indent</dcsset:selection>"
-	} else {
-		X "$indent<dcsset:selection/>"
 	}
 }
 
@@ -1922,8 +1946,27 @@ function Emit-AppearanceValue {
 		$actualVal = "$val"
 	}
 
+	# Значение оформления бывает многоязычным: объект "язык: текст" вместо строки.
+	$mlValue = $null
+	$rawValue = if ($val -is [PSCustomObject] -and $null -ne $val.use) { $val.value } else { $val }
+	if ($rawValue -is [PSCustomObject] -and $null -eq $rawValue.use) { $mlValue = $rawValue }
+	if ($null -ne $mlValue) {
+		X "$indent`t<dcscor:value xsi:type=`"v8:LocalStringType`">"
+		foreach ($prop in $mlValue.PSObject.Properties) {
+			X "$indent`t`t<v8:item>"
+			X "$indent`t`t`t<v8:lang>$(Esc-Xml $prop.Name)</v8:lang>"
+			X "$indent`t`t`t<v8:content>$(Esc-Xml "$($prop.Value)")</v8:content>"
+			X "$indent`t`t</v8:item>"
+		}
+		X "$indent`t</dcscor:value>"
+		X "$indent</dcscor:item>"
+		return
+	}
+
 	# Auto-detect value type
-	if ($actualVal -match '^(style|web|win):') {
+	if ($key -eq "ГоризонтальноеПоложение") {
+		X "$indent`t<dcscor:value xsi:type=`"v8ui:HorizontalAlign`">$(Esc-Xml $actualVal)</dcscor:value>"
+	} elseif ($actualVal -match '^(style|web|win):') {
 		X "$indent`t<dcscor:value xsi:type=`"v8ui:Color`">$(Esc-Xml $actualVal)</dcscor:value>"
 	} elseif ($actualVal -eq "true" -or $actualVal -eq "false") {
 		X "$indent`t<dcscor:value xsi:type=`"xs:boolean`">$actualVal</dcscor:value>"
@@ -1963,8 +2006,11 @@ function Emit-ConditionalAppearance {
 		}
 
 		# Filter (reuse existing Emit-Filter logic)
+		# Отбор пишется всегда: без него платформа не читает элемент оформления.
 		if ($ca.filter) {
 			Emit-Filter -items $ca.filter -indent "$indent`t`t"
+		} else {
+			X "$indent`t`t<dcsset:filter/>"
 		}
 
 		# Appearance (parameter-value pairs)
@@ -2225,6 +2271,19 @@ function Emit-StructureItem {
 			}
 		}
 
+		X "$indent</dcsset:item>"
+	}
+	elseif ($type -eq "nestedObject") {
+		# Вложенный объект: своя выборка поверх набора данных, названного objectID.
+		X "$indent<dcsset:item xsi:type=`"dcsset:StructureItemNestedObject`">"
+		X "$indent`t<dcsset:objectID>$(Esc-Xml "$($item.objectID)")</dcsset:objectID>"
+		$nested = $item.settings
+		X "$indent`t<dcsset:settings>"
+		Emit-Selection -items $nested.selection -indent "$indent`t`t"
+		if ($nested.order) { Emit-Order -items $nested.order -indent "$indent`t`t" }
+		Emit-Filter -items $nested.filter -indent "$indent`t`t"
+		if ($nested.outputParameters) { Emit-OutputParameters -params $nested.outputParameters -indent "$indent`t`t" }
+		X "$indent`t</dcsset:settings>"
 		X "$indent</dcsset:item>"
 	}
 	elseif ($type -eq "table") {

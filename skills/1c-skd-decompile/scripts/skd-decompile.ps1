@@ -118,9 +118,8 @@ function Get-MlText($el, $todoNode) {
 		$lang = (Get-Text (Get-Kid $it 'lang')).Trim()
 		$langs[$lang] = Get-Text (Get-Kid $it 'content')
 	}
-	if ($langs.Count -gt 1 -and $null -ne $todoNode) {
-		Add-Todo $todoNode 'многоязычный текст: сохранен только ru'
-	}
+	# Многоязычный текст возвращается объектом "язык: текст": одноязычный - строкой.
+	if ($langs.Count -gt 1) { return $langs }
 	if ($langs.Contains('ru')) { return $langs['ru'] }
 	foreach ($v in $langs.Values) { return $v }
 	return ''
@@ -280,16 +279,17 @@ function Build-Field($fieldEl) {
 			if ($rc.NodeType -ne 'Element') { continue }
 			$rl = $rc.LocalName
 			$rv = (Get-Text $rc).Trim()
-			if (($rl -ceq 'dimension' -or $rl -ceq 'account' -or $rl -ceq 'balance') -and $rv -ceq 'true') {
+			# Признак роли либо логический (@имя), либо со значением (имя=значение).
+			if ($rv -ceq 'true' -and $rl -cne 'periodNumber' -and $rl -cne 'periodType') {
 				[void]$roles.Add($rl)
 			} elseif ($rl -ceq 'periodNumber') {
 				$periodNum = $rv
 			} elseif ($rl -ceq 'periodType') {
 				$periodType = $rv
-			} elseif ($rl -ceq 'accountTypeExpression' -or $rl -ceq 'balanceGroup') {
-				$roleExtra[$rl] = $rv
+			} elseif ($rv -ceq 'false') {
+				continue
 			} else {
-				Add-Todo $node ('элемент роли не поддержан: ' + $rl)
+				$roleExtra[$rl] = $rv
 			}
 		}
 		if ($periodNum -ceq '1' -and $periodType -ceq 'Main') {
@@ -309,31 +309,54 @@ function Build-Field($fieldEl) {
 	if ($null -ne $appEl) { $appearance = Get-AppearanceMap $appEl $node }
 	$presExpr = Get-Text (Get-Kid $fieldEl 'presentationExpression')
 
+	# Сортировка по выражению: у поля свой порядок, отличный от порядка по значению.
+	$orderExpr = $null
+	$oeEl = Get-Kid $fieldEl 'orderExpression'
+	if ($null -ne $oeEl) {
+		$orderExpr = [ordered]@{}
+		$orderExpr['expression'] = Get-Text (Get-Kid $oeEl 'expression')
+		$ot = Get-Text (Get-Kid $oeEl 'orderType')
+		$orderExpr['orderType'] = if ($ot -cne '') { $ot } else { 'Asc' }
+		$orderExpr['autoOrder'] = ((Get-Text (Get-Kid $oeEl 'autoOrder')).Trim() -ceq 'true')
+	}
+
 	$handled = @('dataPath', 'field', 'title', 'role', 'useRestriction',
-		'attributeUseRestriction', 'valueType', 'appearance', 'presentationExpression')
+		'attributeUseRestriction', 'valueType', 'appearance', 'presentationExpression',
+		'orderExpression')
 	foreach ($c in $fieldEl.ChildNodes) {
 		if ($c.NodeType -eq 'Element' -and $handled -cnotcontains $c.LocalName) {
 			Add-Todo $node ('элемент поля не поддержан: ' + $c.LocalName)
 		}
 	}
 
+	# Значения признаков роли пишутся в шорткате наравне с самими признаками.
+	$extraSimple = $true
+	foreach ($entry in $roleExtra.GetEnumerator()) {
+		if (-not (Test-SimpleName ([string]$entry.Value))) { $extraSimple = $false }
+	}
 	$canShort = ((Test-SimpleName $dataPath) -and
 		($field -ceq '' -or $field -ceq $dataPath) -and
-		$title -ceq '' -and $roleExtra.Count -eq 0 -and $attrRestrict.Count -eq 0 -and
+		$title -ceq '' -and $extraSimple -and $attrRestrict.Count -eq 0 -and
 		($null -eq $appearance -or $appearance.Count -eq 0) -and $presExpr -ceq '' -and
 		(-not $node.Contains('_todo')) -and
 		($null -eq $typeStr -or (Test-SimpleName $typeStr)))
+	$canShort = $canShort -and ($null -eq $orderExpr)
 	if ($canShort) {
 		$s = $dataPath
 		if ($null -ne $typeStr) { $s += ': ' + $typeStr }
 		foreach ($r in $roles) { $s += ' @' + $r }
+		foreach ($entry in $roleExtra.GetEnumerator()) { $s += ' ' + $entry.Key + '=' + [string]$entry.Value }
 		foreach ($t in $restrict) { $s += ' #' + $t }
 		return $s
 	}
 
 	$obj = [ordered]@{}
-	$obj['dataPath'] = $dataPath
-	if ($field -cne '' -and $field -cne $dataPath) { $obj['field'] = $field }
+	# Имя поля пишется ключом field: так его читает и сборка.
+	$obj['field'] = $dataPath
+	if ($field -cne '' -and $field -cne $dataPath) {
+		$obj['dataPath'] = $dataPath
+		$obj['field'] = $field
+	}
 	if ($title -cne '') { $obj['title'] = $title }
 	if ($null -ne $typeStr) { $obj['type'] = $typeStr }
 	if ($roles.Count -gt 0 -or $roleExtra.Count -gt 0) {
@@ -350,6 +373,7 @@ function Build-Field($fieldEl) {
 	if ($attrRestrict.Count -gt 0) { $obj['attrRestrict'] = $attrRestrict }
 	if ($null -ne $appearance -and $appearance.Count -gt 0) { $obj['appearance'] = $appearance }
 	if ($presExpr -cne '') { $obj['presentationExpression'] = $presExpr }
+	if ($null -ne $orderExpr) { $obj['orderExpression'] = $orderExpr }
 	if ($node.Contains('_todo')) { $obj['_todo'] = $node['_todo'] }
 	return $obj
 }
@@ -683,16 +707,7 @@ function Build-Selection($selEl, $todoNode) {
 			$tEl = Get-Kid $it 'lwsTitle'
 			$folder = [ordered]@{}
 			if ($null -ne $tEl) { $folder['folder'] = Get-MlText $tEl $todoNode } else { $folder['folder'] = '' }
-			$subItems = New-Object System.Collections.Generic.List[object]
-			foreach ($sub in (Get-Kids $it 'item')) {
-				$sxt = Get-XsiLocal $sub
-				if ($sxt -ceq 'SelectedItemField') {
-					[void]$subItems.Add((Get-Text (Get-Kid $sub 'field')))
-				} else {
-					Add-Todo $folder ('элемент папки выборки не поддержан: ' + $sxt)
-				}
-			}
-			$folder['items'] = $subItems
+			$folder['items'] = Build-Selection $it $folder
 			$placement = (Get-Text (Get-Kid $it 'placement')).Trim()
 			if ($placement -cne '' -and $placement -cne 'Auto') {
 				Add-Todo $folder ('размещение папки выборки не поддержано: ' + $placement)
@@ -1084,24 +1099,22 @@ function Set-StructureExtras($el, $node, $handled) {
 	}
 }
 
-function Set-StructureContent($el, $node, $withChildren) {
+function Set-StructureContent($el, $node, $withChildren, $axisForm = $false) {
 	$nEl = Get-Kid $el 'name'
 	if ($null -ne $nEl -and (Get-Text $nEl) -cne '') { $node['name'] = Get-Text $nEl }
 	$giEl = Get-Kid $el 'groupItems'
-	if ($null -ne $giEl) { $node['groupBy'] = Build-GroupItems $giEl $node }
-	$ordEl = Get-Kid $el 'order'
-	if ($null -ne $ordEl) {
-		$o = Build-Order $ordEl $node
-		if ($o.Count -gt 0 -and -not ($o.Count -eq 1 -and $o[0] -is [string] -and $o[0] -ceq 'Auto')) {
-			$node['order'] = $o
-		}
-	}
+	if ($null -ne $giEl) { $node['groupFields'] = Build-GroupItems $giEl $node }
+	# Отбор и порядок пишутся всегда, включая пустые: их отсутствие в файле и автоэлемент -
+	# разные вещи, и обратная сборка обязана их различать.
 	$selEl = Get-Kid $el 'selection'
-	if ($null -ne $selEl) {
-		$s = Build-Selection $selEl $node
-		if ($s.Count -gt 0 -and -not ($s.Count -eq 1 -and $s[0] -is [string] -and $s[0] -ceq 'Auto')) {
-			$node['selection'] = $s
-		}
+	$ordEl = Get-Kid $el 'order'
+	if ($axisForm) {
+		# У оси таблицы отсутствие отбора и порядка значимо: сборка не должна дописывать их.
+		if ($null -ne $ordEl) { $node['order'] = Build-Order $ordEl $node } else { $node['order'] = @() }
+		if ($null -ne $selEl) { $node['selection'] = Build-Selection $selEl $node } else { $node['selection'] = @() }
+	} else {
+		if ($null -ne $selEl) { $node['selection'] = Build-Selection $selEl $node }
+		if ($null -ne $ordEl) { $node['order'] = Build-Order $ordEl $node }
 	}
 	$fEl = Get-Kid $el 'filter'
 	if ($null -ne $fEl) {
@@ -1142,23 +1155,26 @@ function Build-StructureItem($el) {
 		$node['type'] = 'table'
 		$nEl = Get-Kid $el 'name'
 		if ($null -ne $nEl -and (Get-Text $nEl) -cne '') { $node['name'] = Get-Text $nEl }
+		# Порядок осей в описании тот же, что в файле: он значим для чтения.
 		$rows = New-Object System.Collections.Generic.List[object]
-		foreach ($r in (Get-Kids $el 'row')) {
-			$axis = [ordered]@{}
-			Set-StructureContent $r $axis $false
-			[void]$rows.Add($axis)
-		}
 		$cols = New-Object System.Collections.Generic.List[object]
-		foreach ($c in (Get-Kids $el 'column')) {
-			$axis = [ordered]@{}
-			Set-StructureContent $c $axis $false
-			if ($axis.Contains('name')) {
-				Add-Todo $axis 'имя колонки таблицы не поддержано компилятором'
+		foreach ($child in $el.ChildNodes) {
+			$tag = $child.LocalName
+			if ($tag -ceq 'column') {
+				$axis = [ordered]@{}
+				Set-StructureContent $child $axis $false $true
+				if ($axis.Contains('name')) {
+					Add-Todo $axis 'имя колонки таблицы не поддержано компилятором'
+				}
+				if ($cols.Count -eq 0 -and -not $node.Contains('columns')) { $node['columns'] = $cols }
+				[void]$cols.Add($axis)
+			} elseif ($tag -ceq 'row') {
+				$axis = [ordered]@{}
+				Set-StructureContent $child $axis $false $true
+				if ($rows.Count -eq 0 -and -not $node.Contains('rows')) { $node['rows'] = $rows }
+				[void]$rows.Add($axis)
 			}
-			[void]$cols.Add($axis)
 		}
-		if ($rows.Count -gt 0) { $node['rows'] = $rows }
-		if ($cols.Count -gt 0) { $node['columns'] = $cols }
 		$handled = New-Object System.Collections.Generic.List[object]
 		foreach ($h in @('name', 'row', 'column')) { [void]$handled.Add($h) }
 		foreach ($extra in @('selection', 'filter', 'conditionalAppearance', 'outputParameters')) {
@@ -1168,6 +1184,33 @@ function Build-StructureItem($el) {
 			}
 		}
 		Set-StructureExtras $el $node $handled
+		return $node
+	}
+	if ($xt -ceq 'StructureItemNestedObject') {
+		# Вложенный объект: своя выборка поверх набора данных, названного objectID.
+		$node = [ordered]@{}
+		$node['type'] = 'nestedObject'
+		$oidEl = Get-Kid $el 'objectID'
+		if ($null -ne $oidEl -and (Get-Text $oidEl) -cne '') { $node['objectID'] = Get-Text $oidEl }
+		$sEl = Get-Kid $el 'settings'
+		$nested = [ordered]@{}
+		if ($null -ne $sEl) {
+			$nSel = Get-Kid $sEl 'selection'
+			if ($null -ne $nSel) { $nested['selection'] = Build-Selection $nSel $node }
+			$nOrd = Get-Kid $sEl 'order'
+			if ($null -ne $nOrd) { $nested['order'] = Build-Order $nOrd $node }
+			$nFlt = Get-Kid $sEl 'filter'
+			if ($null -ne $nFlt) {
+				$flt = Build-Filter $nFlt $node
+				if ($flt.Count -gt 0) { $nested['filter'] = $flt }
+			}
+			$nOp = Get-Kid $sEl 'outputParameters'
+			if ($null -ne $nOp) {
+				$op = Build-OutputParams $nOp $node
+				if ($op.Count -gt 0) { $nested['outputParameters'] = $op }
+			}
+		}
+		$node['settings'] = $nested
 		return $node
 	}
 	if ($xt -ceq 'StructureItemChart') {
@@ -1215,11 +1258,23 @@ function Get-StructureShorthand($items) {
 	while ($true) {
 		if ($current.Count -ne 1 -or -not ($current[0] -is [System.Collections.IDictionary])) { return $null }
 		$node = $current[0]
-		foreach ($k in $node.Keys) {
-			if ($k -cne 'groupBy' -and $k -cne 'children') { return $null }
+		# Автоматические отбор и порядок сокращению не мешают: они и есть умолчание.
+		# Значения берутся тем же обходом, что и имена: индексатор упорядоченного словаря
+		# на строковом ключе выбирает целочисленную перегрузку и падает.
+		$autoOnly = $true
+		foreach ($entry in $node.GetEnumerator()) {
+			$key = [string]$entry.Key
+			if ($key -cne 'groupFields' -and $key -cne 'children' -and
+				$key -cne 'selection' -and $key -cne 'order') { return $null }
+			if ($key -ceq 'selection' -or $key -ceq 'order') {
+				$listValue = $entry.Value
+				if ($null -eq $listValue -or $listValue.Count -ne 1 -or
+					-not ($listValue[0] -is [string]) -or $listValue[0] -cne 'Auto') { $autoOnly = $false }
+			}
 		}
+		if (-not $autoOnly) { return $null }
 		$gb = $null
-		if ($node.Contains('groupBy')) { $gb = $node['groupBy'] }
+		if ($node.Contains('groupFields')) { $gb = $node['groupFields'] }
 		$children = $null
 		if ($node.Contains('children')) { $children = $node['children'] }
 		if ($null -eq $gb -or $gb.Count -eq 0) {

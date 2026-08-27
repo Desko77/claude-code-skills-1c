@@ -91,8 +91,9 @@ def ml_text(elem, todo_node):
     langs = {}
     for it in items:
         langs[text_of(kid(it, 'lang')).strip()] = text_of(kid(it, 'content'))
-    if len(langs) > 1 and todo_node is not None:
-        add_todo(todo_node, 'многоязычный текст: сохранен только ru')
+    # Многоязычный текст возвращается объектом "язык: текст": одноязычный - строкой.
+    if len(langs) > 1:
+        return langs
     if 'ru' in langs:
         return langs['ru']
     for v in langs.values():
@@ -243,16 +244,17 @@ def build_field(fel):
         for rc in r_el:
             rl = local(rc.tag)
             rv = text_of(rc).strip()
-            if rl in ('dimension', 'account', 'balance') and rv == 'true':
+            # Признак роли либо логический (@имя), либо со значением (имя=значение).
+            if rv == 'true' and rl not in ('periodNumber', 'periodType'):
                 roles.append(rl)
             elif rl == 'periodNumber':
                 period_num = rv
             elif rl == 'periodType':
                 period_type = rv
-            elif rl in ('accountTypeExpression', 'balanceGroup'):
-                role_extra[rl] = rv
+            elif rv == 'false':
+                continue
             else:
-                add_todo(node, 'элемент роли не поддержан: ' + rl)
+                role_extra[rl] = rv
         if period_num == '1' and period_type == 'Main':
             roles.append('period')
         elif period_num or period_type:
@@ -266,8 +268,19 @@ def build_field(fel):
     appearance = build_appearance_map(app_el, node) if app_el is not None else None
     pres_expr = text_of(kid(fel, 'presentationExpression'))
 
+    # Сортировка по выражению: у поля свой порядок, отличный от порядка по значению.
+    order_expr = None
+    oe_el = kid(fel, 'orderExpression')
+    if oe_el is not None:
+        order_expr = {'expression': text_of(kid(oe_el, 'expression')) or ''}
+        ot_el = kid(oe_el, 'orderType')
+        order_expr['orderType'] = text_of(ot_el) or 'Asc'
+        ao_el = kid(oe_el, 'autoOrder')
+        order_expr['autoOrder'] = (text_of(ao_el) or '').strip() == 'true'
+
     handled = {'dataPath', 'field', 'title', 'role', 'useRestriction',
-               'attributeUseRestriction', 'valueType', 'appearance', 'presentationExpression'}
+               'attributeUseRestriction', 'valueType', 'appearance', 'presentationExpression',
+               'orderExpression'}
     for c in fel:
         ln = local(c.tag)
         if ln not in handled:
@@ -276,22 +289,27 @@ def build_field(fel):
     can_short = (
         bool(SIMPLE_NAME.match(data_path or '')) and
         (not field or field == data_path) and
-        not title and not role_extra and not attr_restrict and
+        not title and not attr_restrict and
+        all(SIMPLE_NAME.match(str(v)) for v in role_extra.values()) and
         not appearance and not pres_expr and '_todo' not in node and
         (type_str is None or bool(SIMPLE_NAME.match(type_str)))
     )
+    can_short = can_short and not order_expr
     if can_short:
         s = data_path
         if type_str:
             s += ': ' + type_str
         for r in roles:
             s += ' @' + r
+        for extra_key, extra_value in role_extra.items():
+            s += ' ' + extra_key + '=' + str(extra_value)
         for t in restrict:
             s += ' #' + t
         return s
 
-    obj = {'dataPath': data_path}
+    obj = {'field': data_path}
     if field and field != data_path:
+        obj['dataPath'] = data_path
         obj['field'] = field
     if title:
         obj['title'] = title
@@ -315,6 +333,8 @@ def build_field(fel):
         obj['appearance'] = appearance
     if pres_expr:
         obj['presentationExpression'] = pres_expr
+    if order_expr:
+        obj['orderExpression'] = order_expr
     if '_todo' in node:
         obj['_todo'] = node['_todo']
     return obj
@@ -611,6 +631,8 @@ def param_to_shorthand(p):
 # === Selection / Filter / Order ===
 
 def build_selection(sel_el, todo_node):
+    # Папка выборки разбирается тем же кодом, что и сама выборка: внутри нее лежат такие же
+    # элементы, включая вложенные папки и поля с заголовком.
     items = []
     for it in kids(sel_el, 'item'):
         xt = xsi_local(it)
@@ -630,14 +652,7 @@ def build_selection(sel_el, todo_node):
         elif xt == 'SelectedItemFolder':
             t_el = kid(it, 'lwsTitle')
             folder = {'folder': ml_text(t_el, todo_node) if t_el is not None else ''}
-            sub_items = []
-            for sub in kids(it, 'item'):
-                sxt = xsi_local(sub)
-                if sxt == 'SelectedItemField':
-                    sub_items.append(text_of(kid(sub, 'field')))
-                else:
-                    add_todo(folder, 'элемент папки выборки не поддержан: ' + sxt)
-            folder['items'] = sub_items
+            folder['items'] = build_selection(it, folder)
             placement = text_of(kid(it, 'placement')).strip()
             if placement and placement != 'Auto':
                 add_todo(folder, 'размещение папки выборки не поддержано: ' + placement)
@@ -1010,23 +1025,26 @@ def apply_structure_extras(el, node, handled):
             add_todo(node, 'элемент структуры не поддержан: ' + ln)
 
 
-def build_structure_content(el, node, with_children):
+def build_structure_content(el, node, with_children, axis_form=False):
     n_el = kid(el, 'name')
     if n_el is not None and text_of(n_el):
         node['name'] = text_of(n_el)
     gi_el = kid(el, 'groupItems')
     if gi_el is not None:
-        node['groupBy'] = build_group_items(gi_el, node)
-    ord_el = kid(el, 'order')
-    if ord_el is not None:
-        o = build_order(ord_el, node)
-        if o and o != ['Auto']:
-            node['order'] = o
+        node['groupFields'] = build_group_items(gi_el, node)
+    # Отбор и порядок пишутся всегда, включая пустые: их отсутствие в файле и автоэлемент -
+    # разные вещи, и обратная сборка обязана их различать.
     sel_el = kid(el, 'selection')
-    if sel_el is not None:
-        s = build_selection(sel_el, node)
-        if s and s != ['Auto']:
-            node['selection'] = s
+    ord_el = kid(el, 'order')
+    if axis_form:
+        # У оси таблицы отсутствие отбора и порядка значимо: сборка не должна дописывать их.
+        node['order'] = build_order(ord_el, node) if ord_el is not None else []
+        node['selection'] = build_selection(sel_el, node) if sel_el is not None else []
+    else:
+        if sel_el is not None:
+            node['selection'] = build_selection(sel_el, node)
+        if ord_el is not None:
+            node['order'] = build_order(ord_el, node)
     f_el = kid(el, 'filter')
     if f_el is not None:
         flt = build_filter(f_el, node)
@@ -1063,28 +1081,52 @@ def build_structure_item(el):
         n_el = kid(el, 'name')
         if n_el is not None and text_of(n_el):
             node['name'] = text_of(n_el)
-        rows = []
-        for r in kids(el, 'row'):
-            axis = {}
-            build_structure_content(r, axis, False)
-            rows.append(axis)
-        cols = []
-        for c in kids(el, 'column'):
-            axis = {}
-            build_structure_content(c, axis, False)
-            if 'name' in axis:
-                add_todo(axis, 'имя колонки таблицы не поддержано компилятором')
-            cols.append(axis)
-        if rows:
-            node['rows'] = rows
-        if cols:
-            node['columns'] = cols
+        # Порядок осей в описании тот же, что в файле: он значим для чтения.
+        for child in list(el):
+            tag = local(child.tag)
+            if tag == 'column':
+                axis = {}
+                build_structure_content(child, axis, False, axis_form=True)
+                if 'name' in axis:
+                    add_todo(axis, 'имя колонки таблицы не поддержано компилятором')
+                node.setdefault('columns', []).append(axis)
+            elif tag == 'row':
+                axis = {}
+                build_structure_content(child, axis, False, axis_form=True)
+                node.setdefault('rows', []).append(axis)
         handled = {'name', 'row', 'column'}
         for extra in ('selection', 'filter', 'conditionalAppearance', 'outputParameters'):
             if kid(el, extra) is not None:
                 add_todo(node, 'таблица структуры: ' + extra + ' на уровне таблицы не поддержан')
                 handled.add(extra)
         apply_structure_extras(el, node, handled)
+        return node
+    if xt == 'StructureItemNestedObject':
+        # Вложенный объект: своя выборка поверх набора данных, названного objectID.
+        node = {'type': 'nestedObject'}
+        oid_el = kid(el, 'objectID')
+        if oid_el is not None and text_of(oid_el):
+            node['objectID'] = text_of(oid_el)
+        s_el = kid(el, 'settings')
+        nested = {}
+        if s_el is not None:
+            sel_el = kid(s_el, 'selection')
+            if sel_el is not None:
+                nested['selection'] = build_selection(sel_el, node)
+            ord_el = kid(s_el, 'order')
+            if ord_el is not None:
+                nested['order'] = build_order(ord_el, node)
+            f_el = kid(s_el, 'filter')
+            if f_el is not None:
+                flt = build_filter(f_el, node)
+                if flt:
+                    nested['filter'] = flt
+            op_el = kid(s_el, 'outputParameters')
+            if op_el is not None:
+                op = build_output_params(op_el, node)
+                if op:
+                    nested['outputParameters'] = op
+        node['settings'] = nested
         return node
     if xt == 'StructureItemChart':
         node = {'type': 'chart'}
@@ -1130,9 +1172,12 @@ def try_structure_shorthand(items):
         if len(current) != 1 or not isinstance(current[0], dict):
             return None
         node = current[0]
-        if set(node.keys()) - {'groupBy', 'children'}:
+        # Автоматические отбор и порядок сокращению не мешают: они и есть умолчание.
+        if set(node.keys()) - {'groupFields', 'children', 'selection', 'order'}:
             return None
-        gb = node.get('groupBy')
+        if node.get('selection') not in (None, ['Auto']) or node.get('order') not in (None, ['Auto']):
+            return None
+        gb = node.get('groupFields')
         children = node.get('children')
         if not gb:
             if children:

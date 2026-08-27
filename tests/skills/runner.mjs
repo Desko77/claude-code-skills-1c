@@ -405,13 +405,16 @@ function normalizeXmlContent(text) {
   return s;
 }
 
-function normalizeContent(text, config, relFile) {
+function normalizeContent(text, config, relFile, forStorage = false) {
   // Strip BOM
   let s = text.replace(/^\uFEFF/, '');
   // Normalize line endings
   s = s.replace(/\r\n/g, '\n');
   // Normalize XML differences (Python etree serialization quirks)
-  if (config?.runtime === 'python') {
+  // Схлопывание пробелов между тегами нужно только СРАВНЕНИЮ. В записываемый эталон оно
+  // попадать не должно: иначе --update-snapshots на python-порте оставляет XML одной строкой
+  // и стирает формат, на который смотрят остальные проверки.
+  if (config?.runtime === 'python' && !forStorage) {
     s = normalizeXmlContent(s);
   }
 
@@ -700,7 +703,7 @@ function updateSnapshot(workDir, snapshotDir, snapshotConfig, caseData) {
     mkdirSync(dirname(dst), { recursive: true });
 
     const raw = readFileSync(src, 'utf8');
-    const normalized = normalizeContent(raw, snapshotConfig, relFile);
+    const normalized = normalizeContent(raw, snapshotConfig, relFile, true);
     writeFileSync(dst, normalized, 'utf8');
   }
 }
