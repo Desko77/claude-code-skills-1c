@@ -3,10 +3,12 @@
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
+import io
 import json
 import os
 import re
 import subprocess
+import uuid
 import sys
 from html import escape as html_escape
 from lxml import etree
@@ -260,7 +262,7 @@ XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 V8_NS = "http://v8.1c.ru/8.1/data/core"
 XS_NS = "http://www.w3.org/2001/XMLSchema"
 
-# Canonical type order for ChildObjects (44 types)
+# Canonical type order for ChildObjects (45 types)
 TYPE_ORDER = [
     "Language", "Subsystem", "StyleItem", "Style",
     "CommonPicture", "SessionParameter", "Role", "CommonTemplate",
@@ -273,7 +275,7 @@ TYPE_ORDER = [
     "Report", "DataProcessor", "InformationRegister", "AccumulationRegister",
     "ChartOfCharacteristicTypes", "ChartOfAccounts", "AccountingRegister",
     "ChartOfCalculationTypes", "CalculationRegister",
-    "BusinessProcess", "Task", "IntegrationService",
+    "BusinessProcess", "Task", "IntegrationService", "Bot",
 ]
 
 # Type → on-disk directory name (plural)
@@ -290,6 +292,7 @@ TYPE_TO_DIR = {
     "ChartOfCharacteristicTypes": "ChartsOfCharacteristicTypes", "ChartOfAccounts": "ChartsOfAccounts", "AccountingRegister": "AccountingRegisters",
     "ChartOfCalculationTypes": "ChartsOfCalculationTypes", "CalculationRegister": "CalculationRegisters",
     "BusinessProcess": "BusinessProcesses", "Task": "Tasks", "IntegrationService": "IntegrationServices",
+    "Bot": "Bots",
 }
 
 ML_PROPS = ["Synonym", "BriefInformation", "DetailedInformation", "Copyright", "VendorInformationAddress", "ConfigurationInformationAddress"]
@@ -414,9 +417,84 @@ def save_xml_bom(tree, path):
         f.write(xml_bytes)
 
 
+# Панели интерфейса клиентского приложения. Имени панели в файле нет: платформа опознает
+# панель по ПОЗИЦИИ в списке panelDef. Порядок замерен на выгрузках - он одинаков в
+# конфигурациях с разными uuid панелей.
+PANEL_SLOTS = ("sections", "favorites", "history", "open", "functions")
+
+# Зоны раскладки идут в файле в этом порядке; пустая зона не записывается.
+PANEL_ZONES = ("top", "left", "right", "bottom")
+
+# Русские имена типов в ссылке на форму. Значения - канонические имена ChildObjects.
+RU_TYPE_MAP = {
+    "Справочник": "Catalog", "Документ": "Document", "Перечисление": "Enum",
+    "Отчет": "Report", "Обработка": "DataProcessor", "Константа": "Constant",
+    "РегистрСведений": "InformationRegister", "РегистрНакопления": "AccumulationRegister",
+    "РегистрБухгалтерии": "AccountingRegister", "РегистрРасчета": "CalculationRegister",
+    "ПланСчетов": "ChartOfAccounts", "ПланВидовХарактеристик": "ChartOfCharacteristicTypes",
+    "ПланВидовРасчета": "ChartOfCalculationTypes", "ПланОбмена": "ExchangePlan",
+    "БизнесПроцесс": "BusinessProcess", "Задача": "Task", "ЖурналДокументов": "DocumentJournal",
+    "ОбщаяФорма": "CommonForm", "Подсистема": "Subsystem",
+}
+
+
+def normalize_form_ref(ref):
+    """Ссылка на форму приводится к виду Тип.Имя.Form.ИмяФормы.
+
+    Принимается и краткая запись без сегмента Form, и русское имя типа: платформа пишет
+    только канонический вид, а в задании удобнее любой.
+    """
+    parts = [p for p in str(ref).split(".") if p != ""]
+    if not parts:
+        return str(ref)
+    parts[0] = RU_TYPE_MAP.get(parts[0], parts[0])
+    if len(parts) == 3:
+        parts.insert(2, "Form")
+    elif len(parts) >= 4 and parts[2] in ("Форма", "form"):
+        parts[2] = "Form"
+    return ".".join(parts)
+
+
+def detect_file_eol(path):
+    """Конец строки существующего файла; у нового - канонический CRLF."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        return '\r\n'
+    return '\r\n' if b'\r\n' in data or b'\n' not in data else '\n'
+
+
+def parse_object_value(op_name, value):
+    """Значение операции - объект. Из -Value оно приходит строкой, разбираем JSON."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except ValueError as exc:
+            print(f"{op_name}: -Value is not valid JSON: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if isinstance(parsed, dict):
+            return parsed
+    print(f"{op_name} value must be an object", file=sys.stderr)
+    sys.exit(1)
+
+
+def read_panel_defs(interface_path):
+    """Идентификаторы panelDef в порядке файла - это и есть порядок PANEL_SLOTS."""
+    ids = []
+    for line in io.open(interface_path, encoding="utf-8-sig").read().split("\n"):
+        m = re.search(r'<panelDef id="([^"]+)"', line)
+        if m:
+            ids.append(m.group(1))
+    return ids
+
+
 OPERATIONS = (
     "modify-property", "add-childObject", "remove-childObject",
     "add-defaultRole", "remove-defaultRole", "set-defaultRoles",
+    "set-home-page", "set-panels",
 )
 
 
@@ -436,7 +514,8 @@ def main():
     parser = argparse.ArgumentParser(description="Edit 1C configuration root (Configuration.xml)", allow_abbrev=False)
     parser.add_argument("-ConfigPath", required=True)
     parser.add_argument("-DefinitionFile", default=None)
-    parser.add_argument("-Operation", default=None, choices=["modify-property", "add-childObject", "remove-childObject", "add-defaultRole", "remove-defaultRole", "set-defaultRoles"])
+    parser.add_argument("-Operation", default=None, choices=["modify-property", "add-childObject", "remove-childObject", "add-defaultRole",
+                                 "remove-defaultRole", "set-defaultRoles", "set-home-page", "set-panels"])
     parser.add_argument("-Value", default=None)
     parser.add_argument("-NoValidate", action="store_true")
     args = parser.parse_args()
@@ -472,6 +551,9 @@ def main():
     add_count = 0
     remove_count = 0
     modify_count = 0
+    # Пакет применяется целиком: побочные файлы пишутся после того, как прошли все
+    # операции. Иначе отказ на второй операции оставлял первый файл уже записанным.
+    pending_writes = []
 
     cfg_el = None
     for child in xml_root:
@@ -728,6 +810,113 @@ def main():
             if not found:
                 warn(f"DefaultRole not found: {role_name}")
 
+    def do_set_home_page(batch_val):
+        nonlocal modify_count
+        batch_val = parse_object_value("set-home-page", batch_val)
+
+        version = xml_root.get("version") or "2.17"
+        lines = ['<?xml version="1.0" encoding="UTF-8"?>',
+                 '<HomePageWorkArea xmlns="http://v8.1c.ru/8.3/xcf/extrnprops" '
+                 'xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" '
+                 'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+                 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+                 f'version="{version}">']
+        template = batch_val.get("template") or "TwoColumnsVariableWidth"
+        lines.append(f"\t<WorkingAreaTemplate>{html_escape(template)}</WorkingAreaTemplate>")
+
+        item_count = 0
+        for key, tag in (("left", "LeftColumn"), ("right", "RightColumn")):
+            column = batch_val.get(key) or []
+            if not column:
+                continue
+            lines.append(f"\t<{tag}>")
+            for entry in column:
+                item = entry if isinstance(entry, dict) else {"form": entry}
+                form = normalize_form_ref(item.get("form", ""))
+                # Высота 10 и общая видимость - то, что платформа подставляет сама.
+                height = item.get("height", 10)
+                visible = item.get("visibility", True)
+                lines.append("\t\t<Item>")
+                lines.append(f"\t\t\t<Form>{html_escape(form)}</Form>")
+                lines.append(f"\t\t\t<Height>{int(height)}</Height>")
+                lines.append("\t\t\t<Visibility>")
+                lines.append(f"\t\t\t\t<xr:Common>{'true' if visible else 'false'}</xr:Common>")
+                for role, allowed in (item.get("roles") or {}).items():
+                    role_name = role if str(role).startswith("Role.") else f"Role.{role}"
+                    flag = 'true' if allowed else 'false'
+                    lines.append(f'\t\t\t\t<xr:Value name="{html_escape(role_name)}">{flag}</xr:Value>')
+                lines.append("\t\t\t</Visibility>")
+                lines.append("\t\t</Item>")
+                item_count += 1
+            lines.append(f"\t</{tag}>")
+        lines.append("</HomePageWorkArea>")
+
+        ext_dir = os.path.join(os.path.dirname(resolved_path), "Ext")
+        target = os.path.join(ext_dir, "HomePageWorkArea.xml")
+        pending_writes.append((target, "\n".join(lines), detect_file_eol(target)))
+        modify_count += 1
+        info(f"Home page work area: {template}, {item_count} form(s)")
+
+    def do_set_panels(batch_val):
+        nonlocal modify_count
+        batch_val = parse_object_value("set-panels", batch_val)
+
+        interface_path = os.path.join(os.path.dirname(resolved_path), "Ext",
+                                      "ClientApplicationInterface.xml")
+        if not os.path.isfile(interface_path):
+            print(f"Ext/ClientApplicationInterface.xml not found next to {resolved_path}",
+                  file=sys.stderr)
+            sys.exit(1)
+        panel_defs = read_panel_defs(interface_path)
+        if len(panel_defs) != len(PANEL_SLOTS):
+            print(f"Ext/ClientApplicationInterface.xml: expected {len(PANEL_SLOTS)} panelDef, "
+                  f"found {len(panel_defs)}", file=sys.stderr)
+            sys.exit(1)
+        slot_uuid = dict(zip(PANEL_SLOTS, panel_defs))
+
+        def panel_lines(name, indent):
+            if name not in slot_uuid:
+                print(f"Unknown panel '{name}'. Known: {', '.join(PANEL_SLOTS)}", file=sys.stderr)
+                sys.exit(1)
+            pad = "\t" * indent
+            return [f'{pad}<panel id="{uuid.uuid4()}">',
+                    f"{pad}\t<uuid>{slot_uuid[name]}</uuid>",
+                    f"{pad}</panel>"]
+
+        lines = ['<?xml version="1.0" encoding="UTF-8"?>',
+                 '<ClientApplicationInterface xmlns="http://v8.1c.ru/8.2/managed-application/core" '
+                 'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
+                 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+                 'xsi:type="InterfaceLayouter">']
+        placed = 0
+        for zone in PANEL_ZONES:
+            entries = batch_val.get(zone) or []
+            if not entries:
+                continue
+            lines.append(f"\t<{zone}>")
+            for entry in entries:
+                # Группа - стек панелей в одной зоне: внешний group с id, внутри по одному
+                # безымянному group на каждую панель.
+                if isinstance(entry, dict) and entry.get("group"):
+                    lines.append(f'\t\t<group id="{uuid.uuid4()}">')
+                    for member in entry["group"]:
+                        lines.append("\t\t\t<group>")
+                        lines.extend(panel_lines(member, 4))
+                        lines.append("\t\t\t</group>")
+                        placed += 1
+                    lines.append("\t\t</group>")
+                else:
+                    lines.extend(panel_lines(entry, 2))
+                    placed += 1
+            lines.append(f"\t</{zone}>")
+        for panel_id in panel_defs:
+            lines.append(f'\t<panelDef id="{panel_id}"/>')
+        lines.append("</ClientApplicationInterface>")
+
+        pending_writes.append((interface_path, "\n".join(lines), detect_file_eol(interface_path)))
+        modify_count += 1
+        info(f"Client application interface: {placed} panel(s) placed")
+
     def do_set_default_roles(batch_val):
         nonlocal modify_count
         items = parse_batch_value(batch_val)
@@ -802,12 +991,20 @@ def main():
             do_remove_default_role(op_value)
         elif op_name == "set-defaultRoles":
             do_set_default_roles(op_value)
+        elif op_name == "set-home-page":
+            do_set_home_page(op_value)
+        elif op_name == "set-panels":
+            do_set_panels(op_value)
         else:
             print(f"Unknown operation: {op_name}", file=sys.stderr)
             sys.exit(1)
 
     # --- Save ---
     save_xml_bom(tree, resolved_path)
+    for target, text, eol in pending_writes:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with io.open(target, "w", encoding="utf-8-sig", newline=eol) as fh:
+            fh.write(text)
     info(f"Saved: {resolved_path}")
 
     # --- Auto-validate ---

@@ -61,6 +61,7 @@ CHILD_TYPE_DIR_MAP = {
     "SettingsStorage": "SettingsStorages", "FilterCriterion": "FilterCriteria",
     "CommandGroup": "CommandGroups", "DocumentNumerator": "DocumentNumerators",
     "Sequence": "Sequences", "IntegrationService": "IntegrationServices",
+    "Bot": "Bots",
     "XDTOPackage": "XDTOPackages", "WebService": "WebServices",
     "HTTPService": "HTTPServices", "WSReference": "WSReferences",
     "CommonAttribute": "CommonAttributes", "Style": "Styles",
@@ -116,7 +117,7 @@ TYPE_ORDER = [
     "Report", "DataProcessor", "InformationRegister", "AccumulationRegister",
     "ChartOfCharacteristicTypes", "ChartOfAccounts", "AccountingRegister",
     "ChartOfCalculationTypes", "CalculationRegister",
-    "BusinessProcess", "Task", "IntegrationService",
+    "BusinessProcess", "Task", "IntegrationService", "Bot",
 ]
 
 GENERATED_TYPES = {

@@ -324,11 +324,13 @@ def new_uuid():
     return str(uuid.uuid4())
 
 
-def write_utf8_bom(path, content):
+def write_utf8_bom(path, content, eol='\r\n'):
     # Исходники 1С хранятся в CRLF: этого ждет Конфигуратор, и это закреплено в .gitattributes.
     # Сборка идет через '\n'.join, поэтому концы строк разворачиваются здесь, на записи.
     # Нормализация идемпотентна - смешанный текст тоже приходит к одному виду.
-    content = content.replace('\r\n', '\n').replace('\n', '\r\n')
+    # Правка существующего файла передает сюда его собственный eol: форсировать CRLF там
+    # нельзя, иначе навык переписывает весь чужой файл ради одной добавленной строки.
+    content = content.replace('\r\n', '\n').replace('\n', eol)
     with open(path, 'w', encoding='utf-8-sig', newline='') as f:
         f.write(content)
 

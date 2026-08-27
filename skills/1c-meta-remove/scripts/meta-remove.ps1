@@ -216,6 +216,7 @@ $typePluralMap = @{
 	"WSReference"                = "WSReferences"
 	"StyleItem"                  = "StyleItems"
 	"Language"                   = "Languages"
+	"Bot"                        = "Bots"
 }
 
 # --- Resolve paths ---

@@ -10,6 +10,7 @@
 				<v8:Type>cfg:DataProcessorObject.Поиск</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
+			<SavedData>true</SavedData>
 		</Attribute>
 	</Attributes>
 </Form>

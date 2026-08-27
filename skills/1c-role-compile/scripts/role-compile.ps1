@@ -976,6 +976,8 @@ if (Test-Path $configXmlPath) {
 	$configDoc = New-Object System.Xml.XmlDocument
 	$configDoc.PreserveWhitespace = $true
 	$configDoc.Load($configXmlPath)
+	# Концы строк берутся из ФАЙЛА, который правим: регистрация не меняет его стиль.
+	$origCfgCrlf = [System.IO.File]::ReadAllText($configXmlPath).Contains("`r`n")
 
 	$nsMgr = New-Object System.Xml.XmlNamespaceManager($configDoc.NameTable)
 	$nsMgr.AddNamespace("md", "http://v8.1c.ru/8.3/MDClasses")
@@ -1035,6 +1037,8 @@ if (Test-Path $configXmlPath) {
 			# навык менял шапку чужого файла и давал лишнее расхождение со сверкой.
 			$tightText = $tightText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 			$tightText = [regex]::Replace($tightText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
+			$tightText = $tightText.Replace("`r`n", "`n")
+			if ($origCfgCrlf) { $tightText = $tightText.Replace("`n", "`r`n") }
 			[System.IO.File]::WriteAllText($tightPath, $tightText, (New-Object System.Text.UTF8Encoding($true)))
 
 			$regResult = "added"

@@ -66,7 +66,7 @@ CHILD_OBJECT_TYPES = [
     'Report', 'DataProcessor', 'InformationRegister', 'AccumulationRegister',
     'ChartOfCharacteristicTypes', 'ChartOfAccounts', 'AccountingRegister',
     'ChartOfCalculationTypes', 'CalculationRegister',
-    'BusinessProcess', 'Task', 'IntegrationService',
+    'BusinessProcess', 'Task', 'IntegrationService', 'Bot',
 ]
 
 # Type -> directory mapping
@@ -91,6 +91,7 @@ CHILD_TYPE_DIR_MAP = {
     'CalculationRegister': 'CalculationRegisters',
     'BusinessProcess': 'BusinessProcesses', 'Task': 'Tasks',
     'IntegrationService': 'IntegrationServices',
+    'Bot': 'Bots',
 }
 
 # Valid enum values for extension properties

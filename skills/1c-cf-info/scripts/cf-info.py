@@ -102,7 +102,7 @@ type_order = [
     "Report", "DataProcessor", "InformationRegister", "AccumulationRegister",
     "ChartOfCharacteristicTypes", "ChartOfAccounts", "AccountingRegister",
     "ChartOfCalculationTypes", "CalculationRegister",
-    "BusinessProcess", "Task", "IntegrationService",
+    "BusinessProcess", "Task", "IntegrationService", "Bot",
 ]
 
 type_ru_names = {
@@ -123,6 +123,7 @@ type_ru_names = {
     "AccountingRegister": "Регистры бухгалтерии", "ChartOfCalculationTypes": "ПВР",
     "CalculationRegister": "Регистры расчёта", "BusinessProcess": "Бизнес-процессы",
     "Task": "Задачи", "IntegrationService": "Сервисы интеграции",
+    "Bot": "Боты",
 }
 
 # --- Count objects in ChildObjects ---

@@ -29,7 +29,6 @@
 			<VariantsStorage/>
 			<SettingsStorage/>
 		</Properties>
-		<ChildObjects>
-		</ChildObjects>
+		<ChildObjects/>
 	</ExternalReport>
 </MetaDataObject>

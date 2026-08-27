@@ -136,7 +136,7 @@ $childObjectTypes = @(
 	"Report","DataProcessor","InformationRegister","AccumulationRegister",
 	"ChartOfCharacteristicTypes","ChartOfAccounts","AccountingRegister",
 	"ChartOfCalculationTypes","CalculationRegister",
-	"BusinessProcess","Task","IntegrationService"
+	"BusinessProcess","Task","IntegrationService","Bot"
 )
 
 # Type -> directory mapping
@@ -161,6 +161,7 @@ $childTypeDirMap = @{
 	"CalculationRegister"="CalculationRegisters"
 	"BusinessProcess"="BusinessProcesses"; "Task"="Tasks"
 	"IntegrationService"="IntegrationServices"
+	"Bot"="Bots"
 }
 
 # Valid enum values for Configuration properties

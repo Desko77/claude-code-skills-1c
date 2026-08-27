@@ -212,11 +212,23 @@ def esc_xml(s):
 def new_uuid():
     return str(uuid.uuid4())
 
-def write_utf8_bom(path, content):
+def detect_file_eol(path):
+    """Конец строки существующего файла; у нового - канонический CRLF."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        return '\r\n'
+    return '\r\n' if b'\r\n' in data or b'\n' not in data else '\n'
+
+
+def write_utf8_bom(path, content, eol='\r\n'):
     # Исходники 1С хранятся в CRLF: этого ждет Конфигуратор, и это закреплено в .gitattributes.
     # Сборка идет через '\n'.join, поэтому концы строк разворачиваются здесь, на записи.
     # Нормализация идемпотентна - смешанный текст тоже приходит к одному виду.
-    content = content.replace('\r\n', '\n').replace('\n', '\r\n')
+    # Правка существующего файла передает сюда его собственный eol: форсировать CRLF там
+    # нельзя, иначе навык переписывает весь чужой файл ради одной добавленной строки.
+    content = content.replace('\r\n', '\n').replace('\n', eol)
     with open(path, 'w', encoding='utf-8-sig', newline='') as f:
         f.write(content)
 
@@ -1243,40 +1255,43 @@ def emit_tabular_standard_attributes(indent):
 # 8. Attribute emitter
 # ---------------------------------------------------------------------------
 
-RESERVED_ATTR_NAMES = {
-    'Ref', 'DeletionMark', 'Code', 'Description', 'Date', 'Number', 'Posted',
-    'Parent', 'Owner', 'IsFolder', 'Predefined', 'PredefinedDataName',
-    'Recorder', 'Period', 'LineNumber', 'Active', 'Order', 'Type', 'OffBalance',
-    'Started', 'Completed', 'HeadTask', 'Executed', 'RoutePoint', 'BusinessProcess',
-    'ThisNode', 'SentNo', 'ReceivedNo', 'CalculationType', 'RegistrationPeriod',
-    'ReversingEntry', 'Account', 'ValueType', 'ActionPeriodIsBasic',
+# Имена стандартных реквизитов по типу объекта, обе формы записи. Набор совпадает с составом,
+# который выпускает meta-compile: имени вне этого набора платформа не запрещает, и общего
+# для всех типов списка нет - у обработки нет Ссылки, у документа нет Предопределенного.
+RESERVED_ATTRIBUTES_BY_TYPE = {
+    "Catalog": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "IsFolder", "ЭтоГруппа", "Owner", "Владелец", "Parent", "Родитель", "Description", "Наименование", "Code", "Код"],
+    "Document": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Date", "Дата", "Number", "Номер", "Posted", "Проведен"],
+    "Enum": ["Ref", "Ссылка", "Order", "Порядок"],
+    "InformationRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность"],
+    "AccumulationRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность"],
+    "AccountingRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность", "Account", "Счет"],
+    "CalculationRegister": ["Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность", "RegistrationPeriod", "ПериодРегистрации", "CalculationType", "ВидРасчета", "ReversingEntry", "СторноЗапись"],
+    "ChartOfAccounts": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Description", "Наименование", "Code", "Код", "Parent", "Родитель", "Order", "Порядок", "Type", "Тип", "OffBalance", "Забалансовый"],
+    "ChartOfCharacteristicTypes": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Description", "Наименование", "Code", "Код", "Parent", "Родитель", "IsFolder", "ЭтоГруппа", "ValueType", "ТипЗначения"],
+    "ChartOfCalculationTypes": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Description", "Наименование", "Code", "Код", "ActionPeriodIsBasic", "БазовыйПериодЯвляетсяОсновным"],
+    "BusinessProcess": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Date", "Дата", "Number", "Номер", "Started", "Стартован", "Completed", "Завершен", "HeadTask", "ВедущаяЗадача"],
+    "Task": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Date", "Дата", "Number", "Номер", "Description", "Наименование", "Executed", "Выполнена", "RoutePoint", "ТочкаМаршрута", "BusinessProcess", "БизнесПроцесс"],
+    "ExchangePlan": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Code", "Код", "Description", "Наименование", "ThisNode", "ЭтотУзел", "SentNo", "НомерОтправленного", "ReceivedNo", "НомерПринятого"],
+    "DocumentJournal": ["Ref", "Ссылка", "Type", "Тип", "Date", "Дата", "Number", "Номер", "Posted", "Проведен", "DeletionMark", "ПометкаУдаления"],
+    "TabularSection": ["LineNumber", "НомерСтроки"],
 }
-RESERVED_ATTR_NAMES_RU = {
-    '\u0421\u0441\u044b\u043b\u043a\u0430', '\u041f\u043e\u043c\u0435\u0442\u043a\u0430\u0423\u0434\u0430\u043b\u0435\u043d\u0438\u044f',
-    '\u041a\u043e\u0434', '\u041d\u0430\u0438\u043c\u0435\u043d\u043e\u0432\u0430\u043d\u0438\u0435',
-    '\u0414\u0430\u0442\u0430', '\u041d\u043e\u043c\u0435\u0440', '\u041f\u0440\u043e\u0432\u0435\u0434\u0435\u043d',
-    '\u0420\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446',
-    '\u042d\u0442\u043e\u0413\u0440\u0443\u043f\u043f\u0430', '\u041f\u0440\u0435\u0434\u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u043d\u044b\u0439',
-    '\u0418\u043c\u044f\u041f\u0440\u0435\u0434\u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u043d\u044b\u0445\u0414\u0430\u043d\u043d\u044b\u0445',
-    '\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440', '\u041f\u0435\u0440\u0438\u043e\u0434',
-    '\u041d\u043e\u043c\u0435\u0440\u0421\u0442\u0440\u043e\u043a\u0438', '\u0410\u043a\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u044c',
-    '\u041f\u043e\u0440\u044f\u0434\u043e\u043a', '\u0422\u0438\u043f', '\u0417\u0430\u0431\u0430\u043b\u0430\u043d\u0441\u043e\u0432\u044b\u0439',
-    '\u0421\u0442\u0430\u0440\u0442\u043e\u0432\u0430\u043d', '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d',
-    '\u0412\u0435\u0434\u0443\u0449\u0430\u044f\u0417\u0430\u0434\u0430\u0447\u0430',
-    '\u0412\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u0430', '\u0422\u043e\u0447\u043a\u0430\u041c\u0430\u0440\u0448\u0440\u0443\u0442\u0430',
-    '\u0411\u0438\u0437\u043d\u0435\u0441\u041f\u0440\u043e\u0446\u0435\u0441\u0441',
-    '\u042d\u0442\u043e\u0442\u0423\u0437\u0435\u043b', '\u041d\u043e\u043c\u0435\u0440\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043d\u043e\u0433\u043e',
-    '\u041d\u043e\u043c\u0435\u0440\u041f\u0440\u0438\u043d\u044f\u0442\u043e\u0433\u043e',
-    '\u0412\u0438\u0434\u0420\u0430\u0441\u0447\u0435\u0442\u0430', '\u041f\u0435\u0440\u0438\u043e\u0434\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438',
-    '\u0421\u0442\u043e\u0440\u043d\u043e\u0417\u0430\u043f\u0438\u0441\u044c',
-    '\u0421\u0447\u0435\u0442', '\u0422\u0438\u043f\u0417\u043d\u0430\u0447\u0435\u043d\u0438\u044f',
-    '\u041f\u0435\u0440\u0438\u043e\u0434\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u044f\u0411\u0430\u0437\u043e\u0432\u044b\u0439',
-}
+
+
+def assert_attribute_name_allowed(name, owner_type):
+    if not name:
+        return
+    normalized = name.replace('\u0451', '\u0435').replace('\u0401', '\u0415')
+    for standard in RESERVED_ATTRIBUTES_BY_TYPE.get(owner_type, []):
+        if standard.lower() == normalized.lower():
+            print(f"Имя '{name}' зарезервировано стандартным реквизитом платформы "
+                  f"у типа '{owner_type}'", file=sys.stderr)
+            sys.exit(1)
+
 
 def emit_attribute(indent, parsed, context):
     attr_name = parsed['name']
-    if context not in ('tabular', 'processor-tabular') and (attr_name in RESERVED_ATTR_NAMES or attr_name in RESERVED_ATTR_NAMES_RU):
-        print(f"WARNING: Attribute '{attr_name}' conflicts with a standard attribute name. This may cause errors when loading into 1C.", file=sys.stderr)
+    owner = 'TabularSection' if context in ('tabular', 'processor-tabular') else obj_type
+    assert_attribute_name_allowed(attr_name, owner)
     uid = new_uuid()
     X(f'{indent}<Attribute uuid="{uid}">')
     X(f'{indent}\t<Properties>')
@@ -3861,7 +3876,7 @@ if os.path.isfile(config_xml_path):
                 config_content = config_content[:block_start] + new_block + config_content[block_end:]
 
             # Хвостовой перевод строки НЕ добавляется: платформа его не пишет, и ps1-порт тоже.
-            write_utf8_bom(config_xml_path, config_content)
+            write_utf8_bom(config_xml_path, config_content, detect_file_eol(config_xml_path))
             reg_result = 'added'
 else:
     reg_result = 'no-config'

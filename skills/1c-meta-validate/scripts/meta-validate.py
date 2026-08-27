@@ -103,6 +103,9 @@ if not os.path.exists(object_path):
         if os.path.exists(candidate):
             object_path = candidate
 
+if not os.path.exists(object_path) and os.path.exists(object_path + '.xml'):
+    object_path += '.xml'
+
 if not os.path.exists(object_path):
     print(f"[ERROR] File not found: {object_path}")
     sys.exit(1)
@@ -183,6 +186,17 @@ valid_types = (
     "Report", "DataProcessor",
     "CommonModule", "ScheduledJob", "EventSubscription",
     "HTTPService", "WebService", "DefinedType",
+)
+
+# Типы без собственного набора проверок: корень, uuid и имя - все, что можно проверить
+# по файлу, не зная правил объекта. Раньше навык звал такой тип нераспознанным.
+structural_only_types = (
+    "Language", "Subsystem", "StyleItem", "Style",
+    "CommonPicture", "SessionParameter", "Role", "CommonTemplate",
+    "FilterCriterion", "CommonAttribute", "XDTOPackage", "WSReference",
+    "SettingsStorage", "FunctionalOption", "FunctionalOptionsParameter", "CommonCommand",
+    "CommandGroup", "CommonForm", "DocumentNumerator", "Sequence",
+    "IntegrationService", "Bot",
 )
 
 # GeneratedType categories by type
@@ -396,7 +410,7 @@ elif len(child_elements) > 1:
 type_node = child_elements[0]
 md_type = local_name(type_node)
 
-if md_type not in valid_types:
+if md_type not in valid_types and md_type not in structural_only_types:
     report_error(f"1. Unrecognized metadata type: {md_type}")
     finalize()
     sys.exit(1)
@@ -424,6 +438,15 @@ if check1_ok:
 if stopped:
     finalize()
     sys.exit(1)
+
+if md_type in structural_only_types:
+    if obj_name == '(unknown)':
+        report_error("1. Missing <Name> in Properties")
+    else:
+        report_ok(f"1. Имя объекта: {obj_name}")
+    report_ok(f"1. {md_type}: базовая структурная проверка (корень, uuid, имя)")
+    finalize()
+    sys.exit(1 if errors else 0)
 
 # ── Check 2: InternalInfo ────────────────────────────────────
 

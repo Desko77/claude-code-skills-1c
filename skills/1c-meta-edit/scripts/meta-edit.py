@@ -402,25 +402,24 @@ def find_typo_candidate(name, candidates):
 # Стандартные реквизиты платформы по типу объекта: реквизит с таким именем она отвергает при
 # загрузке. Набор зависит от типа - "Тип" стандартен у плана видов характеристик и плана
 # счетов, а у справочника такого реквизита нет и имя законно.
-STANDARD_ATTRIBUTES_COMMON = [
-    "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Predefined", "Предопределенный",
-    "PredefinedDataName", "ИмяПредопределенныхДанных",
-]
-
-STANDARD_ATTRIBUTES_BY_TYPE = {
-    "Catalog": ["Code", "Код", "Description", "Наименование", "Parent", "Родитель", "Owner", "Владелец", "IsFolder", "ЭтоГруппа"],
-    "Document": ["Date", "Дата", "Number", "Номер", "Posted", "Проведен"],
-    "ChartOfCharacteristicTypes": ["Code", "Код", "Description", "Наименование", "Parent", "Родитель", "IsFolder", "ЭтоГруппа", "Type", "Тип", "ValueType", "ТипЗначения"],
-    "ChartOfAccounts": ["Code", "Код", "Description", "Наименование", "Type", "Тип", "OffBalance", "Забалансовый", "Order", "Порядок"],
-    "ChartOfCalculationTypes": ["Code", "Код", "Description", "Наименование", "ActionPeriodIsBasic", "БазовыйПериодЯвляетсяОсновным"],
-    "BusinessProcess": ["Date", "Дата", "Number", "Номер", "Started", "Стартован", "Completed", "Завершен", "HeadTask", "ВедущаяЗадача"],
-    "Task": ["Date", "Дата", "Number", "Номер", "Description", "Наименование", "Executed", "Выполнена", "RoutePoint", "ТочкаМаршрута", "BusinessProcess", "БизнесПроцесс"],
-    "ExchangePlan": ["Code", "Код", "Description", "Наименование", "ThisNode", "ЭтотУзел", "SentNo", "НомерОтправленного", "ReceivedNo", "НомерПринятого"],
-    "InformationRegister": ["Period", "Период", "Recorder", "Регистратор", "Active", "Активность"],
+# Имена стандартных реквизитов по типу объекта, обе формы записи. Набор совпадает с составом,
+# который выпускает meta-compile: имени вне этого набора платформа не запрещает, и общего
+# для всех типов списка нет - у обработки нет Ссылки, у документа нет Предопределенного.
+RESERVED_ATTRIBUTES_BY_TYPE = {
+    "Catalog": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "IsFolder", "ЭтоГруппа", "Owner", "Владелец", "Parent", "Родитель", "Description", "Наименование", "Code", "Код"],
+    "Document": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Date", "Дата", "Number", "Номер", "Posted", "Проведен"],
+    "Enum": ["Ref", "Ссылка", "Order", "Порядок"],
+    "InformationRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность"],
     "AccumulationRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность"],
     "AccountingRegister": ["Period", "Период", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность", "Account", "Счет"],
-    "CalculationRegister": ["RegistrationPeriod", "ПериодРегистрации", "CalculationType", "ВидРасчета", "Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность", "ReversingEntry", "СторноЗапись"],
-    # У табличной части стандартный реквизит один - номер строки.
+    "CalculationRegister": ["Recorder", "Регистратор", "LineNumber", "НомерСтроки", "Active", "Активность", "RegistrationPeriod", "ПериодРегистрации", "CalculationType", "ВидРасчета", "ReversingEntry", "СторноЗапись"],
+    "ChartOfAccounts": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Description", "Наименование", "Code", "Код", "Parent", "Родитель", "Order", "Порядок", "Type", "Тип", "OffBalance", "Забалансовый"],
+    "ChartOfCharacteristicTypes": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Description", "Наименование", "Code", "Код", "Parent", "Родитель", "IsFolder", "ЭтоГруппа", "ValueType", "ТипЗначения"],
+    "ChartOfCalculationTypes": ["PredefinedDataName", "ИмяПредопределенныхДанных", "Predefined", "Предопределенный", "Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Description", "Наименование", "Code", "Код", "ActionPeriodIsBasic", "БазовыйПериодЯвляетсяОсновным"],
+    "BusinessProcess": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Date", "Дата", "Number", "Номер", "Started", "Стартован", "Completed", "Завершен", "HeadTask", "ВедущаяЗадача"],
+    "Task": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Date", "Дата", "Number", "Номер", "Description", "Наименование", "Executed", "Выполнена", "RoutePoint", "ТочкаМаршрута", "BusinessProcess", "БизнесПроцесс"],
+    "ExchangePlan": ["Ref", "Ссылка", "DeletionMark", "ПометкаУдаления", "Code", "Код", "Description", "Наименование", "ThisNode", "ЭтотУзел", "SentNo", "НомерОтправленного", "ReceivedNo", "НомерПринятого"],
+    "DocumentJournal": ["Ref", "Ссылка", "Type", "Тип", "Date", "Дата", "Number", "Номер", "Posted", "Проведен", "DeletionMark", "ПометкаУдаления"],
     "TabularSection": ["LineNumber", "НомерСтроки"],
 }
 
@@ -429,12 +428,7 @@ def assert_attribute_name_allowed(name, owner_type):
     if not name:
         return
     normalized = name.replace('\u0451', '\u0435').replace('\u0401', '\u0415')
-    if owner_type == "TabularSection":
-        forbidden = STANDARD_ATTRIBUTES_BY_TYPE["TabularSection"]
-    else:
-        forbidden = list(STANDARD_ATTRIBUTES_COMMON)
-        forbidden += STANDARD_ATTRIBUTES_BY_TYPE.get(owner_type, [])
-    for standard in forbidden:
+    for standard in RESERVED_ATTRIBUTES_BY_TYPE.get(owner_type, []):
         if standard.lower() == normalized.lower():
             print(f"Имя '{name}' зарезервировано стандартным реквизитом платформы "
                   f"у типа '{owner_type}'", file=sys.stderr)

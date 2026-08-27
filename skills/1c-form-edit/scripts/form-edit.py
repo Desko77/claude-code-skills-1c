@@ -1255,7 +1255,10 @@ if elements_list:
             el_name = get_element_name(el, type_key)
             existing = find_element(root_ci, el_name) if root_ci is not None else None
             if existing is not None:
-                print(f"[WARN] Element '{el_name}' already exists in form (id={existing.get('id')})")
+                # Имя элемента формы уникально: платформа второй такой не примет,
+                # а правка с предупреждением оставляла форму с двумя одинаковыми.
+                print(f"[ERROR] Элемент '{el_name}' в форме уже есть (id={existing.get('id')})", file=sys.stderr)
+                sys.exit(1)
 
     # Remember starting element ID for companion counting
     start_elem_id = next_elem_id

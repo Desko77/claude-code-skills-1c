@@ -95,7 +95,7 @@ $typeOrder = @(
 	"Report","DataProcessor","InformationRegister","AccumulationRegister",
 	"ChartOfCharacteristicTypes","ChartOfAccounts","AccountingRegister",
 	"ChartOfCalculationTypes","CalculationRegister",
-	"BusinessProcess","Task","IntegrationService"
+	"BusinessProcess","Task","IntegrationService","Bot"
 )
 
 $typeRuNames = @{
@@ -115,7 +115,7 @@ $typeRuNames = @{
 	"ChartOfCharacteristicTypes"="ПВХ"; "ChartOfAccounts"="Планы счетов"
 	"AccountingRegister"="Регистры бухгалтерии"; "ChartOfCalculationTypes"="ПВР"
 	"CalculationRegister"="Регистры расчёта"; "BusinessProcess"="Бизнес-процессы"
-	"Task"="Задачи"; "IntegrationService"="Сервисы интеграции"
+	"Task"="Задачи"; "IntegrationService"="Сервисы интеграции"; "Bot"="Боты"
 }
 
 # --- Count objects in ChildObjects ---

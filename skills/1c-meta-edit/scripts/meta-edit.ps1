@@ -268,25 +268,24 @@ function Find-TypoCandidate {
 # Стандартные реквизиты платформы по типу объекта: реквизит с таким именем она отвергает при
 # загрузке. Набор зависит от типа - "Тип" стандартен у плана видов характеристик и плана
 # счетов, а у справочника такого реквизита нет и имя законно.
-$script:standardAttributesCommon = @(
-	"Ref","Ссылка","DeletionMark","ПометкаУдаления","Predefined","Предопределенный",
-	"PredefinedDataName","ИмяПредопределенныхДанных"
-)
-
-$script:standardAttributesByType = @{
-	"Catalog" = @("Code","Код","Description","Наименование","Parent","Родитель","Owner","Владелец","IsFolder","ЭтоГруппа")
-	"Document" = @("Date","Дата","Number","Номер","Posted","Проведен")
-	"ChartOfCharacteristicTypes" = @("Code","Код","Description","Наименование","Parent","Родитель","IsFolder","ЭтоГруппа","Type","Тип","ValueType","ТипЗначения")
-	"ChartOfAccounts" = @("Code","Код","Description","Наименование","Type","Тип","OffBalance","Забалансовый","Order","Порядок")
-	"ChartOfCalculationTypes" = @("Code","Код","Description","Наименование","ActionPeriodIsBasic","БазовыйПериодЯвляетсяОсновным")
-	"BusinessProcess" = @("Date","Дата","Number","Номер","Started","Стартован","Completed","Завершен","HeadTask","ВедущаяЗадача")
-	"Task" = @("Date","Дата","Number","Номер","Description","Наименование","Executed","Выполнена","RoutePoint","ТочкаМаршрута","BusinessProcess","БизнесПроцесс")
-	"ExchangePlan" = @("Code","Код","Description","Наименование","ThisNode","ЭтотУзел","SentNo","НомерОтправленного","ReceivedNo","НомерПринятого")
-	"InformationRegister" = @("Period","Период","Recorder","Регистратор","Active","Активность")
+# Имена стандартных реквизитов по типу объекта, обе формы записи. Набор совпадает с составом,
+# который выпускает meta-compile: имени вне этого набора платформа не запрещает, и общего
+# для всех типов списка нет - у обработки нет Ссылки, у документа нет Предопределенного.
+$script:reservedAttributesByType = @{
+	"Catalog" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","IsFolder","ЭтоГруппа","Owner","Владелец","Parent","Родитель","Description","Наименование","Code","Код")
+	"Document" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Date","Дата","Number","Номер","Posted","Проведен")
+	"Enum" = @("Ref","Ссылка","Order","Порядок")
+	"InformationRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность")
 	"AccumulationRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность")
 	"AccountingRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность","Account","Счет")
-	"CalculationRegister" = @("RegistrationPeriod","ПериодРегистрации","CalculationType","ВидРасчета","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность","ReversingEntry","СторноЗапись")
-	# У табличной части стандартный реквизит один - номер строки.
+	"CalculationRegister" = @("Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность","RegistrationPeriod","ПериодРегистрации","CalculationType","ВидРасчета","ReversingEntry","СторноЗапись")
+	"ChartOfAccounts" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","Description","Наименование","Code","Код","Parent","Родитель","Order","Порядок","Type","Тип","OffBalance","Забалансовый")
+	"ChartOfCharacteristicTypes" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","Description","Наименование","Code","Код","Parent","Родитель","IsFolder","ЭтоГруппа","ValueType","ТипЗначения")
+	"ChartOfCalculationTypes" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","Description","Наименование","Code","Код","ActionPeriodIsBasic","БазовыйПериодЯвляетсяОсновным")
+	"BusinessProcess" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Date","Дата","Number","Номер","Started","Стартован","Completed","Завершен","HeadTask","ВедущаяЗадача")
+	"Task" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Date","Дата","Number","Номер","Description","Наименование","Executed","Выполнена","RoutePoint","ТочкаМаршрута","BusinessProcess","БизнесПроцесс")
+	"ExchangePlan" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Code","Код","Description","Наименование","ThisNode","ЭтотУзел","SentNo","НомерОтправленного","ReceivedNo","НомерПринятого")
+	"DocumentJournal" = @("Ref","Ссылка","Type","Тип","Date","Дата","Number","Номер","Posted","Проведен","DeletionMark","ПометкаУдаления")
 	"TabularSection" = @("LineNumber","НомерСтроки")
 }
 
@@ -294,18 +293,8 @@ function Assert-AttributeNameAllowed {
 	param([string]$Name, [string]$OwnerType)
 	if (-not $Name) { return }
 	$normalized = $Name.Replace([char]0x451, [char]0x435).Replace([char]0x401, [char]0x415)
-
-	$forbidden = @()
-	if ($OwnerType -eq "TabularSection") {
-		$forbidden = $script:standardAttributesByType["TabularSection"]
-	} else {
-		$forbidden = $script:standardAttributesCommon
-		if ($script:standardAttributesByType.ContainsKey($OwnerType)) {
-			$forbidden += $script:standardAttributesByType[$OwnerType]
-		}
-	}
-
-	foreach ($standard in $forbidden) {
+	if (-not $script:reservedAttributesByType.ContainsKey($OwnerType)) { return }
+	foreach ($standard in $script:reservedAttributesByType[$OwnerType]) {
 		if ($standard -ieq $normalized) {
 			Write-Error "Имя '$Name' зарезервировано стандартным реквизитом платформы у типа '$OwnerType'"
 			exit 1
@@ -2901,6 +2890,18 @@ $text = $text.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 $text = [regex]::Replace($text, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
 
 # Write with BOM
+# Концы строк берутся из ФАЙЛА, который правим: объекты конфигурации хранятся в CRLF,
+# схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
+$origText = if (Test-Path $resolvedPath) { [System.IO.File]::ReadAllText($resolvedPath) } else { "" }
+$origCrlf = $origText.Contains("`r`n")
+$text = $text.Replace("`r`n", "`n")
+if ($origCrlf) { $text = $text.Replace("`n", "`r`n") }
+# Хвостовой перевод исходного файла тоже сохраняется: универсального правила нет,
+# часть навыков его пишет, часть нет - правка не должна это менять.
+if ($origText.EndsWith("`n") -and -not $text.EndsWith("`n")) {
+	$text += if ($origCrlf) { "`r`n" } else { "`n" }
+}
+
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
 

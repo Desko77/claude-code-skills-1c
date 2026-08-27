@@ -206,8 +206,10 @@ VALID_OPS = [
     "add-dataSet", "add-variant", "add-conditionalAppearance", "add-drilldown",
     "set-query", "patch-query", "set-outputParameter", "set-structure",
     "modify-field", "modify-filter", "modify-dataParameter", "modify-parameter",
+    "modify-structure",
     "rename-parameter", "reorder-parameters",
-    "clear-selection", "clear-order", "clear-filter",
+    "clear-selection", "clear-order", "clear-filter", "clear-conditionalAppearance",
+    "set-field-role",
     "remove-field", "remove-total", "remove-calculated-field", "remove-parameter", "remove-filter",
 ]
 
@@ -1551,13 +1553,17 @@ def get_container_child_indent(container):
 xml_parser = etree.XMLParser(remove_blank_text=False)
 tree = etree.parse(resolved_path, xml_parser)
 xml_doc = tree.getroot()
+# Слепок документа ДО правок: по нему видно, изменила ли операция хоть что-нибудь. Сравнивать
+# с самим файлом нельзя - перезапись переносит объявления пространств имен на одну строку,
+# и нетронутый документ выглядел бы измененным.
+_before_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
 
 # ── 7. Batch value splitting ────────────────────────────────
 
 if operation in ("set-query", "set-structure", "add-dataSet"):
     values = [value_arg]
 elif operation == "patch-query":
-    values = [v for v in value_arg.split(";;") if v.strip()]
+    values = [v.strip() for v in value_arg.split(";;") if v.strip()]
 elif operation == "add-drilldown":
     if ";;" in value_arg:
         values = [v.strip() for v in value_arg.split(";;") if v.strip()]
@@ -1565,6 +1571,48 @@ elif operation == "add-drilldown":
         values = [v.strip() for v in value_arg.split(",") if v.strip()]
 else:
     values = [v.strip() for v in value_arg.split(";;") if v.strip()]
+
+# Текст запроса ищется терпимо: переводы строк и неразрывные пробелы в поиске и в файле
+# приходят из разных редакторов, а расхождение по ним - не отличие самого текста.
+def normalize_query_probe(s):
+    return (s.replace("\r\n", "\n").replace("\r", "\n")
+             .replace("\u00a0", " ").replace("\u2007", " ").replace("\u202f", " "))
+
+
+def query_divergence_point(haystack, needle):
+    """Длина самого длинного совпавшего начала: показывает, где искомое разошлось с текстом."""
+    best = 0
+    for start in range(len(haystack)):
+        i = 0
+        while i < len(needle) and start + i < len(haystack) and haystack[start + i] == needle[i]:
+            i += 1
+        if i > best:
+            best = i
+        if best == len(needle):
+            break
+    return best
+
+
+def report_query_miss(ds_name, old_str, query_text, all_data_sets):
+    """Отказ поиска объясняется: пробелы, чужой набор данных или точка расхождения."""
+    probe_query = normalize_query_probe(query_text)
+    probe_old = normalize_query_probe(old_str)
+    lines = ["Substring not found in query of dataset '" + ds_name + "': " + old_str]
+    if probe_old in probe_query:
+        lines.append("  Found after whitespace normalized: line breaks or non-breaking spaces differ")
+        return "\n".join(lines)
+    for other_name, other_text in all_data_sets:
+        if other_name == ds_name:
+            continue
+        if old_str in other_text or probe_old in normalize_query_probe(other_text):
+            lines.append("  Found in dataset '" + other_name + "' instead")
+            return "\n".join(lines)
+    point = query_divergence_point(probe_query, probe_old)
+    if point:
+        lines.append("  Search text diverged after " + str(point) + " chars: "
+                     + probe_old[:point] + "|" + probe_old[point:point + 20])
+    return "\n".join(lines)
+
 
 # ── 8. Main logic ───────────────────────────────────────────
 
@@ -2064,7 +2112,20 @@ elif operation == "patch-query":
     if query_el is None:
         print(f"No <query> element found in dataset '{ds_name}'", file=sys.stderr)
         sys.exit(1)
+    all_data_sets = []
+    for other in xml_doc.iter():
+        if isinstance(other.tag, str) and local_name(other) == "dataSet":
+            other_query = find_first_element(other, ["query"], SCH_NS)
+            if other_query is not None:
+                all_data_sets.append((get_data_set_name(other), other_query.text or ""))
+
     for val in values:
+        # Признак @once требует ровно одного вхождения: правка сразу по всем - частая
+        # причина испорченного запроса.
+        once = False
+        if val.endswith("@once"):
+            once = True
+            val = val[:-len("@once")].rstrip()
         sep_idx = val.find(" => ")
         if sep_idx < 0:
             print("patch-query value must contain ' => ' separator: old => new", file=sys.stderr)
@@ -2073,7 +2134,20 @@ elif operation == "patch-query":
         new_str = val[sep_idx + 4:]
         query_text = query_el.text or ""
         if old_str not in query_text:
-            print(f"Substring not found in query of dataset '{ds_name}': {old_str}", file=sys.stderr)
+            # Перевод строки в поиске и в файле бывает разным - это не отличие текста.
+            # Заменяющий текст приводится к тем же переводам, иначе правка внесет чужие.
+            relaxed = old_str.replace("\r\n", "\n").replace("\r", "\n")
+            if relaxed in query_text:
+                old_str = relaxed
+                new_str = new_str.replace("\r\n", "\n").replace("\r", "\n")
+            else:
+                print(report_query_miss(ds_name, old_str, query_text, all_data_sets),
+                      file=sys.stderr)
+                sys.exit(1)
+        if once and query_text.count(old_str) != 1:
+            print("patch-query @once expected 1 occurrence of '" + old_str
+                  + "' in dataset '" + ds_name + "', found "
+                  + str(query_text.count(old_str)), file=sys.stderr)
             sys.exit(1)
         query_el.text = query_text.replace(old_str, new_str)
         print(f'[OK] Query patched in dataset "{ds_name}": replaced \'{old_str}\'')
@@ -2252,6 +2326,67 @@ elif operation == "add-conditionalAppearance":
             desc += f" for {', '.join(parsed['fields'])}"
         print(f'[OK] ConditionalAppearance "{desc}" added to variant "{var_name}"')
 
+elif operation == "set-field-role":
+    ds_node = resolve_data_set()
+    ds_name = get_data_set_name(ds_node)
+    for val in values:
+        # Первое слово - имя поля, остальное - сама роль: признаки @имя и пары имя=значение.
+        parts = val.split(None, 1)
+        field_name = parts[0]
+        role_spec = parts[1].strip() if len(parts) > 1 else ""
+
+        field_el = None
+        for f in ds_node:
+            if not isinstance(f.tag, str) or local_name(f) != "field":
+                continue
+            dp = find_first_element(f, ["dataPath"], SCH_NS)
+            if dp is not None and (dp.text or "").strip() == field_name:
+                field_el = f
+                break
+        if field_el is None:
+            print(f"Field '{field_name}' not found in dataset '{ds_name}'", file=sys.stderr)
+            sys.exit(1)
+
+        existing = find_first_element(field_el, ["role"], SCH_NS)
+        if existing is not None:
+            remove_node_with_whitespace(existing)
+
+        # Пустая роль означает снятие: элемент role просто убирается.
+        if not role_spec:
+            print(f'[OK] Role cleared on field "{field_name}" in dataset "{ds_name}"')
+            continue
+
+        flags = re.findall(r"@(\w+)", role_spec)
+        pairs = re.findall(r"(\w+)=([^\s]+)", role_spec)
+        field_indent = get_child_indent(field_el)
+        item_indent = field_indent + "\t"
+        frag_lines = [f"{field_indent}<role>"]
+        for flag in flags:
+            if flag == "period":
+                frag_lines.append(f"{item_indent}<dcscom:periodNumber>1</dcscom:periodNumber>")
+                frag_lines.append(f"{item_indent}<dcscom:periodType>Main</dcscom:periodType>")
+            else:
+                frag_lines.append(f"{item_indent}<dcscom:{flag}>true</dcscom:{flag}>")
+        for key, pair_value in pairs:
+            frag_lines.append(f"{item_indent}<dcscom:{key}>{esc_xml(pair_value)}</dcscom:{key}>")
+        frag_lines.append(f"{field_indent}</role>")
+
+        nodes = import_fragment(xml_doc, "\n".join(frag_lines))
+        ref_node = find_first_element(field_el, ["valueType", "appearance", "presentationExpression"], SCH_NS)
+        for node in nodes:
+            insert_before_element(field_el, node, ref_node, field_indent)
+        print(f'[OK] Role set on field "{field_name}" in dataset "{ds_name}": {role_spec}')
+
+elif operation == "clear-conditionalAppearance":
+    settings = resolve_variant_settings()
+    var_name = get_variant_name()
+    ca_el = find_first_element(settings, ["conditionalAppearance"], SET_NS)
+    if ca_el is not None:
+        clear_container_children(ca_el)
+        print(f'[OK] Conditional appearance cleared in variant "{var_name}"')
+    else:
+        print(f'[INFO] No conditionalAppearance section in variant "{var_name}"')
+
 elif operation == "clear-selection":
     settings = resolve_variant_settings()
     var_name = get_variant_name()
@@ -2281,6 +2416,64 @@ elif operation == "clear-filter":
         print(f'[OK] Filter cleared in variant "{var_name}"')
     else:
         print(f'[INFO] No filter section in variant "{var_name}"')
+
+elif operation == "modify-structure":
+    settings = resolve_variant_settings()
+    var_name = get_variant_name()
+    for val in values:
+        struct_items = parse_structure_shorthand(val)
+        if not struct_items:
+            print(f"modify-structure value is empty: {val}", file=sys.stderr)
+            sys.exit(1)
+        spec = struct_items[0]
+        item_name = spec.get("name")
+        if not item_name:
+            print("modify-structure requires @name=<имя элемента структуры>", file=sys.stderr)
+            sys.exit(1)
+
+        # Ищется элемент структуры с этим именем на любой глубине: остальное его наполнение
+        # (отбор, порядок, оформление) правка не трогает.
+        target = None
+        for node in settings.iter():
+            if not isinstance(node.tag, str) or local_name(node) != "item":
+                continue
+            name_el = find_first_element(node, ["name"], SET_NS)
+            if name_el is not None and (name_el.text or "").strip() == item_name:
+                target = node
+                break
+        if target is None:
+            print(f"Structure item '{item_name}' not found in variant '{var_name}'", file=sys.stderr)
+            sys.exit(1)
+
+        group_el = find_first_element(target, ["groupItems"], SET_NS)
+        item_indent = get_child_indent(target)
+        frag_lines = []
+        group_by = spec.get("groupBy") or []
+        if not group_by:
+            frag_lines.append(f"{item_indent}<dcsset:groupItems/>")
+        else:
+            frag_lines.append(f"{item_indent}<dcsset:groupItems>")
+            for field in group_by:
+                frag_lines.append(f'{item_indent}\t<dcsset:item xsi:type="dcsset:GroupItemField">')
+                frag_lines.append(f"{item_indent}\t\t<dcsset:field>{esc_xml(field)}</dcsset:field>")
+                frag_lines.append(f"{item_indent}\t\t<dcsset:groupType>Items</dcsset:groupType>")
+                frag_lines.append(f"{item_indent}\t\t<dcsset:periodAdditionType>None</dcsset:periodAdditionType>")
+                frag_lines.append(f'{item_indent}\t\t<dcsset:periodAdditionBegin xsi:type="xs:dateTime">0001-01-01T00:00:00</dcsset:periodAdditionBegin>')
+                frag_lines.append(f'{item_indent}\t\t<dcsset:periodAdditionEnd xsi:type="xs:dateTime">0001-01-01T00:00:00</dcsset:periodAdditionEnd>')
+                frag_lines.append(f"{item_indent}\t</dcsset:item>")
+            frag_lines.append(f"{item_indent}</dcsset:groupItems>")
+
+        ref_node = None
+        if group_el is not None:
+            ref_node = group_el.getnext()
+            remove_node_with_whitespace(group_el)
+        else:
+            ref_node = find_first_element(target, ["order", "selection", "filter"], SET_NS)
+
+        nodes = import_fragment(xml_doc, "\n".join(frag_lines))
+        for node in nodes:
+            insert_before_element(target, node, ref_node, item_indent)
+        print(f'[OK] Structure item "{item_name}" regrouped in variant "{var_name}": {val}')
 
 elif operation == "modify-filter":
     settings = resolve_variant_settings()
@@ -2688,8 +2881,12 @@ if b'\r\n' in _orig:
 # часть навыков его пишет, часть нет - правка не должна это менять.
 if _orig.endswith(b'\n') and not xml_bytes.endswith(b'\n'):
     xml_bytes += b'\r\n' if b'\r\n' in _orig else b'\n'
-with open(resolved_path, "wb") as f:
-    f.write(b'\xef\xbb\xbf')
-    f.write(xml_bytes)
-
-print(f"[OK] Saved {resolved_path}")
+# Правка, ничего не изменившая, файл не трогает: перезапись сдвинула бы время и попала бы
+# в систему контроля версий пустым изменением.
+new_bytes = b'\xef\xbb\xbf' + xml_bytes
+if _orig and etree.tostring(tree, xml_declaration=True, encoding="UTF-8") == _before_bytes:
+    print("[OK] No changes -- file untouched")
+else:
+    with open(resolved_path, "wb") as f:
+        f.write(new_bytes)
+    print(f"[OK] Saved {resolved_path}")

@@ -62,6 +62,18 @@ foreach ($node in $templateNodes) {
 			$parent.RemoveChild($prev) | Out-Null
 		}
 		$parent.RemoveChild($node) | Out-Null
+		# Опустевший контейнер платформа пишет одиночным тегом, а не парой. Внутри
+		# остается перевод строки с отступом - его тоже убираем, иначе выйдет пара
+		# с пробелом.
+		$onlyBlank = $true
+		foreach ($rest in @($parent.ChildNodes)) {
+			if ($rest.NodeType -ne [System.Xml.XmlNodeType]::Whitespace -and
+				$rest.NodeType -ne [System.Xml.XmlNodeType]::SignificantWhitespace) { $onlyBlank = $false }
+		}
+		if ($onlyBlank) {
+			foreach ($rest in @($parent.ChildNodes)) { $parent.RemoveChild($rest) | Out-Null }
+			$parent.IsEmpty = $true
+		}
 		break
 	}
 }

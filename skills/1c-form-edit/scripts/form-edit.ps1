@@ -1023,7 +1023,10 @@ if ($def.elements -and $def.elements.Count -gt 0) {
 			$elName = Get-ElementName -el $el -typeKey $typeKey
 			$existing = Find-Element $rootCI $elName
 			if ($existing) {
-				Write-Host "[WARN] Element '$elName' already exists in form (id=$($existing.GetAttribute('id')))"
+				# Имя элемента формы уникально: платформа второй такой не примет,
+				# а правка с предупреждением оставляла форму с двумя одинаковыми.
+				Write-Error "Элемент '$elName' в форме уже есть (id=$($existing.GetAttribute('id')))"
+				exit 1
 			}
 		}
 	}

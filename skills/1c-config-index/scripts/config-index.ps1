@@ -32,6 +32,7 @@ $childTypeDirMap = @{
 	"CalculationRegister"="CalculationRegisters"
 	"BusinessProcess"="BusinessProcesses"; "Task"="Tasks"
 	"IntegrationService"="IntegrationServices"
+	"Bot"="Bots"
 }
 
 # Child elements of ChildObjects that carry a name and a type, grouped by the index bucket

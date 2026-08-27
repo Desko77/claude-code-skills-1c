@@ -288,11 +288,23 @@ def new_uuid():
     return str(uuid.uuid4())
 
 
-def write_utf8_bom(path, content):
+def detect_file_eol(path):
+    """Конец строки существующего файла; у нового - канонический CRLF."""
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        return '\r\n'
+    return '\r\n' if b'\r\n' in data or b'\n' not in data else '\n'
+
+
+def write_utf8_bom(path, content, eol='\r\n'):
     # Исходники 1С хранятся в CRLF: этого ждет Конфигуратор, и это закреплено в .gitattributes.
     # Сборка идет через '\n'.join, поэтому концы строк разворачиваются здесь, на записи.
     # Нормализация идемпотентна - смешанный текст тоже приходит к одному виду.
-    content = content.replace('\r\n', '\n').replace('\n', '\r\n')
+    # Правка существующего файла передает сюда его собственный eol: форсировать CRLF там
+    # нельзя, иначе навык переписывает весь чужой файл ради одной добавленной строки.
+    content = content.replace('\r\n', '\n').replace('\n', eol)
     with open(path, 'w', encoding='utf-8-sig', newline='') as f:
         f.write(content)
 
@@ -1040,15 +1052,26 @@ def main():
             new_role_tag = f'<Role>{role_name}</Role>'
 
             if matches:
-                # Insert after last existing <Role>
+                # Отступ берется у последнего <Role>, а не задается числом табуляций:
+                # файл мог прийти с другим отступом, и вставка не должна его ломать.
                 last_match = matches[-1]
                 insert_pos = last_match.end()
-                raw_text = raw_text[:insert_pos] + f'\n\t\t\t{new_role_tag}' + raw_text[insert_pos:]
+                line_start = raw_text.rfind('\n', 0, last_match.start()) + 1
+                indent = raw_text[line_start:last_match.start()]
+                raw_text = raw_text[:insert_pos] + '\n' + indent + new_role_tag + raw_text[insert_pos:]
             else:
-                # No existing roles — insert before </ChildObjects>
-                raw_text = raw_text.replace('</ChildObjects>', f'\t\t\t{new_role_tag}\n\t\t</ChildObjects>')
+                # Ролей еще нет: вставка перед </ChildObjects> с его собственным отступом
+                # плюс один уровень. Прежняя запись добавляла три табуляции К уже
+                # существующему отступу строки и давала пять.
+                close_m = re.search(r'([ \t]*)</ChildObjects>', raw_text)
+                if close_m is None:
+                    print('Configuration.xml: <ChildObjects> is empty or self-closing - register the role manually', file=sys.stderr)
+                    sys.exit(1)
+                close_indent = close_m.group(1)
+                raw_text = (raw_text[:close_m.start()] + close_indent + '\t' + new_role_tag
+                            + '\n' + close_indent + '</ChildObjects>' + raw_text[close_m.end():])
 
-            write_utf8_bom(config_xml_path, raw_text)
+            write_utf8_bom(config_xml_path, raw_text, detect_file_eol(config_xml_path))
             reg_result = 'added'
     else:
         reg_result = 'no-config'

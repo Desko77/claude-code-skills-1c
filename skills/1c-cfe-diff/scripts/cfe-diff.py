@@ -59,6 +59,7 @@ CHILD_TYPE_DIR_MAP = {
     "DocumentNumerator": "DocumentNumerators",
     "Sequence": "Sequences",
     "IntegrationService": "IntegrationServices",
+    "Bot": "Bots",
     "CommonAttribute": "CommonAttributes",
 }
 

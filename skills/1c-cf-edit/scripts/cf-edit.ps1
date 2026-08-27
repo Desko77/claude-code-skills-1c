@@ -3,7 +3,7 @@
 param(
 	[Parameter(Mandatory)][string]$ConfigPath,
 	[string]$DefinitionFile,
-	[ValidateSet("modify-property","add-childObject","remove-childObject","add-defaultRole","remove-defaultRole","set-defaultRoles")]
+	[ValidateSet("modify-property","add-childObject","remove-childObject","add-defaultRole","remove-defaultRole","set-defaultRoles","set-home-page","set-panels")]
 	[string]$Operation,
 	[string]$Value,
 	[switch]$NoValidate
@@ -219,7 +219,7 @@ $script:typeOrder = @(
 	"Report","DataProcessor","InformationRegister","AccumulationRegister",
 	"ChartOfCharacteristicTypes","ChartOfAccounts","AccountingRegister",
 	"ChartOfCalculationTypes","CalculationRegister",
-	"BusinessProcess","Task","IntegrationService"
+	"BusinessProcess","Task","IntegrationService","Bot"
 )
 
 # --- Type → on-disk directory name (plural) ---
@@ -236,6 +236,7 @@ $script:typeToDir = @{
 	"ChartOfCharacteristicTypes"="ChartsOfCharacteristicTypes"; "ChartOfAccounts"="ChartsOfAccounts"; "AccountingRegister"="AccountingRegisters"
 	"ChartOfCalculationTypes"="ChartsOfCalculationTypes"; "CalculationRegister"="CalculationRegisters"
 	"BusinessProcess"="BusinessProcesses"; "Task"="Tasks"; "IntegrationService"="IntegrationServices"
+	"Bot"="Bots"
 }
 
 # --- XML manipulation helpers (from subsystem-edit pattern) ---
@@ -623,6 +624,198 @@ function Do-SetDefaultRoles([string]$batchVal) {
 	Info "Set DefaultRoles: $($items.Count) roles"
 }
 
+# Значение операции - объект. Из -Value оно приходит строкой, разбираем JSON.
+function ConvertTo-ObjectValue {
+	param([string]$opName, $value)
+	if ($value -isnot [string]) { return $value }
+	if (-not [string]::IsNullOrWhiteSpace($value)) {
+		try { return ($value | ConvertFrom-Json) }
+		catch { Write-Error "${opName}: -Value is not valid JSON: $($_.Exception.Message)"; exit 1 }
+	}
+	Write-Error "$opName value must be an object"
+	exit 1
+}
+
+# Конец строки существующего файла; у нового - канонический CRLF.
+function Get-FileEol {
+	param([string]$path)
+	if (-not (Test-Path $path)) { return "`r`n" }
+	$text = [System.IO.File]::ReadAllText($path)
+	if ($text.Contains("`r`n") -or -not $text.Contains("`n")) { return "`r`n" }
+	return "`n"
+}
+
+function Esc-Xml {
+	param([string]$s)
+	return $s.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace('"','&quot;')
+}
+
+# Панели интерфейса клиентского приложения. Имени панели в файле нет: платформа опознает
+# панель по ПОЗИЦИИ в списке panelDef. Порядок замерен на выгрузках - он одинаков в
+# конфигурациях с разными uuid панелей.
+$script:panelSlots = @("sections", "favorites", "history", "open", "functions")
+
+# Зоны раскладки идут в файле в этом порядке; пустая зона не записывается.
+$script:panelZones = @("top", "left", "right", "bottom")
+
+# Русские имена типов в ссылке на форму. Значения - канонические имена ChildObjects.
+$script:ruTypeMap = @{
+	"Справочник"="Catalog"; "Документ"="Document"; "Перечисление"="Enum"
+	"Отчет"="Report"; "Обработка"="DataProcessor"; "Константа"="Constant"
+	"РегистрСведений"="InformationRegister"; "РегистрНакопления"="AccumulationRegister"
+	"РегистрБухгалтерии"="AccountingRegister"; "РегистрРасчета"="CalculationRegister"
+	"ПланСчетов"="ChartOfAccounts"; "ПланВидовХарактеристик"="ChartOfCharacteristicTypes"
+	"ПланВидовРасчета"="ChartOfCalculationTypes"; "ПланОбмена"="ExchangePlan"
+	"БизнесПроцесс"="BusinessProcess"; "Задача"="Task"; "ЖурналДокументов"="DocumentJournal"
+	"ОбщаяФорма"="CommonForm"; "Подсистема"="Subsystem"
+}
+
+# Ссылка на форму приводится к виду Тип.Имя.Form.ИмяФормы. Принимается и краткая запись
+# без сегмента Form, и русское имя типа: платформа пишет только канонический вид.
+function Normalize-FormRef {
+	param([string]$ref)
+	$parts = @($ref -split '\.' | Where-Object { $_ -ne '' })
+	if ($parts.Count -eq 0) { return $ref }
+	if ($script:ruTypeMap.ContainsKey($parts[0])) { $parts[0] = $script:ruTypeMap[$parts[0]] }
+	if ($parts.Count -eq 3) {
+		$parts = @($parts[0], $parts[1], 'Form', $parts[2])
+	} elseif ($parts.Count -ge 4 -and ($parts[2] -ceq 'Форма' -or $parts[2] -ceq 'form')) {
+		$parts[2] = 'Form'
+	}
+	return ($parts -join '.')
+}
+
+# Идентификаторы panelDef в порядке файла - это и есть порядок $script:panelSlots.
+function Read-PanelDefs {
+	param([string]$path)
+	$text = [System.IO.File]::ReadAllText($path)
+	$ids = New-Object System.Collections.Generic.List[string]
+	foreach ($m in [regex]::Matches($text, '<panelDef id="([^"]+)"')) {
+		[void]$ids.Add($m.Groups[1].Value)
+	}
+	return $ids
+}
+
+function Do-SetHomePage {
+	param($spec)
+	$spec = ConvertTo-ObjectValue "set-home-page" $spec
+	$version = $script:xmlDoc.DocumentElement.GetAttribute('version')
+	if (-not $version) { $version = '2.17' }
+	$template = if ($spec.template) { "$($spec.template)" } else { 'TwoColumnsVariableWidth' }
+	$lines = New-Object System.Collections.Generic.List[string]
+	[void]$lines.Add('<?xml version="1.0" encoding="UTF-8"?>')
+	[void]$lines.Add('<HomePageWorkArea xmlns="http://v8.1c.ru/8.3/xcf/extrnprops" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="' + $version + '">')
+	[void]$lines.Add("`t<WorkingAreaTemplate>$(Esc-Xml $template)</WorkingAreaTemplate>")
+	$itemCount = 0
+	foreach ($pair in @(@('left','LeftColumn'), @('right','RightColumn'))) {
+		$column = @($spec.$($pair[0]))
+		if ($column.Count -eq 0 -or $null -eq $column[0]) { continue }
+		[void]$lines.Add("`t<$($pair[1])>")
+		foreach ($entry in $column) {
+			$form = $null; $height = 10; $visible = $true; $roles = $null
+			if ($entry -is [string]) {
+				$form = $entry
+			} else {
+				$form = "$($entry.form)"
+				if ($null -ne $entry.height) { $height = [int]$entry.height }
+				if ($null -ne $entry.visibility) { $visible = [bool]$entry.visibility }
+				$roles = $entry.roles
+			}
+			$form = Normalize-FormRef $form
+			[void]$lines.Add("`t`t<Item>")
+			[void]$lines.Add("`t`t`t<Form>$(Esc-Xml $form)</Form>")
+			[void]$lines.Add("`t`t`t<Height>$height</Height>")
+			[void]$lines.Add("`t`t`t<Visibility>")
+			$commonFlag = if ($visible) { 'true' } else { 'false' }
+			[void]$lines.Add("`t`t`t`t<xr:Common>$commonFlag</xr:Common>")
+			if ($roles) {
+				foreach ($prop in $roles.PSObject.Properties) {
+					$roleName = $prop.Name
+					if (-not $roleName.StartsWith('Role.')) { $roleName = "Role.$roleName" }
+					$allowed = if ([bool]$prop.Value) { 'true' } else { 'false' }
+					[void]$lines.Add("`t`t`t`t<xr:Value name=`"$(Esc-Xml $roleName)`">$allowed</xr:Value>")
+				}
+			}
+			[void]$lines.Add("`t`t`t</Visibility>")
+			[void]$lines.Add("`t`t</Item>")
+			$itemCount++
+		}
+		[void]$lines.Add("`t</$($pair[1])>")
+	}
+	[void]$lines.Add('</HomePageWorkArea>')
+	$extDir = Join-Path (Split-Path -Parent $script:resolvedPath) 'Ext'
+	$target = Join-Path $extDir 'HomePageWorkArea.xml'
+	[void]$script:pendingWrites.Add([pscustomobject]@{ Path = $target; Text = ($lines -join (Get-FileEol $target)) })
+	$script:modifyCount++
+	Info "Home page work area: $template, $itemCount form(s)"
+}
+
+function Do-SetPanels {
+	param($spec)
+	$spec = ConvertTo-ObjectValue "set-panels" $spec
+	$interfacePath = Join-Path (Join-Path (Split-Path -Parent $script:resolvedPath) 'Ext') 'ClientApplicationInterface.xml'
+	if (-not (Test-Path $interfacePath)) {
+		Write-Error "Ext/ClientApplicationInterface.xml not found next to $script:resolvedPath"
+		exit 1
+	}
+	$panelDefs = Read-PanelDefs $interfacePath
+	if ($panelDefs.Count -ne $script:panelSlots.Count) {
+		Write-Error "Ext/ClientApplicationInterface.xml: expected $($script:panelSlots.Count) panelDef, found $($panelDefs.Count)"
+		exit 1
+	}
+	$slotUuid = @{}
+	for ($i = 0; $i -lt $script:panelSlots.Count; $i++) { $slotUuid[$script:panelSlots[$i]] = $panelDefs[$i] }
+	$lines = New-Object System.Collections.Generic.List[string]
+	[void]$lines.Add('<?xml version="1.0" encoding="UTF-8"?>')
+	[void]$lines.Add('<ClientApplicationInterface xmlns="http://v8.1c.ru/8.2/managed-application/core" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="InterfaceLayouter">')
+	$placed = 0
+	foreach ($zone in $script:panelZones) {
+		$entries = @($spec.$zone)
+		if ($entries.Count -eq 0 -or $null -eq $entries[0]) { continue }
+		[void]$lines.Add("`t<$zone>")
+		foreach ($entry in $entries) {
+			$group = if ($entry -is [string]) { $null } else { $entry.group }
+			if ($group) {
+				# Группа - стек панелей в одной зоне: внешний group с id, внутри по одному
+				# безымянному group на каждую панель.
+				[void]$lines.Add("`t`t<group id=`"$([guid]::NewGuid())`">")
+				foreach ($member in @($group)) {
+					[void]$lines.Add("`t`t`t<group>")
+					foreach ($line in (Get-PanelLines $member $slotUuid 4)) { [void]$lines.Add($line) }
+					[void]$lines.Add("`t`t`t</group>")
+					$placed++
+				}
+				[void]$lines.Add("`t`t</group>")
+			} else {
+				foreach ($line in (Get-PanelLines "$entry" $slotUuid 2)) { [void]$lines.Add($line) }
+				$placed++
+			}
+		}
+		[void]$lines.Add("`t</$zone>")
+	}
+	foreach ($panelId in $panelDefs) { [void]$lines.Add("`t<panelDef id=`"$panelId`"/>") }
+	[void]$lines.Add('</ClientApplicationInterface>')
+	[void]$script:pendingWrites.Add([pscustomobject]@{ Path = $interfacePath; Text = ($lines -join (Get-FileEol $interfacePath)) })
+	$script:modifyCount++
+	Info "Client application interface: $placed panel(s) placed"
+}
+
+function Get-PanelLines {
+	param([string]$name, $slotUuid, [int]$indent)
+	if (-not $slotUuid.ContainsKey($name)) {
+		Write-Error "Unknown panel '$name'. Known: $($script:panelSlots -join ', ')"
+		exit 1
+	}
+	$pad = "`t" * $indent
+	return @("$pad<panel id=`"$([guid]::NewGuid())`">",
+		"$pad`t<uuid>$($slotUuid[$name])</uuid>",
+		"$pad</panel>")
+}
+
+# Пакет применяется целиком: побочные файлы пишутся после того, как прошли все операции.
+# Иначе отказ на второй операции оставлял первый файл уже записанным.
+$script:pendingWrites = New-Object System.Collections.Generic.List[object]
+
 # --- Execute operations ---
 $operations = @()
 if ($DefinitionFile) {
@@ -642,7 +835,10 @@ if ($DefinitionFile) {
 
 foreach ($op in $operations) {
 	$opName = if ($op.operation) { "$($op.operation)" } else { "$Operation" }
-	$opValue = if ($op.value) { "$($op.value)" } else { "$Value" }
+	# Значение операции бывает объектом (set-home-page, set-panels) - строкой его тогда
+	# не приводим, иначе структура теряется.
+	$opRaw = if ($null -ne $op.value) { $op.value } else { $Value }
+	$opValue = if ($opRaw -is [string] -or $null -eq $opRaw) { "$opRaw" } else { $opRaw }
 
 	switch ($opName) {
 		"modify-property"    { Do-ModifyProperty $opValue }
@@ -651,6 +847,8 @@ foreach ($op in $operations) {
 		"add-defaultRole"    { Do-AddDefaultRole $opValue }
 		"remove-defaultRole" { Do-RemoveDefaultRole $opValue }
 		"set-defaultRoles"   { Do-SetDefaultRoles $opValue }
+		"set-home-page"      { Do-SetHomePage $opValue }
+		"set-panels"         { Do-SetPanels $opValue }
 		default              { Write-Error "Unknown operation: $opName"; exit 1 }
 	}
 }
@@ -680,7 +878,8 @@ $text = [regex]::Replace($text, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9
 # схемы компоновки в LF. Форсировать один вид нельзя - навык испортит чужой формат.
 $origText = if (Test-Path $resolvedPath) { [System.IO.File]::ReadAllText($resolvedPath) } else { "" }
 $origCrlf = $origText.Contains("`r`n")
-if ($origCrlf) { $text = $text.Replace("`r`n", "`n").Replace("`n", "`r`n") }
+$text = $text.Replace("`r`n", "`n")
+if ($origCrlf) { $text = $text.Replace("`n", "`r`n") }
 # Хвостовой перевод исходного файла тоже сохраняется: универсального правила нет,
 # часть навыков его пишет, часть нет - правка не должна это менять.
 if ($origText.EndsWith("`n") -and -not $text.EndsWith("`n")) {
@@ -690,6 +889,11 @@ if ($origText.EndsWith("`n") -and -not $text.EndsWith("`n")) {
 $utf8Bom = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($resolvedPath, $text, $utf8Bom)
 Info "Saved: $resolvedPath"
+foreach ($pending in $script:pendingWrites) {
+	$dir = Split-Path -Parent $pending.Path
+	if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+	[System.IO.File]::WriteAllText($pending.Path, $pending.Text, (New-Object System.Text.UTF8Encoding($true)))
+}
 
 # --- Auto-validate ---
 if (-not $NoValidate) {

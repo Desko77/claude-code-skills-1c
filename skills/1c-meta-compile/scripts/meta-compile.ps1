@@ -1033,27 +1033,46 @@ function Emit-TabularStandardAttributes {
 
 # --- 8. Attribute emitter ---
 
-$script:reservedAttrNames = @{
-	"Ref"="Ссылка"; "DeletionMark"="ПометкаУдаления"; "Code"="Код"; "Description"="Наименование"
-	"Date"="Дата"; "Number"="Номер"; "Posted"="Проведен"; "Parent"="Родитель"; "Owner"="Владелец"
-	"IsFolder"="ЭтоГруппа"; "Predefined"="Предопределенный"; "PredefinedDataName"="ИмяПредопределенныхДанных"
-	"Recorder"="Регистратор"; "Period"="Период"; "LineNumber"="НомерСтроки"; "Active"="Активность"
-	"Order"="Порядок"; "Type"="Тип"; "OffBalance"="Забалансовый"
-	"Started"="Стартован"; "Completed"="Завершен"; "HeadTask"="ВедущаяЗадача"
-	"Executed"="Выполнена"; "RoutePoint"="ТочкаМаршрута"; "BusinessProcess"="БизнесПроцесс"
-	"ThisNode"="ЭтотУзел"; "SentNo"="НомерОтправленного"; "ReceivedNo"="НомерПринятого"
-	"CalculationType"="ВидРасчета"; "RegistrationPeriod"="ПериодРегистрации"; "ReversingEntry"="СторноЗапись"
-	"Account"="Счет"; "ValueType"="ТипЗначения"; "ActionPeriodIsBasic"="ПериодДействияБазовый"
+# Имена стандартных реквизитов по типу объекта, обе формы записи. Набор совпадает с составом,
+# который выпускает meta-compile: имени вне этого набора платформа не запрещает, и общего
+# для всех типов списка нет - у обработки нет Ссылки, у документа нет Предопределенного.
+$script:reservedAttributesByType = @{
+	"Catalog" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","IsFolder","ЭтоГруппа","Owner","Владелец","Parent","Родитель","Description","Наименование","Code","Код")
+	"Document" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Date","Дата","Number","Номер","Posted","Проведен")
+	"Enum" = @("Ref","Ссылка","Order","Порядок")
+	"InformationRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность")
+	"AccumulationRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность")
+	"AccountingRegister" = @("Period","Период","Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность","Account","Счет")
+	"CalculationRegister" = @("Recorder","Регистратор","LineNumber","НомерСтроки","Active","Активность","RegistrationPeriod","ПериодРегистрации","CalculationType","ВидРасчета","ReversingEntry","СторноЗапись")
+	"ChartOfAccounts" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","Description","Наименование","Code","Код","Parent","Родитель","Order","Порядок","Type","Тип","OffBalance","Забалансовый")
+	"ChartOfCharacteristicTypes" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","Description","Наименование","Code","Код","Parent","Родитель","IsFolder","ЭтоГруппа","ValueType","ТипЗначения")
+	"ChartOfCalculationTypes" = @("PredefinedDataName","ИмяПредопределенныхДанных","Predefined","Предопределенный","Ref","Ссылка","DeletionMark","ПометкаУдаления","Description","Наименование","Code","Код","ActionPeriodIsBasic","БазовыйПериодЯвляетсяОсновным")
+	"BusinessProcess" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Date","Дата","Number","Номер","Started","Стартован","Completed","Завершен","HeadTask","ВедущаяЗадача")
+	"Task" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Date","Дата","Number","Номер","Description","Наименование","Executed","Выполнена","RoutePoint","ТочкаМаршрута","BusinessProcess","БизнесПроцесс")
+	"ExchangePlan" = @("Ref","Ссылка","DeletionMark","ПометкаУдаления","Code","Код","Description","Наименование","ThisNode","ЭтотУзел","SentNo","НомерОтправленного","ReceivedNo","НомерПринятого")
+	"DocumentJournal" = @("Ref","Ссылка","Type","Тип","Date","Дата","Number","Номер","Posted","Проведен","DeletionMark","ПометкаУдаления")
+	"TabularSection" = @("LineNumber","НомерСтроки")
+}
+
+function Assert-AttributeNameAllowed {
+	param([string]$Name, [string]$OwnerType)
+	if (-not $Name) { return }
+	$normalized = $Name.Replace([char]0x451, [char]0x435).Replace([char]0x401, [char]0x415)
+	if (-not $script:reservedAttributesByType.ContainsKey($OwnerType)) { return }
+	foreach ($standard in $script:reservedAttributesByType[$OwnerType]) {
+		if ($standard -ieq $normalized) {
+			Write-Error "Имя '$Name' зарезервировано стандартным реквизитом платформы у типа '$OwnerType'"
+			exit 1
+		}
+	}
 }
 
 function Emit-Attribute {
 	param([string]$indent, $parsed, [string]$context)
 	# $context: "catalog", "document", "object", "processor", "tabular", "processor-tabular", "register"
 	$attrName = $parsed.name
-	if ($context -notin @("tabular", "processor-tabular") -and
-		($script:reservedAttrNames.ContainsKey($attrName) -or $script:reservedAttrNames.ContainsValue($attrName))) {
-		Write-Warning "Attribute '$attrName' conflicts with a standard attribute name. This may cause errors when loading into 1C."
-	}
+	$owner = if ($context -in @("tabular", "processor-tabular")) { "TabularSection" } else { $objType }
+	Assert-AttributeNameAllowed $attrName $owner
 	$uuid = New-Guid-String
 	X "$indent<Attribute uuid=`"$uuid`">"
 	X "$indent`t<Properties>"
@@ -4134,6 +4153,8 @@ if (Test-Path $configXmlPath) {
 	$configDoc = New-Object System.Xml.XmlDocument
 	$configDoc.PreserveWhitespace = $true
 	$configDoc.Load($configXmlPath)
+	# Концы строк берутся из ФАЙЛА, который правим: регистрация не меняет его стиль.
+	$origCfgCrlf = [System.IO.File]::ReadAllText($configXmlPath).Contains("`r`n")
 
 	$nsMgr = New-Object System.Xml.XmlNamespaceManager($configDoc.NameTable)
 	$nsMgr.AddNamespace("md", "http://v8.1c.ru/8.3/MDClasses")
@@ -4191,6 +4212,8 @@ if (Test-Path $configXmlPath) {
 			$tightText = [System.IO.File]::ReadAllText($tightPath, [System.Text.Encoding]::UTF8)
 			$tightText = $tightText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 			$tightText = [regex]::Replace($tightText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
+			$tightText = $tightText.Replace("`r`n", "`n")
+			if ($origCfgCrlf) { $tightText = $tightText.Replace("`n", "`r`n") }
 			[System.IO.File]::WriteAllText($tightPath, $tightText, (New-Object System.Text.UTF8Encoding($true)))
 
 			$regResult = "added"

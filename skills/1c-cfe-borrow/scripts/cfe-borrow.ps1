@@ -104,7 +104,7 @@ $childTypeDirMap = @{
 	"EventSubscription"="EventSubscriptions"; "ScheduledJob"="ScheduledJobs"
 	"SettingsStorage"="SettingsStorages"; "FilterCriterion"="FilterCriteria"
 	"CommandGroup"="CommandGroups"; "DocumentNumerator"="DocumentNumerators"
-	"Sequence"="Sequences"; "IntegrationService"="IntegrationServices"
+	"Sequence"="Sequences"; "IntegrationService"="IntegrationServices"; "Bot"="Bots"
 	"XDTOPackage"="XDTOPackages"; "WebService"="WebServices"
 	"HTTPService"="HTTPServices"; "WSReference"="WSReferences"
 	"CommonAttribute"="CommonAttributes"; "Style"="Styles"
@@ -144,7 +144,7 @@ $script:typeOrder = @(
 	"Report","DataProcessor","InformationRegister","AccumulationRegister",
 	"ChartOfCharacteristicTypes","ChartOfAccounts","AccountingRegister",
 	"ChartOfCalculationTypes","CalculationRegister",
-	"BusinessProcess","Task","IntegrationService"
+	"BusinessProcess","Task","IntegrationService","Bot"
 )
 
 # --- 6. GeneratedType patterns per type ---

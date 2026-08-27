@@ -96,6 +96,10 @@ if (-not (Test-Path $ObjectPath)) {
 		if (Test-Path $candidate) { $ObjectPath = $candidate }
 	}
 }
+if (-not (Test-Path $ObjectPath) -and (Test-Path "$ObjectPath.xml")) {
+	$ObjectPath = "$ObjectPath.xml"
+}
+
 if (-not (Test-Path $ObjectPath)) {
 	Write-Host "[ERROR] File not found: $ObjectPath"
 	exit 1
@@ -181,6 +185,17 @@ $validTypes = @(
 	"Report","DataProcessor",
 	"CommonModule","ScheduledJob","EventSubscription",
 	"HTTPService","WebService","DefinedType"
+)
+
+# Типы без собственного набора проверок: корень, uuid и имя - все, что можно проверить
+# по файлу, не зная правил объекта. Раньше навык звал такой тип нераспознанным.
+$structuralOnlyTypes = @(
+	"Language","Subsystem","StyleItem","Style",
+	"CommonPicture","SessionParameter","Role","CommonTemplate",
+	"FilterCriterion","CommonAttribute","XDTOPackage","WSReference",
+	"SettingsStorage","FunctionalOption","FunctionalOptionsParameter","CommonCommand",
+	"CommandGroup","CommonForm","DocumentNumerator","Sequence",
+	"IntegrationService","Bot"
 )
 
 # GeneratedType categories by type
@@ -371,7 +386,7 @@ if ($childElements.Count -eq 0) {
 $typeNode = $childElements[0]
 $mdType = $typeNode.LocalName
 
-if ($validTypes -notcontains $mdType) {
+if ($validTypes -notcontains $mdType -and $structuralOnlyTypes -notcontains $mdType) {
 	Report-Error "1. Unrecognized metadata type: $mdType"
 	& $finalize
 	exit 1
@@ -400,6 +415,17 @@ if ($check1Ok) {
 }
 
 if ($script:stopped) { & $finalize; exit 1 }
+
+if ($structuralOnlyTypes -contains $mdType) {
+	if ($objName -eq "(unknown)") {
+		Report-Error "1. Missing <Name> in Properties"
+	} else {
+		Report-OK "1. Имя объекта: $objName"
+	}
+	Report-OK "1. ${mdType}: базовая структурная проверка (корень, uuid, имя)"
+	& $finalize
+	if ($script:errors -gt 0) { exit 1 } else { exit 0 }
+}
 
 # --- Check 2: InternalInfo ---
 

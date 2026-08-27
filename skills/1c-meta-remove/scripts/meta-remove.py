@@ -238,6 +238,7 @@ TYPE_PLURAL_MAP = {
     "WSReference": "WSReferences",
     "StyleItem": "StyleItems",
     "Language": "Languages",
+    "Bot": "Bots",
 }
 
 # Type -> reference type names (used in XML <v8:Type> elements)

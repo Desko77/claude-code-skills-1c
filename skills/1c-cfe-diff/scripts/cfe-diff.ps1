@@ -48,7 +48,7 @@ $childTypeDirMap = @{
 	"EventSubscription"="EventSubscriptions"; "ScheduledJob"="ScheduledJobs"
 	"SettingsStorage"="SettingsStorages"; "FilterCriterion"="FilterCriteria"
 	"CommandGroup"="CommandGroups"; "DocumentNumerator"="DocumentNumerators"
-	"Sequence"="Sequences"; "IntegrationService"="IntegrationServices"
+	"Sequence"="Sequences"; "IntegrationService"="IntegrationServices"; "Bot"="Bots"
 	"CommonAttribute"="CommonAttributes"
 }
 

@@ -98,6 +98,10 @@ def main():
                 if parent.text and parent.text.strip() == "":
                     parent.text = ""
             parent.remove(node)
+            # Опустевший контейнер платформа пишет одиночным тегом, а не парой:
+            # пустой text дал бы <ChildObjects></ChildObjects>.
+            if len(parent) == 0 and not (parent.text or '').strip():
+                parent.text = None
             break
 
     # Clear MainDataCompositionSchema if it pointed to this template
