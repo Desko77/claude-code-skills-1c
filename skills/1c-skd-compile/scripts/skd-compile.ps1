@@ -328,9 +328,16 @@ function Resolve-TypeStr {
 }
 
 function Emit-ValueType {
-	param([string]$typeStr, [string]$indent)
+	param($typeStr, [string]$indent)
 
 	if (-not $typeStr) { return }
+
+	# Составной тип - список: у каждого типа свой элемент, склеивать их в один нельзя.
+	if ($typeStr -isnot [string] -and $typeStr -is [System.Collections.IEnumerable]) {
+		foreach ($one in $typeStr) { Emit-ValueType -typeStr $one -indent $indent }
+		return
+	}
+	$typeStr = [string]$typeStr
 
 	# Resolve synonyms first
 	$typeStr = Resolve-TypeStr $typeStr
@@ -342,20 +349,21 @@ function Emit-ValueType {
 	}
 
 	# string or string(N)
-	if ($typeStr -match '^string(\((\d+)\))?$') {
+	if ($typeStr -match '^string(\((\d+)(,fix)?\))?$') {
 		$len = if ($Matches[2]) { $Matches[2] } else { "0" }
+		$allowed = if ($Matches[3]) { "Fixed" } else { "Variable" }
 		X "$indent<v8:Type>xs:string</v8:Type>"
 		X "$indent<v8:StringQualifiers>"
 		X "$indent`t<v8:Length>$len</v8:Length>"
-		X "$indent`t<v8:AllowedLength>Variable</v8:AllowedLength>"
+		X "$indent`t<v8:AllowedLength>$allowed</v8:AllowedLength>"
 		X "$indent</v8:StringQualifiers>"
 		return
 	}
 
 	# decimal(D,F) or decimal(D,F,nonneg)
-	if ($typeStr -match '^decimal\((\d+),(\d+)(,nonneg)?\)$') {
+	if ($typeStr -match '^decimal\((\d+)(?:,(\d+))?(,nonneg)?\)$') {
 		$digits = $Matches[1]
-		$fraction = $Matches[2]
+		$fraction = if ($Matches[2]) { $Matches[2] } else { "0" }
 		$sign = if ($Matches[3]) { "Nonnegative" } else { "Any" }
 		X "$indent<v8:Type>xs:decimal</v8:Type>"
 		X "$indent<v8:NumberQualifiers>"
@@ -754,7 +762,7 @@ function Emit-Field {
 			dataPath = if ($fieldDef.dataPath) { "$($fieldDef.dataPath)" } elseif ($fieldDef.field) { "$($fieldDef.field)" } else { "" }
 			field = if ($fieldDef.field) { "$($fieldDef.field)" } else { "$($fieldDef.dataPath)" }
 			title = if ($fieldDef.title) { $fieldDef.title } else { "" }
-			type = if ($fieldDef.type) { Resolve-TypeStr "$($fieldDef.type)" } else { "" }
+			type = if ($fieldDef.type -is [array]) { $fieldDef.type } elseif ($fieldDef.type) { Resolve-TypeStr "$($fieldDef.type)" } else { "" }
 			roles = @()
 			restrict = @()
 			appearance = [ordered]@{}
@@ -797,6 +805,15 @@ function Emit-Field {
 		if ($fieldDef.role -and $fieldDef.role -isnot [string]) {
 			$f["roleObj"] = $fieldDef.role
 		}
+	}
+
+	# Поле-папка группирует поля по общему пути и своего значения не имеет.
+	if ($fieldDef.folder -eq $true) {
+		X "$indent<field xsi:type=`"DataSetFieldFolder`">"
+		X "$indent`t<dataPath>$(Esc-Xml $f.dataPath)</dataPath>"
+		if ($f.title) { Emit-MLText -tag "title" -text $f.title -indent "$indent`t" }
+		X "$indent</field>"
+		return
 	}
 
 	X "$indent<field xsi:type=`"DataSetFieldField`">"
@@ -1977,6 +1994,9 @@ function Emit-AppearanceValue {
 		X "$indent`t`t`t<v8:content>$(Esc-Xml $actualVal)</v8:content>"
 		X "$indent`t`t</v8:item>"
 		X "$indent`t</dcscor:value>"
+	} elseif ($actualVal -match '^-?\d+(\.\d+)?$') {
+		# Числовое свойство оформления (ширина, высота, отступ) пишется числом.
+		X "$indent`t<dcscor:value xsi:type=`"xs:decimal`">$actualVal</dcscor:value>"
 	} else {
 		X "$indent`t<dcscor:value xsi:type=`"xs:string`">$(Esc-Xml $actualVal)</dcscor:value>"
 	}
@@ -2175,6 +2195,11 @@ function Emit-GroupItems {
 	X "$indent<dcsset:groupItems>"
 	foreach ($field in $groupBy) {
 		if ($field -is [string]) {
+			# Auto - автоматическая группировка, у нее нет ни поля, ни вида.
+			if ($field -ceq 'Auto') {
+				X "$indent`t<dcsset:item xsi:type=`"dcsset:GroupItemAuto`"/>"
+				continue
+			}
 			X "$indent`t<dcsset:item xsi:type=`"dcsset:GroupItemField`">"
 			X "$indent`t`t<dcsset:field>$(Esc-Xml $field)</dcsset:field>"
 			X "$indent`t`t<dcsset:groupType>Items</dcsset:groupType>"

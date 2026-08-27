@@ -21,6 +21,7 @@ allowed-tools:
 | `Name` | Имя набора (query), поля (fields/calculated/resources/trace), варианта (variant) или группировки/поля (templates) |
 | `Batch` | Номер пакета запроса, 0 = все (только query) |
 | `Limit` / `Offset` | Пагинация (по умолчанию 150 строк) |
+| `Raw` | Текст запроса без заголовков и разбивки на пакеты (только query) |
 | `OutFile` | Записать результат в файл (UTF-8 BOM) |
 
 ```powershell

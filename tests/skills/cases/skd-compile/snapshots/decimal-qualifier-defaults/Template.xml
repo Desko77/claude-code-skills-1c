@@ -17,7 +17,12 @@
 			<dataPath>ЦелоеОдинАргумент</dataPath>
 			<field>ЦелоеОдинАргумент</field>
 			<valueType>
-				<v8:Type>decimal(10)</v8:Type>
+				<v8:Type>xs:decimal</v8:Type>
+				<v8:NumberQualifiers>
+					<v8:Digits>10</v8:Digits>
+					<v8:FractionDigits>0</v8:FractionDigits>
+					<v8:AllowedSign>Any</v8:AllowedSign>
+				</v8:NumberQualifiers>
 			</valueType>
 		</field>
 		<field xsi:type="DataSetFieldField">
@@ -48,7 +53,12 @@
 			<dataPath>ЦелоеПоложительное</dataPath>
 			<field>ЦелоеПоложительное</field>
 			<valueType>
-				<v8:Type>decimal(10,nonneg)</v8:Type>
+				<v8:Type>xs:decimal</v8:Type>
+				<v8:NumberQualifiers>
+					<v8:Digits>10</v8:Digits>
+					<v8:FractionDigits>0</v8:FractionDigits>
+					<v8:AllowedSign>Nonnegative</v8:AllowedSign>
+				</v8:NumberQualifiers>
 			</valueType>
 		</field>
 		<field xsi:type="DataSetFieldField">
@@ -62,7 +72,12 @@
 			<dataPath>ЧислоСинонимЦелое</dataPath>
 			<field>ЧислоСинонимЦелое</field>
 			<valueType>
-				<v8:Type>decimal(8)</v8:Type>
+				<v8:Type>xs:decimal</v8:Type>
+				<v8:NumberQualifiers>
+					<v8:Digits>8</v8:Digits>
+					<v8:FractionDigits>0</v8:FractionDigits>
+					<v8:AllowedSign>Any</v8:AllowedSign>
+				</v8:NumberQualifiers>
 			</valueType>
 		</field>
 		<field xsi:type="DataSetFieldField">
@@ -89,7 +104,12 @@
 	<parameter>
 		<name>ПараметрЦелое</name>
 		<valueType>
-			<v8:Type>decimal(10)</v8:Type>
+			<v8:Type>xs:decimal</v8:Type>
+			<v8:NumberQualifiers>
+				<v8:Digits>10</v8:Digits>
+				<v8:FractionDigits>0</v8:FractionDigits>
+				<v8:AllowedSign>Any</v8:AllowedSign>
+			</v8:NumberQualifiers>
 		</valueType>
 	</parameter>
 	<parameter>

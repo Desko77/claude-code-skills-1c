@@ -399,6 +399,11 @@ def resolve_type_str(type_str):
 def emit_value_type(lines, type_str, indent):
     if not type_str:
         return
+    # Составной тип - список: у каждого типа свой элемент, склеивать их в один нельзя.
+    if isinstance(type_str, (list, tuple)):
+        for one in type_str:
+            emit_value_type(lines, one, indent)
+        return
     # В PowerShell параметр объявлен как [string], и массив склеивается уже на границе вызова.
     type_str = ps_str(type_str)
 
@@ -411,21 +416,22 @@ def emit_value_type(lines, type_str, indent):
         return
 
     # string or string(N)
-    m = re.match(r'^string(\((\d+)\))?$', type_str)
+    m = re.match(r'^string(\((\d+)(,fix)?\))?$', type_str)
     if m:
         length = m.group(2) if m.group(2) else '0'
+        allowed = 'Fixed' if m.group(3) else 'Variable'
         lines.append(f'{indent}<v8:Type>xs:string</v8:Type>')
         lines.append(f'{indent}<v8:StringQualifiers>')
         lines.append(f'{indent}\t<v8:Length>{length}</v8:Length>')
-        lines.append(f'{indent}\t<v8:AllowedLength>Variable</v8:AllowedLength>')
+        lines.append(f'{indent}\t<v8:AllowedLength>{allowed}</v8:AllowedLength>')
         lines.append(f'{indent}</v8:StringQualifiers>')
         return
 
     # decimal(D,F) or decimal(D,F,nonneg)
-    m = re.match(r'^decimal\((\d+),(\d+)(,nonneg)?\)$', type_str)
+    m = re.match(r'^decimal\((\d+)(?:,(\d+))?(,nonneg)?\)$', type_str)
     if m:
         digits = m.group(1)
-        fraction = m.group(2)
+        fraction = m.group(2) or '0'
         sign = 'Nonnegative' if m.group(3) else 'Any'
         lines.append(f'{indent}<v8:Type>xs:decimal</v8:Type>')
         lines.append(f'{indent}<v8:NumberQualifiers>')
@@ -773,7 +779,8 @@ def emit_field(lines, field_def, indent):
             'dataPath': str(field_def.get('dataPath', '')) or str(field_def.get('field', '')),
             'field': str(field_def.get('field', '')) or str(field_def.get('dataPath', '')),
             'title': field_def['title'] if field_def.get('title') else '',
-            'type': resolve_type_str(ps_str(field_def['type'])) if field_def.get('type') else '',
+            'type': (list(field_def['type']) if isinstance(field_def.get('type'), list)
+                     else resolve_type_str(ps_str(field_def['type']))) if field_def.get('type') else '',
             'roles': [],
             'restrict': [],
             'appearance': {},
@@ -803,6 +810,15 @@ def emit_field(lines, field_def, indent):
         # role object extras
         if field_def.get('role') and not isinstance(field_def['role'], str):
             f['roleObj'] = field_def['role']
+
+    # Поле-папка группирует поля по общему пути и своего значения не имеет.
+    if isinstance(field_def, dict) and field_def.get('folder'):
+        lines.append(f'{indent}<field xsi:type="DataSetFieldFolder">')
+        lines.append(f'{indent}\t<dataPath>{esc_xml(f["dataPath"])}</dataPath>')
+        if f.get('title'):
+            emit_mltext(lines, f'{indent}\t', 'title', f['title'])
+        lines.append(f'{indent}</field>')
+        return
 
     lines.append(f'{indent}<field xsi:type="DataSetFieldField">')
     lines.append(f'{indent}\t<dataPath>{esc_xml(f["dataPath"])}</dataPath>')
@@ -1837,6 +1853,9 @@ def emit_appearance_value(lines, key, val, indent):
         lines.append(f'{indent}\t\t\t<v8:content>{esc_xml(actual_val)}</v8:content>')
         lines.append(f'{indent}\t\t</v8:item>')
         lines.append(f'{indent}\t</dcscor:value>')
+    elif re.match(r'^-?\d+(\.\d+)?$', actual_val):
+        # Числовое свойство оформления (ширина, высота, отступ) пишется числом.
+        lines.append(f'{indent}\t<dcscor:value xsi:type="xs:decimal">{actual_val}</dcscor:value>')
     else:
         lines.append(f'{indent}\t<dcscor:value xsi:type="xs:string">{esc_xml(actual_val)}</dcscor:value>')
     lines.append(f'{indent}</dcscor:item>')
@@ -1998,6 +2017,10 @@ def emit_group_items(lines, group_by, indent):
     lines.append(f'{indent}<dcsset:groupItems>')
     for field in group_by:
         if isinstance(field, str):
+            # Auto - автоматическая группировка, у нее нет ни поля, ни вида.
+            if field == 'Auto':
+                lines.append(f'{indent}\t<dcsset:item xsi:type="dcsset:GroupItemAuto"/>')
+                continue
             lines.append(f'{indent}\t<dcsset:item xsi:type="dcsset:GroupItemField">')
             lines.append(f'{indent}\t\t<dcsset:field>{esc_xml(field)}</dcsset:field>')
             lines.append(f'{indent}\t\t<dcsset:groupType>Items</dcsset:groupType>')

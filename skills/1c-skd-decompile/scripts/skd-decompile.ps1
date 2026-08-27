@@ -147,19 +147,25 @@ function Get-TypeShorthand($vtEl, $node) {
 	}
 	if ($types.Count -eq 0) { return $null }
 	if ($types.Count -gt 1) {
-		$names = New-Object System.Collections.Generic.List[object]
-		foreach ($t in $types) { [void]$names.Add((Get-Text $t).Trim()) }
-		Add-Todo $node ('составной тип не поддержан: ' + ($names -join ', '))
-		return $null
+		# Составной тип - список: каждый его тип разбирается тем же кодом, что и одиночный.
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($one in $types) {
+			[void]$parts.Add((Get-OneTypeShorthand $one $vtEl $node))
+		}
+		return $parts
 	}
-	$raw = (Get-Text $types[0]).Trim()
+	return Get-OneTypeShorthand $types[0] $vtEl $node
+}
+
+function Get-OneTypeShorthand($typeEl, $vtEl, $node) {
+	$raw = (Get-Text $typeEl).Trim()
 	$uri = ''
 	$loc = $raw
 	if ($raw.Contains(':')) {
 		$idx = $raw.IndexOf(':')
 		$pfx = $raw.Substring(0, $idx)
 		$loc = $raw.Substring($idx + 1)
-		$uri = [string]$types[0].GetNamespaceOfPrefix($pfx)
+		$uri = [string]$typeEl.GetNamespaceOfPrefix($pfx)
 	}
 	if ($uri -ceq $script:UriCfg) { return $loc }
 	if ($loc -ceq 'StandardPeriod') { return 'StandardPeriod' }
@@ -173,11 +179,10 @@ function Get-TypeShorthand($vtEl, $node) {
 		if ($null -eq $q) { return 'string' }
 		$length = (Get-Text (Get-Kid $q 'Length')).Trim()
 		if ($length -ceq '') { $length = '0' }
+		# Фиксированная длина записывается признаком fix рядом с самой длиной.
 		$allowed = (Get-Text (Get-Kid $q 'AllowedLength')).Trim()
-		if ($allowed -cne '' -and $allowed -cne 'Variable') {
-			Add-Todo $node ('StringQualifiers AllowedLength=' + $allowed + ' не поддержан (принят Variable)')
-		}
 		if ($length -ceq '0') { return 'string' }
+		if ($allowed -ceq 'Fixed') { return 'string(' + $length + ',fix)' }
 		return 'string(' + $length + ')'
 	}
 	if ($loc -ceq 'decimal') {
@@ -187,9 +192,11 @@ function Get-TypeShorthand($vtEl, $node) {
 		if ($digits -ceq '') { $digits = '0' }
 		$frac = (Get-Text (Get-Kid $q 'FractionDigits')).Trim()
 		if ($frac -ceq '') { $frac = '0' }
+		# Нулевая дробная часть - умолчание, в запись она не идет.
 		$sign = (Get-Text (Get-Kid $q 'AllowedSign')).Trim()
-		if ($sign -ceq 'Nonnegative') { return 'decimal(' + $digits + ',' + $frac + ',nonneg)' }
-		return 'decimal(' + $digits + ',' + $frac + ')'
+		$parts = if ($frac -ceq '0') { $digits } else { $digits + ',' + $frac }
+		if ($sign -ceq 'Nonnegative') { return 'decimal(' + $parts + ',nonneg)' }
+		return 'decimal(' + $parts + ')'
 	}
 	if ($loc -ceq 'dateTime') {
 		$q = Get-Kid $vtEl 'DateQualifiers'
@@ -254,8 +261,11 @@ function Build-Field($fieldEl) {
 	$xt = Get-XsiLocal $fieldEl
 	$node = [ordered]@{}
 	if ($xt -ceq 'DataSetFieldFolder') {
-		$node['dataPath'] = Get-Text (Get-Kid $fieldEl 'dataPath')
-		Add-Todo $node 'папка полей (DataSetFieldFolder) не поддержана нашим DSL'
+		# Поле-папка группирует поля по общему пути и своего значения не имеет.
+		$node['field'] = Get-Text (Get-Kid $fieldEl 'dataPath')
+		$node['folder'] = $true
+		$tFolder = Get-Kid $fieldEl 'title'
+		if ($null -ne $tFolder) { $node['title'] = Get-MlText $tFolder $node }
 		return $node
 	}
 	if ($xt -cne 'DataSetFieldField' -and $xt -cne '') {
@@ -339,7 +349,7 @@ function Build-Field($fieldEl) {
 		$title -ceq '' -and $extraSimple -and $attrRestrict.Count -eq 0 -and
 		($null -eq $appearance -or $appearance.Count -eq 0) -and $presExpr -ceq '' -and
 		(-not $node.Contains('_todo')) -and
-		($null -eq $typeStr -or (Test-SimpleName $typeStr)))
+		($null -eq $typeStr -or ($typeStr -is [string] -and (Test-SimpleName $typeStr))))
 	$canShort = $canShort -and ($null -eq $orderExpr)
 	if ($canShort) {
 		$s = $dataPath
@@ -477,7 +487,7 @@ function Build-CalcField($el) {
 		$expr -cne '' -and (-not $expr.Contains("`n")) -and
 		(-not [regex]::IsMatch($expr, '#(noField|noFilter|noCondition|noGroup|noOrder)\b')) -and
 		($title -ceq '' -or -not [regex]::IsMatch($title, '[\]=#@]')) -and
-		($null -eq $typeStr -or (Test-SimpleName $typeStr)))
+		($null -eq $typeStr -or ($typeStr -is [string] -and (Test-SimpleName $typeStr))))
 	if ($canShort) {
 		$s = $dp
 		if ($title -cne '') { $s += ' [' + $title + ']' }
@@ -654,7 +664,7 @@ function ConvertTo-ParamShorthand($p) {
 	$title = ''
 	if ($p.Contains('title')) { $title = [string]$p['title'] }
 	if (-not (Test-SimpleName $name)) { return $p }
-	if ($typeStr -ceq '' -or -not (Test-SimpleName $typeStr)) { return $p }
+	if ($typeStr -isnot [string] -or $typeStr -ceq '' -or -not (Test-SimpleName $typeStr)) { return $p }
 	if ($title -cne '' -and [regex]::IsMatch($title, '[\]@#=:]')) { return $p }
 	$vStr = $null
 	if ($p.Contains('value')) {
@@ -1063,10 +1073,9 @@ function Build-GroupItems($giEl, $todoNode) {
 				Add-Todo $todoNode ('границы добавления периода у "' + $f + '" потеряны')
 			}
 		} elseif ($xt -ceq 'GroupItemAuto') {
-			$stub = [ordered]@{}
-			Add-Todo $stub 'группировка Авто (GroupItemAuto) не поддержана нашим DSL'
-			[void]$fields.Add($stub)
-		} else {
+		# Auto - автоматическая группировка, у нее нет ни поля, ни вида.
+		[void]$fields.Add('Auto')
+	} else {
 			$stub = [ordered]@{}
 			Add-Todo $stub ('элемент группировки не поддержан: ' + $xt)
 			[void]$fields.Add($stub)

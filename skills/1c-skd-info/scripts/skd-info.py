@@ -278,6 +278,8 @@ def main():
     parser.add_argument("-Limit", type=int, default=150)
     parser.add_argument("-Offset", type=int, default=0)
     parser.add_argument("-OutFile", default=None)
+    # Сырой вывод запроса: только текст, без заголовков и разбивки на пакеты.
+    parser.add_argument("-Raw", action="store_true")
     args = parser.parse_args()
 
     # --- Resolve path ---
@@ -570,7 +572,7 @@ def main():
         for h in hints:
             lines.append(f"  {h}")
 
-    def show_query():
+    def show_query(strict=True):
         # Find dataset
         data_sets = root.findall("s:dataSet", NSMAP)
         target_ds = None
@@ -611,6 +613,13 @@ def main():
                     if target_ds is not None:
                         break
             if target_ds is None:
+                # В полном обзоре запроса может не быть вовсе: схема на одном объектном
+                # наборе - обычное дело, и обрывать на этом весь обзор незачем.
+                if not strict:
+                    lines.append("=== Query ===")
+                    lines.append("")
+                    lines.append("  Набора данных с запросом нет")
+                    return
                 print("No Query dataset found", file=sys.stderr)
                 sys.exit(1)
 
@@ -643,7 +652,11 @@ def main():
 
         total_query_lines = len(raw_query.split("\n"))
 
-        if len(batches) <= 1:
+        if args.Raw:
+            # Сырой вывод: текст запроса как есть, без заголовков и разбивки на пакеты.
+            for ql in raw_query.strip().split("\n"):
+                lines.append(ql.rstrip())
+        elif len(batches) <= 1:
             # Single query
             lines.append(f"=== Query: {ds_name_str} ({total_query_lines} lines) ===")
             lines.append("")
@@ -1662,7 +1675,7 @@ def main():
         lines.append("")
         lines.append("--- query ---")
         lines.append("")
-        show_query()
+        show_query(strict=False)
         lines.append("")
         lines.append("--- fields ---")
         lines.append("")
@@ -1690,8 +1703,10 @@ def main():
         out_path = args.OutFile
         if not os.path.isabs(out_path):
             out_path = os.path.join(os.getcwd(), out_path)
-        with open(out_path, "w", encoding="utf-8-sig") as fh:
-            fh.write("\n".join(result))
+        # Файл заканчивается переводом строки: без него последняя строка склеивается со
+        # следующей при дозаписи и не видна построчным читателям.
+        with open(out_path, "w", encoding="utf-8-sig", newline="\r\n") as fh:
+            fh.write("\n".join(result) + "\n")
         print(f"Written {total_lines} lines to {args.OutFile}")
         sys.exit(0)
 

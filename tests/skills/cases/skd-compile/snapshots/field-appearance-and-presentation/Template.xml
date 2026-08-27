@@ -25,7 +25,7 @@
 			<appearance>
 				<dcscor:item xsi:type="dcsset:SettingsParameterValue">
 					<dcscor:parameter>МинимальнаяШирина</dcscor:parameter>
-					<dcscor:value xsi:type="xs:string">100</dcscor:value>
+					<dcscor:value xsi:type="xs:decimal">100</dcscor:value>
 				</dcscor:item>
 				<dcscor:item xsi:type="dcsset:SettingsParameterValue">
 					<dcscor:parameter>РастягиватьПоГоризонтали</dcscor:parameter>

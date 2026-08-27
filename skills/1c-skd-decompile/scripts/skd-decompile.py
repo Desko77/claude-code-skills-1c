@@ -129,10 +129,13 @@ def type_shorthand(vt_elem, node):
     if not types:
         return None
     if len(types) > 1:
-        names = ', '.join((text_of(t) or '').strip() for t in types)
-        add_todo(node, 'составной тип не поддержан: ' + names)
-        return None
-    raw = (text_of(types[0]) or '').strip()
+        # Составной тип - список: каждый его тип разбирается тем же кодом, что и одиночный.
+        return [decode_one_type(one, vt_elem, node) for one in types]
+    return decode_one_type(types[0], vt_elem, node)
+
+
+def decode_one_type(type_el, vt_elem, node):
+    raw = (text_of(type_el) or '').strip()
     uri, loc = resolve_qname_uri(raw)
     if uri == URI_CFG:
         return loc
@@ -148,20 +151,23 @@ def type_shorthand(vt_elem, node):
         if q is None:
             return 'string'
         length = text_of(kid(q, 'Length')).strip() or '0'
+        # Фиксированная длина записывается признаком fix рядом с самой длиной.
         allowed = text_of(kid(q, 'AllowedLength')).strip()
-        if allowed and allowed != 'Variable':
-            add_todo(node, 'StringQualifiers AllowedLength=' + allowed + ' не поддержан (принят Variable)')
-        return 'string' if length == '0' else 'string(' + length + ')'
+        if length == '0':
+            return 'string'
+        return 'string(' + length + (',fix)' if allowed == 'Fixed' else ')')
     if loc == 'decimal':
         q = kid(vt_elem, 'NumberQualifiers')
         if q is None:
             return raw
         digits = text_of(kid(q, 'Digits')).strip() or '0'
         frac = text_of(kid(q, 'FractionDigits')).strip() or '0'
+        # Нулевая дробная часть - умолчание, в запись она не идет.
         sign = text_of(kid(q, 'AllowedSign')).strip()
+        parts = digits if frac == '0' else digits + ',' + frac
         if sign == 'Nonnegative':
-            return 'decimal(' + digits + ',' + frac + ',nonneg)'
-        return 'decimal(' + digits + ',' + frac + ')'
+            return 'decimal(' + parts + ',nonneg)'
+        return 'decimal(' + parts + ')'
     if loc == 'dateTime':
         q = kid(vt_elem, 'DateQualifiers')
         frac = text_of(kid(q, 'DateFractions')).strip() if q is not None else 'DateTime'
@@ -221,8 +227,12 @@ def build_field(fel):
     xt = xsi_local(fel)
     node = {}
     if xt == 'DataSetFieldFolder':
-        node['dataPath'] = text_of(kid(fel, 'dataPath'))
-        add_todo(node, 'папка полей (DataSetFieldFolder) не поддержана нашим DSL')
+        # Поле-папка группирует поля по общему пути и своего значения не имеет.
+        node['field'] = text_of(kid(fel, 'dataPath'))
+        node['folder'] = True
+        t_el = kid(fel, 'title')
+        if t_el is not None:
+            node['title'] = ml_text(t_el, node)
         return node
     if xt not in ('DataSetFieldField', ''):
         add_todo(node, 'неподдержанный тип поля: ' + xt)
@@ -292,7 +302,7 @@ def build_field(fel):
         not title and not attr_restrict and
         all(SIMPLE_NAME.match(str(v)) for v in role_extra.values()) and
         not appearance and not pres_expr and '_todo' not in node and
-        (type_str is None or bool(SIMPLE_NAME.match(type_str)))
+        (type_str is None or (isinstance(type_str, str) and bool(SIMPLE_NAME.match(type_str))))
     )
     can_short = can_short and not order_expr
     if can_short:
@@ -436,7 +446,7 @@ def build_calc(el):
         bool(SIMPLE_NAME.match(dp or '')) and
         expr and '\n' not in expr and not restrict_pat.search(expr) and
         (not title or not re.search(r'[\]=#@]', title)) and
-        (type_str is None or bool(SIMPLE_NAME.match(type_str)))
+        (type_str is None or (isinstance(type_str, str) and bool(SIMPLE_NAME.match(type_str))))
     )
     if can_short:
         s = dp
@@ -601,7 +611,7 @@ def param_to_shorthand(p):
     value = p.get('value')
     if not SIMPLE_NAME.match(name or ''):
         return p
-    if not type_str or not SIMPLE_NAME.match(type_str):
+    if not type_str or not isinstance(type_str, str) or not SIMPLE_NAME.match(type_str):
         return p
     if title and re.search(r'[\]@#=:]', title):
         return p
@@ -991,9 +1001,8 @@ def build_group_items(gi_el, todo_node):
             if (pab and pab != ZERO_DATE) or (pae and pae != ZERO_DATE):
                 add_todo(todo_node, 'границы добавления периода у "' + f + '" потеряны')
         elif xt == 'GroupItemAuto':
-            stub = {}
-            add_todo(stub, 'группировка Авто (GroupItemAuto) не поддержана нашим DSL')
-            fields.append(stub)
+            # Auto - автоматическая группировка, у нее нет ни поля, ни вида.
+            fields.append('Auto')
         else:
             stub = {}
             add_todo(stub, 'элемент группировки не поддержан: ' + xt)

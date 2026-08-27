@@ -156,8 +156,11 @@
 |-----|-------------|--------------|
 | `string` | `xs:string` | Length=0, AllowedLength=Variable |
 | `string(N)` | `xs:string` | Length=N, AllowedLength=Variable |
+| `string(N,fix)` | `xs:string` | Length=N, AllowedLength=Fixed |
 | `decimal(D,F)` | `xs:decimal` | Digits=D, FractionDigits=F, AllowedSign=Any |
 | `decimal(D,F,nonneg)` | `xs:decimal` | Digits=D, FractionDigits=F, AllowedSign=Nonnegative |
+| `decimal(D)` | `xs:decimal` | Digits=D, FractionDigits=0, AllowedSign=Any |
+| `decimal(D,nonneg)` | `xs:decimal` | Digits=D, FractionDigits=0, AllowedSign=Nonnegative |
 | `boolean` | `xs:boolean` | — |
 | `date` | `xs:dateTime` | DateFractions=Date |
 | `dateTime` | `xs:dateTime` | DateFractions=DateTime |
@@ -166,6 +169,7 @@
 | `EnumRef.XXX` | `d5p1:EnumRef.XXX` | inline xmlns:d5p1 |
 | `ChartOfAccountsRef.XXX` | `d5p1:ChartOfAccountsRef.XXX` | inline xmlns:d5p1 |
 | `StandardPeriod` | `v8:StandardPeriod` | — |
+| `["CatalogRef.A", "CatalogRef.B"]` | по элементу `v8:Type` на тип | составной тип |
 
 > **Ссылочные типы** (`CatalogRef.XXX`, `DocumentRef.XXX` и др.) эмитируются с inline namespace declaration: `<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.XXX</v8:Type>`. Использование префикса `cfg:` вместо `d5p1:` с объявлением namespace приводит к ошибке XDTO. Сборка EPF со ссылочными типами требует базу с соответствующей конфигурацией (не пустую).
 

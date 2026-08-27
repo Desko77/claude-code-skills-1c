@@ -105,14 +105,22 @@
 	<parameter>
 		<name>ПараметрСтрокаФиксСЗначением</name>
 		<valueType>
-			<v8:Type>string(10,fix)</v8:Type>
+			<v8:Type>xs:string</v8:Type>
+			<v8:StringQualifiers>
+				<v8:Length>10</v8:Length>
+				<v8:AllowedLength>Fixed</v8:AllowedLength>
+			</v8:StringQualifiers>
 		</valueType>
 		<value xsi:type="xs:string">АБВ</value>
 	</parameter>
 	<parameter>
 		<name>ПараметрСтрокаФиксПусто</name>
 		<valueType>
-			<v8:Type>string(10,fix)</v8:Type>
+			<v8:Type>xs:string</v8:Type>
+			<v8:StringQualifiers>
+				<v8:Length>10</v8:Length>
+				<v8:AllowedLength>Fixed</v8:AllowedLength>
+			</v8:StringQualifiers>
 		</valueType>
 	</parameter>
 	<parameter>

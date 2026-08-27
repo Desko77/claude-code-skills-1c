@@ -9,7 +9,9 @@ param(
 	[int]$Batch = 0,
 	[int]$Limit = 150,
 	[int]$Offset = 0,
-	[string]$OutFile
+	[string]$OutFile,
+	# Сырой вывод запроса: только текст, без заголовков и разбивки на пакеты.
+	[switch]$Raw
 )
 
 $ErrorActionPreference = "Stop"
@@ -588,7 +590,7 @@ if ($Mode -eq "overview") {
 	Show-OverviewHints
 }
 
-function Show-Query {
+function Show-Query([bool]$strict = $true) {
 	# Find dataset
 	$dataSets = $root.SelectNodes("s:dataSet", $ns)
 	$targetDs = $null
@@ -627,6 +629,14 @@ function Show-Query {
 			}
 		}
 		if (-not $targetDs) {
+			# В полном обзоре запроса может не быть вовсе: схема на одном объектном
+			# наборе - обычное дело, и обрывать на этом весь обзор незачем.
+			if (-not $strict) {
+				$lines.Add("=== Query ===")
+				$lines.Add("")
+				$lines.Add("  Набора данных с запросом нет")
+				return
+			}
 			Write-Error "No Query dataset found"
 			exit 1
 		}
@@ -662,7 +672,12 @@ function Show-Query {
 
 	$totalQueryLines = ($rawQuery -split "`n").Count
 
-	if ($batches.Count -le 1) {
+	if ($Raw) {
+		# Сырой вывод: текст запроса как есть, без заголовков и разбивки на пакеты.
+		foreach ($ql in ($rawQuery.Trim() -split "`n")) {
+			$lines.Add($ql.TrimEnd())
+		}
+	} elseif ($batches.Count -le 1) {
 		# Single query
 		$lines.Add("=== Query: $dsNameStr ($totalQueryLines lines) ===")
 		$lines.Add("")
@@ -1348,7 +1363,7 @@ if ($Mode -eq "variant") {
 elseif ($Mode -eq "full") {
 	Show-Overview
 	$lines.Add(""); $lines.Add("--- query ---"); $lines.Add("")
-	Show-Query
+	Show-Query $false
 	$lines.Add(""); $lines.Add("--- fields ---"); $lines.Add("")
 	Show-Fields
 	$lines.Add(""); $lines.Add("--- resources ---"); $lines.Add("")
@@ -1853,7 +1868,10 @@ $totalLines = $result.Count
 # OutFile
 if ($OutFile) {
 	$utf8Bom = New-Object System.Text.UTF8Encoding($true)
-	[System.IO.File]::WriteAllLines((Join-Path (Get-Location) $OutFile), $result, $utf8Bom)
+	# Абсолютный путь берется как есть: приклеивание текущего каталога давало
+	# несуществующий путь.
+	$outResolved = if ([System.IO.Path]::IsPathRooted($OutFile)) { $OutFile } else { Join-Path (Get-Location) $OutFile }
+	[System.IO.File]::WriteAllLines($outResolved, $result, $utf8Bom)
 	Write-Host "Written $totalLines lines to $OutFile"
 	exit 0
 }
