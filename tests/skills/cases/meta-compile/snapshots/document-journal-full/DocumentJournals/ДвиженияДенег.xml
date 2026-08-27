@@ -31,6 +31,7 @@
 				<xr:Item xsi:type="xr:MDObjectRef">Document.ПоступлениеНаСчет</xr:Item>
 				<xr:Item xsi:type="xr:MDObjectRef">Document.СписаниеСоСчета</xr:Item>
 			</RegisteredDocuments>
+			<IncludeHelpInContents>false</IncludeHelpInContents>
 			<ListPresentation/>
 			<ExtendedListPresentation/>
 			<Explanation/>

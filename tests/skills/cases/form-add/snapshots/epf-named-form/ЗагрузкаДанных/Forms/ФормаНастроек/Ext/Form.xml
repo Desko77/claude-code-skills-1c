@@ -10,7 +10,6 @@
 				<v8:Type>cfg:ExternalDataProcessorObject.ЗагрузкаДанных</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 	</Attributes>
 </Form>

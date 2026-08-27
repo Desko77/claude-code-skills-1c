@@ -16,7 +16,6 @@
 				<v8:Type>cfg:DataProcessorObject.СпецПоля</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="ТаблицаОтчета" id="2">
 			<Title>

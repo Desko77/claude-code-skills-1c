@@ -67,7 +67,6 @@
 				<v8:Type>cfg:DataProcessorObject.ЗагрузкаИзФайла</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="ИмяФайла" id="13">
 			<Title>

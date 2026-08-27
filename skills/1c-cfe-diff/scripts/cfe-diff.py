@@ -61,6 +61,12 @@ CHILD_TYPE_DIR_MAP = {
     "IntegrationService": "IntegrationServices",
     "Bot": "Bots",
     "CommonAttribute": "CommonAttributes",
+    # Служебные объекты расширения попадают в обзор: построчным diff они не сравниваются,
+    # но перечислить их состав навык обязан.
+    "XDTOPackage": "XDTOPackages",
+    "WebService": "WebServices",
+    "HTTPService": "HTTPServices",
+    "WSReference": "WSReferences",
 }
 
 

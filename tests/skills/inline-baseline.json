@@ -5,6 +5,10 @@
       "skills": 2,
       "variants": 2
     },
+    "ps1:Assert-AttributeNameAllowed": {
+      "skills": 2,
+      "variants": 1
+    },
     "ps1:Assert-EditAllowed": {
       "skills": 18,
       "variants": 1
@@ -17,12 +21,20 @@
       "skills": 2,
       "variants": 2
     },
+    "ps1:ConvertTo-DraftJson": {
+      "skills": 3,
+      "variants": 1
+    },
+    "ps1:ConvertTo-InlineJson": {
+      "skills": 3,
+      "variants": 1
+    },
     "ps1:ConvertTo-JsonEscaped": {
       "skills": 2,
       "variants": 1
     },
-    "ps1:ConvertTo-JsonText": {
-      "skills": 2,
+    "ps1:ConvertTo-JsonStringLiteral": {
+      "skills": 3,
       "variants": 1
     },
     "ps1:ConvertTo-XmlText": {
@@ -130,8 +142,8 @@
       "variants": 1
     },
     "ps1:Esc-Xml": {
-      "skills": 10,
-      "variants": 2
+      "skills": 11,
+      "variants": 3
     },
     "ps1:EscText": {
       "skills": 2,
@@ -166,7 +178,7 @@
       "variants": 1
     },
     "ps1:Get-FormatVersionRank": {
-      "skills": 6,
+      "skills": 19,
       "variants": 1
     },
     "ps1:Get-HandlerName": {
@@ -200,6 +212,10 @@
     "ps1:Get-RootUuid": {
       "skills": 19,
       "variants": 2
+    },
+    "ps1:Get-SiblingSkillScript": {
+      "skills": 5,
+      "variants": 1
     },
     "ps1:Get-TypeShorthand": {
       "skills": 2,
@@ -421,6 +437,10 @@
       "skills": 2,
       "variants": 2
     },
+    "py:assert_attribute_name_allowed": {
+      "skills": 2,
+      "variants": 1
+    },
     "py:assert_edit_allowed": {
       "skills": 18,
       "variants": 1
@@ -468,6 +488,10 @@
     "py:create_venv": {
       "skills": 2,
       "variants": 2
+    },
+    "py:detect_file_eol": {
+      "skills": 3,
+      "variants": 1
     },
     "py:detect_format_version": {
       "skills": 11,
@@ -595,7 +619,7 @@
     },
     "py:esc_xml": {
       "skills": 14,
-      "variants": 5
+      "variants": 6
     },
     "py:expand_self_closing": {
       "skills": 3,
@@ -635,6 +659,10 @@
     },
     "py:format_version_known": {
       "skills": 6,
+      "variants": 1
+    },
+    "py:format_version_rank": {
+      "skills": 14,
       "variants": 1
     },
     "py:get": {
@@ -722,7 +750,7 @@
       "variants": 1
     },
     "py:lookup_ci": {
-      "skills": 2,
+      "skills": 3,
       "variants": 1
     },
     "py:merge_dash_values": {
@@ -901,6 +929,10 @@
       "skills": 2,
       "variants": 1
     },
+    "py:sibling_skill_script": {
+      "skills": 5,
+      "variants": 1
+    },
     "py:smooth_word_speakers": {
       "skills": 2,
       "variants": 1
@@ -932,6 +964,14 @@
     "py:text_of": {
       "skills": 5,
       "variants": 4
+    },
+    "py:to_draft_json": {
+      "skills": 3,
+      "variants": 1
+    },
+    "py:to_inline_json": {
+      "skills": 3,
+      "variants": 1
     },
     "py:validate": {
       "skills": 2,

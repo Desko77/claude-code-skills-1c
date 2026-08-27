@@ -974,7 +974,7 @@ $script:standardAttributesByType = @{
 	"InformationRegister" = @("Active","LineNumber","Recorder","Period")
 	"AccumulationRegister" = @("Active","LineNumber","Recorder","Period")
 	"AccountingRegister" = @("Active","Period","Recorder","LineNumber","Account")
-	"CalculationRegister" = @("Active","Recorder","LineNumber","RegistrationPeriod","CalculationType","ReversingEntry")
+	"CalculationRegister" = @("RegistrationPeriod","ReversingEntry","Active","EndOfBasePeriod","BegOfBasePeriod","EndOfActionPeriod","BegOfActionPeriod","ActionPeriod","CalculationType","LineNumber","Recorder")
 	"ChartOfAccounts" = @("PredefinedDataName","Predefined","Ref","DeletionMark","Description","Code","Parent","Order","Type","OffBalance")
 	"ChartOfCharacteristicTypes" = @("PredefinedDataName","Predefined","Ref","DeletionMark","Description","Code","Parent","ValueType")
 	"ChartOfCalculationTypes" = @("PredefinedDataName","Predefined","Ref","DeletionMark","Description","Code","ActionPeriodIsBasic")
@@ -2256,6 +2256,8 @@ function Emit-DocumentJournalProperties {
 		X "$i<RegisteredDocuments/>"
 	}
 
+	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
+
 	Emit-StandardAttributes $i "DocumentJournal"
 
 	X "$i<ListPresentation/>"
@@ -2429,8 +2431,8 @@ function Emit-ChartOfCalculationTypesProperties {
 	Emit-Comment $i
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
-	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
-	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
+	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "5" }
+	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "100" }
 	$codeType = Get-EnumProp "CodeType" "codeType" "String"
 	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
 
@@ -2576,9 +2578,6 @@ function Emit-CalculationRegisterProperties {
 	X "$i<DefaultListForm/>"
 	X "$i<AuxiliaryListForm/>"
 
-	$chartOfCalcTypes = if ($def.chartOfCalculationTypes) { "$($def.chartOfCalculationTypes)" } else { "" }
-	if ($chartOfCalcTypes) { X "$i<ChartOfCalculationTypes>$chartOfCalcTypes</ChartOfCalculationTypes>" }
-	else { X "$i<ChartOfCalculationTypes/>" }
 
 	$periodicity = Get-EnumProp "InformationRegisterPeriodicity" "periodicity" "Month"
 	X "$i<Periodicity>$periodicity</Periodicity>"
@@ -2597,6 +2596,9 @@ function Emit-CalculationRegisterProperties {
 
 	$scheduleDate = if ($def.scheduleDate) { "$($def.scheduleDate)" } else { "" }
 	if ($scheduleDate) { X "$i<ScheduleDate>$scheduleDate</ScheduleDate>" } else { X "$i<ScheduleDate/>" }
+	$chartOfCalcTypes = if ($def.chartOfCalculationTypes) { "$($def.chartOfCalculationTypes)" } else { "" }
+	if ($chartOfCalcTypes) { X "$i<ChartOfCalculationTypes>$chartOfCalcTypes</ChartOfCalculationTypes>" }
+	else { X "$i<ChartOfCalculationTypes/>" }
 
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 
@@ -2789,6 +2791,10 @@ function Emit-WebServiceProperties {
 
 	$xdtoPackages = if ($def.xdtoPackages) { "$($def.xdtoPackages)" } else { "" }
 	if ($xdtoPackages) { X "$i<XDTOPackages>$xdtoPackages</XDTOPackages>" } else { X "$i<XDTOPackages/>" }
+
+	# Имя файла описания сервиса платформа выводит из имени объекта.
+	$descriptor = if ($def.descriptorFileName) { "$($def.descriptorFileName)" } else { "$objName.1cws" }
+	X "$i<DescriptorFileName>$(Esc-Xml $descriptor)</DescriptorFileName>"
 
 	$reuseSessions = Get-EnumProp "ReuseSessions" "reuseSessions" "DontUse"
 	X "$i<ReuseSessions>$reuseSessions</ReuseSessions>"

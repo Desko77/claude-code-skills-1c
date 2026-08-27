@@ -239,6 +239,12 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 ```
 
 - `savedData: true` — сохраняемые данные
+- `useAlways: ["Поле"]` - поля, читаемые с сервера всегда. Имя без точки достраивается
+  именем реквизита, знак `~` остается впереди. Колонка с `useAlways: true` попадает в тот же
+  список.
+- `additionalColumns: [{ "table": "Объект.Товары", "columns": [...] }]` - дополнительные
+  колонки табличной части объекта. Идут в `<Columns>` после прямых колонок; пустой список
+  колонок дает `<AdditionalColumns table="..."/>`.
 
 ### Команды (commands)
 

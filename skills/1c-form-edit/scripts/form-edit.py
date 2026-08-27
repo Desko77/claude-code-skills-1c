@@ -1107,6 +1107,21 @@ def find_element(start_node, target_name):
 
 # ── 7. Detect indent level of a container's children ────────
 
+def place_new_section(parent, section, previous=None):
+    """Новый раздел формы получает отступ соседа: без хвоста он приклеивается к тегу рядом."""
+    idx = list(parent).index(section)
+    if previous is None and idx > 0:
+        previous = parent[idx - 1]
+    if previous is None:
+        section.tail = '\n'
+        return
+    if idx == len(parent) - 1:
+        # Раздел встал последним: отступ достается ему от соседа, а соседу - отступ раздела.
+        section.tail = previous.tail if previous.tail else '\n'
+        child_indent = get_child_indent(parent) or '\t'
+        previous.tail = '\n' + child_indent
+    else:
+        section.tail = previous.tail if previous.tail else '\n'
 def get_child_indent(container):
     for child_node in container:
         if not isinstance(child_node.tag, str):
@@ -1237,8 +1252,10 @@ if elements_list:
         if insert_after is not None:
             idx = list(root).index(insert_after) + 1
             root.insert(idx, target_ci)
+            place_new_section(root, target_ci, insert_after)
         else:
             root.append(target_ci)
+            place_new_section(root, target_ci)
         root_ci = target_ci
 
     # Detect indent level
@@ -1309,6 +1326,7 @@ if attrs_list:
     attrs_section = root.find("f:Attributes", NS)
     if attrs_section is None:
         attrs_section = etree.SubElement(root, f"{{{FORM_NS}}}Attributes")
+        place_new_section(root, attrs_section)
 
     attr_child_indent = get_child_indent(attrs_section)
     if not attr_child_indent:
@@ -1370,6 +1388,7 @@ if cmds_list:
     cmds_section = root.find("f:Commands", NS)
     if cmds_section is None:
         cmds_section = etree.SubElement(root, f"{{{FORM_NS}}}Commands")
+        place_new_section(root, cmds_section)
 
     cmd_child_indent = get_child_indent(cmds_section)
     if not cmd_child_indent:

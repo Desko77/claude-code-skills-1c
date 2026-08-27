@@ -74,7 +74,6 @@
 				<v8:Type>cfg:DataProcessorObject.Мастер</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Параметр1" id="20">
 			<Title>

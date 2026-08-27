@@ -44,6 +44,11 @@
 			<Type>
 				<v8:Type>cfg:DynamicList</v8:Type>
 			</Type>
+			<UseAlways>
+				<Field>~Список.Артикул</Field>
+				<Field>Список.Code</Field>
+				<Field>Список.Description</Field>
+			</UseAlways>
 			<Settings xsi:type="DynamicList">
 				<MainTable>Catalog.Товары</MainTable>
 				<ManualQuery>false</ManualQuery>

@@ -20,7 +20,8 @@
 		</field>
 		<dataSource>ИсточникДанных1</dataSource>
 		<query>ВЫБРАТЬ Т.Сумма ИЗ Регистр КАК Т</query>
-	</dataSet><parameter>
+	</dataSet>
+	<parameter>
 		<name>ПериодОтчета</name>
 		<valueType>
 			<v8:Type>v8:StandardPeriod</v8:Type>
@@ -30,6 +31,7 @@
 			<v8:startDate>0001-01-01T00:00:00</v8:startDate>
 			<v8:endDate>0001-01-01T00:00:00</v8:endDate>
 		</value>
+		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
 		<name>ПланСчетовМеждународный</name>
@@ -40,6 +42,8 @@
 				<v8:AllowedLength>Variable</v8:AllowedLength>
 			</v8:StringQualifiers>
 		</valueType>
+		<value xsi:type="xs:string"/>
+		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
 		<name>ПорядокОкругленияСумм</name>
@@ -50,6 +54,8 @@
 				<v8:AllowedLength>Variable</v8:AllowedLength>
 			</v8:StringQualifiers>
 		</valueType>
+		<value xsi:type="xs:string"/>
+		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
 		<name>Организация</name>
@@ -60,14 +66,16 @@
 				<v8:AllowedLength>Variable</v8:AllowedLength>
 			</v8:StringQualifiers>
 		</valueType>
+		<value xsi:type="xs:string"/>
+		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
 		<name>ПрекращаемаяДеятельность</name>
 		<valueType>
 			<v8:Type>xs:boolean</v8:Type>
 		</valueType>
+		<useRestriction>false</useRestriction>
 	</parameter>
-	
 	<settingsVariant>
 		<dcsset:name>Основной</dcsset:name>
 		<dcsset:presentation xsi:type="v8:LocalStringType">

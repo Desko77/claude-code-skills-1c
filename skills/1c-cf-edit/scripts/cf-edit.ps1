@@ -144,6 +144,18 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 }
 # --- Конец общего блока гарда поддержки ---
 
+# Скрипт соседнего навыка. Каталог навыка назван с префиксом 1c-, без него пути нет.
+function Get-SiblingSkillScript {
+	param([string]$name, [string]$scriptName)
+	foreach ($folder in @("1c-$name", $name)) {
+		$candidate = Join-Path (Join-Path $PSScriptRoot "..\..\$folder") "scripts\$scriptName"
+		$candidate = [System.IO.Path]::GetFullPath($candidate)
+		if (Test-Path $candidate) { return $candidate }
+	}
+	return ""
+}
+
+
 # --- Mode validation ---
 if ($DefinitionFile -and $Operation) { Write-Error "Cannot use both -DefinitionFile and -Operation"; exit 1 }
 if (-not $DefinitionFile -and -not $Operation) { Write-Error "Either -DefinitionFile or -Operation is required"; exit 1 }
@@ -897,9 +909,8 @@ foreach ($pending in $script:pendingWrites) {
 
 # --- Auto-validate ---
 if (-not $NoValidate) {
-	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\cf-validate") "scripts\cf-validate.ps1"
-	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
-	if (Test-Path $validateScript) {
+	$validateScript = Get-SiblingSkillScript "cf-validate" "cf-validate.ps1"
+	if ($validateScript) {
 		Write-Host ""
 		Write-Host "--- Running cf-validate ---"
 		& powershell.exe -NoProfile -File $validateScript -ConfigPath $resolvedPath

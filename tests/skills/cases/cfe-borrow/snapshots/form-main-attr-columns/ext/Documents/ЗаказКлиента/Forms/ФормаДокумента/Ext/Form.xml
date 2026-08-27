@@ -39,6 +39,23 @@
 			<Type><v8:Type>cfg:DocumentObject.ЗаказКлиента</v8:Type></Type>
 			<MainAttribute>true</MainAttribute>
 			<SavedData>true</SavedData>
+			<UseAlways>
+				<Field>Объект.Комментарий</Field>
+			</UseAlways>
+			<Columns>
+				<AdditionalColumns table="Объект.Оплата"/>
+				<AdditionalColumns table="Объект.Товары">
+					<Column name="Артикул" id="17">
+						<Type>
+							<v8:Type>xs:string</v8:Type>
+							<v8:StringQualifiers>
+								<v8:Length>25</v8:Length>
+								<v8:AllowedLength>Variable</v8:AllowedLength>
+							</v8:StringQualifiers>
+						</Type>
+					</Column>
+				</AdditionalColumns>
+			</Columns>
 		</Attribute>
 	</Attributes>
 	<BaseForm version="2.17">
@@ -81,6 +98,23 @@
 				<Type><v8:Type>cfg:DocumentObject.ЗаказКлиента</v8:Type></Type>
 				<MainAttribute>true</MainAttribute>
 				<SavedData>true</SavedData>
+				<UseAlways>
+					<Field>Объект.Комментарий</Field>
+				</UseAlways>
+				<Columns>
+					<AdditionalColumns table="Объект.Оплата"/>
+					<AdditionalColumns table="Объект.Товары">
+						<Column name="Артикул" id="17">
+							<Type>
+								<v8:Type>xs:string</v8:Type>
+								<v8:StringQualifiers>
+									<v8:Length>25</v8:Length>
+									<v8:AllowedLength>Variable</v8:AllowedLength>
+								</v8:StringQualifiers>
+							</Type>
+						</Column>
+					</AdditionalColumns>
+				</Columns>
 			</Attribute>
 		</Attributes>
 	</BaseForm>

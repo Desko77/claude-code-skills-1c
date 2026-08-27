@@ -1,18 +1,4 @@
 {
   "_note": "Кейсы, которые падают из-за незакрытой функциональности скриптов этого набора, а не из-за регресса. Раннер использует список как гейт: падение ИЗ списка ожидаемо, падение ВНЕ списка - регресс. Закрыл разрыв - вычеркни строку. Реестр собран 2026-08-14 при переносе тестов. Реестр действует для ОБОИХ рантаймов: с 2026-08-16 python-зеркало сведено с PowerShell, падения вне списка означают регресс в любом из них. Часть записей python проходит - это разрывы самой PowerShell-версии, вычеркивать их по прогону на python нельзя. Реестр покрывает и интеграционные прогоны (идентификаторы с префиксом integration/): без этого одно известное падение делало код возврата ненулевым всегда, и набор переставал быть гейтом.",
-  "cases": [
-    "cases/cfe-borrow/container-types",
-    "cases/cfe-borrow/form-bindings",
-    "cases/cfe-diff/own-service-objects",
-    "cases/cfe-validate/additional-columns-missing-ts",
-    "cases/cfe-validate/object-paths-vs-config",
-    "cases/form-add/epf-compile-then-add",
-    "cases/form-decompile/minimal",
-    "cases/form-remove/basic",
-    "cases/role-compile/type-aliases-yo",
-    "cases/skd-decompile/calc-total-params",
-    "cases/skd-decompile/field-input-parameters",
-    "cases/skd-decompile/variant-full",
-    "cases/subsystem-compile/minimal"
-  ]
+  "cases": []
 }

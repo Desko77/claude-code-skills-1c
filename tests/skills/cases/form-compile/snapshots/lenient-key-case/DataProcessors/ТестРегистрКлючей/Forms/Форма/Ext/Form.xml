@@ -21,7 +21,6 @@
 				<v8:Type>cfg:DataProcessorObject.ТестРегистрКлючей</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 	</Attributes>
 </Form>

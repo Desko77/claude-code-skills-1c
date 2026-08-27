@@ -100,6 +100,7 @@
 		<valueType>
 			<v8:Type>decimal</v8:Type>
 		</valueType>
+		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
 		<name>ПараметрЦелое</name>
@@ -111,6 +112,7 @@
 				<v8:AllowedSign>Any</v8:AllowedSign>
 			</v8:NumberQualifiers>
 		</valueType>
+		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
 		<name>ПараметрКоличество</name>
@@ -122,6 +124,7 @@
 				<v8:AllowedSign>Nonnegative</v8:AllowedSign>
 			</v8:NumberQualifiers>
 		</valueType>
+		<useRestriction>false</useRestriction>
 	</parameter>
 	<settingsVariant>
 		<dcsset:name>Основной</dcsset:name>

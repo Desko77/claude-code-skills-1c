@@ -277,12 +277,12 @@ $script:generatedTypes = @{
 		@{ prefix = "DefinedType"; category = "DefinedType" }
 	)
 	"FilterCriterion" = @(
-		@{ prefix = "FilterCriterionList"; category = "List" }
 		@{ prefix = "FilterCriterionManager"; category = "Manager" }
+		@{ prefix = "FilterCriterionList"; category = "List" }
 	)
 	"Sequence" = @(
-		@{ prefix = "SequenceManager"; category = "Manager" }
 		@{ prefix = "SequenceRecord"; category = "Record" }
+		@{ prefix = "SequenceManager"; category = "Manager" }
 		@{ prefix = "SequenceRecordSet"; category = "RecordSet" }
 	)
 	"SettingsStorage" = @(
@@ -298,7 +298,9 @@ $typesWithChildObjects = @(
 	"Catalog","Document","ExchangePlan","ChartOfAccounts",
 	"ChartOfCharacteristicTypes","ChartOfCalculationTypes",
 	"BusinessProcess","Task","Enum",
-	"InformationRegister","AccumulationRegister","AccountingRegister","CalculationRegister"
+	"InformationRegister","AccumulationRegister","AccountingRegister","CalculationRegister",
+	"Report","DataProcessor","DocumentJournal","Sequence",
+	"FilterCriterion","SettingsStorage","HTTPService","WebService"
 )
 
 # CommonModule properties to copy from source
@@ -528,7 +530,10 @@ function Borrow-Form {
 	$srcFormContent = [System.IO.File]::ReadAllText($srcFormXmlPath, $enc)
 
 	# 3. Generate form metadata XML (ФормаЭлемента.xml)
-	$newFormUuid = [guid]::NewGuid().ToString()
+	$formMetaDir = Join-Path (Join-Path (Join-Path $extDir $dirName) $objName) "Forms"
+	$formMetaFile = Join-Path $formMetaDir "${formName}.xml"
+	$newFormUuid = Get-ExistingObjectUuid $formMetaFile "Form"
+	if (-not $newFormUuid) { $newFormUuid = [guid]::NewGuid().ToString() }
 	$formMetaSb = New-Object System.Text.StringBuilder
 	$formMetaSb.AppendLine("<?xml version=`"1.0`" encoding=`"UTF-8`"?>") | Out-Null
 	$formMetaSb.AppendLine("<MetaDataObject $($script:xmlnsDecl) version=`"$($script:formatVersion)`">") | Out-Null
@@ -545,13 +550,11 @@ function Borrow-Form {
 	$formMetaSb.Append("</MetaDataObject>") | Out-Null
 
 	# 4. Create directories
-	$formMetaDir = Join-Path (Join-Path (Join-Path $extDir $dirName) $objName) "Forms"
 	if (-not (Test-Path $formMetaDir)) {
 		New-Item -ItemType Directory -Path $formMetaDir -Force | Out-Null
 	}
 
 	# Write form metadata
-	$formMetaFile = Join-Path $formMetaDir "${formName}.xml"
 	[System.IO.File]::WriteAllText($formMetaFile, $formMetaSb.ToString(), $enc)
 	Info "  Created: $formMetaFile"
 
@@ -842,6 +845,9 @@ function Borrow-Form {
 		$formXmlSb.Append("`t`t`t<Type><v8:Type>${mainAttrType}</v8:Type></Type>`r`n") | Out-Null
 		$formXmlSb.Append("`t`t`t<MainAttribute>true</MainAttribute>`r`n") | Out-Null
 		$formXmlSb.Append("`t`t`t<SavedData>true</SavedData>`r`n") | Out-Null
+		foreach ($extraLine in (Get-MainAttributeBlocks $srcFormContent "`t`t`t")) {
+			$formXmlSb.Append($extraLine + "`r`n") | Out-Null
+		}
 		$formXmlSb.Append("`t`t</Attribute>`r`n") | Out-Null
 		$formXmlSb.Append("`t</Attributes>") | Out-Null
 	} else {
@@ -882,6 +888,9 @@ function Borrow-Form {
 		$formXmlSb.Append("`t`t`t`t<Type><v8:Type>${mainAttrType}</v8:Type></Type>`r`n") | Out-Null
 		$formXmlSb.Append("`t`t`t`t<MainAttribute>true</MainAttribute>`r`n") | Out-Null
 		$formXmlSb.Append("`t`t`t`t<SavedData>true</SavedData>`r`n") | Out-Null
+		foreach ($extraLine in (Get-MainAttributeBlocks $srcFormContent "`t`t`t`t")) {
+			$formXmlSb.Append($extraLine + "`r`n") | Out-Null
+		}
 		$formXmlSb.Append("`t`t`t</Attribute>`r`n") | Out-Null
 		$formXmlSb.Append("`t`t</Attributes>") | Out-Null
 	} else {
@@ -907,8 +916,14 @@ function Borrow-Form {
 		New-Item -ItemType Directory -Path $moduleDir -Force | Out-Null
 	}
 	$moduleBslFile = Join-Path $moduleDir "Module.bsl"
-	[System.IO.File]::WriteAllText($moduleBslFile, "", $enc)
-	Info "  Created: $moduleBslFile"
+	# Модуль пишется только когда его еще нет: повторное заимствование не забирает
+	# код, дописанный в расширении.
+	if (Test-Path $moduleBslFile) {
+		Info "  Kept: $moduleBslFile"
+	} else {
+		[System.IO.File]::WriteAllText($moduleBslFile, "", $enc)
+		Info "  Created: $moduleBslFile"
+	}
 
 	# 7. Register form in parent object ChildObjects
 	Register-FormInObject $typeName $objName $formName
@@ -1084,6 +1099,24 @@ function Collect-FormDataPaths {
 		$firstLevel[$seg0] = $true
 	}
 
+	# Табличная часть и поле, названные только в AdditionalColumns или UseAlways,
+	# на форме больше нигде не встречаются: без заимствования платформа отвергает форму.
+	foreach ($m in [regex]::Matches($content, '<AdditionalColumns table=\"[^<\"]*\bОбъект\.(\w+)')) {
+		$seg0 = $m.Groups[1].Value
+		if ($script:standardFields -contains $seg0) { continue }
+		$firstLevel[$seg0] = $true
+	}
+
+	foreach ($m in [regex]::Matches($content, '<Field>[^<]*\bОбъект\.(\w+(?:\.\w+)*)</Field>')) {
+		$segments = $m.Groups[1].Value.Split(".")
+		$seg0 = $segments[0]
+		if ($script:standardFields -contains $seg0) { continue }
+		$firstLevel[$seg0] = $true
+		if ($segments.Count -ge 2 -and -not ($script:standardFields -contains $segments[1])) {
+			$deepPaths += @{ ObjectAttr = $seg0; SubAttr = $segments[1] }
+		}
+	}
+
 	# Deduplicate deep paths
 	$seen = @{}
 	$uniqueDeep = @()
@@ -1204,6 +1237,58 @@ function Resolve-SourceAttributes {
 	}
 
 	return @{ Attributes = $attrs; TabularSections = $tabSections; ExtraProps = $extraProps }
+}
+
+# UUID уже созданного объекта расширения: при повторном заимствовании он сохраняется.
+function Get-ExistingObjectUuid($path, $tag) {
+	if (-not (Test-Path $path)) { return $null }
+	$head = [System.IO.File]::ReadAllText($path, (New-Object System.Text.UTF8Encoding($true)))
+	if ($head -match ('<' + $tag + '\s+uuid="([^"]+)"')) { return $Matches[1] }
+	return $null
+}
+
+# Имена реквизитов и табличных частей, уже заимствованных в объект расширения.
+function Get-BorrowedChildNames($objContent) {
+	$attrNames = New-Object System.Collections.Generic.HashSet[string]
+	$tsNames = New-Object System.Collections.Generic.HashSet[string]
+	$childMatch = [regex]::Match($objContent, '(?s)<ChildObjects>(.*?)</ChildObjects>')
+	if (-not $childMatch.Success) {
+		return @{ Attributes = $attrNames; TabularSections = $tsNames }
+	}
+	$inner = $childMatch.Groups[1].Value
+	foreach ($m in [regex]::Matches($inner, '(?s)<TabularSection\b.*?</TabularSection>')) {
+		$nameMatch = [regex]::Match($m.Value, '<Name>([^<]*)</Name>')
+		if ($nameMatch.Success) { [void]$tsNames.Add($nameMatch.Groups[1].Value) }
+	}
+	$withoutTs = [regex]::Replace($inner, '(?s)<TabularSection\b.*?</TabularSection>', '')
+	foreach ($m in [regex]::Matches($withoutTs, '(?s)<Attribute\b.*?</Attribute>')) {
+		$nameMatch = [regex]::Match($m.Value, '<Name>([^<]*)</Name>')
+		if ($nameMatch.Success) { [void]$attrNames.Add($nameMatch.Groups[1].Value) }
+	}
+	return @{ Attributes = $attrNames; TabularSections = $tsNames }
+}
+
+# Блоки UseAlways и Columns основного реквизита исходной формы с нужным отступом.
+function Get-MainAttributeBlocks($srcFormContent, [string]$indent) {
+	$out = New-Object System.Collections.Generic.List[string]
+	$body = $null
+	foreach ($m in [regex]::Matches($srcFormContent, '(?s)<Attribute name="[^"]+"[^>]*>(.*?)</Attribute>')) {
+		if ($m.Groups[1].Value -match '<MainAttribute>true</MainAttribute>') { $body = $m.Groups[1].Value; break }
+	}
+	if ($null -eq $body) { return $out }
+	foreach ($tag in @('UseAlways', 'Columns')) {
+		$block = [regex]::Match($body, '(?s)([	]*)<' + $tag + '>.*?</' + $tag + '>')
+		if (-not $block.Success) { continue }
+		# Отступ исходной формы не подходит: блок переносится на другую глубину вложенности.
+		$base = $block.Groups[1].Value.Length
+		foreach ($rawLine in $block.Value.Replace("`r`n", "`n").Split("`n")) {
+			$stripped = $rawLine.TrimStart("`t"[0])
+			$depth = $rawLine.Length - $stripped.Length - $base
+			if ($depth -lt 0) { $depth = 0 }
+			[void]$out.Add($indent + ("`t" * $depth) + $stripped)
+		}
+	}
+	return $out
 }
 
 # --- 11d. Build adopted attribute XML ---
@@ -1426,28 +1511,44 @@ function Borrow-MainAttribute {
 	# Step 3: Build the adopted content and insert into main object XML
 	$objFile = Join-Path (Join-Path $extDir $dirName) "${objName}.xml"
 
+	# Read existing object XML and inject
+	$objContent = [System.IO.File]::ReadAllText($objFile, (New-Object System.Text.UTF8Encoding($true)))
+
+	# Что уже лежит в ChildObjects, второй раз не добавляется.
+	$borrowed = Get-BorrowedChildNames $objContent
+
 	# Generate full object XML with attributes and TS
 	$contentSb = New-Object System.Text.StringBuilder
 	foreach ($attr in $srcAttrs) {
+		if ($borrowed.Attributes.Contains($attr.Name)) { continue }
 		$attrXml = Build-AdoptedAttributeXml $attr.Name $attr.Uuid $attr.TypeXml "`t`t`t"
 		$contentSb.AppendLine($attrXml) | Out-Null
 	}
 	foreach ($ts in $srcTS) {
+		if ($borrowed.TabularSections.Contains($ts.Name)) { continue }
 		$tsXml = Build-AdoptedTabularSectionXml $ts.Name $ts.Uuid $ts.GeneratedTypes $ts.Attributes "`t`t`t"
 		$contentSb.AppendLine($tsXml) | Out-Null
 	}
 	$adoptedContent = $contentSb.ToString().TrimEnd()
 
-	# Read existing object XML and inject
-	$objContent = [System.IO.File]::ReadAllText($objFile, (New-Object System.Text.UTF8Encoding($true)))
-
-	# Inject extra properties after ExtendedConfigurationObject
+	# Свойства объекта пишутся в его собственный блок Properties - он идет в файле первым.
+	# Замена по всему тексту попала бы и в Properties заимствованных реквизитов.
 	if ($extraProps.Count -gt 0) {
+		$ownPropsEnd = $objContent.IndexOf('</Properties>')
+		$ownProps = if ($ownPropsEnd -ge 0) { $objContent.Substring(0, $ownPropsEnd) } else { $objContent }
 		$propsSb = New-Object System.Text.StringBuilder
 		foreach ($pName in $extraProps.Keys) {
+			if ($ownProps.Contains("<${pName}>")) { continue }
 			$propsSb.Append("`r`n`t`t`t<${pName}>$($extraProps[$pName])</${pName}>") | Out-Null
 		}
-		$objContent = $objContent -replace '(</ExtendedConfigurationObject>)', "`$1$($propsSb.ToString())"
+		if ($propsSb.Length -gt 0) {
+			$anchor = '</ExtendedConfigurationObject>'
+			$at = $objContent.IndexOf($anchor)
+			if ($at -ge 0) {
+				$cut = $at + $anchor.Length
+				$objContent = $objContent.Substring(0, $cut) + $propsSb.ToString() + $objContent.Substring($cut)
+			}
+		}
 	}
 
 	# Replace empty ChildObjects with adopted content

@@ -144,6 +144,18 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 }
 # --- Конец общего блока гарда поддержки ---
 
+# Скрипт соседнего навыка. Каталог навыка назван с префиксом 1c-, без него пути нет.
+function Get-SiblingSkillScript {
+	param([string]$name, [string]$scriptName)
+	foreach ($folder in @("1c-$name", $name)) {
+		$candidate = Join-Path (Join-Path $PSScriptRoot "..\..\$folder") "scripts\$scriptName"
+		$candidate = [System.IO.Path]::GetFullPath($candidate)
+		if (Test-Path $candidate) { return $candidate }
+	}
+	return ""
+}
+
+
 # --- Content type normalization (plural→singular, Russian→English) ---
 $script:contentTypeMap = @{
 	"Catalogs"="Catalog"; "Documents"="Document"; "Enums"="Enum"; "Constants"="Constant"
@@ -687,9 +699,8 @@ Info "Saved: $resolvedPath"
 
 # --- Auto-validate ---
 if (-not $NoValidate) {
-	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\subsystem-validate") "scripts\subsystem-validate.ps1"
-	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
-	if (Test-Path $validateScript) {
+	$validateScript = Get-SiblingSkillScript "subsystem-validate" "subsystem-validate.ps1"
+	if ($validateScript) {
 		Write-Host ""
 		Write-Host "--- Running subsystem-validate ---"
 		& powershell.exe -NoProfile -File $validateScript -SubsystemPath $resolvedPath

@@ -68,7 +68,6 @@
 				<v8:Type>cfg:DataProcessorObject.Инфо</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Организация" id="24">
 			<Title>

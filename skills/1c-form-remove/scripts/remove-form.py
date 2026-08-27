@@ -98,13 +98,24 @@ def main():
                 if parent.text and parent.text.strip() == "":
                     parent.text = ""
             parent.remove(node)
+            # Опустевший контейнер платформа пишет одиночным тегом, а не парой:
+            # пустой text дал бы <ChildObjects></ChildObjects>.
+            if len(parent) == 0 and not (parent.text or '').strip():
+                parent.text = None
             break
 
-    # Clear DefaultForm if it pointed to removed form
-    default_form = root.find(".//md:DefaultForm", NSMAP)
-    if default_form is not None and default_form.text:
-        if re.search(rf"Form\.{re.escape(form_name)}$", default_form.text):
-            default_form.text = ""
+    # Ссылку на удаленную форму несет любое свойство Default*Form и Auxiliary*Form -
+    # одного DefaultForm мало: у справочника форма объекта лежит в DefaultObjectForm.
+    for prop in root.iter():
+        if not isinstance(prop.tag, str):
+            continue
+        local = etree.QName(prop.tag).localname
+        if not (local.startswith("Default") or local.startswith("Auxiliary")):
+            continue
+        if not local.endswith("Form"):
+            continue
+        if prop.text and re.search(r"Form\." + re.escape(form_name) + "$", prop.text):
+            prop.text = None
 
     # Save with BOM
     save_xml_with_bom(tree, root_xml_full)

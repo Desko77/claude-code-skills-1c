@@ -39,7 +39,6 @@
 				<v8:Type>cfg:DataProcessorObject.Типы</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Строка" id="14">
 			<Title>

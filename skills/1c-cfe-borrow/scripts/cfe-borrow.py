@@ -249,12 +249,12 @@ GENERATED_TYPES = {
         {"prefix": "DefinedType", "category": "DefinedType"},
     ],
     "FilterCriterion": [
-        {"prefix": "FilterCriterionList", "category": "List"},
         {"prefix": "FilterCriterionManager", "category": "Manager"},
+        {"prefix": "FilterCriterionList", "category": "List"},
     ],
     "Sequence": [
-        {"prefix": "SequenceManager", "category": "Manager"},
         {"prefix": "SequenceRecord", "category": "Record"},
+        {"prefix": "SequenceManager", "category": "Manager"},
         {"prefix": "SequenceRecordSet", "category": "RecordSet"},
     ],
     "SettingsStorage": [
@@ -270,6 +270,8 @@ TYPES_WITH_CHILD_OBJECTS = [
     "ChartOfCharacteristicTypes", "ChartOfCalculationTypes",
     "BusinessProcess", "Task", "Enum",
     "InformationRegister", "AccumulationRegister", "AccountingRegister", "CalculationRegister",
+    "Report", "DataProcessor", "DocumentJournal", "Sequence",
+    "FilterCriterion", "SettingsStorage", "HTTPService", "WebService",
 ]
 
 COMMON_MODULE_PROPS = ["Global", "ClientManagedApplication", "Server", "ExternalConnection", "ClientOrdinaryApplication", "ServerCall"]
@@ -389,6 +391,60 @@ def save_text_bom(path, text):
     # текст сперва приводится к одному виду.
     with open(path, "w", encoding="utf-8-sig") as fh:
         fh.write(text.replace('\r\n', '\n'))
+
+
+def existing_object_uuid(path, tag):
+    """UUID уже созданного объекта расширения: при повторном заимствовании он сохраняется."""
+    if not os.path.isfile(path):
+        return None
+    with open(path, "r", encoding="utf-8-sig") as fh:
+        head = fh.read(4096)
+    m = re.search(r'<' + tag + r'\s+uuid="([^"]+)"', head)
+    return m.group(1) if m else None
+
+
+def borrowed_child_names(obj_content):
+    """Имена реквизитов и табличных частей, уже заимствованных в объект расширения."""
+    m = re.search(r'(?s)<ChildObjects>(.*?)</ChildObjects>', obj_content)
+    if not m:
+        return set(), set()
+    inner = m.group(1)
+    ts_names = set()
+    for block in re.finditer(r'(?s)<TabularSection\b.*?</TabularSection>', inner):
+        nm = re.search(r'<Name>([^<]*)</Name>', block.group(0))
+        if nm:
+            ts_names.add(nm.group(1))
+    attr_names = set()
+    for block in re.finditer(r'(?s)<Attribute\b.*?</Attribute>',
+                             re.sub(r'(?s)<TabularSection\b.*?</TabularSection>', '', inner)):
+        nm = re.search(r'<Name>([^<]*)</Name>', block.group(0))
+        if nm:
+            attr_names.add(nm.group(1))
+    return attr_names, ts_names
+
+
+def main_attribute_blocks(src_form_content, indent):
+    """Блоки UseAlways и Columns основного реквизита исходной формы с нужным отступом."""
+    body = None
+    for m in re.finditer(r'(?s)<Attribute name="[^"]+"[^>]*>(.*?)</Attribute>', src_form_content):
+        if '<MainAttribute>true</MainAttribute>' in m.group(1):
+            body = m.group(1)
+            break
+    if body is None:
+        return []
+    out = []
+    for tag in ('UseAlways', 'Columns'):
+        block = re.search('(?s)([\t]*)<' + tag + '>.*?</' + tag + '>', body)
+        if block is None:
+            continue
+        # Отступ исходной формы не подходит: блок переносится на другую глубину вложенности.
+        raw_lines = block.group(0).replace('\r\n', '\n').split('\n')
+        base = len(block.group(1))
+        for raw_line in raw_lines:
+            stripped = raw_line.lstrip('\t')
+            depth = len(raw_line) - len(stripped) - base
+            out.append(indent + '\t' * max(0, depth) + stripped)
+    return out
 
 
 def new_guid():
@@ -737,6 +793,22 @@ def main():
                 continue
             first_level[seg0] = True
 
+        # Табличная часть и поле, названные только в AdditionalColumns или UseAlways,
+        # на форме больше нигде не встречаются: без заимствования платформа отвергает форму.
+        for m in re.finditer(r'<AdditionalColumns table=\"[^<\"]*\bОбъект\.(\w+)', content):
+            seg0 = m.group(1)
+            if seg0 not in STANDARD_FIELDS:
+                first_level[seg0] = True
+
+        for m in re.finditer(r'<Field>[^<]*\bОбъект\.(\w+(?:\.\w+)*)</Field>', content):
+            segments = m.group(1).split('.')
+            seg0 = segments[0]
+            if seg0 in STANDARD_FIELDS:
+                continue
+            first_level[seg0] = True
+            if len(segments) >= 2 and segments[1] not in STANDARD_FIELDS:
+                deep_paths.append({"ObjectAttr": seg0, "SubAttr": segments[1]})
+
         # Deduplicate deep paths
         seen = set()
         unique_deep = []
@@ -1012,26 +1084,41 @@ def main():
         # Step 3: Build the adopted content and insert into main object XML
         obj_file = os.path.join(ext_dir, dir_name, f"{obj_name}.xml")
 
-        # Generate full object XML with attributes and TS
-        content_parts = []
-        for attr in src_attrs:
-            attr_xml = build_adopted_attribute_xml(attr["Name"], attr["Uuid"], attr["TypeXml"], "\t\t\t")
-            content_parts.append(attr_xml)
-        for ts in src_ts:
-            ts_xml = build_adopted_tabular_section_xml(ts["Name"], ts["Uuid"], ts["GeneratedTypes"], ts["Attributes"], "\t\t\t")
-            content_parts.append(ts_xml)
-        adopted_content = "\n".join(content_parts).rstrip()
-
         # Read existing object XML and inject
         with open(obj_file, "r", encoding="utf-8-sig") as fh:
             obj_content = fh.read()
 
-        # Inject extra properties after ExtendedConfigurationObject
+        # Что уже лежит в ChildObjects, второй раз не добавляется. Имена табличных частей
+        # берутся до вырезания их блоков, иначе вложенные реквизиты попадут в список
+        # реквизитов объекта.
+        borrowed_attrs, borrowed_ts = borrowed_child_names(obj_content)
+
+        # Generate full object XML with attributes and TS
+        content_parts = []
+        for attr in src_attrs:
+            if attr["Name"] in borrowed_attrs:
+                continue
+            attr_xml = build_adopted_attribute_xml(attr["Name"], attr["Uuid"], attr["TypeXml"], "\t\t\t")
+            content_parts.append(attr_xml)
+        for ts in src_ts:
+            if ts["Name"] in borrowed_ts:
+                continue
+            ts_xml = build_adopted_tabular_section_xml(ts["Name"], ts["Uuid"], ts["GeneratedTypes"], ts["Attributes"], "\t\t\t")
+            content_parts.append(ts_xml)
+        adopted_content = "\n".join(content_parts).rstrip()
+
+        # Свойства объекта пишутся в его собственный блок Properties - он идет в файле
+        # первым. Замена по всему тексту попала бы и в Properties заимствованных реквизитов.
         if extra_props:
+            own_props_end = obj_content.find("</Properties>")
+            own_props = obj_content[:own_props_end] if own_props_end >= 0 else obj_content
             props_xml = ""
             for p_name, p_val in extra_props.items():
+                if f"<{p_name}>" in own_props:
+                    continue
                 props_xml += f"\r\n\t\t\t<{p_name}>{p_val}</{p_name}>"
-            obj_content = obj_content.replace("</ExtendedConfigurationObject>", f"</ExtendedConfigurationObject>{props_xml}")
+            if props_xml:
+                obj_content = obj_content.replace("</ExtendedConfigurationObject>", f"</ExtendedConfigurationObject>{props_xml}", 1)
 
         # Replace empty ChildObjects with adopted content
         if adopted_content:
@@ -1172,7 +1259,9 @@ def main():
             src_form_content = fh.read()
 
         # 3. Generate form metadata XML
-        new_form_uuid = new_guid()
+        form_meta_dir = os.path.join(ext_dir, dir_name, obj_name, "Forms")
+        form_meta_file = os.path.join(form_meta_dir, f"{form_name}.xml")
+        new_form_uuid = existing_object_uuid(form_meta_file, "Form") or new_guid()
         form_meta_lines = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             f'<MetaDataObject {XMLNS_DECL} version="{format_version}">',
@@ -1190,10 +1279,8 @@ def main():
         ]
 
         # 4. Create directories
-        form_meta_dir = os.path.join(ext_dir, dir_name, obj_name, "Forms")
         os.makedirs(form_meta_dir, exist_ok=True)
 
-        form_meta_file = os.path.join(form_meta_dir, f"{form_name}.xml")
         save_text_bom(form_meta_file, "\n".join(form_meta_lines))
         info(f"  Created: {form_meta_file}")
 
@@ -1449,6 +1536,8 @@ def main():
             parts.append(f"\t\t\t<Type><v8:Type>{main_attr_type}</v8:Type></Type>\r\n")
             parts.append("\t\t\t<MainAttribute>true</MainAttribute>\r\n")
             parts.append("\t\t\t<SavedData>true</SavedData>\r\n")
+            for extra_line in main_attribute_blocks(src_form_content, '\t\t\t'):
+                parts.append(extra_line + '\r\n')
             parts.append("\t\t</Attribute>\r\n")
             parts.append("\t</Attributes>")
         else:
@@ -1485,6 +1574,8 @@ def main():
             parts.append(f"\t\t\t\t<Type><v8:Type>{main_attr_type}</v8:Type></Type>\r\n")
             parts.append("\t\t\t\t<MainAttribute>true</MainAttribute>\r\n")
             parts.append("\t\t\t\t<SavedData>true</SavedData>\r\n")
+            for extra_line in main_attribute_blocks(src_form_content, '\t\t\t\t'):
+                parts.append(extra_line + '\r\n')
             parts.append("\t\t\t</Attribute>\r\n")
             parts.append("\t\t</Attributes>")
         else:
@@ -1503,8 +1594,13 @@ def main():
         module_dir = os.path.join(form_xml_dir, "Form")
         os.makedirs(module_dir, exist_ok=True)
         module_bsl_file = os.path.join(module_dir, "Module.bsl")
-        save_text_bom(module_bsl_file, "")
-        info(f"  Created: {module_bsl_file}")
+        # Модуль пишется только когда его еще нет: повторное заимствование не забирает
+        # код, дописанный в расширении.
+        if os.path.isfile(module_bsl_file):
+            info(f"  Kept: {module_bsl_file}")
+        else:
+            save_text_bom(module_bsl_file, "")
+            info(f"  Created: {module_bsl_file}")
 
         # 7. Register form in parent object ChildObjects
         register_form_in_object(type_name, obj_name, form_name)

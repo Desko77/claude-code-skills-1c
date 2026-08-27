@@ -786,6 +786,50 @@ def parse_command(node):
     return c
 
 
+# --- Черновой JSON (общий блок, версия 2) ---
+# Ширина строки, после которой контейнер разворачивается по элементу на строку.
+DRAFT_JSON_WIDTH = 400
+
+
+def to_inline_json(value):
+    if value is None:
+        return 'null'
+    if isinstance(value, bool):
+        return 'true' if value else 'false'
+    if isinstance(value, (int, float)):
+        return json.dumps(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict):
+        if not value:
+            return '{}'
+        parts = [json.dumps(str(k), ensure_ascii=False) + ': ' + to_inline_json(v)
+                 for k, v in value.items()]
+        return '{ ' + ', '.join(parts) + ' }'
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return '[]'
+        return '[' + ', '.join(to_inline_json(v) for v in value) + ']'
+    return json.dumps(str(value), ensure_ascii=False)
+
+
+def to_draft_json(value, indent=''):
+    """Описание пишется в том виде, в каком его удобно править руками: контейнер идет
+    одной строкой, пока в нее помещается, и разворачивается, когда перестает."""
+    rendered = to_inline_json(value)
+    if (len(indent) + len(rendered) <= DRAFT_JSON_WIDTH
+            or not isinstance(value, (dict, list, tuple)) or not value):
+        return rendered
+    inner = indent + '  '
+    if isinstance(value, dict):
+        parts = [inner + json.dumps(str(k), ensure_ascii=False) + ': ' + to_draft_json(v, inner)
+                 for k, v in value.items()]
+        return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
+    parts = [inner + to_draft_json(v, inner) for v in value]
+    return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
+# --- Конец общего блока чернового JSON ---
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -896,6 +940,10 @@ def main():
         result["_todo"] = root_todos
     if title is not None:
         result["title"] = title
+    # Заданный заголовок сам выключает автоматический - form-compile пишет этот признак
+    # без указания. В описании он лишний: сборка вернет тот же файл и без него.
+    if title is not None and properties.get('autoTitle') is False:
+        del properties['autoTitle']
     if properties:
         result["properties"] = properties
     if excluded_commands:
@@ -911,14 +959,15 @@ def main():
     if commands:
         result["commands"] = commands
 
-    json_str = json.dumps(result, ensure_ascii=False, indent=2)
+    json_str = to_draft_json(result)
 
     out_abs = output_path if os.path.isabs(output_path) else os.path.join(os.getcwd(), output_path)
     out_dir = os.path.dirname(out_abs)
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir, exist_ok=True)
     with open(out_abs, "w", encoding="utf-8", newline="") as fh:
-        fh.write(json_str + "\n")
+        # Хвостового перевода строки в описании нет - так же пишет skd-decompile.
+        fh.write(json_str)
 
     print("[OK] Decompiled: " + output_path)
     print("     Elements: " + str(len(elements)) + ", Attributes: " + str(len(attributes)) + ", Commands: " + str(len(commands)) + ", Parameters: " + str(len(parameters)), file=sys.stderr)

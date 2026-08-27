@@ -86,6 +86,7 @@
 			<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:EnumRef.Округления</v8:Type>
 		</valueType>
 		<value xsi:type="dcscor:DesignTimeValue">Перечисление.Округления.Окр1_00</value>
+		<useRestriction>false</useRestriction>
 		<availableValue>
 			<value xsi:type="dcscor:DesignTimeValue">Перечисление.Округления.Окр1_00</value>
 			<presentation xsi:type="v8:LocalStringType">

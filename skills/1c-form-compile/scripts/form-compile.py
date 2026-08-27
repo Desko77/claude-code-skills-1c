@@ -2483,6 +2483,15 @@ def emit_popup(lines, el, name, eid, indent):
 
 # --- Attribute emitter ---
 
+def emit_attr_column(lines, col, indent):
+    """Колонка реквизита формы: имя, идентификатор, заголовок и тип."""
+    lines.append(f'{indent}<Column name="{col["name"]}" id="{new_id()}">')
+    if col.get('title'):
+        emit_mltext(lines, f'{indent}\t', 'Title', col['title'])
+    emit_type(lines, str(col.get('type', '')), f'{indent}\t')
+    lines.append(f'{indent}</Column>')
+
+
 def emit_attributes(lines, attrs, indent):
     # Блок реквизитов есть в выгрузке всегда: у формы без реквизитов он пустой.
     if not attrs or len(attrs) == 0:
@@ -2513,21 +2522,50 @@ def emit_attributes(lines, attrs, indent):
         if attr.get('main') is True:
             lines.append(f'{inner}<MainAttribute>true</MainAttribute>')
         # Основной реквизит хранится между сеансами - платформа пишет это признаком.
-        if attr.get('savedData') is True or (attr.get('main') is True and attr.get('savedData') is not False):
+        # Признак сохраняемых данных пишется только по явному ключу: платформа выставляет
+        # его у основного реквизита сама, и лишняя запись расходится с выгрузкой.
+        if attr.get('savedData') is True:
             lines.append(f'{inner}<SavedData>true</SavedData>')
         if attr.get('fillChecking'):
             lines.append(f'{inner}<FillChecking>{attr["fillChecking"]}</FillChecking>')
 
-        # Columns (for ValueTable/ValueTree)
-        if attr.get('columns') and len(attr['columns']) > 0:
+        # UseAlways: поля, читаемые с сервера всегда. Имя без точки достраивается именем
+        # реквизита; знак ~ остается впереди. Колонки с признаком идут следом.
+        use_always = []
+        for field in (attr.get('useAlways') or []):
+            field = str(field)
+            mark = ''
+            if field.startswith('~'):
+                mark, field = '~', field[1:]
+            if '.' not in field:
+                field = attr_name + '.' + field
+            use_always.append(mark + field)
+        for col in (attr.get('columns') or []):
+            if col.get('useAlways') is True:
+                use_always.append(attr_name + '.' + str(col.get('name', '')))
+        if use_always:
+            lines.append(f'{inner}<UseAlways>')
+            for field in use_always:
+                lines.append(f'{inner}\t<Field>{field}</Field>')
+            lines.append(f'{inner}</UseAlways>')
+
+        # Columns (for ValueTable/ValueTree) + AdditionalColumns табличных частей объекта.
+        # Порядок платформы: сначала прямые колонки, затем группы дополнительных.
+        add_cols = attr.get('additionalColumns') or []
+        direct_cols = attr.get('columns') or []
+        if direct_cols or add_cols:
             lines.append(f'{inner}<Columns>')
-            for col in attr['columns']:
-                col_id = new_id()
-                lines.append(f'{inner}\t<Column name="{col["name"]}" id="{col_id}">')
-                if col.get('title'):
-                    emit_mltext(lines, f'{inner}\t\t', 'Title', col['title'])
-                emit_type(lines, str(col.get('type', '')), f'{inner}\t\t')
-                lines.append(f'{inner}\t</Column>')
+            for col in direct_cols:
+                emit_attr_column(lines, col, f'{inner}\t')
+            for ac in add_cols:
+                ac_cols = ac.get('columns') or []
+                if not ac_cols:
+                    lines.append(f'{inner}\t<AdditionalColumns table="{ac["table"]}"/>')
+                    continue
+                lines.append(f'{inner}\t<AdditionalColumns table="{ac["table"]}">')
+                for col in ac_cols:
+                    emit_attr_column(lines, col, f'{inner}\t\t')
+                lines.append(f'{inner}\t</AdditionalColumns>')
             lines.append(f'{inner}</Columns>')
 
         # Settings (for DynamicList)

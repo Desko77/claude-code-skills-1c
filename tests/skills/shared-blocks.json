@@ -128,6 +128,7 @@
         "вызов": "ConvertTo-DraftJson",
         "эталон": "1c-skd-decompile",
         "потребители": [
+          "1c-form-decompile",
           "1c-mxl-decompile",
           "1c-skd-decompile"
         ]
@@ -138,6 +139,7 @@
         "вызов": "to_draft_json",
         "эталон": "1c-skd-decompile",
         "потребители": [
+          "1c-form-decompile",
           "1c-mxl-decompile",
           "1c-skd-decompile"
         ]

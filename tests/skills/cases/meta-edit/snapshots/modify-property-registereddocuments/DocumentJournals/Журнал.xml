@@ -28,6 +28,7 @@
 			<AuxiliaryForm/>
 			<UseStandardCommands>true</UseStandardCommands>
 			<RegisteredDocuments>Document.Расход</RegisteredDocuments>
+			<IncludeHelpInContents>false</IncludeHelpInContents>
 			<ListPresentation/>
 			<ExtendedListPresentation/>
 			<Explanation/>

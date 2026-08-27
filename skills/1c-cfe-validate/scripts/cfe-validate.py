@@ -165,6 +165,76 @@ class Reporter:
             print(f'Written to: {out_file}')
 
 
+STANDARD_FIELDS = {
+    'Account', 'ActionPeriodIsBasic', 'Active', 'BusinessProcess', 'CalculationType', 'Code',
+    'Completed', 'Date', 'DeletionMark', 'Description', 'Executed', 'HeadTask', 'IsFolder',
+    'LineNumber', 'Number', 'OffBalance', 'Order', 'Owner', 'Parent', 'Period', 'Posted',
+    'Predefined', 'PredefinedDataName', 'ReceivedNo', 'Recorder', 'Ref', 'RegistrationPeriod',
+    'ReversingEntry', 'RoutePoint', 'RowsCount', 'SentNo', 'Started', 'ThisNode', 'Type',
+    'ValueType', 'Активность', 'БазовыйПериодЯвляетсяОсновным', 'БизнесПроцесс',
+    'ВедущаяЗадача', 'ВидРасчета', 'Владелец', 'Выполнена', 'Дата', 'Забалансовый', 'Завершен',
+    'ИмяПредопределенныхДанных', 'Код', 'КоличествоСтрок', 'Наименование', 'Номер',
+    'НомерОтправленного', 'НомерПринятого', 'НомерСтроки', 'Период', 'ПериодРегистрации',
+    'ПометкаУдаления', 'Порядок', 'Предопределенный', 'Проведен', 'Регистратор', 'Родитель',
+    'Ссылка', 'Стартован', 'СторноЗапись', 'Счет', 'Тип', 'ТипЗначения', 'ТочкаМаршрута',
+    'ЭтоГруппа', 'ЭтотУзел',
+}
+
+OBJECT_TYPE_DIR_MAP = {
+    'CatalogObject': 'Catalogs', 'DocumentObject': 'Documents',
+    'ReportObject': 'Reports', 'DataProcessorObject': 'DataProcessors',
+    'ChartOfCharacteristicTypesObject': 'ChartsOfCharacteristicTypes',
+    'ChartOfAccountsObject': 'ChartsOfAccounts',
+    'ChartOfCalculationTypesObject': 'ChartsOfCalculationTypes',
+    'BusinessProcessObject': 'BusinessProcesses', 'TaskObject': 'Tasks',
+    'ExchangePlanObject': 'ExchangePlans',
+}
+
+
+def read_object_members(obj_file):
+    """Реквизиты объекта и колонки его табличных частей из основной конфигурации."""
+    MD = NS['md']
+    attrs = set()
+    sections = {}
+    doc = etree.parse(obj_file, etree.XMLParser(remove_blank_text=False))
+    for child in doc.getroot():
+        if not isinstance(child.tag, str):
+            continue
+        children_el = child.find(f'{{{MD}}}ChildObjects')
+        if children_el is None:
+            continue
+        for node in children_el:
+            if not isinstance(node.tag, str):
+                continue
+            local = etree.QName(node.tag).localname
+            props = node.find(f'{{{MD}}}Properties')
+            if props is None:
+                continue
+            name_el = props.find(f'{{{MD}}}Name')
+            name = (name_el.text or '').strip() if name_el is not None else ''
+            if not name:
+                continue
+            if local == 'Attribute':
+                attrs.add(name)
+            elif local == 'TabularSection':
+                columns = set()
+                ts_children = node.find(f'{{{MD}}}ChildObjects')
+                if ts_children is not None:
+                    for col in ts_children:
+                        if not isinstance(col.tag, str) or etree.QName(col.tag).localname != 'Attribute':
+                            continue
+                        col_props = col.find(f'{{{MD}}}Properties')
+                        if col_props is None:
+                            continue
+                        col_name_el = col_props.find(f'{{{MD}}}Name')
+                        col_name = (col_name_el.text or '').strip() if col_name_el is not None else ''
+                        if col_name:
+                            columns.add(col_name)
+                sections[name] = columns
+        break
+    return attrs, sections
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -172,6 +242,7 @@ def main():
         description='Validate 1C configuration extension XML structure (CFE)', allow_abbrev=False
     )
     parser.add_argument('-ExtensionPath', dest='ExtensionPath', required=True)
+    parser.add_argument('-ConfigPath', dest='ConfigPath', default='')
     parser.add_argument('-Detailed', action='store_true')
     parser.add_argument('-MaxErrors', dest='MaxErrors', type=int, default=30)
     parser.add_argument('-OutFile', dest='OutFile', default='')
@@ -731,6 +802,7 @@ def main():
                             form_list.append({
                                 'TypeName': type_name, 'ObjName': child_name,
                                 'FormName': form_name, 'DirName': dir_name,
+                                'ObjFile': os.path.join(config_dir, dir_name, child_name + '.xml'),
                             })
                             sub_item_count += 1
 
@@ -810,6 +882,7 @@ def main():
                 r.warn(f'11. {ctx}: <BaseForm> missing version attribute')
             borrowed_forms_with_tree.append({
                 'Path': form_xml_file, 'RawText': form_raw_text, 'Context': ctx,
+                'ObjFile': fi['ObjFile'], 'ObjName': fi['ObjName'],
             })
 
     if form_count == 0:
@@ -906,6 +979,106 @@ def main():
         r.ok('13. TypeLink: no borrowed forms with tree')
     elif check13_ok:
         r.ok('13. TypeLink: clean')
+
+    # --- Check 14: Form data paths against the main configuration ---
+    config_path = args.ConfigPath
+    if not config_path:
+        r.ok('14. Form data paths: -ConfigPath not given, check skipped')
+    elif not borrowed_forms_with_tree:
+        r.ok('14. Form data paths: no borrowed forms with tree')
+    else:
+        check14_ok = True
+        path_count = 0
+        for bf in borrowed_forms_with_tree:
+            raw = bf['RawText']
+            ctx = bf['Context']
+            main_attr = re.search(
+                r'(?s)<Attribute name="([^"]+)"[^>]*>(.*?)</Attribute>', raw)
+            main_name = ''
+            main_type = ''
+            for m in re.finditer(r'(?s)<Attribute name="([^"]+)"[^>]*>(.*?)</Attribute>', raw):
+                if '<MainAttribute>true</MainAttribute>' not in m.group(2):
+                    continue
+                main_name = m.group(1)
+                tm = re.search(r'<v8:Type>cfg:([^<]+)</v8:Type>', m.group(2))
+                main_type = tm.group(1) if tm else ''
+                break
+            if not main_name or '.' not in main_type:
+                continue
+            kind, obj_name = main_type.split('.', 1)
+            dir_name = OBJECT_TYPE_DIR_MAP.get(kind)
+            if not dir_name:
+                continue
+            obj_file = os.path.join(config_path, dir_name, obj_name + '.xml')
+            if not os.path.isfile(obj_file):
+                r.warn(f'14. {ctx}: {dir_name}/{obj_name}.xml not found in configuration')
+                continue
+            try:
+                obj_attrs, obj_sections = read_object_members(obj_file)
+            except etree.XMLSyntaxError as e:
+                r.warn(f'14. {ctx}: cannot parse {dir_name}/{obj_name}.xml: {e}')
+                continue
+            reported = set()
+            for m in re.finditer(r'<(?:DataPath|TitleDataPath)>([^<]+)</(?:DataPath|TitleDataPath)>', raw):
+                path = m.group(1).strip()
+                segments = path.split('.')
+                if len(segments) < 2 or segments[0] != main_name:
+                    continue
+                first = segments[1]
+                if first in STANDARD_FIELDS:
+                    continue
+                path_count += 1
+                if first not in obj_attrs and first not in obj_sections:
+                    if path not in reported:
+                        reported.add(path)
+                        r.error(f'14. {ctx}: {path} - {obj_name} has no attribute or tabular section "{first}"')
+                        check14_ok = False
+                    continue
+                if len(segments) < 3 or first not in obj_sections:
+                    continue
+                second = segments[2]
+                if second in STANDARD_FIELDS or second in obj_sections[first]:
+                    continue
+                if path not in reported:
+                    reported.add(path)
+                    r.error(f'14. {ctx}: {path} - tabular section "{first}" has no column "{second}"')
+                    check14_ok = False
+        if check14_ok:
+            r.ok(f'14. Form data paths: {path_count} checked against the configuration')
+
+    # --- Check 15: AdditionalColumns against borrowed tabular sections ---
+    # Табличная часть, названная в AdditionalColumns, должна быть заимствована: без нее
+    # платформа отвергает форму с сообщением о неверном пути к данным.
+    check15_ok = True
+    add_col_count = 0
+    for bf in borrowed_forms_with_tree:
+        raw = bf['RawText']
+        ctx = bf['Context']
+        tables = []
+        for m in re.finditer(r'<AdditionalColumns table="([^"]+)"', raw):
+            segments = m.group(1).split('.')
+            if len(segments) == 2 and segments[1] not in tables:
+                tables.append(segments[1])
+        if not tables:
+            continue
+        add_col_count += len(tables)
+        borrowed_sections = set()
+        if os.path.isfile(bf['ObjFile']):
+            try:
+                _, borrowed_sections_map = read_object_members(bf['ObjFile'])
+                borrowed_sections = set(borrowed_sections_map)
+            except etree.XMLSyntaxError as e:
+                r.warn(f'15. {ctx}: cannot parse {bf["ObjName"]}.xml: {e}')
+                continue
+        for table in tables:
+            if table in borrowed_sections:
+                continue
+            r.error(f'15. {ctx}: AdditionalColumns refers to TabularSection.{table}, which is not borrowed into the extension')
+            check15_ok = False
+    if add_col_count == 0:
+        r.ok('15. AdditionalColumns: none found')
+    elif check15_ok:
+        r.ok(f'15. AdditionalColumns: {add_col_count} table(s) borrowed')
 
     # --- Final output ---
     r.finalize(out_file)

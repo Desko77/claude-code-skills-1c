@@ -62,14 +62,32 @@ foreach ($node in $formNodes) {
 			$parent.RemoveChild($prev) | Out-Null
 		}
 		$parent.RemoveChild($node) | Out-Null
+		# Опустевший контейнер платформа пишет одиночным тегом, а не парой. Внутри
+		# остается перевод строки с отступом - его тоже убираем, иначе выйдет пара
+		# с пробелом.
+		$onlyBlank = $true
+		foreach ($rest in @($parent.ChildNodes)) {
+			if ($rest.NodeType -ne [System.Xml.XmlNodeType]::Whitespace -and
+				$rest.NodeType -ne [System.Xml.XmlNodeType]::SignificantWhitespace) { $onlyBlank = $false }
+		}
+		if ($onlyBlank) {
+			foreach ($rest in @($parent.ChildNodes)) { $parent.RemoveChild($rest) | Out-Null }
+			$parent.IsEmpty = $true
+		}
 		break
 	}
 }
 
-# Очистить DefaultForm если указывала на эту форму
-$defaultForm = $xmlDoc.SelectSingleNode("//md:DefaultForm", $nsMgr)
-if ($defaultForm -and $defaultForm.InnerText -match "Form\.$FormName$") {
-	$defaultForm.InnerText = ""
+# Ссылку на удаленную форму несет любое свойство Default*Form и Auxiliary*Form -
+# одного DefaultForm мало: у справочника форма объекта лежит в DefaultObjectForm.
+foreach ($prop in $xmlDoc.SelectNodes("//*")) {
+	if ($prop.NodeType -ne 'Element') { continue }
+	if (-not ($prop.LocalName.StartsWith('Default') -or $prop.LocalName.StartsWith('Auxiliary'))) { continue }
+	if (-not $prop.LocalName.EndsWith('Form')) { continue }
+	if ($prop.InnerText -match "Form\.$FormName$") {
+		$prop.InnerText = ""
+		$prop.IsEmpty = $true
+	}
 }
 
 # Сохранить с BOM

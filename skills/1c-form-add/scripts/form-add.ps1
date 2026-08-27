@@ -146,6 +146,11 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 	} catch { return }
 }
 # --- Конец общего блока гарда поддержки ---
+
+# Объекты, которые платформа хранит в базе: у их формы основной реквизит несет признак
+# сохраняемых данных. У обработки и отчета такого хранения нет.
+$script:persistedObjectTypes = @("Catalog","Document","ChartOfAccounts","ChartOfCharacteristicTypes","ChartOfCalculationTypes","BusinessProcess","Task","ExchangePlan","InformationRegister","AccumulationRegister")
+
 $ErrorActionPreference = "Stop"
 
 # --- Detect XML format version ---
@@ -404,6 +409,11 @@ if ($Purpose -eq "List" -or $Purpose -eq "Choice") {
 	$mainAttrName = "Запись"
 	$mainAttrType = "InformationRegisterRecordManager.$objectName"
 
+	# Признак сохраняемых данных ставится у объектов, которые платформа хранит в базе.
+	# У обработки и отчета такого хранения нет - там его не пишут.
+	$savedDataLine = if ($script:persistedObjectTypes -contains $objectType) {
+		"`r`n			<SavedData>true</SavedData>"
+	} else { "" }
 	$formXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
 <Form $formNsDecl version="$($script:formatVersion)">
@@ -416,8 +426,7 @@ if ($Purpose -eq "List" -or $Purpose -eq "Choice") {
 			<Type>
 				<v8:Type>cfg:$mainAttrType</v8:Type>
 			</Type>
-			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
+			<MainAttribute>true</MainAttribute>$savedDataLine
 		</Attribute>
 	</Attributes>
 </Form>
@@ -445,6 +454,11 @@ if ($Purpose -eq "List" -or $Purpose -eq "Choice") {
 
 	$mainAttrType = "$($attrTypeMap[$objectType]).$objectName"
 
+	# Признак сохраняемых данных ставится у объектов, которые платформа хранит в базе.
+	# У обработки и отчета такого хранения нет - там его не пишут.
+	$savedDataLine = if ($script:persistedObjectTypes -contains $objectType) {
+		"`r`n			<SavedData>true</SavedData>"
+	} else { "" }
 	$formXml = @"
 <?xml version="1.0" encoding="UTF-8"?>
 <Form $formNsDecl version="$($script:formatVersion)">
@@ -457,8 +471,7 @@ if ($Purpose -eq "List" -or $Purpose -eq "Choice") {
 			<Type>
 				<v8:Type>cfg:$mainAttrType</v8:Type>
 			</Type>
-			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
+			<MainAttribute>true</MainAttribute>$savedDataLine
 		</Attribute>
 	</Attributes>
 </Form>
@@ -512,6 +525,13 @@ if (-not $childObjects) {
 }
 
 # Добавить <Form>$FormName</Form>
+# Форму мог зарегистрировать form-compile: второй такой элемент платформа не примет.
+$alreadyRegistered = $false
+foreach ($existing in $childObjects.ChildNodes) {
+	if ($existing.NodeType -eq 'Element' -and $existing.LocalName -eq 'Form' -and
+		$existing.InnerText.Trim() -eq $FormName) { $alreadyRegistered = $true }
+}
+
 $formElem = $xmlDoc.CreateElement("Form", "http://v8.1c.ru/8.3/MDClasses")
 $formElem.InnerText = $FormName
 
@@ -528,7 +548,8 @@ if ($firstTemplate) {
 	$insertBefore = $firstTabular
 }
 
-if ($insertBefore) {
+if ($alreadyRegistered) {
+} elseif ($insertBefore) {
 	# Вставить перед найденным элементом, с переносом строки
 	$whitespace = $xmlDoc.CreateWhitespace("`n`t`t`t")
 	$childObjects.InsertBefore($formElem, $insertBefore) | Out-Null
@@ -640,7 +661,11 @@ Write-Host "  Metadata: $objDirName\$objBaseName\Forms\$FormName.xml"
 Write-Host "  Form:     $objDirName\$objBaseName\Forms\$FormName\Ext\Form.xml"
 Write-Host "  Module:   $objDirName\$objBaseName\Forms\$FormName\Ext\Form\Module.bsl"
 Write-Host ""
-Write-Host "Registered: <Form>$FormName</Form> in ChildObjects"
+if ($alreadyRegistered) {
+	Write-Host "Already registered: <Form>$FormName</Form> in ChildObjects"
+} else {
+	Write-Host "Registered: <Form>$FormName</Form> in ChildObjects"
+}
 if ($defaultUpdated) {
 	Write-Host "${defaultPropName}: $defaultValue"
 }

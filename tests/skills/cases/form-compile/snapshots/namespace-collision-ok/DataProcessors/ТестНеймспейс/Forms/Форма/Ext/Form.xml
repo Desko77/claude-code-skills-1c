@@ -21,7 +21,6 @@
 				<v8:Type>cfg:DataProcessorObject.ТестНеймспейс</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Сумма" id="5">
 			<Title>

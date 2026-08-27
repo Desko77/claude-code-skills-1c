@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import uuid
 import xml.etree.ElementTree as ET
@@ -365,6 +366,16 @@ def format_version_rank(version):
     return int(m.group(1)) * 100 + int(m.group(2)) if m else 0
 
 
+def sibling_skill_script(name, script_name):
+    """Скрипт соседнего навыка. Каталог навыка назван с префиксом 1c-, без него пути нет."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    for folder in ('1c-' + name, name):
+        candidate = os.path.normpath(os.path.join(base, '..', '..', folder, 'scripts', script_name))
+        if os.path.isfile(candidate):
+            return candidate
+    return ''
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -678,12 +689,21 @@ def main():
 
             if not already_exists:
                 # Use raw text manipulation to preserve formatting
-                if '<ChildObjects/>' in raw_text:
-                    replacement = f'<ChildObjects>\n\t\t\t<Subsystem>{esc_xml(obj_name)}</Subsystem>\n\t\t</ChildObjects>'
-                    raw_text = raw_text.replace('<ChildObjects/>', replacement, 1)
-                elif '</ChildObjects>' in raw_text:
-                    insert_line = f'\t\t\t<Subsystem>{esc_xml(obj_name)}</Subsystem>\n'
-                    raw_text = raw_text.replace('</ChildObjects>', insert_line + '\t\t</ChildObjects>', 1)
+                # Отступ берется у самого контейнера, а не задается числом табуляций:
+                # прежняя запись добавляла три табуляции К уже существующему отступу строки
+                # и давала пять.
+                self_closing = re.search(r'([ \t]*)<ChildObjects/>', raw_text)
+                closing = re.search(r'([ \t]*)</ChildObjects>', raw_text)
+                entry = f'<Subsystem>{esc_xml(obj_name)}</Subsystem>'
+                if self_closing:
+                    pad = self_closing.group(1)
+                    replacement = (f'<ChildObjects>\n{pad}\t{entry}\n{pad}</ChildObjects>')
+                    raw_text = (raw_text[:self_closing.start()] + pad + replacement
+                                + raw_text[self_closing.end():])
+                elif closing:
+                    pad = closing.group(1)
+                    raw_text = (raw_text[:closing.start()] + pad + '\t' + entry + '\n'
+                                + pad + '</ChildObjects>' + raw_text[closing.end():])
 
                 write_utf8_bom(parent_xml_path, raw_text)
                 print(f"[OK] Registered in: {parent_xml_path}")
@@ -696,12 +716,12 @@ def main():
 
     # --- 6. Auto-validate ---
     if not args.NoValidate:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        validate_script = os.path.normpath(os.path.join(script_dir, '..', '..', 'subsystem-validate', 'scripts', 'subsystem-validate.ps1'))
-        if os.path.exists(validate_script):
+        # Проверка идет тем же портом: состав и вложенность знает subsystem-validate,
+        # meta-validate смотрит только корень, UUID и имя.
+        validate_script = sibling_skill_script('subsystem-validate', 'subsystem-validate.py')
+        if validate_script:
             print()
-            print("--- Running subsystem-validate ---")
-            os.system(f'powershell.exe -NoProfile -File "{validate_script}" -SubsystemPath "{target_xml}"')
+            subprocess.run([sys.executable, validate_script, '-SubsystemPath', target_xml])
 
     # --- 7. Summary ---
     print()

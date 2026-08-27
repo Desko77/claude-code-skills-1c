@@ -4,6 +4,8 @@ param(
 	[Parameter(Mandatory)]
 	[string]$ExtensionPath,
 
+	[string]$ConfigPath,
+
 	[switch]$Detailed,
 
 	[int]$MaxErrors = 30,
@@ -742,6 +744,7 @@ if ($childObjNode) {
 						$script:formList += @{
 							TypeName = $typeName; ObjName = $childName
 							FormName = $formName; DirName = $dirName
+							ObjFile = (Join-Path (Join-Path $configDir $dirName) ($childName + '.xml'))
 						}
 						$subItemCount++
 					}
@@ -840,6 +843,7 @@ foreach ($fi in $script:formList) {
 
 		$script:borrowedFormsWithTree += @{
 			Path = $formXmlFile; RawText = $formRawText; Context = $ctx
+			ObjFile = $fi.ObjFile; ObjName = $fi.ObjName
 		}
 	}
 }
@@ -929,6 +933,16 @@ if ($script:borrowedFormsWithTree.Count -eq 0) {
 
 if ($script:stopped) { & $finalize; exit 1 }
 
+function Get-MemberName($node) {
+	foreach ($p in $node.ChildNodes) {
+		if ($p.NodeType -ne 'Element' -or $p.LocalName -cne 'Properties') { continue }
+		foreach ($n in $p.ChildNodes) {
+			if ($n.NodeType -eq 'Element' -and $n.LocalName -ceq 'Name') { return $n.InnerText.Trim() }
+		}
+	}
+	return ''
+}
+
 # --- Check 13: TypeLink with human-readable paths ---
 $check13Ok = $true
 $typeLinkCount = 0
@@ -948,6 +962,173 @@ if ($script:borrowedFormsWithTree.Count -eq 0) {
 	Report-OK "13. TypeLink: no borrowed forms with tree"
 } elseif ($check13Ok) {
 	Report-OK "13. TypeLink: clean"
+}
+
+# --- Check 14: Form data paths against the main configuration ---
+# Стандартные реквизиты в объекте не описаны, но в путях формы законны.
+$standardFields = @(
+	'Account', 'ActionPeriodIsBasic', 'Active', 'BusinessProcess', 'CalculationType', 'Code',
+	'Completed', 'Date', 'DeletionMark', 'Description', 'Executed', 'HeadTask', 'IsFolder',
+	'LineNumber', 'Number', 'OffBalance', 'Order', 'Owner', 'Parent', 'Period', 'Posted',
+	'Predefined', 'PredefinedDataName', 'ReceivedNo', 'Recorder', 'Ref', 'RegistrationPeriod',
+	'ReversingEntry', 'RoutePoint', 'RowsCount', 'SentNo', 'Started', 'ThisNode', 'Type',
+	'ValueType', 'Активность', 'БазовыйПериодЯвляетсяОсновным', 'БизнесПроцесс', 'ВедущаяЗадача',
+	'ВидРасчета', 'Владелец', 'Выполнена', 'Дата', 'Забалансовый', 'Завершен',
+	'ИмяПредопределенныхДанных', 'Код', 'КоличествоСтрок', 'Наименование', 'Номер',
+	'НомерОтправленного', 'НомерПринятого', 'НомерСтроки', 'Период', 'ПериодРегистрации',
+	'ПометкаУдаления', 'Порядок', 'Предопределенный', 'Проведен', 'Регистратор', 'Родитель',
+	'Ссылка', 'Стартован', 'СторноЗапись', 'Счет', 'Тип', 'ТипЗначения', 'ТочкаМаршрута',
+	'ЭтоГруппа', 'ЭтотУзел'
+)
+$objectTypeDirMap = @{
+	'CatalogObject' = 'Catalogs'; 'DocumentObject' = 'Documents'
+	'ReportObject' = 'Reports'; 'DataProcessorObject' = 'DataProcessors'
+	'ChartOfCharacteristicTypesObject' = 'ChartsOfCharacteristicTypes'
+	'ChartOfAccountsObject' = 'ChartsOfAccounts'
+	'ChartOfCalculationTypesObject' = 'ChartsOfCalculationTypes'
+	'BusinessProcessObject' = 'BusinessProcesses'; 'TaskObject' = 'Tasks'
+	'ExchangePlanObject' = 'ExchangePlans'
+}
+
+if (-not $ConfigPath) {
+	Report-OK '14. Form data paths: -ConfigPath not given, check skipped'
+} elseif ($script:borrowedFormsWithTree.Count -eq 0) {
+	Report-OK '14. Form data paths: no borrowed forms with tree'
+} else {
+	$check14Ok = $true
+	$pathCount = 0
+	foreach ($bf in $script:borrowedFormsWithTree) {
+		$raw = $bf.RawText
+		$ctx = $bf.Context
+		$mainName = ''
+		$mainType = ''
+		foreach ($m in [regex]::Matches($raw, '(?s)<Attribute name="([^"]+)"[^>]*>(.*?)</Attribute>')) {
+			if ($m.Groups[2].Value -notmatch '<MainAttribute>true</MainAttribute>') { continue }
+			$mainName = $m.Groups[1].Value
+			$tm = [regex]::Match($m.Groups[2].Value, '<v8:Type>cfg:([^<]+)</v8:Type>')
+			if ($tm.Success) { $mainType = $tm.Groups[1].Value }
+			break
+		}
+		if (-not $mainName -or $mainType -notmatch '\.') { continue }
+		$kind, $objName = $mainType -split '\.', 2
+		$dirName = $objectTypeDirMap[$kind]
+		if (-not $dirName) { continue }
+		$objFile = Join-Path (Join-Path $ConfigPath $dirName) ($objName + '.xml')
+		if (-not (Test-Path $objFile)) {
+			Report-Warn "14. ${ctx}: $dirName/$objName.xml not found in configuration"
+			continue
+		}
+		$objDoc = New-Object System.Xml.XmlDocument
+		$objDoc.PreserveWhitespace = $true
+		try { $objDoc.Load($objFile) } catch {
+			Report-Warn "14. ${ctx}: cannot parse $dirName/$objName.xml"
+			continue
+		}
+		$objAttrs = New-Object System.Collections.Generic.HashSet[string]
+		$objSections = @{}
+		foreach ($child in $objDoc.DocumentElement.ChildNodes) {
+			if ($child.NodeType -ne 'Element') { continue }
+			$childrenEl = $null
+			foreach ($c in $child.ChildNodes) {
+				if ($c.NodeType -eq 'Element' -and $c.LocalName -ceq 'ChildObjects') { $childrenEl = $c; break }
+			}
+			if ($null -eq $childrenEl) { break }
+			foreach ($node in $childrenEl.ChildNodes) {
+				if ($node.NodeType -ne 'Element') { continue }
+				$name = Get-MemberName $node
+				if (-not $name) { continue }
+				if ($node.LocalName -ceq 'Attribute') {
+					[void]$objAttrs.Add($name)
+				} elseif ($node.LocalName -ceq 'TabularSection') {
+					$columns = New-Object System.Collections.Generic.HashSet[string]
+					foreach ($tsChild in $node.ChildNodes) {
+						if ($tsChild.NodeType -ne 'Element' -or $tsChild.LocalName -cne 'ChildObjects') { continue }
+						foreach ($col in $tsChild.ChildNodes) {
+							if ($col.NodeType -ne 'Element' -or $col.LocalName -cne 'Attribute') { continue }
+							$colName = Get-MemberName $col
+							if ($colName) { [void]$columns.Add($colName) }
+						}
+					}
+					$objSections[$name] = $columns
+				}
+			}
+			break
+		}
+		$reported = New-Object System.Collections.Generic.HashSet[string]
+		foreach ($m in [regex]::Matches($raw, '<(?:DataPath|TitleDataPath)>([^<]+)</(?:DataPath|TitleDataPath)>')) {
+			$path = $m.Groups[1].Value.Trim()
+			$segments = $path -split '\.'
+			if ($segments.Count -lt 2 -or $segments[0] -cne $mainName) { continue }
+			$first = $segments[1]
+			if ($standardFields -ccontains $first) { continue }
+			$pathCount++
+			if (-not $objAttrs.Contains($first) -and -not $objSections.ContainsKey($first)) {
+				if ($reported.Add($path)) {
+					Report-Error "14. ${ctx}: $path - $objName has no attribute or tabular section `"$first`""
+					$check14Ok = $false
+				}
+				continue
+			}
+			if ($segments.Count -lt 3 -or -not $objSections.ContainsKey($first)) { continue }
+			$second = $segments[2]
+			if ($standardFields -ccontains $second -or $objSections[$first].Contains($second)) { continue }
+			if ($reported.Add($path)) {
+				Report-Error "14. ${ctx}: $path - tabular section `"$first`" has no column `"$second`""
+				$check14Ok = $false
+			}
+		}
+	}
+	if ($check14Ok) {
+		Report-OK "14. Form data paths: $pathCount checked against the configuration"
+	}
+}
+
+# --- Check 15: AdditionalColumns against borrowed tabular sections ---
+# Табличная часть, названная в AdditionalColumns, должна быть заимствована: без нее
+# платформа отвергает форму с сообщением о неверном пути к данным.
+$check15Ok = $true
+$addColCount = 0
+foreach ($bf in $script:borrowedFormsWithTree) {
+	$raw = $bf.RawText
+	$ctx = $bf.Context
+	$tables = New-Object System.Collections.Generic.List[string]
+	foreach ($m in [regex]::Matches($raw, '<AdditionalColumns table="([^"]+)"')) {
+		$segments = $m.Groups[1].Value -split '\.'
+		if ($segments.Count -eq 2 -and -not $tables.Contains($segments[1])) { [void]$tables.Add($segments[1]) }
+	}
+	if ($tables.Count -eq 0) { continue }
+	$addColCount += $tables.Count
+	$borrowedSections = New-Object System.Collections.Generic.HashSet[string]
+	if (Test-Path $bf.ObjFile) {
+		$objDoc = New-Object System.Xml.XmlDocument
+		$objDoc.PreserveWhitespace = $true
+		try { $objDoc.Load($bf.ObjFile) } catch {
+			Report-Warn "15. ${ctx}: cannot parse $($bf.ObjName).xml"
+			continue
+		}
+		foreach ($child in $objDoc.DocumentElement.ChildNodes) {
+			if ($child.NodeType -ne 'Element') { continue }
+			foreach ($c in $child.ChildNodes) {
+				if ($c.NodeType -ne 'Element' -or $c.LocalName -cne 'ChildObjects') { continue }
+				foreach ($node in $c.ChildNodes) {
+					if ($node.NodeType -ne 'Element' -or $node.LocalName -cne 'TabularSection') { continue }
+					$tsName = Get-MemberName $node
+					if ($tsName) { [void]$borrowedSections.Add($tsName) }
+				}
+			}
+			break
+		}
+	}
+	foreach ($table in $tables) {
+		if ($borrowedSections.Contains($table)) { continue }
+		Report-Error "15. ${ctx}: AdditionalColumns refers to TabularSection.$table, which is not borrowed into the extension"
+		$check15Ok = $false
+	}
+}
+if ($addColCount -eq 0) {
+	Report-OK '15. AdditionalColumns: none found'
+} elseif ($check15Ok) {
+	Report-OK "15. AdditionalColumns: $addColCount table(s) borrowed"
 }
 
 # --- Final output ---

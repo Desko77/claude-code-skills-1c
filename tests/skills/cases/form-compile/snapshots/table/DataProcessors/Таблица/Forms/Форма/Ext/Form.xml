@@ -43,7 +43,6 @@
 				<v8:Type>cfg:DataProcessorObject.Таблица</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Данные" id="17">
 			<Title>
@@ -55,6 +54,10 @@
 			<Type>
 				<v8:Type>v8:ValueTable</v8:Type>
 			</Type>
+			<UseAlways>
+				<Field>Данные.Сумма</Field>
+				<Field>Данные.Дата</Field>
+			</UseAlways>
 			<Columns>
 				<Column name="Дата" id="18">
 					<Type>

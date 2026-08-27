@@ -41,7 +41,6 @@
 				<v8:Type>cfg:DataProcessorObject.Команды</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Результат" id="12">
 			<Title>

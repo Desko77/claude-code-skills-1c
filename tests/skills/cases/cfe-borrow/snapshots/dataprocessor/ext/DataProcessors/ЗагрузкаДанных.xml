@@ -17,5 +17,6 @@
 			<Comment/>
 			<ExtendedConfigurationObject>UUID-006</ExtendedConfigurationObject>
 		</Properties>
+		<ChildObjects/>
 	</DataProcessor>
 </MetaDataObject>

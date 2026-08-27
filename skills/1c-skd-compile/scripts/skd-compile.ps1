@@ -187,7 +187,13 @@ function X {
 
 function Esc-Xml {
 	param([string]$s)
-	return $s.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace('"','&quot;')
+	return $s.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;')
+}
+
+# Значение атрибута: сверх содержимого экранируется кавычка.
+function Esc-Attr {
+	param([string]$s)
+	return (Esc-Xml $s).Replace('"','&quot;')
 }
 
 function Resolve-QueryValue {
@@ -325,6 +331,22 @@ function Resolve-TypeStr {
 	if ($resolved) { return $resolved }
 
 	return $typeStr
+}
+
+# Тип значения и его текст: платформа пишет тип явным атрибутом xsi:type.
+function Get-DesignTimeValue($value) {
+	if ($value -is [bool]) {
+		$flag = if ($value) { 'true' } else { 'false' }
+		return @{ type = 'xs:boolean'; text = $flag }
+	}
+	if ($value -is [int] -or $value -is [long] -or $value -is [double] -or $value -is [decimal]) {
+		return @{ type = 'xs:decimal'; text = (Esc-Xml "$value") }
+	}
+	$text = "$value"
+	if ($text -match '^(Перечисление|Справочник|ПланСчетов|Документ|ПланВидовХарактеристик|ПланВидовРасчета)\.') {
+		return @{ type = 'dcscor:DesignTimeValue'; text = (Esc-Xml $text) }
+	}
+	return @{ type = 'xs:string'; text = (Esc-Xml $text) }
 }
 
 function Emit-ValueType {
@@ -783,6 +805,8 @@ function Emit-Field {
 		if ($fieldDef.restrict) {
 			$f.restrict = @($fieldDef.restrict)
 		}
+		# Параметры ввода поля переносятся как есть: их состав задан платформой.
+		if ($fieldDef.inputParameters) { $f.inputParameters = @($fieldDef.inputParameters) }
 		# Parse appearance
 		if ($fieldDef.appearance) {
 			foreach ($prop in $fieldDef.appearance.PSObject.Properties) {
@@ -899,6 +923,54 @@ function Emit-Field {
 		Emit-ValueType -typeStr $f.type -indent "$indent`t`t"
 		X "$indent`t</valueType>"
 	}
+	# Параметры ввода поля: параметры выбора, связи параметров выбора и простое
+	# типизированное значение. Платформа пишет значение с явным типом, а не отдельными
+	# элементами; признак использования идет ПЕРЕД именем параметра.
+	if ($f.inputParameters) {
+		X "$indent`t<inputParameters>"
+		foreach ($ip in $f.inputParameters) {
+			X "$indent`t`t<dcscor:item>"
+			if ($ip.PSObject.Properties['use'] -and $ip.use -eq $false) {
+				X "$indent`t`t`t<dcscor:use>false</dcscor:use>"
+			}
+			X "$indent`t`t`t<dcscor:parameter>$(Esc-Xml "$($ip.parameter)")</dcscor:parameter>"
+			if ($ip.PSObject.Properties['choiceParameters']) {
+				$cps = @($ip.choiceParameters)
+				if ($cps.Count -eq 0 -or $null -eq $cps[0]) {
+					X "$indent`t`t`t<dcscor:value xsi:type=`"dcscor:ChoiceParameters`"/>"
+				} else {
+					X "$indent`t`t`t<dcscor:value xsi:type=`"dcscor:ChoiceParameters`">"
+					foreach ($cp in $cps) {
+						X "$indent`t`t`t`t<dcscor:item>"
+						X "$indent`t`t`t`t`t<dcscor:choiceParameter>$(Esc-Xml "$($cp.name)")</dcscor:choiceParameter>"
+						foreach ($value in @($cp.values)) {
+							if ($null -eq $value) { continue }
+							X "$indent`t`t`t`t`t<dcscor:value xsi:type=`"dcscor:DesignTimeValue`">$(Esc-Xml "$value")</dcscor:value>"
+						}
+						X "$indent`t`t`t`t</dcscor:item>"
+					}
+					X "$indent`t`t`t</dcscor:value>"
+				}
+			} elseif ($ip.PSObject.Properties['choiceParameterLinks']) {
+				X "$indent`t`t`t<dcscor:value xsi:type=`"dcscor:ChoiceParameterLinks`">"
+				foreach ($link in @($ip.choiceParameterLinks)) {
+					X "$indent`t`t`t`t<dcscor:item>"
+					X "$indent`t`t`t`t`t<dcscor:choiceParameter>$(Esc-Xml "$($link.name)")</dcscor:choiceParameter>"
+					X "$indent`t`t`t`t`t<dcscor:value>$(Esc-Xml "$($link.value)")</dcscor:value>"
+					$mode = if ($link.mode) { "$($link.mode)" } else { 'Clear' }
+					X "$indent`t`t`t`t`t<dcscor:mode xmlns:d8p1=`"http://v8.1c.ru/8.1/data/enterprise`" xsi:type=`"d8p1:LinkedValueChangeMode`">$(Esc-Xml $mode)</dcscor:mode>"
+					X "$indent`t`t`t`t</dcscor:item>"
+				}
+				X "$indent`t`t`t</dcscor:value>"
+			} elseif ($ip.PSObject.Properties['value']) {
+				$dtv = Get-DesignTimeValue $ip.value
+				X "$indent`t`t`t<dcscor:value xsi:type=`"$($dtv.type)`">$($dtv.text)</dcscor:value>"
+			}
+			X "$indent`t`t</dcscor:item>"
+		}
+		X "$indent`t</inputParameters>"
+	}
+
 
 	# Appearance
 	if ($f.appearance -and $f.appearance.Count -gt 0) {
@@ -1144,7 +1216,13 @@ function Emit-SingleParam {
 	}
 
 	# Value
-	Emit-ParamValue -type $parsed.type -val $parsed.value -indent "`t`t"
+	if ($null -eq $parsed.value) {
+		if (-not $parsed.valueListAllowed) {
+			Emit-EmptyParamValue -type $parsed.type -indent "`t`t"
+		}
+	} else {
+		Emit-ParamValue -type $parsed.type -val $parsed.value -indent "`t`t" -autoDates:([bool]$parsed.autoDates)
+	}
 
 	# Hidden implies useRestriction=true + availableAsField=false
 	if ($parsed.hidden -eq $true) {
@@ -1152,10 +1230,10 @@ function Emit-SingleParam {
 		$parsed.useRestriction = $true
 	}
 
-	# UseRestriction
-	if ($parsed.useRestriction -eq $true -or ($p -isnot [string] -and $p.useRestriction -eq $true)) {
-		X "`t`t<useRestriction>true</useRestriction>"
-	}
+	# Признак ограничения пишется у каждого параметра, а не только когда он включен.
+	$restrict = ($parsed.useRestriction -eq $true -or ($p -isnot [string] -and $p.useRestriction -eq $true))
+	$restrictText = if ($restrict) { 'true' } else { 'false' }
+	X "`t`t<useRestriction>$restrictText</useRestriction>"
 
 	# Expression
 	if ($parsed.expression) {
@@ -1247,21 +1325,21 @@ function Emit-Parameters {
 		Emit-SingleParam -p $p -parsed $parsed
 
 		# Track parameter for auto dataParameters
-		$script:allParams += @{ name = $parsed.name; hidden = [bool]$parsed.hidden; type = "$($parsed.type)"; value = $parsed.value }
+		$script:allParams += @{ name = $parsed.name; hidden = [bool]$parsed.hidden; type = "$($parsed.type)"; value = $parsed.value; autoDates = [bool]$parsed.autoDates }
 
 		# @autoDates: auto-generate НачалоПериода and КонецПериода (canonical БСП pattern)
 		if ($parsed.autoDates) {
 			$paramName = $parsed.name
 			$beginParsed = @{
 				name = "НачалоПериода"; title = "Начало периода"
-				type = "date"; value = "0001-01-01T00:00:00"
+				type = "dateTime"; value = "0001-01-01T00:00:00"
 				useRestriction = $true
 				expression = "&$paramName.ДатаНачала"
 			}
 			Emit-SingleParam -p $null -parsed $beginParsed
 			$endParsed = @{
 				name = "КонецПериода"; title = "Конец периода"
-				type = "date"; value = "0001-01-01T00:00:00"
+				type = "dateTime"; value = "0001-01-01T00:00:00"
 				useRestriction = $true
 				expression = "&$paramName.ДатаОкончания"
 			}
@@ -1270,20 +1348,31 @@ function Emit-Parameters {
 	}
 }
 
+# Параметр без значения: ссылочный тип и тип без указания дают nil, строка - пустой элемент.
+function Emit-EmptyParamValue {
+	param([string]$type, [string]$indent)
+	if (-not $type -or $type -match '^[A-Za-z]+Ref\.') {
+		X "$indent<value xsi:nil=`"true`"/>"
+	} elseif ($type -match '^string') {
+		X "$indent<value xsi:type=`"xs:string`"/>"
+	}
+}
+
 function Emit-ParamValue {
-	param([string]$type, $val, [string]$indent)
+	param([string]$type, $val, [string]$indent, [switch]$autoDates)
 
 	if ($null -eq $val) { return }
 
 	$valStr = "$val"
 
 	if ($type -eq "StandardPeriod") {
-		# val is a period variant string like "LastMonth" or "Custom".
-		# Always emit startDate/endDate to match how 1C Designer saves the schema.
+		# Границы периода пишутся, только когда их не считает сам вариант периода.
 		X "$indent<value xsi:type=`"v8:StandardPeriod`">"
 		X "$indent`t<v8:variant xsi:type=`"v8:StandardPeriodVariant`">$(Esc-Xml $valStr)</v8:variant>"
-		X "$indent`t<v8:startDate>0001-01-01T00:00:00</v8:startDate>"
-		X "$indent`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
+		if (-not $autoDates) {
+			X "$indent`t<v8:startDate>0001-01-01T00:00:00</v8:startDate>"
+			X "$indent`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
+		}
 		X "$indent</value>"
 	} elseif ($type -match '^date') {
 		X "$indent<value xsi:type=`"xs:dateTime`">$(Esc-Xml $valStr)</value>"
@@ -2136,15 +2225,19 @@ function Emit-DataParameters {
 				# StandardPeriod (object form from JSON)
 				X "$indent`t`t<dcscor:value xsi:type=`"v8:StandardPeriod`">"
 				X "$indent`t`t`t<v8:variant xsi:type=`"v8:StandardPeriodVariant`">$(Esc-Xml "$($dp.value.variant)")</v8:variant>"
-				X "$indent`t`t`t<v8:startDate>0001-01-01T00:00:00</v8:startDate>"
-				X "$indent`t`t`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
+				if (-not $dp.autoDates) {
+					X "$indent`t`t`t<v8:startDate>0001-01-01T00:00:00</v8:startDate>"
+					X "$indent`t`t`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
+				}
 				X "$indent`t`t</dcscor:value>"
 			} elseif ($dp.value -is [hashtable] -and $dp.value.variant) {
 				# StandardPeriod (hashtable from shorthand parser)
 				X "$indent`t`t<dcscor:value xsi:type=`"v8:StandardPeriod`">"
 				X "$indent`t`t`t<v8:variant xsi:type=`"v8:StandardPeriodVariant`">$(Esc-Xml "$($dp.value.variant)")</v8:variant>"
-				X "$indent`t`t`t<v8:startDate>0001-01-01T00:00:00</v8:startDate>"
-				X "$indent`t`t`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
+				if (-not $dp.autoDates) {
+					X "$indent`t`t`t<v8:startDate>0001-01-01T00:00:00</v8:startDate>"
+					X "$indent`t`t`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
+				}
 				X "$indent`t`t</dcscor:value>"
 			} elseif ($vtype -eq 'boolean' -or $dp.value -is [bool]) {
 				$bv = "$($dp.value)".ToLower()
@@ -2450,7 +2543,7 @@ function Emit-SettingsVariants {
 
 		# Order (Auto items only belong at group level, not top-level settings)
 		if ($s.order) {
-			Emit-Order -items $s.order -indent "`t`t`t" -skipAuto
+			Emit-Order -items $s.order -indent "`t`t`t"
 		}
 
 		# ConditionalAppearance
@@ -2466,10 +2559,8 @@ function Emit-SettingsVariants {
 		if ($s.additionalProperties) {
 			X "`t`t`t<dcsset:additionalProperties>"
 			foreach ($prop in $s.additionalProperties.PSObject.Properties) {
-				X "`t`t`t`t<v8:Property name=`"$(Esc-Xml $prop.Name)`">"
-				$propValue = "$($prop.Value)"
-				$escapedValue = $propValue.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;')
-				X "`t`t`t`t`t<v8:Value xsi:type=`"xs:string`">$escapedValue</v8:Value>"
+				X "`t`t`t`t<v8:Property name=`"$(Esc-Attr $prop.Name)`">"
+				X "`t`t`t`t`t<v8:Value xsi:type=`"xs:string`">$(Esc-Xml "$($prop.Value)")</v8:Value>"
 				X "`t`t`t`t</v8:Property>"
 			}
 			X "`t`t`t</dcsset:additionalProperties>"
@@ -2502,6 +2593,7 @@ function Emit-SettingsVariants {
 						}
 					}
 					$dpItem | Add-Member -NotePropertyName "value" -NotePropertyValue @{ variant = $variant }
+					if ($ap.autoDates) { $dpItem | Add-Member -NotePropertyName "autoDates" -NotePropertyValue $true }
 					if ($variant -ne 'Custom') { $hasMeaningfulValue = $true }
 				} elseif ($null -ne $ap.value -and "$($ap.value)" -ne '') {
 					$dpItem | Add-Member -NotePropertyName "value" -NotePropertyValue $ap.value

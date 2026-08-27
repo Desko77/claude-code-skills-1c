@@ -14,7 +14,6 @@
 				<v8:Type>cfg:DataProcessorObject.Реквизиты</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="СуммаИтого" id="2">
 			<Type>

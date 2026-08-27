@@ -26,7 +26,6 @@
 				<v8:Type>cfg:DataProcessorObject.Календарь</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Дата" id="8">
 			<Title>

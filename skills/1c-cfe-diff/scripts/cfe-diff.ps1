@@ -50,6 +50,9 @@ $childTypeDirMap = @{
 	"CommandGroup"="CommandGroups"; "DocumentNumerator"="DocumentNumerators"
 	"Sequence"="Sequences"; "IntegrationService"="IntegrationServices"; "Bot"="Bots"
 	"CommonAttribute"="CommonAttributes"
+	# Служебные объекты расширения попадают в обзор: построчным diff они не сравниваются,
+	# но перечислить их состав навык обязан.
+	"XDTOPackage"="XDTOPackages"; "WebService"="WebServices"; "HTTPService"="HTTPServices"; "WSReference"="WSReferences"
 }
 
 # --- Parse extension Configuration.xml ---

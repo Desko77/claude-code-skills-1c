@@ -35,7 +35,7 @@
 	</dataSet>
 	<calculatedField>
 		<dataPath>ИмяРесурса</dataPath>
-		<expression>&quot;&quot;</expression>
+		<expression>""</expression>
 		<title xsi:type="v8:LocalStringType">
 			<v8:item>
 				<v8:lang>ru</v8:lang>

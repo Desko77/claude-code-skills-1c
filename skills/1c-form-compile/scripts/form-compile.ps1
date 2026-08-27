@@ -2701,6 +2701,18 @@ function Emit-Popup {
 
 # --- 8. Attribute emitter ---
 
+# Колонка реквизита формы: имя, идентификатор, заголовок и тип.
+function Emit-AttrColumn {
+	param($col, [string]$indent)
+	$colId = New-Id
+	X "$indent<Column name=`"$($col.name)`" id=`"$colId`">"
+	if ($col.title) {
+		Emit-MLText -tag "Title" -text $col.title -indent "$indent`t"
+	}
+	Emit-Type -typeStr "$($col.type)" -indent "$indent`t"
+	X "$indent</Column>"
+}
+
 function Emit-Attributes {
 	param($attrs, [string]$indent)
 
@@ -2736,25 +2748,59 @@ function Emit-Attributes {
 		if ($attr.main -eq $true) {
 			X "$inner<MainAttribute>true</MainAttribute>"
 		}
-		# Основной реквизит хранится между сеансами - платформа пишет это признаком.
-		if ($attr.savedData -eq $true -or ($attr.main -eq $true -and $attr.savedData -ne $false)) {
+		# Признак сохраняемых данных пишется только по явному ключу: платформа выставляет
+		# его у основного реквизита сама, и лишняя запись расходится с выгрузкой.
+		if ($attr.savedData -eq $true) {
 			X "$inner<SavedData>true</SavedData>"
 		}
 		if ($attr.fillChecking) {
 			X "$inner<FillChecking>$($attr.fillChecking)</FillChecking>"
 		}
 
-		# Columns (for ValueTable/ValueTree)
-		if ($attr.columns -and $attr.columns.Count -gt 0) {
+		# UseAlways: поля, читаемые с сервера всегда. Имя без точки достраивается именем
+		# реквизита; знак ~ остается впереди. Колонки с признаком идут следом.
+		$useAlwaysFields = New-Object System.Collections.Generic.List[string]
+		foreach ($field in @($attr.useAlways | Where-Object { $null -ne $_ })) {
+			$fieldText = "$field"
+			$mark = ''
+			if ($fieldText.StartsWith('~')) {
+				$mark = '~'
+				$fieldText = $fieldText.Substring(1)
+			}
+			if ($fieldText -notmatch '\.') { $fieldText = $attrName + '.' + $fieldText }
+			[void]$useAlwaysFields.Add($mark + $fieldText)
+		}
+		foreach ($col in @($attr.columns | Where-Object { $null -ne $_ })) {
+			if ($col.useAlways -eq $true) { [void]$useAlwaysFields.Add($attrName + '.' + "$($col.name)") }
+		}
+		if ($useAlwaysFields.Count -gt 0) {
+			X "$inner<UseAlways>"
+			foreach ($field in $useAlwaysFields) {
+				X "$inner`t<Field>$field</Field>"
+			}
+			X "$inner</UseAlways>"
+		}
+
+		# Columns (for ValueTable/ValueTree) + AdditionalColumns табличных частей объекта.
+		# Порядок платформы: сначала прямые колонки, затем группы дополнительных.
+		$directCols = @($attr.columns | Where-Object { $null -ne $_ })
+		$addCols = @($attr.additionalColumns | Where-Object { $null -ne $_ })
+		if ($directCols.Count -gt 0 -or $addCols.Count -gt 0) {
 			X "$inner<Columns>"
-			foreach ($col in $attr.columns) {
-				$colId = New-Id
-				X "$inner`t<Column name=`"$($col.name)`" id=`"$colId`">"
-				if ($col.title) {
-					Emit-MLText -tag "Title" -text $col.title -indent "$inner`t`t"
+			foreach ($col in $directCols) {
+				Emit-AttrColumn -col $col -indent "$inner`t"
+			}
+			foreach ($ac in $addCols) {
+				$acCols = @($ac.columns | Where-Object { $null -ne $_ })
+				if ($acCols.Count -eq 0) {
+					X "$inner`t<AdditionalColumns table=`"$($ac.table)`"/>"
+					continue
 				}
-				Emit-Type -typeStr "$($col.type)" -indent "$inner`t`t"
-				X "$inner`t</Column>"
+				X "$inner`t<AdditionalColumns table=`"$($ac.table)`">"
+				foreach ($col in $acCols) {
+					Emit-AttrColumn -col $col -indent "$inner`t`t"
+				}
+				X "$inner`t</AdditionalColumns>"
 			}
 			X "$inner</Columns>"
 		}

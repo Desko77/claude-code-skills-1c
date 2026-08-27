@@ -161,6 +161,18 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 }
 # --- Конец общего блока гарда поддержки ---
 
+# Скрипт соседнего навыка. Каталог навыка назван с префиксом 1c-, без него пути нет.
+function Get-SiblingSkillScript {
+	param([string]$name, [string]$scriptName)
+	foreach ($folder in @("1c-$name", $name)) {
+		$candidate = Join-Path (Join-Path $PSScriptRoot "..\..\$folder") "scripts\$scriptName"
+		$candidate = [System.IO.Path]::GetFullPath($candidate)
+		if (Test-Path $candidate) { return $candidate }
+	}
+	return ""
+}
+
+
 # ============================================================
 # Section 1: Parameters + loading
 # ============================================================
@@ -2912,9 +2924,8 @@ Info "Saved: $resolvedPath"
 # ============================================================
 
 if (-not $NoValidate) {
-	$validateScript = Join-Path (Join-Path $PSScriptRoot "..\..\meta-validate") "scripts\meta-validate.ps1"
-	$validateScript = [System.IO.Path]::GetFullPath($validateScript)
-	if (Test-Path $validateScript) {
+	$validateScript = Get-SiblingSkillScript "meta-validate" "meta-validate.ps1"
+	if ($validateScript) {
 		Write-Host ""
 		Write-Host "--- Running meta-validate ---" -ForegroundColor DarkGray
 		& powershell.exe -NoProfile -File $validateScript -ObjectPath $resolvedPath

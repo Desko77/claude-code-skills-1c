@@ -180,6 +180,60 @@ def decode_one_type(type_el, vt_elem, node):
     return raw
 
 
+def input_parameters_of(fel):
+    """Параметры ввода поля: параметры выбора, связи параметров выбора и простое значение."""
+    ip_el = kid(fel, 'inputParameters')
+    if ip_el is None:
+        return []
+    items = []
+    for item in ip_el:
+        if local(item.tag) != 'item':
+            continue
+        # Имя параметра идет первым ключом: в файле признак использования стоит раньше,
+        # но в описании читается имя, а не служебный флаг.
+        entry = {'parameter': text_of(kid(item, 'parameter')) or ''}
+        use_el = kid(item, 'use')
+        if use_el is not None and (text_of(use_el) or '').strip() == 'false':
+            entry['use'] = False
+        value_el = kid(item, 'value')
+        if value_el is None:
+            items.append(entry)
+            continue
+        xsi_type = (value_el.get('{http://www.w3.org/2001/XMLSchema-instance}type') or '')
+        kind = xsi_type.split(':')[-1]
+        if kind == 'ChoiceParameters':
+            params = []
+            for sub in value_el:
+                if local(sub.tag) != 'item':
+                    continue
+                params.append({
+                    'name': text_of(kid(sub, 'choiceParameter')) or '',
+                    'values': [text_of(v) or '' for v in sub if local(v.tag) == 'value'],
+                })
+            entry['choiceParameters'] = params
+        elif kind == 'ChoiceParameterLinks':
+            links = []
+            for sub in value_el:
+                if local(sub.tag) != 'item':
+                    continue
+                links.append({
+                    'name': text_of(kid(sub, 'choiceParameter')) or '',
+                    'value': text_of(kid(sub, 'value')) or '',
+                    'mode': text_of(kid(sub, 'mode')) or 'Clear',
+                })
+            entry['choiceParameterLinks'] = links
+        else:
+            text = text_of(value_el) or ''
+            if kind == 'boolean':
+                entry['value'] = text.strip() == 'true'
+            elif kind == 'decimal':
+                entry['value'] = float(text) if '.' in text else int(text or 0)
+            else:
+                entry['value'] = text
+        items.append(entry)
+    return items
+
+
 def restriction_tokens(el):
     toks = []
     if el is None:
@@ -288,7 +342,9 @@ def build_field(fel):
         ao_el = kid(oe_el, 'autoOrder')
         order_expr['autoOrder'] = (text_of(ao_el) or '').strip() == 'true'
 
-    handled = {'dataPath', 'field', 'title', 'role', 'useRestriction',
+    input_parameters = input_parameters_of(fel)
+
+    handled = {'dataPath', 'field', 'title', 'role', 'useRestriction', 'inputParameters',
                'attributeUseRestriction', 'valueType', 'appearance', 'presentationExpression',
                'orderExpression'}
     for c in fel:
@@ -304,7 +360,9 @@ def build_field(fel):
         not appearance and not pres_expr and '_todo' not in node and
         (type_str is None or (isinstance(type_str, str) and bool(SIMPLE_NAME.match(type_str))))
     )
-    can_short = can_short and not order_expr
+    # Шорткат несет только имя, тип, признаки и ограничения: сортировка по выражению и
+    # параметры ввода в него не помещаются.
+    can_short = can_short and not order_expr and not input_parameters
     if can_short:
         s = data_path
         if type_str:
@@ -345,6 +403,8 @@ def build_field(fel):
         obj['presentationExpression'] = pres_expr
     if order_expr:
         obj['orderExpression'] = order_expr
+    if input_parameters:
+        obj['inputParameters'] = input_parameters
     if '_todo' in node:
         obj['_todo'] = node['_todo']
     return obj
@@ -524,6 +584,8 @@ def build_parameter(el):
             ed = text_of(kid(v_el, 'endDate')).strip()
             if (sd and sd != ZERO_DATE) or (ed and ed != ZERO_DATE):
                 add_todo(node, 'нестандартные даты StandardPeriod потеряны: ' + sd + ' / ' + ed)
+        elif len(v_el) == 0 and not (v_el.text or '').strip():
+            pass  # Пустой типизированный элемент - это отсутствие значения, а не пустая строка.
         elif vxt == 'boolean':
             node['value'] = text_of(v_el).strip()
         else:
@@ -867,7 +929,9 @@ def build_conditional_appearance(ca_el, todo_node):
             node['viewMode'] = vm
         uid = text_of(kid(it, 'userSettingID')).strip()
         if uid:
-            node['userSettingID'] = uid
+            # Идентификатор пользовательской настройки создается заново при сборке,
+            # поэтому в описании остается признак, а не сам идентификатор.
+            node['userSettingID'] = 'auto' if GUID_RE.match(uid) else uid
         if text_of(kid(it, 'use')).strip() == 'false':
             add_todo(node, 'условное оформление: use=false не поддержано нашим DSL')
         scope_el = kid(it, 'scope')
@@ -902,6 +966,25 @@ PERIOD_VARIANTS = {
     'NextQuarter', 'NextHalfYear', 'NextYear', 'TillEndOfThisWeek', 'TillEndOfThisTenDays',
     'TillEndOfThisMonth', 'TillEndOfThisQuarter', 'TillEndOfThisHalfYear', 'TillEndOfThisYear',
 }
+
+
+GUID_RE = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+
+_schema_params = []
+
+
+def auto_data_parameters(items):
+    """Набор параметров данных совпадает с автоматическим, если он перечисляет все
+    видимые параметры схемы с их значениями и пользовательской настройкой."""
+    visible = [p for p in _schema_params if not p.get('hidden')]
+    if not visible or len(items) != len(visible):
+        return False
+    for item, p in zip(items, visible):
+        if p.get('value') in (None, ''):
+            return False
+        if item != p['name'] + ' = ' + str(p['value']) + ' @user':
+            return False
+    return True
 
 
 def build_data_parameters(dp_el, todo_node):
@@ -1237,7 +1320,7 @@ def build_settings(s_el):
     if dp_el is not None:
         dp = build_data_parameters(dp_el, s)
         if dp:
-            s['dataParameters'] = dp
+            s['dataParameters'] = 'auto' if auto_data_parameters(dp) else dp
     struct_items = [build_structure_item(c) for c in kids(s_el, 'item')]
     if struct_items:
         short = try_structure_shorthand(struct_items)
@@ -1256,7 +1339,7 @@ def build_variant(v_el):
     p_el = kid(v_el, 'presentation')
     pres = ml_text(p_el, node) if p_el is not None else ''
     if pres and pres != node['name']:
-        node['presentation'] = pres
+        node['title'] = pres
     s_el = kid(v_el, 'settings')
     if s_el is not None:
         node['settings'] = build_settings(s_el)
@@ -1269,7 +1352,7 @@ def build_variant(v_el):
 
 
 def is_default_variant(v):
-    if v.get('name') != VARIANT_MAIN or 'presentation' in v or '_todo' in v:
+    if v.get('name') != VARIANT_MAIN or 'title' in v or '_todo' in v:
         return False
     s = v.get('settings')
     if s is None:
@@ -1735,6 +1818,8 @@ def main():
 
     raw_params = [build_parameter(p) for p in kids(root, 'parameter')]
     raw_params = collapse_auto_dates(raw_params)
+    global _schema_params
+    _schema_params = raw_params
     params = [param_to_shorthand(p) for p in raw_params]
     if params:
         result['parameters'] = params

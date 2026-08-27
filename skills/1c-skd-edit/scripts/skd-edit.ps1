@@ -1414,6 +1414,13 @@ function Insert-BeforeElement($container, $newNode, $refNode, $childIndent) {
 	if ($refNode) {
 		$container.InsertBefore($ws, $refNode) | Out-Null
 		$container.InsertBefore($newNode, $ws) | Out-Null
+		# Отступ ставится и перед вставленным узлом: иначе он приклеивается к соседу слева.
+		$before = $newNode.PreviousSibling
+		if ($before -and ($before.NodeType -eq 'Whitespace' -or $before.NodeType -eq 'SignificantWhitespace')) {
+			$before.Data = "`r`n$childIndent"
+		} else {
+			$container.InsertBefore($xmlDoc.CreateWhitespace("`r`n$childIndent"), $newNode) | Out-Null
+		}
 	} else {
 		$trailing = $container.LastChild
 		if ($trailing -and ($trailing.NodeType -eq 'Whitespace' -or $trailing.NodeType -eq 'SignificantWhitespace')) {
@@ -2219,6 +2226,8 @@ switch ($Operation) {
 			# Find anchor: element right after the last parameter in original order
 			$lastParam = $allParams[-1]
 			$anchor = $lastParam.NextSibling
+			# Опорой служит следующий элемент, а не пробельный узел между ними.
+			while ($anchor -and $anchor.NodeType -ne 'Element') { $anchor = $anchor.NextSibling }
 
 			# Remove all parameters with surrounding whitespace
 			foreach ($pe in $allParams) {

@@ -560,6 +560,16 @@ def save_xml_bom(tree, path):
         f.write(xml_bytes)
 
 
+def sibling_skill_script(name, script_name):
+    """Скрипт соседнего навыка. Каталог навыка назван с префиксом 1c-, без него пути нет."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    for folder in ('1c-' + name, name):
+        candidate = os.path.normpath(os.path.join(base, '..', '..', folder, 'scripts', script_name))
+        if os.path.isfile(candidate):
+            return candidate
+    return ''
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -893,8 +903,8 @@ def main():
 
     # --- Auto-validate ---
     if not args.NoValidate:
-        validate_script = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "subsystem-validate", "scripts", "subsystem-validate.py"))
-        if os.path.isfile(validate_script):
+        validate_script = sibling_skill_script('subsystem-validate', 'subsystem-validate.py')
+        if validate_script:
             print()
             print("--- Running subsystem-validate ---")
             subprocess.run([sys.executable, validate_script, "-SubsystemPath", resolved_path])

@@ -755,35 +755,74 @@ function ConvertTo-JsonEscaped([string]$s) {
 	return $sb.ToString()
 }
 
-function ConvertTo-JsonText($value, [string]$indent) {
-	if ($null -eq $value) { return "null" }
-	if ($value -is [bool]) {
-		if ($value) { return "true" } else { return "false" }
+# --- Черновой JSON (общий блок, версия 2) ---
+# Ширина строки, после которой контейнер разворачивается по элементу на строку.
+$script:draftJsonWidth = 400
+
+function ConvertTo-JsonStringLiteral($s) {
+	$sb = New-Object System.Text.StringBuilder
+	[void]$sb.Append('"')
+	foreach ($ch in ([string]$s).ToCharArray()) {
+		if ($ch -eq '"') { [void]$sb.Append('\"') }
+		elseif ($ch -eq '\') { [void]$sb.Append('\\') }
+		elseif ($ch -eq "`n") { [void]$sb.Append('\n') }
+		elseif ($ch -eq "`r") { [void]$sb.Append('\r') }
+		elseif ($ch -eq "`t") { [void]$sb.Append('\t') }
+		elseif ([int]$ch -lt 32) { [void]$sb.Append('\u' + ([int]$ch).ToString('x4')) }
+		else { [void]$sb.Append($ch) }
 	}
-	if (($value -is [int]) -or ($value -is [long]) -or ($value -is [double]) -or ($value -is [decimal])) {
-		return $value.ToString([System.Globalization.CultureInfo]::InvariantCulture)
-	}
-	if ($value -is [System.Collections.IDictionary]) {
-		if ($value.Count -eq 0) { return "{}" }
-		$childIndent = $indent + "  "
-		$parts = @()
-		foreach ($k in $value.Keys) {
-			$parts += ($childIndent + '"' + (ConvertTo-JsonEscaped ([string]$k)) + '": ' + (ConvertTo-JsonText $value[$k] $childIndent))
-		}
-		return "{`n" + ($parts -join ",`n") + "`n" + $indent + "}"
-	}
-	if (($value -is [System.Collections.IEnumerable]) -and ($value -isnot [string])) {
-		$items = @($value)
-		if ($items.Count -eq 0) { return "[]" }
-		$childIndent = $indent + "  "
-		$parts = @()
-		foreach ($it in $items) {
-			$parts += ($childIndent + (ConvertTo-JsonText $it $childIndent))
-		}
-		return "[`n" + ($parts -join ",`n") + "`n" + $indent + "]"
-	}
-	return '"' + (ConvertTo-JsonEscaped ([string]$value)) + '"'
+	[void]$sb.Append('"')
+	return $sb.ToString()
 }
+
+function ConvertTo-InlineJson($v) {
+	if ($null -eq $v) { return 'null' }
+	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
+	if ($v -is [int] -or $v -is [int64] -or $v -is [double] -or $v -is [decimal]) {
+		return [System.Convert]::ToString($v, [System.Globalization.CultureInfo]::InvariantCulture)
+	}
+	if ($v -is [string]) { return ConvertTo-JsonStringLiteral $v }
+	if ($v -is [System.Collections.IDictionary]) {
+		if ($v.Count -eq 0) { return '{}' }
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($k in $v.Keys) {
+			[void]$parts.Add((ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + (ConvertTo-InlineJson $v[$k]))
+		}
+		return '{ ' + ($parts -join ', ') + ' }'
+	}
+	if ($v -is [System.Collections.IEnumerable]) {
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($it in $v) { [void]$parts.Add((ConvertTo-InlineJson $it)) }
+		if ($parts.Count -eq 0) { return '[]' }
+		return '[' + ($parts -join ', ') + ']'
+	}
+	return ConvertTo-JsonStringLiteral ([string]$v)
+}
+
+# Описание пишется в том виде, в каком его удобно править руками: контейнер идет одной
+# строкой, пока в нее помещается, и разворачивается, когда перестает.
+function ConvertTo-DraftJson($v, $indent) {
+	$rendered = ConvertTo-InlineJson $v
+	$isContainer = ($v -is [System.Collections.IDictionary]) -or
+		(($v -is [System.Collections.IEnumerable]) -and ($v -isnot [string]))
+	if (-not $isContainer -or ($indent.Length + $rendered.Length) -le $script:draftJsonWidth) {
+		return $rendered
+	}
+	$inner = $indent + '  '
+	if ($v -is [System.Collections.IDictionary]) {
+		if ($v.Count -eq 0) { return '{}' }
+		$parts = New-Object System.Collections.Generic.List[object]
+		foreach ($k in $v.Keys) {
+			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + (ConvertTo-DraftJson $v[$k] $inner))
+		}
+		return "{`n" + ($parts -join ",`n") + "`n" + $indent + '}'
+	}
+	$parts = New-Object System.Collections.Generic.List[object]
+	foreach ($it in $v) { [void]$parts.Add($inner + (ConvertTo-DraftJson $it $inner)) }
+	if ($parts.Count -eq 0) { return '[]' }
+	return "[`n" + ($parts -join ",`n") + "`n" + $indent + ']'
+}
+# --- Конец общего блока чернового JSON ---
 
 # --- Main ---
 
@@ -912,6 +951,11 @@ foreach ($ch in (Get-ElemChildren $root)) {
 $result = [ordered]@{}
 if ($rootTodos.Count -gt 0) { $result["_todo"] = $rootTodos }
 if ($null -ne $title) { $result["title"] = $title }
+# Заданный заголовок сам выключает автоматический - form-compile пишет этот признак
+# без указания. В описании он лишний: сборка вернет тот же файл и без него.
+if ($null -ne $title -and $properties.Contains('autoTitle') -and $properties['autoTitle'] -eq $false) {
+	$properties.Remove('autoTitle')
+}
 if ($properties.Count -gt 0) { $result["properties"] = $properties }
 if ($excludedCommands.Count -gt 0) { $result["excludedCommands"] = $excludedCommands }
 if ($events.Count -gt 0) { $result["events"] = $events }
@@ -920,7 +964,7 @@ if ($attributes.Count -gt 0) { $result["attributes"] = $attributes }
 if ($parameters.Count -gt 0) { $result["parameters"] = $parameters }
 if ($commands.Count -gt 0) { $result["commands"] = $commands }
 
-$json = ConvertTo-JsonText $result ""
+$json = ConvertTo-DraftJson $result
 
 $outAbs = $OutputFile
 if (-not [System.IO.Path]::IsPathRooted($outAbs)) {
@@ -931,7 +975,8 @@ if ($outDir -and (-not (Test-Path -LiteralPath $outDir))) {
 	[void](New-Item -ItemType Directory -Path $outDir -Force)
 }
 $enc = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($outAbs, $json + "`n", $enc)
+# Хвостового перевода строки в описании нет - так же пишет skd-decompile.
+[System.IO.File]::WriteAllText($outAbs, $json, $enc)
 
 Write-Output ("[OK] Decompiled: " + $OutputFile)
 [Console]::Error.WriteLine("     Elements: " + $elements.Count + ", Attributes: " + $attributes.Count + ", Commands: " + $commands.Count + ", Parameters: " + $parameters.Count)

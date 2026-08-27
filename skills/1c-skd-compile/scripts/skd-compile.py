@@ -275,7 +275,25 @@ def lenient(data):
 
 
 def esc_xml(s):
-    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def esc_attr(s):
+    """Значение атрибута: сверх содержимого экранируется кавычка."""
+    return esc_xml(s).replace('"', '&quot;')
+
+
+def design_time_value(value):
+    """Тип значения и его текст: платформа пишет тип явным атрибутом xsi:type."""
+    if isinstance(value, bool):
+        return 'xs:boolean', 'true' if value else 'false'
+    if isinstance(value, (int, float)):
+        return 'xs:decimal', esc_xml(str(value))
+    text = str(value)
+    if re.match(r'^(Перечисление|Справочник|ПланСчетов|Документ|ПланВидовХарактеристик|ПланВидовРасчета)\.', text):
+        return 'dcscor:DesignTimeValue', esc_xml(text)
+    return 'xs:string', esc_xml(text)
+
 
 def fmt_dec(v):
     """Format decimal: 30.0 → '30', 16.625 → '16.625' (match PS1 output)."""
@@ -799,6 +817,9 @@ def emit_field(lines, field_def, indent):
         # Parse restrictions
         if field_def.get('restrict'):
             f['restrict'] = list(field_def['restrict'])
+        # Параметры ввода поля переносятся как есть: их состав задан платформой.
+        if field_def.get('inputParameters'):
+            f['inputParameters'] = list(field_def['inputParameters'])
         # Parse appearance
         if field_def.get('appearance'):
             for k, v in field_def['appearance'].items():
@@ -884,6 +905,44 @@ def emit_field(lines, field_def, indent):
         lines.append(f'{indent}\t<valueType>')
         emit_value_type(lines, f['type'], f'{indent}\t\t')
         lines.append(f'{indent}\t</valueType>')
+
+    # Параметры ввода поля: параметры выбора, связи параметров выбора и простое
+    # типизированное значение. Платформа пишет значение с явным типом, а не отдельными
+    # элементами; признак использования идет ПЕРЕД именем параметра.
+    if f.get('inputParameters'):
+        lines.append(f'{indent}\t<inputParameters>')
+        for ip in f['inputParameters']:
+            lines.append(f'{indent}\t\t<dcscor:item>')
+            if ip.get('use') is False:
+                lines.append(f'{indent}\t\t\t<dcscor:use>false</dcscor:use>')
+            lines.append(f'{indent}\t\t\t<dcscor:parameter>{esc_xml(str(ip.get("parameter", "")))}</dcscor:parameter>')
+            if 'choiceParameters' in ip:
+                if not ip['choiceParameters']:
+                    lines.append(f'{indent}\t\t\t<dcscor:value xsi:type=\"dcscor:ChoiceParameters\"/>')
+                else:
+                    lines.append(f'{indent}\t\t\t<dcscor:value xsi:type=\"dcscor:ChoiceParameters\">')
+                    for cp in ip['choiceParameters']:
+                        lines.append(f'{indent}\t\t\t\t<dcscor:item>')
+                        lines.append(f'{indent}\t\t\t\t\t<dcscor:choiceParameter>{esc_xml(str(cp.get("name", "")))}</dcscor:choiceParameter>')
+                        for value in (cp.get('values') or []):
+                            lines.append(f'{indent}\t\t\t\t\t<dcscor:value xsi:type=\"dcscor:DesignTimeValue\">{esc_xml(str(value))}</dcscor:value>')
+                        lines.append(f'{indent}\t\t\t\t</dcscor:item>')
+                    lines.append(f'{indent}\t\t\t</dcscor:value>')
+            elif 'choiceParameterLinks' in ip:
+                lines.append(f'{indent}\t\t\t<dcscor:value xsi:type=\"dcscor:ChoiceParameterLinks\">')
+                for link in ip['choiceParameterLinks']:
+                    lines.append(f'{indent}\t\t\t\t<dcscor:item>')
+                    lines.append(f'{indent}\t\t\t\t\t<dcscor:choiceParameter>{esc_xml(str(link.get("name", "")))}</dcscor:choiceParameter>')
+                    lines.append(f'{indent}\t\t\t\t\t<dcscor:value>{esc_xml(str(link.get("value", "")))}</dcscor:value>')
+                    mode = str(link.get('mode') or 'Clear')
+                    lines.append(f'{indent}\t\t\t\t\t<dcscor:mode xmlns:d8p1=\"http://v8.1c.ru/8.1/data/enterprise\" xsi:type=\"d8p1:LinkedValueChangeMode\">{esc_xml(mode)}</dcscor:mode>')
+                    lines.append(f'{indent}\t\t\t\t</dcscor:item>')
+                lines.append(f'{indent}\t\t\t</dcscor:value>')
+            elif 'value' in ip:
+                xsi_type, text = design_time_value(ip['value'])
+                lines.append(f'{indent}\t\t\t<dcscor:value xsi:type=\"{xsi_type}\">{text}</dcscor:value>')
+            lines.append(f'{indent}\t\t</dcscor:item>')
+        lines.append(f'{indent}\t</inputParameters>')
 
     # Appearance
     if f.get('appearance') and len(f['appearance']) > 0:
@@ -1080,18 +1139,30 @@ def emit_total_fields(lines, defn):
 
 # === Parameters ===
 
-def emit_param_value(lines, type_str, val, indent):
+REF_TYPE_RE = re.compile(r'^[A-Za-z]+Ref\.')
+
+
+def emit_empty_param_value(lines, type_str, indent):
+    """Параметр без значения: ссылочный тип и тип без указания дают nil, строка - пустой элемент."""
+    if not type_str or REF_TYPE_RE.match(type_str):
+        lines.append(f'{indent}<value xsi:nil="true"/>')
+    elif type_str.startswith('string'):
+        lines.append(f'{indent}<value xsi:type="xs:string"/>')
+
+
+def emit_param_value(lines, type_str, val, indent, auto_dates=False):
     if val is None:
         return
 
     val_str = str(val)
 
     if type_str == 'StandardPeriod':
-        # Always emit startDate/endDate to match how 1C Designer saves the schema.
+        # Границы периода пишутся, только когда их не считает сам вариант периода.
         lines.append(f'{indent}<value xsi:type="v8:StandardPeriod">')
         lines.append(f'{indent}\t<v8:variant xsi:type="v8:StandardPeriodVariant">{esc_xml(val_str)}</v8:variant>')
-        lines.append(f'{indent}\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>')
-        lines.append(f'{indent}\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>')
+        if not auto_dates:
+            lines.append(f'{indent}\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>')
+            lines.append(f'{indent}\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>')
         lines.append(f'{indent}</value>')
     elif type_str and re.match(r'^date', type_str):
         lines.append(f'{indent}<value xsi:type="xs:dateTime">{esc_xml(val_str)}</value>')
@@ -1136,16 +1207,21 @@ def emit_single_param(lines, p, parsed):
         lines.append('\t\t</valueType>')
 
     # Value
-    emit_param_value(lines, parsed.get('type', ''), parsed.get('value'), '\t\t')
+    if parsed.get('value') is None:
+        if not parsed.get('valueListAllowed'):
+            emit_empty_param_value(lines, parsed.get('type', ''), '\t\t')
+    else:
+        emit_param_value(lines, parsed.get('type', ''), parsed.get('value'), '\t\t',
+                         bool(parsed.get('autoDates')))
 
     # Hidden implies useRestriction=true + availableAsField=false
     if parsed.get('hidden') is True:
         parsed['availableAsField'] = False
         parsed['useRestriction'] = True
 
-    # UseRestriction
-    if parsed.get('useRestriction') is True or (p is not None and not isinstance(p, str) and p.get('useRestriction') is True):
-        lines.append('\t\t<useRestriction>true</useRestriction>')
+    # Признак ограничения пишется у каждого параметра, а не только когда он включен.
+    restrict = parsed.get('useRestriction') is True or (p is not None and not isinstance(p, str) and p.get('useRestriction') is True)
+    lines.append(f'\t\t<useRestriction>{"true" if restrict else "false"}</useRestriction>')
 
     # Expression
     if parsed.get('expression'):
@@ -1246,6 +1322,7 @@ def emit_parameters(lines, defn):
             'hidden': bool(parsed.get('hidden')),
             'type': parsed.get('type', ''),
             'value': parsed.get('value'),
+            'autoDates': bool(parsed.get('autoDates')),
         })
 
         # @autoDates: auto-generate НачалоПериода and КонецПериода (canonical БСП pattern)
@@ -1254,7 +1331,7 @@ def emit_parameters(lines, defn):
             begin_parsed = {
                 'name': '\u041d\u0430\u0447\u0430\u043b\u043e\u041f\u0435\u0440\u0438\u043e\u0434\u0430',
                 'title': '\u041d\u0430\u0447\u0430\u043b\u043e \u043f\u0435\u0440\u0438\u043e\u0434\u0430',
-                'type': 'date', 'value': '0001-01-01T00:00:00',
+                'type': 'dateTime', 'value': '0001-01-01T00:00:00',
                 'useRestriction': True,
                 'expression': f'&{param_name}.\u0414\u0430\u0442\u0430\u041d\u0430\u0447\u0430\u043b\u0430',
             }
@@ -1262,7 +1339,7 @@ def emit_parameters(lines, defn):
             end_parsed = {
                 'name': '\u041a\u043e\u043d\u0435\u0446\u041f\u0435\u0440\u0438\u043e\u0434\u0430',
                 'title': '\u041a\u043e\u043d\u0435\u0446 \u043f\u0435\u0440\u0438\u043e\u0434\u0430',
-                'type': 'date', 'value': '0001-01-01T00:00:00',
+                'type': 'dateTime', 'value': '0001-01-01T00:00:00',
                 'useRestriction': True,
                 'expression': f'&{param_name}.\u0414\u0430\u0442\u0430\u041e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u044f',
             }
@@ -1974,8 +2051,9 @@ def emit_data_parameters(lines, items, indent):
                 # StandardPeriod
                 lines.append(f'{indent}\t\t<dcscor:value xsi:type="v8:StandardPeriod">')
                 lines.append(f'{indent}\t\t\t<v8:variant xsi:type="v8:StandardPeriodVariant">{esc_xml(str(val["variant"]))}</v8:variant>')
-                lines.append(f'{indent}\t\t\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>')
-                lines.append(f'{indent}\t\t\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>')
+                if not dp.get('autoDates'):
+                    lines.append(f'{indent}\t\t\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>')
+                    lines.append(f'{indent}\t\t\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>')
                 lines.append(f'{indent}\t\t</dcscor:value>')
             elif vtype == 'boolean' or isinstance(val, bool):
                 bv = str(val).lower()
@@ -2222,7 +2300,7 @@ def emit_settings_variants(lines, defn):
 
         # Order
         if s.get('order'):
-            emit_order(lines, s['order'], '\t\t\t', skip_auto=True)
+            emit_order(lines, s['order'], '\t\t\t')
 
         # ConditionalAppearance
         if s.get('conditionalAppearance'):
@@ -2237,10 +2315,8 @@ def emit_settings_variants(lines, defn):
         if s.get('additionalProperties'):
             lines.append('\t\t\t<dcsset:additionalProperties>')
             for prop_name, prop_value in s['additionalProperties'].items():
-                lines.append(f'\t\t\t\t<v8:Property name="{esc_xml(str(prop_name))}">')
-                prop_text = (str(prop_value).replace('&', '&amp;')
-                             .replace('<', '&lt;').replace('>', '&gt;'))
-                lines.append(f'\t\t\t\t\t<v8:Value xsi:type="xs:string">{prop_text}</v8:Value>')
+                lines.append(f'\t\t\t\t<v8:Property name="{esc_attr(str(prop_name))}">')
+                lines.append(f'\t\t\t\t\t<v8:Value xsi:type="xs:string">{esc_xml(str(prop_value))}</v8:Value>')
                 lines.append('\t\t\t\t</v8:Property>')
             lines.append('\t\t\t</dcsset:additionalProperties>')
 
@@ -2269,6 +2345,8 @@ def emit_settings_variants(lines, defn):
                         elif str(av):
                             variant = str(av)
                     item['value'] = {'variant': variant}
+                    if ap.get('autoDates'):
+                        item['autoDates'] = True
                     if variant != 'Custom':
                         has_meaningful_value = True
                 elif ap.get('value') is not None and str(ap.get('value')) != '':

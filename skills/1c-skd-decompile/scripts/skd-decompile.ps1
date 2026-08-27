@@ -210,6 +210,58 @@ function Get-OneTypeShorthand($typeEl, $vtEl, $node) {
 	return $raw
 }
 
+# Параметры ввода поля: параметры выбора, связи параметров выбора и простое значение.
+function Get-InputParameters($fieldEl) {
+	$ipEl = Get-Kid $fieldEl 'inputParameters'
+	if ($null -eq $ipEl) { return @() }
+	$items = New-Object System.Collections.Generic.List[object]
+	foreach ($item in $ipEl.ChildNodes) {
+		if ($item.NodeType -ne 'Element' -or $item.LocalName -cne 'item') { continue }
+		# Имя параметра идет первым ключом: в файле признак использования стоит раньше,
+		# но в описании читается имя, а не служебный флаг.
+		$entry = [ordered]@{ parameter = (Get-Text (Get-Kid $item 'parameter')) }
+		$useEl = Get-Kid $item 'use'
+		if ($null -ne $useEl -and (Get-Text $useEl).Trim() -ceq 'false') { $entry['use'] = $false }
+		$valueEl = Get-Kid $item 'value'
+		if ($null -eq $valueEl) { [void]$items.Add($entry); continue }
+		$xsiType = $valueEl.GetAttribute('type', 'http://www.w3.org/2001/XMLSchema-instance')
+		$kind = ($xsiType -split ':')[-1]
+		if ($kind -ceq 'ChoiceParameters') {
+			$params = New-Object System.Collections.Generic.List[object]
+			foreach ($sub in $valueEl.ChildNodes) {
+				if ($sub.NodeType -ne 'Element' -or $sub.LocalName -cne 'item') { continue }
+				$values = New-Object System.Collections.Generic.List[string]
+				foreach ($v in $sub.ChildNodes) {
+					if ($v.NodeType -eq 'Element' -and $v.LocalName -ceq 'value') { [void]$values.Add((Get-Text $v)) }
+				}
+				[void]$params.Add([ordered]@{ name = (Get-Text (Get-Kid $sub 'choiceParameter')); values = $values.ToArray() })
+			}
+			$entry['choiceParameters'] = $params.ToArray()
+		} elseif ($kind -ceq 'ChoiceParameterLinks') {
+			$links = New-Object System.Collections.Generic.List[object]
+			foreach ($sub in $valueEl.ChildNodes) {
+				if ($sub.NodeType -ne 'Element' -or $sub.LocalName -cne 'item') { continue }
+				$mode = Get-Text (Get-Kid $sub 'mode')
+				if ($mode -ceq '') { $mode = 'Clear' }
+				[void]$links.Add([ordered]@{ name = (Get-Text (Get-Kid $sub 'choiceParameter')); value = (Get-Text (Get-Kid $sub 'value')); mode = $mode })
+			}
+			$entry['choiceParameterLinks'] = $links.ToArray()
+		} else {
+			$text = Get-Text $valueEl
+			if ($kind -ceq 'boolean') {
+				$entry['value'] = ($text.Trim() -ceq 'true')
+			} elseif ($kind -ceq 'decimal') {
+				$entry['value'] = if ($text -match '\.') { [double]$text } else { [int]$text }
+			} else {
+				$entry['value'] = $text
+			}
+		}
+		[void]$items.Add($entry)
+	}
+	# Массив из одного элемента PowerShell разворачивает в скаляр - запятая это отменяет.
+	return ,$items.ToArray()
+}
+
 function Get-RestrictionTokens($el) {
 	$toks = New-Object System.Collections.Generic.List[object]
 	if ($null -eq $el) { return ,$toks }
@@ -330,7 +382,9 @@ function Build-Field($fieldEl) {
 		$orderExpr['autoOrder'] = ((Get-Text (Get-Kid $oeEl 'autoOrder')).Trim() -ceq 'true')
 	}
 
-	$handled = @('dataPath', 'field', 'title', 'role', 'useRestriction',
+	$inputParameters = Get-InputParameters $fieldEl
+
+	$handled = @('dataPath', 'field', 'title', 'role', 'useRestriction', 'inputParameters',
 		'attributeUseRestriction', 'valueType', 'appearance', 'presentationExpression',
 		'orderExpression')
 	foreach ($c in $fieldEl.ChildNodes) {
@@ -350,7 +404,9 @@ function Build-Field($fieldEl) {
 		($null -eq $appearance -or $appearance.Count -eq 0) -and $presExpr -ceq '' -and
 		(-not $node.Contains('_todo')) -and
 		($null -eq $typeStr -or ($typeStr -is [string] -and (Test-SimpleName $typeStr))))
-	$canShort = $canShort -and ($null -eq $orderExpr)
+	# Шорткат несет только имя, тип, признаки и ограничения: сортировка по выражению и
+	# параметры ввода в него не помещаются.
+	$canShort = $canShort -and ($null -eq $orderExpr) -and ($inputParameters.Count -eq 0)
 	if ($canShort) {
 		$s = $dataPath
 		if ($null -ne $typeStr) { $s += ': ' + $typeStr }
@@ -384,6 +440,7 @@ function Build-Field($fieldEl) {
 	if ($null -ne $appearance -and $appearance.Count -gt 0) { $obj['appearance'] = $appearance }
 	if ($presExpr -cne '') { $obj['presentationExpression'] = $presExpr }
 	if ($null -ne $orderExpr) { $obj['orderExpression'] = $orderExpr }
+	if ($inputParameters.Count -gt 0) { $obj['inputParameters'] = $inputParameters }
 	if ($node.Contains('_todo')) { $obj['_todo'] = $node['_todo'] }
 	return $obj
 }
@@ -567,6 +624,8 @@ function Build-Parameter($el) {
 			if (($sd -cne '' -and $sd -cne $script:ZeroDate) -or ($ed -cne '' -and $ed -cne $script:ZeroDate)) {
 				Add-Todo $node ('нестандартные даты StandardPeriod потеряны: ' + $sd + ' / ' + $ed)
 			}
+		} elseif (-not $vEl.HasChildNodes -or (Get-Text $vEl).Trim() -ceq '') {
+			# Пустой типизированный элемент - это отсутствие значения, а не пустая строка.
 		} elseif ($vxt -ceq 'boolean') {
 			$node['value'] = (Get-Text $vEl).Trim()
 		} else {
@@ -936,7 +995,11 @@ function Build-ConditionalAppearance($caEl, $todoNode) {
 		$vm = (Get-Text (Get-Kid $it 'viewMode')).Trim()
 		if ($vm -cne '') { $node['viewMode'] = $vm }
 		$uid = (Get-Text (Get-Kid $it 'userSettingID')).Trim()
-		if ($uid -cne '') { $node['userSettingID'] = $uid }
+		if ($uid -cne '') {
+			# Идентификатор пользовательской настройки создается заново при сборке,
+			# поэтому в описании остается признак, а не сам идентификатор.
+			if ($uid -match $script:GuidPattern) { $node['userSettingID'] = 'auto' } else { $node['userSettingID'] = $uid }
+		}
 		if ((Get-Text (Get-Kid $it 'use')).Trim() -ceq 'false') {
 			Add-Todo $node 'условное оформление: use=false не поддержано нашим DSL'
 		}
@@ -968,6 +1031,29 @@ function Build-OutputParams($opEl, $todoNode) {
 		$result[$p] = $val
 	}
 	return $result
+}
+
+$script:GuidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+$script:SchemaParams = @()
+
+# Набор параметров данных совпадает с автоматическим, если он перечисляет все видимые
+# параметры схемы с их значениями и пользовательской настройкой.
+function Test-AutoDataParameters($items) {
+	$visible = New-Object System.Collections.Generic.List[object]
+	foreach ($p in $script:SchemaParams) {
+		if (-not $p['hidden']) { [void]$visible.Add($p) }
+	}
+	$shorthands = New-Object System.Collections.Generic.List[string]
+	foreach ($item in $items) { [void]$shorthands.Add(("$item")) }
+	if ($visible.Count -eq 0 -or $shorthands.Count -ne $visible.Count) { return $false }
+	for ($i = 0; $i -lt $visible.Count; $i++) {
+		$p = $visible[$i]
+		if (-not $p.Contains('value')) { return $false }
+		$value = "$($p['value'])"
+		if ($value -ceq '') { return $false }
+		if ($shorthands[$i] -cne ($p['name'] + ' = ' + $value + ' @user')) { return $false }
+	}
+	return $true
 }
 
 function Build-DataParameters($dpEl, $todoNode) {
@@ -1332,7 +1418,9 @@ function Build-Settings($settingsEl) {
 	$dpEl = Get-Kid $settingsEl 'dataParameters'
 	if ($null -ne $dpEl) {
 		$dp = Build-DataParameters $dpEl $s
-		if ($dp.Count -gt 0) { $s['dataParameters'] = $dp }
+		if ($dp.Count -gt 0) {
+			if (Test-AutoDataParameters $dp) { $s['dataParameters'] = 'auto' } else { $s['dataParameters'] = $dp }
+		}
 	}
 	$structItems = New-Object System.Collections.Generic.List[object]
 	foreach ($c in (Get-Kids $settingsEl 'item')) { [void]$structItems.Add((Build-StructureItem $c)) }
@@ -1356,7 +1444,7 @@ function Build-Variant($vEl) {
 	$pEl = Get-Kid $vEl 'presentation'
 	$pres = ''
 	if ($null -ne $pEl) { $pres = Get-MlText $pEl $node }
-	if ($pres -cne '' -and $pres -cne $node['name']) { $node['presentation'] = $pres }
+	if ($pres -cne '' -and $pres -cne $node['name']) { $node['title'] = $pres }
 	$sEl = Get-Kid $vEl 'settings'
 	if ($null -ne $sEl) { $node['settings'] = Build-Settings $sEl }
 	$handled = @('name', 'presentation', 'settings')
@@ -1369,7 +1457,7 @@ function Build-Variant($vEl) {
 }
 
 function Test-DefaultVariant($v) {
-	if ($v['name'] -cne $script:VariantMain -or $v.Contains('presentation') -or $v.Contains('_todo')) {
+	if ($v['name'] -cne $script:VariantMain -or $v.Contains('title') -or $v.Contains('_todo')) {
 		return $false
 	}
 	if (-not $v.Contains('settings')) { return $true }
@@ -1894,6 +1982,7 @@ if ($totals.Count -gt 0) { $result['totalFields'] = $totals }
 $rawParams = New-Object System.Collections.Generic.List[object]
 foreach ($p in (Get-Kids $root 'parameter')) { [void]$rawParams.Add((Build-Parameter $p)) }
 $rawParams = Invoke-AutoDatesCollapse $rawParams
+$script:SchemaParams = $rawParams
 $params = New-Object System.Collections.Generic.List[object]
 foreach ($p in $rawParams) { [void]$params.Add((ConvertTo-ParamShorthand $p)) }
 if ($params.Count -gt 0) { $result['parameters'] = $params }

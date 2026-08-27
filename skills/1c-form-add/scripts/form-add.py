@@ -268,6 +268,13 @@ def add_palette_ns(decl, format_version):
     return decl.replace(lf, lf + PALETTE_NS, 1)
 
 
+# Признак сохраняемых данных ставится у объектов, которые платформа хранит в базе.
+# У обработки и отчета такого хранения нет - там его не пишут.
+PERSISTED_OBJECT_TYPES = ('Catalog', 'Document', 'ChartOfAccounts', 'ChartOfCharacteristicTypes',
+                          'ChartOfCalculationTypes', 'BusinessProcess', 'Task', 'ExchangePlan',
+                          'InformationRegister', 'AccumulationRegister')
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -504,6 +511,7 @@ def main():
         main_attr_name = "\u0417\u0430\u043f\u0438\u0441\u044c"
         main_attr_type = f"InformationRegisterRecordManager.{object_name}"
 
+        saved_data = object_type in PERSISTED_OBJECT_TYPES
         form_xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>\n'
             f'<Form {form_ns_decl} version="{format_version}">\n'
@@ -517,10 +525,10 @@ def main():
             f'\t\t\t\t<v8:Type>cfg:{main_attr_type}</v8:Type>\n'
             '\t\t\t</Type>\n'
             '\t\t\t<MainAttribute>true</MainAttribute>\n'
-            '\t\t\t<SavedData>true</SavedData>\n'
-            '\t\t</Attribute>\n'
-            '\t</Attributes>\n'
-            '</Form>'
+            + ('\t\t\t<SavedData>true</SavedData>\n' if saved_data else '')
+            + '\t\t</Attribute>\n'
+            + '\t</Attributes>\n'
+            + '</Form>'
         )
 
     else:
@@ -545,6 +553,7 @@ def main():
 
         main_attr_type = f"{attr_type_map[object_type]}.{object_name}"
 
+        saved_data = object_type in PERSISTED_OBJECT_TYPES
         form_xml = (
             f'<?xml version="1.0" encoding="UTF-8"?>\n'
             f'<Form {form_ns_decl} version="{format_version}">\n'
@@ -558,10 +567,10 @@ def main():
             f'\t\t\t\t<v8:Type>cfg:{main_attr_type}</v8:Type>\n'
             '\t\t\t</Type>\n'
             '\t\t\t<MainAttribute>true</MainAttribute>\n'
-            '\t\t\t<SavedData>true</SavedData>\n'
-            '\t\t</Attribute>\n'
-            '\t</Attributes>\n'
-            '</Form>'
+            + ('\t\t\t<SavedData>true</SavedData>\n' if saved_data else '')
+            + '\t\t</Attribute>\n'
+            + '\t</Attributes>\n'
+            + '</Form>'
         )
 
     if os.path.exists(form_xml_path):
@@ -608,6 +617,12 @@ def main():
         print(f"Не найден элемент ChildObjects в {object_path}", file=sys.stderr)
         sys.exit(1)
 
+    # Форму мог зарегистрировать form-compile: второй такой элемент платформа не примет.
+    already_registered = any(
+        isinstance(child.tag, str) and etree.QName(child.tag).localname == 'Form'
+        and (child.text or '').strip() == form_name
+        for child in child_objects)
+
     # Add <Form>$FormName</Form>
     form_elem = etree.Element(f"{{{ns}}}Form")
     form_elem.text = form_name
@@ -624,7 +639,9 @@ def main():
     elif first_tabular is not None:
         insert_before = first_tabular
 
-    if insert_before is not None:
+    if already_registered:
+        pass
+    elif insert_before is not None:
         # Insert before the found element
         idx = list(child_objects).index(insert_before)
         child_objects.insert(idx, form_elem)
@@ -693,7 +710,10 @@ def main():
     print(f"  Form:     {obj_dir_name}\\{obj_base_name}\\Forms\\{form_name}\\Ext\\Form.xml")
     print(f"  Module:   {obj_dir_name}\\{obj_base_name}\\Forms\\{form_name}\\Ext\\Form\\Module.bsl")
     print()
-    print(f"Registered: <Form>{form_name}</Form> in ChildObjects")
+    if already_registered:
+        print(f"Already registered: <Form>{form_name}</Form> in ChildObjects")
+    else:
+        print(f"Registered: <Form>{form_name}</Form> in ChildObjects")
     if default_updated:
         print(f"{default_prop_name}: {default_value}")
     print()

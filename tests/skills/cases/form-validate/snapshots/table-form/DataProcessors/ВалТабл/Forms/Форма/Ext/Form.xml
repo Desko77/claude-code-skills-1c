@@ -36,7 +36,6 @@
 				<v8:Type>cfg:DataProcessorObject.ВалТабл</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
-			<SavedData>true</SavedData>
 		</Attribute>
 		<Attribute name="Данные" id="14">
 			<Title>

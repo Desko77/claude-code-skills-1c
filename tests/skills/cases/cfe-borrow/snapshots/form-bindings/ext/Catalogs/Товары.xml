@@ -28,40 +28,17 @@
 			<Name>Товары</Name>
 			<Comment/>
 			<ExtendedConfigurationObject>UUID-012</ExtendedConfigurationObject>
+			<Hierarchical>false</Hierarchical>
+			<FoldersOnTop>true</FoldersOnTop>
+			<CodeLength>9</CodeLength>
 			<DescriptionLength>25</DescriptionLength>
 			<CodeType>String</CodeType>
-			<Hierarchical>false</Hierarchical>
 			<CodeAllowedLength>Variable</CodeAllowedLength>
-			<CodeLength>9</CodeLength>
-			<FoldersOnTop>true</FoldersOnTop>
-			<DescriptionLength>25</DescriptionLength>
-			<CodeType>String</CodeType>
-			<Hierarchical>false</Hierarchical>
-			<CodeAllowedLength>Variable</CodeAllowedLength>
-			<CodeLength>9</CodeLength>
-			<FoldersOnTop>true</FoldersOnTop>
 		</Properties>
 		<ChildObjects>
 			<Form>ФормаЭлемента</Form>
 		
 			<Attribute uuid="UUID-013">
-				<InternalInfo/>
-				<Properties>
-					<ObjectBelonging>Adopted</ObjectBelonging>
-					<Name>Артикул</Name>
-					<Comment/>
-					<ExtendedConfigurationObject>UUID-014</ExtendedConfigurationObject>
-			<DescriptionLength>25</DescriptionLength>
-			<CodeType>String</CodeType>
-			<Hierarchical>false</Hierarchical>
-			<CodeAllowedLength>Variable</CodeAllowedLength>
-			<CodeLength>9</CodeLength>
-			<FoldersOnTop>true</FoldersOnTop>
-					<Type><v8:Type>xs:string</v8:Type><v8:StringQualifiers><v8:Length>25</v8:Length><v8:AllowedLength>Variable</v8:AllowedLength></v8:StringQualifiers></Type>
-				</Properties>
-			</Attribute>
-		
-			<Attribute uuid="UUID-015">
 				<InternalInfo/>
 				<Properties>
 					<ObjectBelonging>Adopted</ObjectBelonging>

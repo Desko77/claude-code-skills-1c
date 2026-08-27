@@ -1104,7 +1104,7 @@ standard_attributes_by_type = {
     'InformationRegister': ['Active', 'LineNumber', 'Recorder', 'Period'],
     'AccumulationRegister': ['Active', 'LineNumber', 'Recorder', 'Period'],
     'AccountingRegister': ['Active', 'Period', 'Recorder', 'LineNumber', 'Account'],
-    'CalculationRegister': ['Active', 'Recorder', 'LineNumber', 'RegistrationPeriod', 'CalculationType', 'ReversingEntry'],
+    'CalculationRegister': ['RegistrationPeriod', 'ReversingEntry', 'Active', 'EndOfBasePeriod', 'BegOfBasePeriod', 'EndOfActionPeriod', 'BegOfActionPeriod', 'ActionPeriod', 'CalculationType', 'LineNumber', 'Recorder'],
     'ChartOfAccounts': ['PredefinedDataName', 'Predefined', 'Ref', 'DeletionMark', 'Description', 'Code', 'Parent', 'Order', 'Type', 'OffBalance'],
     'ChartOfCharacteristicTypes': ['PredefinedDataName', 'Predefined', 'Ref', 'DeletionMark', 'Description', 'Code', 'Parent', 'ValueType'],
     'ChartOfCalculationTypes': ['PredefinedDataName', 'Predefined', 'Ref', 'DeletionMark', 'Description', 'Code', 'ActionPeriodIsBasic'],
@@ -2555,6 +2555,7 @@ def emit_document_journal_properties(indent):
         X(f'{i}</RegisteredDocuments>')
     else:
         X(f'{i}<RegisteredDocuments/>')
+    X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     emit_standard_attributes(i, 'DocumentJournal')
     X(f'{i}<ListPresentation/>')
     X(f'{i}<ExtendedListPresentation/>')
@@ -2702,8 +2703,8 @@ def emit_chart_of_calculation_types_properties(indent):
     emit_mltext(i, 'Synonym', synonym)
     emit_comment(i)
     X(f'{i}<UseStandardCommands>true</UseStandardCommands>')
-    code_length = str(defn['codeLength']) if defn.get('codeLength') is not None else '9'
-    description_length = str(defn['descriptionLength']) if defn.get('descriptionLength') is not None else '25'
+    code_length = str(defn['codeLength']) if defn.get('codeLength') is not None else '5'
+    description_length = str(defn['descriptionLength']) if defn.get('descriptionLength') is not None else '100'
     code_type = get_enum_prop('CodeType', 'codeType', 'String')
     code_allowed_length = get_enum_prop('CodeAllowedLength', 'codeAllowedLength', 'Variable')
     X(f'{i}<CodeLength>{code_length}</CodeLength>')
@@ -2827,11 +2828,6 @@ def emit_calculation_register_properties(indent):
     X(f'{i}<UseStandardCommands>true</UseStandardCommands>')
     X(f'{i}<DefaultListForm/>')
     X(f'{i}<AuxiliaryListForm/>')
-    chart_of_calc_types = str(defn['chartOfCalculationTypes']) if defn.get('chartOfCalculationTypes') else ''
-    if chart_of_calc_types:
-        X(f'{i}<ChartOfCalculationTypes>{chart_of_calc_types}</ChartOfCalculationTypes>')
-    else:
-        X(f'{i}<ChartOfCalculationTypes/>')
     periodicity = get_enum_prop('InformationRegisterPeriodicity', 'periodicity', 'Month')
     X(f'{i}<Periodicity>{periodicity}</Periodicity>')
     action_period = 'true' if defn.get('actionPeriod') is True else 'false'
@@ -2853,6 +2849,11 @@ def emit_calculation_register_properties(indent):
         X(f'{i}<ScheduleDate>{schedule_date}</ScheduleDate>')
     else:
         X(f'{i}<ScheduleDate/>')
+    chart_of_calc_types = str(defn['chartOfCalculationTypes']) if defn.get('chartOfCalculationTypes') else ''
+    if chart_of_calc_types:
+        X(f'{i}<ChartOfCalculationTypes>{chart_of_calc_types}</ChartOfCalculationTypes>')
+    else:
+        X(f'{i}<ChartOfCalculationTypes/>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     emit_standard_attributes(i, 'CalculationRegister')
     data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
@@ -3012,6 +3013,9 @@ def emit_web_service_properties(indent):
         X(f'{i}<XDTOPackages>{xdto_packages}</XDTOPackages>')
     else:
         X(f'{i}<XDTOPackages/>')
+    # Имя файла описания сервиса платформа выводит из имени объекта.
+    descriptor = str(defn['descriptorFileName']) if defn.get('descriptorFileName') else f'{obj_name}.1cws'
+    X(f'{i}<DescriptorFileName>{esc_xml(descriptor)}</DescriptorFileName>')
     reuse_sessions = get_enum_prop('ReuseSessions', 'reuseSessions', 'DontUse')
     X(f'{i}<ReuseSessions>{reuse_sessions}</ReuseSessions>')
     session_max_age = str(defn['sessionMaxAge']) if defn.get('sessionMaxAge') is not None else '20'
