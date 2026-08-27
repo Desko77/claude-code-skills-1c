@@ -1258,15 +1258,25 @@ def build_template_cell(cell_el, tpl_node):
             elif p == 'Расшифровка':
                 info['dd'] = v_txt
             elif p == 'ЦветФона':
-                probe['bg'] = normalize_color(v_txt)
+                probe['bgColor'] = normalize_color(v_txt)
+            elif p == 'ЦветТекста':
+                probe['textColor'] = normalize_color(v_txt)
+            elif p == 'ЦветГраницы':
+                probe['borderColor'] = normalize_color(v_txt)
+            elif p == 'СтильГраницы':
+                probe['borders'] = True
             elif p == 'ГоризонтальноеПоложение':
                 probe['hAlign'] = v_txt
+            elif p == 'ВертикальноеПоложение':
+                probe['vAlign'] = v_txt
             elif p == 'Размещение':
                 probe['wrap'] = (v_txt == 'Wrap')
-            elif p == 'Шрифт':
-                probe['font'] = True
-        if probe:
-            info['probe'] = probe
+            elif p == 'Шрифт' and v_el is not None:
+                probe['font'] = v_el.get('faceName') or ''
+                probe['fontSize'] = parse_num(v_el.get('height') or '0')
+                probe['bold'] = (v_el.get('bold') == 'true')
+                probe['italic'] = (v_el.get('italic') == 'true')
+        info['probe'] = probe
     content = None
     item_el = kid(cell_el, 'item')
     if item_el is not None:
@@ -1297,18 +1307,95 @@ def build_template_cell(cell_el, tpl_node):
     return info
 
 
+# Оформление ячейки читается целиком и сверяется с пресетами: встроенными и пользовательскими
+# из skd-styles.json. Так распознается и свой стиль, а не только четыре штатных.
+AREA_STYLE_PRESETS = {
+    'data': {
+        'font': 'Arial', 'fontSize': 10, 'bold': False, 'italic': False,
+        'hAlign': None, 'vAlign': None, 'wrap': False,
+        'bgColor': 'style:ReportGroup1BackColor', 'textColor': None,
+        'borderColor': 'style:ReportLineColor', 'borders': True,
+    },
+    'header': {
+        'font': 'Arial', 'fontSize': 10, 'bold': False, 'italic': False,
+        'hAlign': 'Center', 'vAlign': None, 'wrap': True,
+        'bgColor': 'style:ReportHeaderBackColor', 'textColor': None,
+        'borderColor': 'style:ReportLineColor', 'borders': True,
+    },
+    'subheader': {
+        'font': 'Arial', 'fontSize': 10, 'bold': False, 'italic': False,
+        'hAlign': 'Center', 'vAlign': None, 'wrap': True,
+        'bgColor': None, 'textColor': None,
+        'borderColor': 'style:ReportLineColor', 'borders': True,
+    },
+    'total': {
+        'font': 'Arial', 'fontSize': 10, 'bold': False, 'italic': False,
+        'hAlign': None, 'vAlign': None, 'wrap': False,
+        'bgColor': None, 'textColor': None,
+        'borderColor': 'style:ReportLineColor', 'borders': True,
+    },
+    'none': {
+        'font': None, 'fontSize': None, 'bold': False, 'italic': False,
+        'hAlign': None, 'vAlign': None, 'wrap': False,
+        'bgColor': None, 'textColor': None,
+        'borderColor': None, 'borders': False,
+    },
+}
+
+STYLE_KEYS = ('font', 'fontSize', 'bold', 'italic', 'hAlign', 'vAlign', 'wrap',
+              'bgColor', 'textColor', 'borderColor', 'borders')
+
+USER_STYLE_PRESETS = {}
+
+
+def load_user_style_presets(base_dir):
+    """Пользовательские пресеты берутся оттуда же, откуда их берет сборка: каталог макета,
+    текущий каталог, затем подъем по дереву к presets/skills/skd."""
+    candidates = [os.path.join(base_dir, 'skd-styles.json'),
+                  os.path.join(os.getcwd(), 'skd-styles.json')]
+    scan_dir = base_dir
+    while scan_dir:
+        candidates.append(os.path.join(scan_dir, 'presets', 'skills', 'skd', 'skd-styles.json'))
+        parent_dir = os.path.dirname(scan_dir)
+        if parent_dir == scan_dir:
+            break
+        scan_dir = parent_dir
+    for candidate in candidates:
+        if not os.path.isfile(candidate):
+            continue
+        try:
+            with open(candidate, encoding='utf-8-sig') as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            for name, overrides in data.items():
+                if not isinstance(overrides, dict):
+                    continue
+                base = dict(AREA_STYLE_PRESETS.get(name, AREA_STYLE_PRESETS['data']))
+                base.update(overrides)
+                USER_STYLE_PRESETS[name] = base
+        return
+
+
+def style_signature(props):
+    out = {}
+    for k in STYLE_KEYS:
+        v = props.get(k)
+        if k in ('bold', 'italic', 'wrap', 'borders'):
+            out[k] = bool(v)
+        elif k == 'fontSize':
+            out[k] = None if v is None else parse_num(str(v))
+        else:
+            out[k] = v if v else None
+    return tuple(out[k] for k in STYLE_KEYS)
+
+
 def detect_template_style(probe):
-    bg = probe.get('bg')
-    center = probe.get('hAlign') == 'Center'
-    wrap = bool(probe.get('wrap'))
-    if bg == 'style:ReportHeaderBackColor' and center and wrap:
-        return 'header'
-    if bg == 'style:ReportGroup1BackColor' and not center and not wrap:
-        return 'data'
-    if not bg and center and wrap:
-        return 'subheader'
-    if not bg and not center and not wrap:
-        return 'total'
+    want = style_signature(probe)
+    for name, preset in list(AREA_STYLE_PRESETS.items()) + list(USER_STYLE_PRESETS.items()):
+        if style_signature(preset) == want:
+            return name
     return None
 
 
@@ -1321,6 +1408,7 @@ def build_template(el):
     widths = []
     min_height = 0
     first_probe = None
+    cell_probes = []
     cell_dd = {}
     if inner is not None:
         for row_el in kids(inner, 'item'):
@@ -1329,21 +1417,24 @@ def build_template(el):
                 add_todo(node, 'элемент области макета не поддержан: ' + rxt)
                 continue
             row = []
+            row_probes = []
             c_i = 0
             for cell_el in kids(row_el, 'tableCell'):
                 info = build_template_cell(cell_el, node)
                 row.append(info['content'])
+                row_probes.append(info['probe'])
                 if len(rows) == 0:
                     widths.append(info['width'])
                     if c_i == 0:
                         min_height = info['minHeight']
-                if first_probe is None and info['probe']:
+                if first_probe is None and info['probe'] is not None:
                     first_probe = info['probe']
                 content = info['content']
                 if info['dd'] and isinstance(content, str) and content.startswith('{') and content.endswith('}'):
                     cell_dd[content[1:-1]] = info['dd']
                 c_i += 1
             rows.append(row)
+            cell_probes.append(row_probes)
     else:
         add_todo(node, 'макет без области AreaTemplate - строки не декомпилированы')
     style = None
@@ -1351,10 +1442,21 @@ def build_template(el):
         style = detect_template_style(first_probe)
         if style is None:
             add_todo(node, 'оформление ячеек не распознано - подбери style вручную (header/data/subheader/total или skd-styles.json)')
-    if style and style != 'data':
+    # Ячейка со своим оформлением записывается объектом: макетный стиль ей не подходит.
+    if style:
+        for r_i, row_probes in enumerate(cell_probes):
+            for c_i, probe in enumerate(row_probes):
+                if probe is None or c_i >= len(rows[r_i]):
+                    continue
+                cell_style = detect_template_style(probe)
+                if cell_style is None or cell_style == style:
+                    continue
+                rows[r_i][c_i] = {'value': rows[r_i][c_i], 'style': cell_style}
+    if style:
         node['style'] = style
     if any(w for w in widths):
-        node['widths'] = widths
+        # Ширина колонки записывается строкой: так ее задает и читает наш DSL.
+        node['widths'] = [str(w) for w in widths]
     if min_height:
         node['minHeight'] = min_height
     node['rows'] = rows
@@ -1441,21 +1543,9 @@ def safe_query_file_name(name):
     return candidate
 
 
-# --- Черновой JSON (общий блок, версия 1) ---
-def is_compact_json(value):
-    """Компактно пишется все, кроме массива объектов длиннее одного элемента.
-
-    Признак рекурсивный: контейнер разворачивается, если разворачивается хоть что-то внутри.
-    """
-    if value is None or isinstance(value, str) or not isinstance(value, (list, tuple, dict)):
-        return True
-    if isinstance(value, dict):
-        return all(is_compact_json(v) for v in value.values())
-    if len(value) <= 1:
-        return all(is_compact_json(v) for v in value)
-    if any(isinstance(v, dict) for v in value):
-        return False
-    return all(is_compact_json(v) for v in value)
+# --- Черновой JSON (общий блок, версия 2) ---
+# Ширина строки, после которой контейнер разворачивается по элементу на строку.
+DRAFT_JSON_WIDTH = 400
 
 
 def to_inline_json(value):
@@ -1481,17 +1571,18 @@ def to_inline_json(value):
 
 
 def to_draft_json(value, indent=''):
-    """Описание пишется в том виде, в каком его удобно править руками."""
-    if is_compact_json(value):
-        return to_inline_json(value)
+    """Описание пишется в том виде, в каком его удобно править руками: контейнер идет
+    одной строкой, пока в нее помещается, и разворачивается, когда перестает."""
+    rendered = to_inline_json(value)
+    if (len(indent) + len(rendered) <= DRAFT_JSON_WIDTH
+            or not isinstance(value, (dict, list, tuple)) or not value):
+        return rendered
     inner = indent + '  '
     if isinstance(value, dict):
-        parts = []
-        for k, v in value.items():
-            rendered = to_inline_json(v) if is_compact_json(v) else to_draft_json(v, inner)
-            parts.append(inner + json.dumps(str(k), ensure_ascii=False) + ': ' + rendered)
+        parts = [inner + json.dumps(str(k), ensure_ascii=False) + ': ' + to_draft_json(v, inner)
+                 for k, v in value.items()]
         return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
-    parts = [inner + to_inline_json(v) for v in value]
+    parts = [inner + to_draft_json(v, inner) for v in value]
     return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
 # --- Конец общего блока чернового JSON ---
 
@@ -1524,6 +1615,8 @@ def main():
     if not os.path.isfile(in_path):
         print('Файл не найден: ' + in_path, file=sys.stderr)
         sys.exit(1)
+
+    load_user_style_presets(os.path.dirname(in_path))
 
     root = None
     try:

@@ -943,7 +943,10 @@ if ($columnSetsOut.Count -gt 0) { $result["columnSets"] = $columnSetsOut }
 # Описание пишется в том виде, в каком его удобно править руками: компактно там, где
 # это не мешает читать.
 
-# --- Черновой JSON (общий блок, версия 1) ---
+# --- Черновой JSON (общий блок, версия 2) ---
+# Ширина строки, после которой контейнер разворачивается по элементу на строку.
+$script:draftJsonWidth = 400
+
 function ConvertTo-JsonStringLiteral($s) {
 	$sb = New-Object System.Text.StringBuilder
 	[void]$sb.Append('"')
@@ -958,28 +961,6 @@ function ConvertTo-JsonStringLiteral($s) {
 	}
 	[void]$sb.Append('"')
 	return $sb.ToString()
-}
-
-# Описание пишется в том же виде, в каком его удобно править руками: словарь идет по
-# ключу на строку, а массив разворачивается только когда в нем есть объекты и элементов
-# больше одного. Массив строк и одиночный объект остаются в строке.
-function Test-CompactJson($v) {
-	if ($null -eq $v -or $v -is [string] -or $v -isnot [System.Collections.IEnumerable]) { return $true }
-	if ($v -is [System.Collections.IDictionary]) {
-		foreach ($k in $v.Keys) {
-			if (-not (Test-CompactJson $v[$k])) { return $false }
-		}
-		return $true
-	}
-	$count = 0
-	$hasDictionary = $false
-	foreach ($it in $v) {
-		$count++
-		if ($it -is [System.Collections.IDictionary]) { $hasDictionary = $true }
-		if (-not (Test-CompactJson $it)) { return $false }
-	}
-	if ($count -le 1) { return $true }
-	return (-not $hasDictionary)
 }
 
 function ConvertTo-InlineJson($v) {
@@ -1006,37 +987,28 @@ function ConvertTo-InlineJson($v) {
 	return ConvertTo-JsonStringLiteral ([string]$v)
 }
 
+# Описание пишется в том виде, в каком его удобно править руками: контейнер идет одной
+# строкой, пока в нее помещается, и разворачивается, когда перестает.
 function ConvertTo-DraftJson($v, $indent) {
-	# Компактное значение не разворачивается и на верхнем уровне: иначе описание из
-	# одной строки печаталось бы деревом.
-	if (Test-CompactJson $v) { return ConvertTo-InlineJson $v }
-	if ($null -eq $v) { return 'null' }
-	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
-	if ($v -is [int] -or $v -is [int64] -or $v -is [double] -or $v -is [decimal]) {
-		return [System.Convert]::ToString($v, [System.Globalization.CultureInfo]::InvariantCulture)
+	$rendered = ConvertTo-InlineJson $v
+	$isContainer = ($v -is [System.Collections.IDictionary]) -or
+		(($v -is [System.Collections.IEnumerable]) -and ($v -isnot [string]))
+	if (-not $isContainer -or ($indent.Length + $rendered.Length) -le $script:draftJsonWidth) {
+		return $rendered
 	}
-	if ($v -is [string]) { return ConvertTo-JsonStringLiteral $v }
+	$inner = $indent + '  '
 	if ($v -is [System.Collections.IDictionary]) {
 		if ($v.Count -eq 0) { return '{}' }
-		$inner = $indent + '  '
 		$parts = New-Object System.Collections.Generic.List[object]
 		foreach ($k in $v.Keys) {
-			$value = $v[$k]
-			$rendered = if (Test-CompactJson $value) { ConvertTo-InlineJson $value } else { ConvertTo-DraftJson $value $inner }
-			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + $rendered)
+			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + (ConvertTo-DraftJson $v[$k] $inner))
 		}
 		return "{`n" + ($parts -join ",`n") + "`n" + $indent + '}'
 	}
-	if ($v -is [System.Collections.IEnumerable]) {
-		$inner = $indent + '  '
-		$parts = New-Object System.Collections.Generic.List[object]
-		foreach ($it in $v) {
-			[void]$parts.Add($inner + (ConvertTo-InlineJson $it))
-		}
-		if ($parts.Count -eq 0) { return '[]' }
-		return "[`n" + ($parts -join ",`n") + "`n" + $indent + ']'
-	}
-	return ConvertTo-JsonStringLiteral ([string]$v)
+	$parts = New-Object System.Collections.Generic.List[object]
+	foreach ($it in $v) { [void]$parts.Add($inner + (ConvertTo-DraftJson $it $inner)) }
+	if ($parts.Count -eq 0) { return '[]' }
+	return "[`n" + ($parts -join ",`n") + "`n" + $indent + ']'
 }
 # --- Конец общего блока чернового JSON ---
 

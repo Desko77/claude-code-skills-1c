@@ -1266,6 +1266,13 @@ AREA_STYLE_PRESETS = {
         'bgColor': None, 'textColor': None,
         'borderColor': 'style:ReportLineColor', 'borders': True,
     },
+    # Оформления нет вовсе: у ячейки остается только ширина.
+    'none': {
+        'font': None, 'fontSize': None, 'bold': False, 'italic': False,
+        'hAlign': None, 'vAlign': None, 'wrap': False,
+        'bgColor': None, 'textColor': None,
+        'borderColor': None, 'borders': False,
+    },
 }
 
 
@@ -1303,8 +1310,9 @@ def _emit_color_value(lines, color, indent):
 
 
 def _emit_cell_appearance(lines, style, width=0, v_merge=False, h_merge=False, min_height=0, extra_items=None):
-    ind = '\t\t\t\t\t'
-    lines.append('\t\t\t\t<dcsat:appearance>')
+    # Оформление - такой же дочерний элемент ячейки, как и item рядом с ним.
+    ind = '\t\t\t\t\t\t'
+    lines.append('\t\t\t\t\t<dcsat:appearance>')
     # Background color
     if style.get('bgColor'):
         lines.append(f'{ind}<dcscor:item>')
@@ -1340,10 +1348,11 @@ def _emit_cell_appearance(lines, style, width=0, v_merge=False, h_merge=False, m
     # Font
     bold_str = 'true' if style.get('bold') else 'false'
     italic_str = 'true' if style.get('italic') else 'false'
-    lines.append(f'{ind}<dcscor:item>')
-    lines.append(f'{ind}\t<dcscor:parameter>\u0428\u0440\u0438\u0444\u0442</dcscor:parameter>')
-    lines.append(f'{ind}\t<dcscor:value xsi:type="v8ui:Font" faceName="{style["font"]}" height="{style["fontSize"]}" bold="{bold_str}" italic="{italic_str}" underline="false" strikeout="false" kind="Absolute" scale="100"/>')
-    lines.append(f'{ind}</dcscor:item>')
+    if style.get('font'):
+        lines.append(f'{ind}<dcscor:item>')
+        lines.append(f'{ind}\t<dcscor:parameter>\u0428\u0440\u0438\u0444\u0442</dcscor:parameter>')
+        lines.append(f'{ind}\t<dcscor:value xsi:type="v8ui:Font" faceName="{style["font"]}" height="{style["fontSize"]}" bold="{bold_str}" italic="{italic_str}" underline="false" strikeout="false" kind="Absolute" scale="100"/>')
+        lines.append(f'{ind}</dcscor:item>')
     # Horizontal alignment
     if style.get('hAlign'):
         lines.append(f'{ind}<dcscor:item>')
@@ -1394,7 +1403,7 @@ def _emit_cell_appearance(lines, style, width=0, v_merge=False, h_merge=False, m
     if extra_items:
         for ei in extra_items:
             lines.append(ei)
-    lines.append('\t\t\t\t</dcsat:appearance>')
+    lines.append('\t\t\t\t\t</dcsat:appearance>')
 
 
 def _emit_area_template_dsl(lines, t):
@@ -1404,7 +1413,20 @@ def _emit_area_template_dsl(lines, t):
         style_name = 'data'
     style = AREA_STYLE_PRESETS[style_name]
 
-    rows = list(t['rows'])
+    # Ячейка со своим стилем разворачивается до всего прочего: маркеры объединения у нее
+    # такие же, как у строковой, и карты объединения должны их видеть.
+    cell_styles = {}
+    rows = []
+    for r_i, src_row in enumerate(t['rows']):
+        row = []
+        for c_i, cell in enumerate(src_row):
+            if isinstance(cell, dict) and 'value' in cell:
+                if cell.get('style'):
+                    cell_styles[(r_i, c_i)] = str(cell['style'])
+                row.append(cell.get('value'))
+            else:
+                row.append(cell)
+        rows.append(row)
     widths = list(t.get('widths', []))
     min_height = float(t.get('minHeight', 0))
     col_count = len(widths) if widths else len(rows[0])
@@ -1447,11 +1469,20 @@ def _emit_area_template_dsl(lines, t):
             w = float(widths[c]) if c < len(widths) else 0
             is_v_merged = v_merge.get(r, {}).get(c, False)
             is_h_merged = h_merge.get(r, {}).get(c, False)
+            # Ячейка задается строкой либо объектом со своим стилем: тогда оформление
+            # берется от нее, а не от макета. Объединенная ячейка тоже несет свое.
+            cell_style = style
+            if (r, c) in cell_styles:
+                cell_style_name = cell_styles[(r, c)]
+                if cell_style_name not in AREA_STYLE_PRESETS:
+                    print(f"Warning: Unknown area style preset '{cell_style_name}', falling back to '{style_name}'", file=sys.stderr)
+                    cell_style_name = style_name
+                cell_style = AREA_STYLE_PRESETS[cell_style_name]
             lines.append('\t\t\t\t<dcsat:tableCell>')
             if is_v_merged:
-                _emit_cell_appearance(lines, style, w, True)
+                _emit_cell_appearance(lines, cell_style, w, True)
             elif is_h_merged:
-                _emit_cell_appearance(lines, style, w, h_merge=True)
+                _emit_cell_appearance(lines, cell_style, w, h_merge=True)
             else:
                 cell_extra_items = []
                 if cell_val is not None and str(cell_val) != '':
@@ -1470,10 +1501,10 @@ def _emit_area_template_dsl(lines, t):
                         # Build drilldown appearance extra items
                         if param_name in drilldown_map:
                             dd_val = drilldown_map[param_name]
-                            cell_extra_items.append('\t\t\t\t\t<dcscor:item>')
-                            cell_extra_items.append(f'\t\t\t\t\t\t<dcscor:parameter>\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430</dcscor:parameter>')
-                            cell_extra_items.append(f'\t\t\t\t\t\t<dcscor:value xsi:type="dcscor:Parameter">\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430_{dd_val}</dcscor:value>')
-                            cell_extra_items.append('\t\t\t\t\t</dcscor:item>')
+                            cell_extra_items.append('\t\t\t\t\t\t<dcscor:item>')
+                            cell_extra_items.append(f'\t\t\t\t\t\t\t\t<dcscor:parameter>\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430</dcscor:parameter>')
+                            cell_extra_items.append(f'\t\t\t\t\t\t\t\t<dcscor:value xsi:type="dcscor:Parameter">\u0420\u0430\u0441\u0448\u0438\u0444\u0440\u043e\u0432\u043a\u0430_{dd_val}</dcscor:value>')
+                            cell_extra_items.append('\t\t\t\t\t\t</dcscor:item>')
                     else:
                         lines.append('\t\t\t\t\t<dcsat:item xsi:type="dcsat:Field">')
                         lines.append('\t\t\t\t\t\t<dcsat:value xsi:type="v8:LocalStringType">')
@@ -1484,7 +1515,7 @@ def _emit_area_template_dsl(lines, t):
                         lines.append('\t\t\t\t\t\t</dcsat:value>')
                         lines.append('\t\t\t\t\t</dcsat:item>')
                 h = min_height if r == 0 else 0
-                _emit_cell_appearance(lines, style, w, False, False, h, cell_extra_items or None)
+                _emit_cell_appearance(lines, cell_style, w, False, False, h, cell_extra_items or None)
             lines.append('\t\t\t\t</dcsat:tableCell>')
         lines.append('\t\t\t</dcsat:item>')
 

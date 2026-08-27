@@ -1295,6 +1295,13 @@ $script:areaStylePresets = @{
 		bgColor = $null; textColor = $null
 		borderColor = 'style:ReportLineColor'; borders = $true
 	}
+	# Оформления нет вовсе: у ячейки остается только ширина.
+	none = @{
+		font = $null; fontSize = $null; bold = $false; italic = $false
+		hAlign = $null; vAlign = $null; wrap = $false
+		bgColor = $null; textColor = $null
+		borderColor = $null; borders = $false
+	}
 }
 
 # Load user presets from skd-styles.json
@@ -1351,8 +1358,9 @@ function Emit-ColorValue {
 
 function Emit-CellAppearance {
 	param($style, [double]$width = 0, [bool]$vMerge = $false, [bool]$hMerge = $false, [double]$minHeight = 0, $extraItems = @())
-	$ind = "`t`t`t`t`t"
-	X "`t`t`t`t<dcsat:appearance>"
+	# Оформление - такой же дочерний элемент ячейки, как и item рядом с ним.
+	$ind = "`t`t`t`t`t`t"
+	X "`t`t`t`t`t<dcsat:appearance>"
 	# Background color
 	if ($style.bgColor) {
 		X "$ind<dcscor:item>"
@@ -1393,10 +1401,12 @@ function Emit-CellAppearance {
 	# Font
 	$boldStr = if ($style.bold) { "true" } else { "false" }
 	$italicStr = if ($style.italic) { "true" } else { "false" }
-	X "$ind<dcscor:item>"
-	X "$ind`t<dcscor:parameter>Шрифт</dcscor:parameter>"
-	X "$ind`t<dcscor:value xsi:type=`"v8ui:Font`" faceName=`"$($style.font)`" height=`"$($style.fontSize)`" bold=`"$boldStr`" italic=`"$italicStr`" underline=`"false`" strikeout=`"false`" kind=`"Absolute`" scale=`"100`"/>"
-	X "$ind</dcscor:item>"
+	if ($style.font) {
+		X "$ind<dcscor:item>"
+		X "$ind`t<dcscor:parameter>Шрифт</dcscor:parameter>"
+		X "$ind`t<dcscor:value xsi:type=`"v8ui:Font`" faceName=`"$($style.font)`" height=`"$($style.fontSize)`" bold=`"$boldStr`" italic=`"$italicStr`" underline=`"false`" strikeout=`"false`" kind=`"Absolute`" scale=`"100`"/>"
+		X "$ind</dcscor:item>"
+	}
 	# Horizontal alignment
 	if ($style.hAlign) {
 		X "$ind<dcscor:item>"
@@ -1452,7 +1462,7 @@ function Emit-CellAppearance {
 	}
 	# Extra appearance items (e.g. drilldown Расшифровка)
 	foreach ($ei in $extraItems) { X $ei }
-	X "`t`t`t`t</dcsat:appearance>"
+	X "`t`t`t`t`t</dcsat:appearance>"
 }
 
 function Emit-AreaTemplateDSL {
@@ -1464,7 +1474,26 @@ function Emit-AreaTemplateDSL {
 	}
 	$style = $script:areaStylePresets[$styleName]
 
-	$rows = @($t.rows)
+	# Ячейка со своим стилем разворачивается до всего прочего: маркеры объединения у нее
+	# такие же, как у строковой, и карты объединения должны их видеть.
+	$cellStyles = @{}
+	$rows = New-Object System.Collections.Generic.List[object]
+	$rI = 0
+	foreach ($srcRow in @($t.rows)) {
+		$row = New-Object System.Collections.Generic.List[object]
+		$cI = 0
+		foreach ($cell in @($srcRow)) {
+			if ($null -ne $cell -and $cell -isnot [string] -and $cell.PSObject.Properties['value']) {
+				if ($cell.style) { $cellStyles["$rI,$cI"] = "$($cell.style)" }
+				[void]$row.Add($cell.value)
+			} else {
+				[void]$row.Add($cell)
+			}
+			$cI += 1
+		}
+		[void]$rows.Add($row)
+		$rI += 1
+	}
 	$widths = if ($t.widths) { @($t.widths) } else { @() }
 	$minHeight = if ($t.minHeight) { [double]$t.minHeight } else { 0 }
 	$colCount = if ($widths.Count -gt 0) { $widths.Count } else { $rows[0].Count }
@@ -1513,13 +1542,22 @@ function Emit-AreaTemplateDSL {
 			$w = if ($c -lt $widths.Count) { [double]$widths[$c] } else { 0 }
 			$isVMerged = $vMerge[$r][$c] -eq $true
 			$isHMerged = $hMerge[$r][$c] -eq $true
+			# Ячейка задается строкой либо объектом со своим стилем: тогда оформление
+			# берется от нее, а не от макета. Объединенная ячейка тоже несет свое.
+			$cellStyle = $style
+			if ($cellStyles.ContainsKey("$r,$c")) {
+				$cellStyleName = $cellStyles["$r,$c"]
+				if (-not $script:areaStylePresets.ContainsKey($cellStyleName)) {
+					[Console]::Error.WriteLine("Warning: Unknown area style preset '$cellStyleName', falling back to '$styleName'")
+					$cellStyleName = $styleName
+				}
+				$cellStyle = $script:areaStylePresets[$cellStyleName]
+			}
 			X "`t`t`t`t<dcsat:tableCell>"
 			if ($isVMerged) {
-				# Vertically merged cell — only appearance with vMerge flag + width
-				Emit-CellAppearance $style $w $true
+				Emit-CellAppearance $cellStyle $w $true
 			} elseif ($isHMerged) {
-				# Horizontally merged cell — only appearance with hMerge flag + width
-				Emit-CellAppearance $style $w $false $true
+				Emit-CellAppearance $cellStyle $w $false $true
 			} else {
 				# Cell value
 				if ($null -ne $cellVal -and $cellVal -ne '') {
@@ -1537,10 +1575,10 @@ function Emit-AreaTemplateDSL {
 						$cellExtraItems = @()
 						if ($drilldownMap.ContainsKey($paramName)) {
 							$ddVal = $drilldownMap[$paramName]
-							$cellExtraItems += "`t`t`t`t`t<dcscor:item>"
-							$cellExtraItems += "`t`t`t`t`t`t<dcscor:parameter>Расшифровка</dcscor:parameter>"
-							$cellExtraItems += "`t`t`t`t`t`t<dcscor:value xsi:type=`"dcscor:Parameter`">Расшифровка_$ddVal</dcscor:value>"
-							$cellExtraItems += "`t`t`t`t`t</dcscor:item>"
+							$cellExtraItems += "`t`t`t`t`t`t<dcscor:item>"
+							$cellExtraItems += "`t`t`t`t`t`t`t<dcscor:parameter>Расшифровка</dcscor:parameter>"
+							$cellExtraItems += "`t`t`t`t`t`t`t<dcscor:value xsi:type=`"dcscor:Parameter`">Расшифровка_$ddVal</dcscor:value>"
+							$cellExtraItems += "`t`t`t`t`t`t</dcscor:item>"
 						}
 					} else {
 						# Static text
@@ -1557,7 +1595,7 @@ function Emit-AreaTemplateDSL {
 				# Appearance
 				$h = if ($r -eq 0) { $minHeight } else { 0 }
 				if (-not $cellExtraItems) { $cellExtraItems = @() }
-				Emit-CellAppearance $style $w $false $false $h $cellExtraItems
+				Emit-CellAppearance $cellStyle $w $false $false $h $cellExtraItems
 				$cellExtraItems = @()
 			}
 			X "`t`t`t`t</dcsat:tableCell>"

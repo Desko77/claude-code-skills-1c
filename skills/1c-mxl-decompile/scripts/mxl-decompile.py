@@ -30,21 +30,9 @@ def findall(node, xpath):
     return node.findall(xpath, NSMAP)
 
 
-# --- Черновой JSON (общий блок, версия 1) ---
-def is_compact_json(value):
-    """Компактно пишется все, кроме массива объектов длиннее одного элемента.
-
-    Признак рекурсивный: контейнер разворачивается, если разворачивается хоть что-то внутри.
-    """
-    if value is None or isinstance(value, str) or not isinstance(value, (list, tuple, dict)):
-        return True
-    if isinstance(value, dict):
-        return all(is_compact_json(v) for v in value.values())
-    if len(value) <= 1:
-        return all(is_compact_json(v) for v in value)
-    if any(isinstance(v, dict) for v in value):
-        return False
-    return all(is_compact_json(v) for v in value)
+# --- Черновой JSON (общий блок, версия 2) ---
+# Ширина строки, после которой контейнер разворачивается по элементу на строку.
+DRAFT_JSON_WIDTH = 400
 
 
 def to_inline_json(value):
@@ -70,17 +58,18 @@ def to_inline_json(value):
 
 
 def to_draft_json(value, indent=''):
-    """Описание пишется в том виде, в каком его удобно править руками."""
-    if is_compact_json(value):
-        return to_inline_json(value)
+    """Описание пишется в том виде, в каком его удобно править руками: контейнер идет
+    одной строкой, пока в нее помещается, и разворачивается, когда перестает."""
+    rendered = to_inline_json(value)
+    if (len(indent) + len(rendered) <= DRAFT_JSON_WIDTH
+            or not isinstance(value, (dict, list, tuple)) or not value):
+        return rendered
     inner = indent + '  '
     if isinstance(value, dict):
-        parts = []
-        for k, v in value.items():
-            rendered = to_inline_json(v) if is_compact_json(v) else to_draft_json(v, inner)
-            parts.append(inner + json.dumps(str(k), ensure_ascii=False) + ': ' + rendered)
+        parts = [inner + json.dumps(str(k), ensure_ascii=False) + ': ' + to_draft_json(v, inner)
+                 for k, v in value.items()]
         return '{\n' + ',\n'.join(parts) + '\n' + indent + '}'
-    parts = [inner + to_inline_json(v) for v in value]
+    parts = [inner + to_draft_json(v, inner) for v in value]
     return '[\n' + ',\n'.join(parts) + '\n' + indent + ']'
 # --- Конец общего блока чернового JSON ---
 

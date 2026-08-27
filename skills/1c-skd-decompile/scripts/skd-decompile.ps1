@@ -1346,12 +1346,21 @@ function Build-TemplateCell($cellEl, $tplNode) {
 			elseif ($p -ceq 'МинимальнаяШирина') { $info.width = Get-ParsedNumber $vTxt }
 			elseif ($p -ceq 'МинимальнаяВысота') { $info.minHeight = Get-ParsedNumber $vTxt }
 			elseif ($p -ceq 'Расшифровка') { $info.dd = $vTxt }
-			elseif ($p -ceq 'ЦветФона') { $probe['bg'] = Resolve-ColorValue $vTxt $vEl }
+			elseif ($p -ceq 'ЦветФона') { $probe['bgColor'] = Resolve-ColorValue $vTxt $vEl }
+			elseif ($p -ceq 'ЦветТекста') { $probe['textColor'] = Resolve-ColorValue $vTxt $vEl }
+			elseif ($p -ceq 'ЦветГраницы') { $probe['borderColor'] = Resolve-ColorValue $vTxt $vEl }
+			elseif ($p -ceq 'СтильГраницы') { $probe['borders'] = $true }
 			elseif ($p -ceq 'ГоризонтальноеПоложение') { $probe['hAlign'] = $vTxt }
+			elseif ($p -ceq 'ВертикальноеПоложение') { $probe['vAlign'] = $vTxt }
 			elseif ($p -ceq 'Размещение') { $probe['wrap'] = ($vTxt -ceq 'Wrap') }
-			elseif ($p -ceq 'Шрифт') { $probe['font'] = $true }
+			elseif ($p -ceq 'Шрифт' -and $null -ne $vEl) {
+				$probe['font'] = $vEl.GetAttribute('faceName')
+				$probe['fontSize'] = Get-ParsedNumber $vEl.GetAttribute('height')
+				$probe['bold'] = ($vEl.GetAttribute('bold') -ceq 'true')
+				$probe['italic'] = ($vEl.GetAttribute('italic') -ceq 'true')
+			}
 		}
-		if ($probe.Count -gt 0) { $info.probe = $probe }
+		$info.probe = $probe
 	}
 	$content = $null
 	$itemEl = Get-Kid $cellEl 'item'
@@ -1385,15 +1394,105 @@ function Build-TemplateCell($cellEl, $tplNode) {
 	return $info
 }
 
+# Оформление ячейки читается целиком и сверяется с пресетами: встроенными и пользовательскими
+# из skd-styles.json. Так распознается и свой стиль, а не только четыре штатных.
+$script:areaStylePresets = [ordered]@{
+	data = @{
+		font = 'Arial'; fontSize = 10; bold = $false; italic = $false
+		hAlign = $null; vAlign = $null; wrap = $false
+		bgColor = 'style:ReportGroup1BackColor'; textColor = $null
+		borderColor = 'style:ReportLineColor'; borders = $true
+	}
+	header = @{
+		font = 'Arial'; fontSize = 10; bold = $false; italic = $false
+		hAlign = 'Center'; vAlign = $null; wrap = $true
+		bgColor = 'style:ReportHeaderBackColor'; textColor = $null
+		borderColor = 'style:ReportLineColor'; borders = $true
+	}
+	subheader = @{
+		font = 'Arial'; fontSize = 10; bold = $false; italic = $false
+		hAlign = 'Center'; vAlign = $null; wrap = $true
+		bgColor = $null; textColor = $null
+		borderColor = 'style:ReportLineColor'; borders = $true
+	}
+	total = @{
+		font = 'Arial'; fontSize = 10; bold = $false; italic = $false
+		hAlign = $null; vAlign = $null; wrap = $false
+		bgColor = $null; textColor = $null
+		borderColor = 'style:ReportLineColor'; borders = $true
+	}
+	none = @{
+		font = $null; fontSize = $null; bold = $false; italic = $false
+		hAlign = $null; vAlign = $null; wrap = $false
+		bgColor = $null; textColor = $null
+		borderColor = $null; borders = $false
+	}
+}
+
+$script:styleKeys = @('font', 'fontSize', 'bold', 'italic', 'hAlign', 'vAlign', 'wrap',
+	'bgColor', 'textColor', 'borderColor', 'borders')
+
+$script:userStylePresets = [ordered]@{}
+
+# Пользовательские пресеты берутся оттуда же, откуда их берет сборка: каталог макета,
+# текущий каталог, затем подъем по дереву к presets/skills/skd.
+function Import-UserStylePresets($baseDir) {
+	$candidates = New-Object System.Collections.Generic.List[string]
+	[void]$candidates.Add((Join-Path $baseDir 'skd-styles.json'))
+	[void]$candidates.Add((Join-Path (Get-Location) 'skd-styles.json'))
+	$scanDir = $baseDir
+	while ($scanDir) {
+		[void]$candidates.Add((Join-Path $scanDir 'presets/skills/skd/skd-styles.json'))
+		$parentDir = Split-Path -Parent $scanDir
+		if ($parentDir -ceq $scanDir) { break }
+		$scanDir = $parentDir
+	}
+	foreach ($candidate in $candidates) {
+		if (-not (Test-Path $candidate)) { continue }
+		try {
+			$data = Get-Content -Raw -Encoding UTF8 $candidate | ConvertFrom-Json
+		} catch {
+			return
+		}
+		foreach ($prop in $data.PSObject.Properties) {
+			$base = @{}
+			$src = if ($script:areaStylePresets.Contains($prop.Name)) { $script:areaStylePresets[$prop.Name] } else { $script:areaStylePresets['data'] }
+			foreach ($k in $src.Keys) { $base[$k] = $src[$k] }
+			foreach ($op in $prop.Value.PSObject.Properties) { $base[$op.Name] = $op.Value }
+			$script:userStylePresets[$prop.Name] = $base
+		}
+		return
+	}
+}
+
+function Get-StyleSignature($props) {
+	$parts = New-Object System.Collections.Generic.List[string]
+	foreach ($k in $script:styleKeys) {
+		$v = $null
+		if ($props -is [System.Collections.IDictionary]) {
+			if ($props.Contains($k)) { $v = $props[$k] }
+		} elseif ($props.PSObject.Properties[$k]) {
+			$v = $props.$k
+		}
+		if ($k -in @('bold', 'italic', 'wrap', 'borders')) {
+			[void]$parts.Add($(if ($v -eq $true) { 'true' } else { 'false' }))
+		} elseif ($k -ceq 'fontSize') {
+			[void]$parts.Add($(if ($null -eq $v -or "$v" -eq '') { '' } else { "$([double]$v)" }))
+		} else {
+			[void]$parts.Add($(if ($v) { "$v" } else { '' }))
+		}
+	}
+	return ($parts -join '|')
+}
+
 function Get-TemplateStyle($probe) {
-	$bg = $null
-	if ($probe.ContainsKey('bg')) { $bg = $probe['bg'] }
-	$center = ($probe.ContainsKey('hAlign') -and $probe['hAlign'] -ceq 'Center')
-	$wrap = ($probe.ContainsKey('wrap') -and $probe['wrap'] -eq $true)
-	if ($bg -ceq 'style:ReportHeaderBackColor' -and $center -and $wrap) { return 'header' }
-	if ($bg -ceq 'style:ReportGroup1BackColor' -and -not $center -and -not $wrap) { return 'data' }
-	if ($null -eq $bg -and $center -and $wrap) { return 'subheader' }
-	if ($null -eq $bg -and -not $center -and -not $wrap) { return 'total' }
+	$want = Get-StyleSignature $probe
+	foreach ($name in $script:areaStylePresets.Keys) {
+		if ((Get-StyleSignature $script:areaStylePresets[$name]) -ceq $want) { return $name }
+	}
+	foreach ($name in $script:userStylePresets.Keys) {
+		if ((Get-StyleSignature $script:userStylePresets[$name]) -ceq $want) { return $name }
+	}
 	return $null
 }
 
@@ -1408,6 +1507,7 @@ function Build-Template($el) {
 	$widths = New-Object System.Collections.Generic.List[object]
 	$minHeight = 0
 	$firstProbe = $null
+	$cellProbes = New-Object System.Collections.Generic.List[object]
 	$cellDd = [ordered]@{}
 	if ($null -ne $inner) {
 		foreach ($rowEl in (Get-Kids $inner 'item')) {
@@ -1417,10 +1517,12 @@ function Build-Template($el) {
 				continue
 			}
 			$row = New-Object System.Collections.Generic.List[object]
+			$rowProbes = New-Object System.Collections.Generic.List[object]
 			$cI = 0
 			foreach ($cellEl in (Get-Kids $rowEl 'tableCell')) {
 				$info = Build-TemplateCell $cellEl $node
 				[void]$row.Add($info.content)
+				[void]$rowProbes.Add($info.probe)
 				if ($rows.Count -eq 0) {
 					[void]$widths.Add($info.width)
 					if ($cI -eq 0) { $minHeight = $info.minHeight }
@@ -1434,6 +1536,7 @@ function Build-Template($el) {
 				$cI += 1
 			}
 			[void]$rows.Add($row)
+			[void]$cellProbes.Add($rowProbes)
 		}
 	} else {
 		Add-Todo $node 'макет без области AreaTemplate - строки не декомпилированы'
@@ -1445,10 +1548,23 @@ function Build-Template($el) {
 			Add-Todo $node 'оформление ячеек не распознано - подбери style вручную (header/data/subheader/total или skd-styles.json)'
 		}
 	}
-	if ($null -ne $style -and $style -cne 'data') { $node['style'] = $style }
+	# Ячейка со своим оформлением записывается объектом: макетный стиль ей не подходит.
+	if ($null -ne $style) {
+		for ($rI = 0; $rI -lt $cellProbes.Count; $rI++) {
+			for ($cI2 = 0; $cI2 -lt $cellProbes[$rI].Count; $cI2++) {
+				$probe = $cellProbes[$rI][$cI2]
+				if ($null -eq $probe -or $cI2 -ge $rows[$rI].Count) { continue }
+				$cellStyle = Get-TemplateStyle $probe
+				if ($null -eq $cellStyle -or $cellStyle -ceq $style) { continue }
+				$rows[$rI][$cI2] = [ordered]@{ value = $rows[$rI][$cI2]; style = $cellStyle }
+			}
+		}
+		$node['style'] = $style
+	}
 	$hasWidth = $false
 	foreach ($w in $widths) { if ($w -ne 0) { $hasWidth = $true } }
-	if ($hasWidth) { $node['widths'] = $widths }
+	# Ширина колонки записывается строкой: так ее задает и читает наш DSL.
+	if ($hasWidth) { $node['widths'] = @($widths | ForEach-Object { "$_" }) }
 	if ($minHeight -ne 0) { $node['minHeight'] = $minHeight }
 	$node['rows'] = $rows
 
@@ -1555,7 +1671,10 @@ function Get-SafeQueryFileName {
 	return $candidate
 }
 
-# --- Черновой JSON (общий блок, версия 1) ---
+# --- Черновой JSON (общий блок, версия 2) ---
+# Ширина строки, после которой контейнер разворачивается по элементу на строку.
+$script:draftJsonWidth = 400
+
 function ConvertTo-JsonStringLiteral($s) {
 	$sb = New-Object System.Text.StringBuilder
 	[void]$sb.Append('"')
@@ -1570,28 +1689,6 @@ function ConvertTo-JsonStringLiteral($s) {
 	}
 	[void]$sb.Append('"')
 	return $sb.ToString()
-}
-
-# Описание пишется в том же виде, в каком его удобно править руками: словарь идет по
-# ключу на строку, а массив разворачивается только когда в нем есть объекты и элементов
-# больше одного. Массив строк и одиночный объект остаются в строке.
-function Test-CompactJson($v) {
-	if ($null -eq $v -or $v -is [string] -or $v -isnot [System.Collections.IEnumerable]) { return $true }
-	if ($v -is [System.Collections.IDictionary]) {
-		foreach ($k in $v.Keys) {
-			if (-not (Test-CompactJson $v[$k])) { return $false }
-		}
-		return $true
-	}
-	$count = 0
-	$hasDictionary = $false
-	foreach ($it in $v) {
-		$count++
-		if ($it -is [System.Collections.IDictionary]) { $hasDictionary = $true }
-		if (-not (Test-CompactJson $it)) { return $false }
-	}
-	if ($count -le 1) { return $true }
-	return (-not $hasDictionary)
 }
 
 function ConvertTo-InlineJson($v) {
@@ -1618,37 +1715,28 @@ function ConvertTo-InlineJson($v) {
 	return ConvertTo-JsonStringLiteral ([string]$v)
 }
 
+# Описание пишется в том виде, в каком его удобно править руками: контейнер идет одной
+# строкой, пока в нее помещается, и разворачивается, когда перестает.
 function ConvertTo-DraftJson($v, $indent) {
-	# Компактное значение не разворачивается и на верхнем уровне: иначе описание из
-	# одной строки печаталось бы деревом.
-	if (Test-CompactJson $v) { return ConvertTo-InlineJson $v }
-	if ($null -eq $v) { return 'null' }
-	if ($v -is [bool]) { if ($v) { return 'true' } else { return 'false' } }
-	if ($v -is [int] -or $v -is [int64] -or $v -is [double] -or $v -is [decimal]) {
-		return [System.Convert]::ToString($v, [System.Globalization.CultureInfo]::InvariantCulture)
+	$rendered = ConvertTo-InlineJson $v
+	$isContainer = ($v -is [System.Collections.IDictionary]) -or
+		(($v -is [System.Collections.IEnumerable]) -and ($v -isnot [string]))
+	if (-not $isContainer -or ($indent.Length + $rendered.Length) -le $script:draftJsonWidth) {
+		return $rendered
 	}
-	if ($v -is [string]) { return ConvertTo-JsonStringLiteral $v }
+	$inner = $indent + '  '
 	if ($v -is [System.Collections.IDictionary]) {
 		if ($v.Count -eq 0) { return '{}' }
-		$inner = $indent + '  '
 		$parts = New-Object System.Collections.Generic.List[object]
 		foreach ($k in $v.Keys) {
-			$value = $v[$k]
-			$rendered = if (Test-CompactJson $value) { ConvertTo-InlineJson $value } else { ConvertTo-DraftJson $value $inner }
-			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + $rendered)
+			[void]$parts.Add($inner + (ConvertTo-JsonStringLiteral ([string]$k)) + ': ' + (ConvertTo-DraftJson $v[$k] $inner))
 		}
 		return "{`n" + ($parts -join ",`n") + "`n" + $indent + '}'
 	}
-	if ($v -is [System.Collections.IEnumerable]) {
-		$inner = $indent + '  '
-		$parts = New-Object System.Collections.Generic.List[object]
-		foreach ($it in $v) {
-			[void]$parts.Add($inner + (ConvertTo-InlineJson $it))
-		}
-		if ($parts.Count -eq 0) { return '[]' }
-		return "[`n" + ($parts -join ",`n") + "`n" + $indent + ']'
-	}
-	return ConvertTo-JsonStringLiteral ([string]$v)
+	$parts = New-Object System.Collections.Generic.List[object]
+	foreach ($it in $v) { [void]$parts.Add($inner + (ConvertTo-DraftJson $it $inner)) }
+	if ($parts.Count -eq 0) { return '[]' }
+	return "[`n" + ($parts -join ",`n") + "`n" + $indent + ']'
 }
 # --- Конец общего блока чернового JSON ---
 
@@ -1663,6 +1751,7 @@ if (-not (Test-Path -LiteralPath $TemplatePath)) {
 	exit 1
 }
 $inPath = (Resolve-Path -LiteralPath $TemplatePath).Path
+Import-UserStylePresets (Split-Path -Parent $inPath)
 
 $xmlDoc = New-Object System.Xml.XmlDocument
 $xmlDoc.PreserveWhitespace = $false
@@ -1798,7 +1887,7 @@ if ($outDir -and -not (Test-Path -LiteralPath $outDir)) {
 	[void][System.IO.Directory]::CreateDirectory($outDir)
 }
 # Хвостового перевода строки в описании нет.
-$json = if (Test-CompactJson $result) { ConvertTo-InlineJson $result } else { ConvertTo-DraftJson $result '' }
+$json = ConvertTo-DraftJson $result ''
 [System.IO.File]::WriteAllText($outPath, $json, (New-Object System.Text.UTF8Encoding($false)))
 
 foreach ($queryName in $script:externalQueries.Keys) {
