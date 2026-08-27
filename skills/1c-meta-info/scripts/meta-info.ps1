@@ -192,6 +192,19 @@ function Format-Type($typeNode) {
 	return ($types -join " | ")
 }
 
+# Типы узла по одному: свернутая запись и разбор по -Name считают их сами.
+function Format-TypeList($typeNode) {
+	if (-not $typeNode) { return @() }
+	$items = New-Object System.Collections.Generic.List[string]
+	foreach ($t in $typeNode.SelectNodes("v8:Type", $ns)) {
+		[void]$items.Add((Format-SingleType $t.InnerText $typeNode))
+	}
+	foreach ($t in $typeNode.SelectNodes("v8:TypeSet", $ns)) {
+		[void]$items.Add((Format-SingleType $t.InnerText $typeNode))
+	}
+	return $items
+}
+
 function Format-SingleType([string]$raw, $parentNode) {
 	switch -Wildcard ($raw) {
 		"xs:string" {
@@ -232,6 +245,10 @@ function Format-SingleType([string]$raw, $parentNode) {
 				if ($refTypeMap.ContainsKey($prefix)) {
 					return "$($refTypeMap[$prefix]).$objn"
 				}
+			}
+			if ($raw -match '^cfg:(\w+)Ref$') {
+				$bare = "$($Matches[1])Ref"
+				if ($refTypeMap.ContainsKey($bare)) { return $refTypeMap[$bare] }
 			}
 			# cfg:EnumRef.Xxx
 			if ($raw -match '^cfg:EnumRef\.(.+)$') {
@@ -424,7 +441,44 @@ $synonym = Get-MLText $synNode
 
 # --- Handle -Name drill-down ---
 $drillDone = $false
-if ($Name -and $childObjs) {
+if ($Name) {
+	# Стандартный реквизит не лежит в ChildObjects: его состав задан свойствами объекта.
+	$drillOwners = New-Object System.Collections.Generic.List[string]
+	$ownersNode = $props.SelectSingleNode("md:Owners", $ns)
+	if ($ownersNode) {
+		foreach ($ownerItem in $ownersNode.ChildNodes) {
+			if ($ownerItem.InnerText.Trim()) { [void]$drillOwners.Add($ownerItem.InnerText.Trim()) }
+		}
+	}
+	$stdTypes = New-Object System.Collections.Generic.List[string]
+	$stdFlags = New-Object System.Collections.Generic.List[string]
+	if ($Name -in @("Владелец", "Owner") -and $drillOwners.Count -gt 0) {
+		foreach ($ownerRef in $drillOwners) {
+			$kind = $ownerRef.Split('.')[0]
+			$oname = $ownerRef.Split('.')[-1]
+			$prefix = if ($kind -eq 'Catalog') { 'СправочникСсылка' } else { $kind }
+			[void]$stdTypes.Add("$prefix.$oname")
+		}
+		[void]$stdFlags.Add('обязательный')
+	} elseif ($Name -in @("ТипЗначения", "ValueType") -and $mdType -eq 'ChartOfCharacteristicTypes') {
+		$stdTypes = Format-TypeList $props.SelectSingleNode("md:Type", $ns)
+	} elseif ($Name -in @("Родитель", "Parent")) {
+		$hier = $props.SelectSingleNode("md:Hierarchical", $ns)
+		if ($hier -and $hier.InnerText -eq 'true') {
+			$selfRef = if ($mdType -eq 'ChartOfCharacteristicTypes') { 'ПВХСсылка' } else { 'СправочникСсылка' }
+			[void]$stdTypes.Add("$selfRef.$objName")
+		}
+	}
+	if ($stdTypes.Count -gt 0) {
+		Out "Стандартный реквизит: $Name"
+		Out "  Типы ($($stdTypes.Count)):"
+		foreach ($stdType in $stdTypes) { Out "    $stdType" }
+		if ($stdFlags.Count -gt 0) { Out "  Свойства: $($stdFlags -join ', ')" }
+		$drillDone = $true
+	}
+}
+
+if ($Name -and -not $drillDone -and $childObjs) {
 	# Search in attributes/dimensions/resources
 	$attrTags = @("Attribute","Dimension","Resource")
 	foreach ($tag in $attrTags) {
@@ -637,6 +691,17 @@ if (-not $drillDone) {
 			$selfName = $props.SelectSingleNode("md:Name", $ns).InnerText
 			$selfRef = if ($mdType -eq "ChartOfCharacteristicTypes") { "ПВХСсылка" } else { "СправочникСсылка" }
 			$rows += "  Родитель: $selfRef.$selfName"
+		}
+
+		if ($mdType -eq "ChartOfCharacteristicTypes") {
+			$valueTypes = Format-TypeList $props.SelectSingleNode("md:Type", $ns)
+			if ($valueTypes.Count -gt 1) {
+				# Полный состав уводится в разбор по -Name: в обзоре он занимал бы всю строку.
+				$rows += "  ТипЗначения: Составной ($($valueTypes.Count))"
+				$rows += "  Полный состав типов: -Name ТипЗначения"
+			} elseif ($valueTypes.Count -eq 1) {
+				$rows += "  ТипЗначения: $($valueTypes[0])"
+			}
 		}
 
 		if ($mdType -in @("Document", "BusinessProcess", "Task")) {

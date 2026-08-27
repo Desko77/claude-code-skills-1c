@@ -42,16 +42,27 @@
 			<Comment/>
 			<UseStandardCommands>true</UseStandardCommands>
 			<IncludeHelpInContents>false</IncludeHelpInContents>
+			<BasedOn/>
 			<ExtDimensionTypes>ChartOfCharacteristicTypes.ВидыСубконто</ExtDimensionTypes>
 			<MaxExtDimensionCount>3</MaxExtDimensionCount>
 			<CodeMask/>
 			<CodeLength>8</CodeLength>
 			<DescriptionLength>120</DescriptionLength>
 			<CodeSeries>WholeChartOfAccounts</CodeSeries>
-			<CheckUnique>false</CheckUnique>
-			<DefaultPresentation>AsDescription</DefaultPresentation>
+			<CheckUnique>true</CheckUnique>
+			<DefaultPresentation>AsCode</DefaultPresentation>
+			<Characteristics/>
 			<StandardTabularSections>
 				<xr:StandardTabularSection name="ExtDimensionTypes">
+					<xr:Synonym>
+						<v8:item>
+							<v8:lang/>
+							<v8:content>Виды субконто</v8:content>
+						</v8:item>
+					</xr:Synonym>
+					<xr:Comment/>
+					<xr:ToolTip/>
+					<xr:FillChecking>DontCheck</xr:FillChecking>
 					<xr:StandardAttributes>
 						<xr:StandardAttribute name="TurnoversOnly">
 							<xr:LinkByType/>
@@ -107,7 +118,7 @@
 						</xr:StandardAttribute>
 						<xr:StandardAttribute name="ExtDimensionType">
 							<xr:LinkByType/>
-							<xr:FillChecking>DontCheck</xr:FillChecking>
+							<xr:FillChecking>ShowError</xr:FillChecking>
 							<xr:MultiLine>false</xr:MultiLine>
 							<xr:FillFromFillingValue>false</xr:FillFromFillingValue>
 							<xr:CreateOnInput>Auto</xr:CreateOnInput>
@@ -160,10 +171,9 @@
 					</xr:StandardAttributes>
 				</xr:StandardTabularSection>
 			</StandardTabularSections>
-			<Characteristics/>
 			<PredefinedDataUpdate>Auto</PredefinedDataUpdate>
 			<EditType>InDialog</EditType>
-			<QuickChoice>true</QuickChoice>
+			<QuickChoice>false</QuickChoice>
 			<ChoiceMode>BothWays</ChoiceMode>
 			<InputByString>
 				<xr:Field>ChartOfAccounts.Хозрасчетный.StandardAttribute.Description</xr:Field>
@@ -172,28 +182,27 @@
 			<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>
 			<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>
 			<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>
+			<CreateOnInput>DontUse</CreateOnInput>
+			<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
 			<DefaultObjectForm/>
 			<DefaultListForm/>
 			<DefaultChoiceForm/>
 			<AuxiliaryObjectForm/>
 			<AuxiliaryListForm/>
 			<AuxiliaryChoiceForm/>
-			<BasedOn/>
-			<DataLockFields/>
-			<ObjectPresentation/>
-			<ExtendedObjectPresentation/>
-			<ListPresentation/>
-			<ExtendedListPresentation/>
-			<Explanation/>
-			<CreateOnInput>Use</CreateOnInput>
-			<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>
 			<AutoOrderByCode>true</AutoOrderByCode>
-			<OrderLength>5</OrderLength>
+			<OrderLength>9</OrderLength>
+			<DataLockFields/>
 			<DataLockControlMode>Managed</DataLockControlMode>
 			<FullTextSearch>Use</FullTextSearch>
 			<DataHistory>DontUse</DataHistory>
 			<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>
 			<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>
+			<ObjectPresentation/>
+			<ExtendedObjectPresentation/>
+			<ListPresentation/>
+			<ExtendedListPresentation/>
+			<Explanation/>
 		</Properties>
 		<ChildObjects/>
 	</ChartOfAccounts>

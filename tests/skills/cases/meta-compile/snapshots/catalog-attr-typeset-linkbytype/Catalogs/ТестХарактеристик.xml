@@ -338,8 +338,8 @@
 					</Synonym>
 					<Comment/>
 					<Type>
-						<v8:Type>DocumentRef</v8:Type>
-						<v8:Type>CatalogRef</v8:Type>
+						<v8:TypeSet>cfg:DocumentRef</v8:TypeSet>
+						<v8:TypeSet>cfg:CatalogRef</v8:TypeSet>
 					</Type>
 					<PasswordMode>false</PasswordMode>
 					<Format/>

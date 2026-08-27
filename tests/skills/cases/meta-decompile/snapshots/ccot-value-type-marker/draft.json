@@ -1,11 +1,7 @@
 {
   "type": "ChartOfCharacteristicTypes",
   "name": "ВидыСведений",
-  "descriptionLength": 25,
-  "checkUnique": false,
-  "codeSeries": "WholeChartOfCharacteristicTypes",
-  "quickChoice": true,
-  "createOnInput": "Use",
+  "valueType": "String(25)",
   "standardAttributes": {
     "Description": {
       "fillChecking": "DontCheck"

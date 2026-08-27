@@ -391,7 +391,13 @@ function Emit-MLText {
 	X "$indent<$tag>"
 	foreach ($mlItem in $mlItems) {
 		X "$indent`t<v8:item>"
-		X "$indent`t`t<v8:lang>$($mlItem.lang)</v8:lang>"
+		# Пустой язык платформа пишет одиночным тегом: пара с пустым содержимым не совпадает
+		# с выгрузкой.
+		if ($mlItem.lang) {
+			X "$indent`t`t<v8:lang>$($mlItem.lang)</v8:lang>"
+		} else {
+			X "$indent`t`t<v8:lang/>"
+		}
 		X "$indent`t`t<v8:content>$(Esc-Xml $mlItem.content)</v8:content>"
 		X "$indent`t</v8:item>"
 	}
@@ -532,11 +538,45 @@ function Emit-TypeContent {
 	param([string]$indent, [string]$typeStr, [switch]$CfgPrefix)
 	if (-not $typeStr) { return }
 
-	# Composite type: "Type1 + Type2 + Type3"
+	# Составной тип платформа пишет блоками: сперва все типы, затем наборы типов, затем
+	# квалификаторы по одному на вид - числовой, строковый, дата. Наш вывод шел парами
+	# тип-квалификатор, и файл расходился с выгрузкой на каждом составном типе.
 	if ($typeStr.Contains(' + ')) {
 		$parts = $typeStr -split '\s*\+\s*'
+		$typeLines = New-Object System.Collections.Generic.List[string]
+		$setLines = New-Object System.Collections.Generic.List[string]
+		$qualBlocks = [ordered]@{}
 		foreach ($part in $parts) {
+			$start = $script:xml.Length
 			Emit-TypeContent $indent $part.Trim() -CfgPrefix:$CfgPrefix
+			$chunk = $script:xml.ToString($start, $script:xml.Length - $start)
+			$script:xml.Length = $start
+			$openKind = $null
+			foreach ($line in ($chunk -split "`r?`n")) {
+				if ($line.Trim() -eq '') { continue }
+				$trimmed = $line.Trim()
+				if ($openKind) {
+					[void]$qualBlocks[$openKind].Add($line)
+					if ($trimmed -eq "</v8:$openKind>") { $openKind = $null }
+				} elseif ($trimmed -match '^<v8:(\w+Qualifiers)>$') {
+					$openKind = $Matches[1]
+					if (-not $qualBlocks.Contains($openKind)) { $qualBlocks[$openKind] = New-Object System.Collections.Generic.List[string] }
+					[void]$qualBlocks[$openKind].Add($line)
+				} elseif ($trimmed.StartsWith('<v8:TypeSet')) {
+					[void]$setLines.Add($line)
+				} else {
+					[void]$typeLines.Add($line)
+				}
+			}
+		}
+		foreach ($line in $typeLines) { X $line }
+		foreach ($line in $setLines) { X $line }
+		$ordered = @('NumberQualifiers', 'StringQualifiers', 'DateQualifiers')
+		$rest = @($qualBlocks.Keys | Where-Object { $ordered -notcontains $_ })
+		foreach ($kind in ($ordered + $rest)) {
+			if ($qualBlocks.Contains($kind)) {
+				foreach ($line in $qualBlocks[$kind]) { X $line }
+			}
 		}
 		return
 	}
@@ -621,6 +661,13 @@ function Emit-TypeContent {
 		} else {
 			X "$indent<v8:Type xmlns:d5p1=`"http://v8.1c.ru/8.1/data/enterprise/current-config`">d5p1:$typeStr</v8:Type>"
 		}
+		return
+	}
+
+	# Ссылочный тип без имени объекта - это НАБОР типов, а не тип: любой справочник,
+	# любой документ. Платформа пишет его элементом TypeSet.
+	if ($typeStr -match '^(CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef)$') {
+		X "$indent<v8:TypeSet>cfg:$typeStr</v8:TypeSet>"
 		return
 	}
 
@@ -938,7 +985,7 @@ $script:standardAttributesByType = @{
 }
 
 function Emit-StandardAttribute {
-	param([string]$indent, [string]$attrName)
+	param([string]$indent, [string]$attrName, [bool]$required = $false)
 
 	# Настройки приходят ключом standardAttributes: заданное свойство заменяет умолчание,
 	# остальные печатаются как есть. Блок и выгружается платформой только когда в нем есть
@@ -954,7 +1001,7 @@ function Emit-StandardAttribute {
 	X "$indent`t<xr:LinkByType/>"
 	# Владелец подчиненного справочника обязателен к заполнению - платформа выставляет это
 	# сама. Владелец и родитель заполняются из значения заполнения.
-	$defaultChecking = if ($attrName -eq "Owner") { "ShowError" } else { "DontCheck" }
+	$defaultChecking = if ($attrName -eq "Owner" -or $required) { "ShowError" } else { "DontCheck" }
 	$fillChecking = if ($cfg -and $cfg.fillChecking) { Normalize-EnumValue "FillChecking" "$($cfg.fillChecking)" } else { $defaultChecking }
 	X "$indent`t<xr:FillChecking>$fillChecking</xr:FillChecking>"
 	X "$indent`t<xr:MultiLine>false</xr:MultiLine>"
@@ -1103,14 +1150,15 @@ function Emit-Attribute {
 	X "$indent`t`t<MinValue xsi:nil=`"true`"/>"
 	X "$indent`t`t<MaxValue xsi:nil=`"true`"/>"
 
-	# FillFromFillingValue — not for tabular/processor/chart/register-other
+	# Заполнение по значению не пишется у табличной части, обработки и регистров кроме
+	# сведений. Планы счетов и видов расчета его пишут - сверено с выгрузкой.
 	# (Chart*, AccumulationRegister/AccountingRegister/CalculationRegister don't support these)
-	if ($context -notin @("tabular", "processor", "chart", "register-other")) {
+	if ($context -notin @("tabular", "processor", "register-other")) {
 		X "$indent`t`t<FillFromFillingValue>false</FillFromFillingValue>"
 	}
 
 	# FillValue — same restriction
-	if ($context -notin @("tabular", "processor", "chart", "register-other")) {
+	if ($context -notin @("tabular", "processor", "register-other")) {
 		Emit-FillValue "$indent`t`t" $typeStr
 	}
 
@@ -1144,7 +1192,7 @@ function Emit-Attribute {
 
 		X "$indent`t`t<FullTextSearch>Use</FullTextSearch>"
 		# DataHistory — not for Chart* types and non-InformationRegister register family
-		if ($context -notin @("chart", "register-other")) {
+		if ($context -ne "register-other") {
 			X "$indent`t`t<DataHistory>Use</DataHistory>"
 		}
 	}
@@ -1466,10 +1514,17 @@ function Emit-CatalogProperties {
 	$choiceMode = Get-EnumProp "ChoiceMode" "choiceMode" "BothWays"
 	X "$i<QuickChoice>$quickChoice</QuickChoice>"
 	X "$i<ChoiceMode>$choiceMode</ChoiceMode>"
-	X "$i<InputByString>"
-	X "$i`t<xr:Field>Catalog.$objName.StandardAttribute.Description</xr:Field>"
-	X "$i`t<xr:Field>Catalog.$objName.StandardAttribute.Code</xr:Field>"
-	X "$i</InputByString>"
+	# Нулевая длина означает, что реквизита у объекта нет: ссылка на него ломает загрузку.
+	$inputFields = New-Object System.Collections.Generic.List[string]
+	if ($descriptionLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>Catalog.$objName.StandardAttribute.Description</xr:Field>") }
+	if ($codeLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>Catalog.$objName.StandardAttribute.Code</xr:Field>") }
+	if ($inputFields.Count -gt 0) {
+		X "$i<InputByString>"
+		foreach ($fieldLine in $inputFields) { X $fieldLine }
+		X "$i</InputByString>"
+	} else {
+		X "$i<InputByString/>"
+	}
 	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
 	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
 	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
@@ -2001,10 +2056,17 @@ function Emit-ExchangePlanProperties {
 	X "$i<BasedOn/>"
 	X "$i<QuickChoice>true</QuickChoice>"
 	X "$i<ChoiceMode>BothWays</ChoiceMode>"
-	X "$i<InputByString>"
-	X "$i`t<xr:Field>ExchangePlan.$objName.StandardAttribute.Description</xr:Field>"
-	X "$i`t<xr:Field>ExchangePlan.$objName.StandardAttribute.Code</xr:Field>"
-	X "$i</InputByString>"
+	# Нулевая длина означает, что реквизита у объекта нет: ссылка на него ломает загрузку.
+	$inputFields = New-Object System.Collections.Generic.List[string]
+	if ($descriptionLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ExchangePlan.$objName.StandardAttribute.Description</xr:Field>") }
+	if ($codeLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ExchangePlan.$objName.StandardAttribute.Code</xr:Field>") }
+	if ($inputFields.Count -gt 0) {
+		X "$i<InputByString>"
+		foreach ($fieldLine in $inputFields) { X $fieldLine }
+		X "$i</InputByString>"
+	} else {
+		X "$i<InputByString/>"
+	}
 	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
 	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
 	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
@@ -2052,6 +2114,7 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	# Type — composite type of allowed characteristic value types
 	$valueTypes = @()
 	if ($def.valueTypes) { $valueTypes = @($def.valueTypes) }
+	elseif ($def.valueType) { $valueTypes = @($def.valueType) }
 	if ($valueTypes.Count -gt 0) {
 		X "$i<Type>"
 		foreach ($vt in $valueTypes) {
@@ -2084,12 +2147,12 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i<FoldersOnTop>true</FoldersOnTop>"
 
 	$codeLength = if ($null -ne $def.codeLength) { "$($def.codeLength)" } else { "9" }
-	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "25" }
+	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "100" }
 	$codeAllowedLength = Get-EnumProp "CodeAllowedLength" "codeAllowedLength" "Variable"
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
-	$checkUnique = if ($def.checkUnique -eq $true) { "true" } else { "false" }
+	$checkUnique = if ($def.checkUnique -eq $false) { "false" } else { "true" }
 
-	$codeSeries = if ($def.codeSeries) { "$($def.codeSeries)" } else { "WholeChartOfCharacteristicTypes" }
+	$codeSeries = if ($def.codeSeries) { "$($def.codeSeries)" } else { "WholeCharacteristicKind" }
 	X "$i<CodeLength>$codeLength</CodeLength>"
 	X "$i<CodeAllowedLength>$codeAllowedLength</CodeAllowedLength>"
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
@@ -2104,13 +2167,22 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	X "$i<Characteristics/>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
 	X "$i<EditType>InDialog</EditType>"
-	X "$i<QuickChoice>true</QuickChoice>"
+	$quickChoice = if ($def.quickChoice -eq $true) { "true" } else { "false" }
+	X "$i<QuickChoice>$quickChoice</QuickChoice>"
 	X "$i<ChoiceMode>BothWays</ChoiceMode>"
-	X "$i<InputByString>"
-	X "$i`t<xr:Field>ChartOfCharacteristicTypes.$objName.StandardAttribute.Description</xr:Field>"
-	X "$i`t<xr:Field>ChartOfCharacteristicTypes.$objName.StandardAttribute.Code</xr:Field>"
-	X "$i</InputByString>"
-	X "$i<CreateOnInput>Use</CreateOnInput>"
+	# Нулевая длина означает, что реквизита у объекта нет: ссылка на него ломает загрузку.
+	$inputFields = New-Object System.Collections.Generic.List[string]
+	if ($descriptionLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ChartOfCharacteristicTypes.$objName.StandardAttribute.Description</xr:Field>") }
+	if ($codeLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ChartOfCharacteristicTypes.$objName.StandardAttribute.Code</xr:Field>") }
+	if ($inputFields.Count -gt 0) {
+		X "$i<InputByString>"
+		foreach ($fieldLine in $inputFields) { X $fieldLine }
+		X "$i</InputByString>"
+	} else {
+		X "$i<InputByString/>"
+	}
+	$createOnInput = Get-EnumProp "CreateOnInput" "createOnInput" "DontUse"
+	X "$i<CreateOnInput>$createOnInput</CreateOnInput>"
 	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
 	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
 	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
@@ -2203,6 +2275,7 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<UseStandardCommands>true</UseStandardCommands>"
 
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
+	X "$i<BasedOn/>"
 
 	# ExtDimensionTypes
 	$extDimTypes = if ($def.extDimensionTypes) { "$($def.extDimensionTypes)" } else { "" }
@@ -2226,57 +2299,75 @@ function Emit-ChartOfAccountsProperties {
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "120" }
 	$codeSeries = if ($def.codeSeries) { "$($def.codeSeries)" } else { "WholeChartOfAccounts" }
 	$autoOrder = if ($def.autoOrderByCode -eq $false) { "false" } else { "true" }
-	$orderLength = if ($null -ne $def.orderLength) { "$($def.orderLength)" } else { "5" }
+	$orderLength = if ($null -ne $def.orderLength) { "$($def.orderLength)" } else { "9" }
 
 	X "$i<CodeLength>$codeLength</CodeLength>"
 	X "$i<DescriptionLength>$descriptionLength</DescriptionLength>"
 	X "$i<CodeSeries>$codeSeries</CodeSeries>"
-	X "$i<CheckUnique>false</CheckUnique>"
-	X "$i<DefaultPresentation>AsDescription</DefaultPresentation>"
+	$checkUnique = if ($def.checkUnique -eq $false) { "false" } else { "true" }
+	X "$i<CheckUnique>$checkUnique</CheckUnique>"
+	$defaultPresentation = Get-EnumProp "DefaultPresentation" "defaultPresentation" "AsCode"
+	X "$i<DefaultPresentation>$defaultPresentation</DefaultPresentation>"
 
 	Emit-StandardAttributes $i "ChartOfAccounts"
 
 	# StandardTabularSections — ExtDimensionTypes
+
+	X "$i<Characteristics/>"
 	X "$i<StandardTabularSections>"
 	X "$i`t<xr:StandardTabularSection name=`"ExtDimensionTypes`">"
+	# Стандартная табличная часть несет свой заголовок и проверку заполнения - платформа
+	# пишет их перед составом реквизитов.
+	X "$i`t`t<xr:Synonym>"
+	X "$i`t`t`t<v8:item>"
+	X "$i`t`t`t`t<v8:lang/>"
+	X "$i`t`t`t`t<v8:content>Виды субконто</v8:content>"
+	X "$i`t`t`t</v8:item>"
+	X "$i`t`t</xr:Synonym>"
+	X "$i`t`t<xr:Comment/>"
+	X "$i`t`t<xr:ToolTip/>"
+	X "$i`t`t<xr:FillChecking>DontCheck</xr:FillChecking>"
 	X "$i`t`t<xr:StandardAttributes>"
 	foreach ($stAttr in @("TurnoversOnly","Predefined","ExtDimensionType","LineNumber")) {
-		Emit-StandardAttribute "$i`t`t`t" $stAttr
+		# Вид субконто заполняется обязательно: без него строка табличной части бессмысленна.
+		$required = $stAttr -eq "ExtDimensionType"
+		Emit-StandardAttribute "$i`t`t`t" $stAttr $required
 	}
 	X "$i`t`t</xr:StandardAttributes>"
 	X "$i`t</xr:StandardTabularSection>"
 	X "$i</StandardTabularSections>"
-
-	X "$i<Characteristics/>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
 	X "$i<EditType>InDialog</EditType>"
-	X "$i<QuickChoice>true</QuickChoice>"
+	$quickChoice = if ($def.quickChoice -eq $true) { "true" } else { "false" }
+	X "$i<QuickChoice>$quickChoice</QuickChoice>"
 	X "$i<ChoiceMode>BothWays</ChoiceMode>"
-	X "$i<InputByString>"
-	X "$i`t<xr:Field>ChartOfAccounts.$objName.StandardAttribute.Description</xr:Field>"
-	X "$i`t<xr:Field>ChartOfAccounts.$objName.StandardAttribute.Code</xr:Field>"
-	X "$i</InputByString>"
+	# Нулевая длина означает, что реквизита у объекта нет: ссылка на него ломает загрузку.
+	$inputFields = New-Object System.Collections.Generic.List[string]
+	if ($descriptionLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ChartOfAccounts.$objName.StandardAttribute.Description</xr:Field>") }
+	if ($codeLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ChartOfAccounts.$objName.StandardAttribute.Code</xr:Field>") }
+	if ($inputFields.Count -gt 0) {
+		X "$i<InputByString>"
+		foreach ($fieldLine in $inputFields) { X $fieldLine }
+		X "$i</InputByString>"
+	} else {
+		X "$i<InputByString/>"
+	}
 	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
 	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
 	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
+	$createOnInput = Get-EnumProp "CreateOnInput" "createOnInput" "DontUse"
+	X "$i<CreateOnInput>$createOnInput</CreateOnInput>"
+	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 	X "$i<DefaultObjectForm/>"
 	X "$i<DefaultListForm/>"
 	X "$i<DefaultChoiceForm/>"
 	X "$i<AuxiliaryObjectForm/>"
 	X "$i<AuxiliaryListForm/>"
 	X "$i<AuxiliaryChoiceForm/>"
-	X "$i<BasedOn/>"
-	X "$i<DataLockFields/>"
 
-	X "$i<ObjectPresentation/>"
-	X "$i<ExtendedObjectPresentation/>"
-	X "$i<ListPresentation/>"
-	X "$i<ExtendedListPresentation/>"
-	X "$i<Explanation/>"
-	X "$i<CreateOnInput>Use</CreateOnInput>"
-	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 	X "$i<AutoOrderByCode>$autoOrder</AutoOrderByCode>"
 	X "$i<OrderLength>$orderLength</OrderLength>"
+	X "$i<DataLockFields/>"
 
 	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
 	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
@@ -2286,6 +2377,11 @@ function Emit-ChartOfAccountsProperties {
 	X "$i<DataHistory>DontUse</DataHistory>"
 	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"
 	X "$i<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>"
+	X "$i<ObjectPresentation/>"
+	X "$i<ExtendedObjectPresentation/>"
+	X "$i<ListPresentation/>"
+	X "$i<ExtendedListPresentation/>"
+	X "$i<Explanation/>"
 }
 
 function Emit-AccountingRegisterProperties {
@@ -2347,15 +2443,26 @@ function Emit-ChartOfCalculationTypesProperties {
 
 	Emit-StandardAttributes $i "ChartOfCalculationTypes"
 	X "$i<EditType>InDialog</EditType>"
-	X "$i<QuickChoice>true</QuickChoice>"
+	$quickChoice = if ($def.quickChoice -eq $true) { "true" } else { "false" }
+	X "$i<QuickChoice>$quickChoice</QuickChoice>"
 	X "$i<ChoiceMode>BothWays</ChoiceMode>"
-	X "$i<InputByString>"
-	X "$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Description</xr:Field>"
-	X "$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Code</xr:Field>"
-	X "$i</InputByString>"
+	# Нулевая длина означает, что реквизита у объекта нет: ссылка на него ломает загрузку.
+	$inputFields = New-Object System.Collections.Generic.List[string]
+	if ($descriptionLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Description</xr:Field>") }
+	if ($codeLength -ne '0') { [void]$inputFields.Add("$i`t<xr:Field>ChartOfCalculationTypes.$objName.StandardAttribute.Code</xr:Field>") }
+	if ($inputFields.Count -gt 0) {
+		X "$i<InputByString>"
+		foreach ($fieldLine in $inputFields) { X $fieldLine }
+		X "$i</InputByString>"
+	} else {
+		X "$i<InputByString/>"
+	}
 	X "$i<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>"
 	X "$i<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>"
 	X "$i<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>"
+	$createOnInput = Get-EnumProp "CreateOnInput" "createOnInput" "DontUse"
+	X "$i<CreateOnInput>$createOnInput</CreateOnInput>"
+	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 	X "$i<DefaultObjectForm/>"
 	X "$i<DefaultListForm/>"
 	X "$i<DefaultChoiceForm/>"
@@ -2383,10 +2490,65 @@ function Emit-ChartOfCalculationTypesProperties {
 	$actionPeriodUse = if ($def.actionPeriodUse -eq $true) { "true" } else { "false" }
 	X "$i<ActionPeriodUse>$actionPeriodUse</ActionPeriodUse>"
 	X "$i<Characteristics/>"
-	X "$i<StandardTabularSections/>"
+	# Стандартные табличные части плана видов расчета: ведущие, вытесняющие и базовые виды.
+	# Состав задан платформой, настройке не подлежит.
+	X "$i<StandardTabularSections>"
+	X "$i`t<xr:StandardTabularSection name=`"LeadingCalculationTypes`">"
+	X "$i`t`t<xr:Synonym>"
+	X "$i`t`t`t<v8:item>"
+	X "$i`t`t`t`t<v8:lang/>"
+	X "$i`t`t`t`t<v8:content>Ведущие виды расчета</v8:content>"
+	X "$i`t`t`t</v8:item>"
+	X "$i`t`t</xr:Synonym>"
+	X "$i`t`t<xr:Comment/>"
+	X "$i`t`t<xr:ToolTip/>"
+	X "$i`t`t<xr:FillChecking>DontCheck</xr:FillChecking>"
+	X "$i`t`t<xr:StandardAttributes>"
+	foreach ($stAttr in @("Predefined","CalculationType","LineNumber")) {
+		Emit-StandardAttribute "$i`t`t`t" $stAttr ($stAttr -eq "CalculationType")
+	}
+	X "$i`t`t</xr:StandardAttributes>"
+	X "$i`t</xr:StandardTabularSection>"
+	X "$i`t<xr:StandardTabularSection name=`"DisplacingCalculationTypes`">"
+	X "$i`t`t<xr:Synonym>"
+	X "$i`t`t`t<v8:item>"
+	X "$i`t`t`t`t<v8:lang/>"
+	X "$i`t`t`t`t<v8:content>Вытесняющие виды расчета</v8:content>"
+	X "$i`t`t`t</v8:item>"
+	X "$i`t`t</xr:Synonym>"
+	X "$i`t`t<xr:Comment/>"
+	X "$i`t`t<xr:ToolTip/>"
+	X "$i`t`t<xr:FillChecking>DontCheck</xr:FillChecking>"
+	X "$i`t`t<xr:StandardAttributes>"
+	foreach ($stAttr in @("Predefined","CalculationType","LineNumber")) {
+		Emit-StandardAttribute "$i`t`t`t" $stAttr ($stAttr -eq "CalculationType")
+	}
+	X "$i`t`t</xr:StandardAttributes>"
+	X "$i`t</xr:StandardTabularSection>"
+	X "$i`t<xr:StandardTabularSection name=`"BaseCalculationTypes`">"
+	X "$i`t`t<xr:Synonym>"
+	X "$i`t`t`t<v8:item>"
+	X "$i`t`t`t`t<v8:lang/>"
+	X "$i`t`t`t`t<v8:content>Базовые виды расчета</v8:content>"
+	X "$i`t`t`t</v8:item>"
+	X "$i`t`t</xr:Synonym>"
+	X "$i`t`t<xr:Comment/>"
+	X "$i`t`t<xr:ToolTip/>"
+	X "$i`t`t<xr:FillChecking>DontCheck</xr:FillChecking>"
+	X "$i`t`t<xr:StandardAttributes>"
+	foreach ($stAttr in @("Predefined","CalculationType","LineNumber")) {
+		Emit-StandardAttribute "$i`t`t`t" $stAttr ($stAttr -eq "CalculationType")
+	}
+	X "$i`t`t</xr:StandardAttributes>"
+	X "$i`t</xr:StandardTabularSection>"
+	X "$i</StandardTabularSections>"
 	X "$i<PredefinedDataUpdate>Auto</PredefinedDataUpdate>"
 	X "$i<IncludeHelpInContents>false</IncludeHelpInContents>"
 	X "$i<DataLockFields/>"
+	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
+	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
+	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
+	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 
 	X "$i<ObjectPresentation/>"
@@ -2397,14 +2559,8 @@ function Emit-ChartOfCalculationTypesProperties {
 	X "$i<DataHistory>DontUse</DataHistory>"
 	X "$i<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>"
 	X "$i<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>"
-	X "$i<CreateOnInput>Use</CreateOnInput>"
-	X "$i<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 
-	$dataLockControlMode = Get-EnumProp "DataLockControlMode" "dataLockControlMode" "Managed"
-	X "$i<DataLockControlMode>$dataLockControlMode</DataLockControlMode>"
 
-	$fullTextSearch = Get-EnumProp "FullTextSearch" "fullTextSearch" "Use"
-	X "$i<FullTextSearch>$fullTextSearch</FullTextSearch>"
 
 
 }
@@ -2681,15 +2837,18 @@ function Emit-Column {
 	X "$indent</Column>"
 }
 
-function Emit-AccountingFlag {
-	param([string]$indent, [string]$flagName)
-	$uuid = New-Guid-String
-	$flagSynonym = Split-CamelCase $flagName
-
-	X "$indent<AccountingFlag uuid=`"$uuid`">"
+function Emit-AccountingFlagProps {
+	param([string]$indent, $flag, [string]$tag)
+	# Признак учета и признак учета субконто различаются только именем элемента.
+	$flagName = if ($flag -is [string]) { $flag } else { "$($flag.name)" }
+	$flagSynonym = if ($flag -isnot [string] -and $flag.synonym) { "$($flag.synonym)" } else { Split-CamelCase $flagName }
+	$flagTooltip = if ($flag -isnot [string] -and $flag.tooltip) { "$($flag.tooltip)" } else { '' }
+	$flagFill = if ($flag -is [string]) { $null } else { $flag.fillValue }
+	$uid = New-Guid-String
+	X "$indent<$tag uuid=`"$uid`">"
 	X "$indent`t<Properties>"
 	X "$indent`t`t<Name>$(Esc-Xml $flagName)</Name>"
-	Emit-MLText "$indent`t`t" "Synonym" $flagSynonym
+	Emit-MLText "$indent`t`t" 'Synonym' $flagSynonym
 	X "$indent`t`t<Comment/>"
 	X "$indent`t`t<Type>"
 	X "$indent`t`t`t<v8:Type>xs:boolean</v8:Type>"
@@ -2697,57 +2856,46 @@ function Emit-AccountingFlag {
 	X "$indent`t`t<PasswordMode>false</PasswordMode>"
 	X "$indent`t`t<Format/>"
 	X "$indent`t`t<EditFormat/>"
-	X "$indent`t`t<ToolTip/>"
+	Emit-MLText "$indent`t`t" 'ToolTip' $flagTooltip
 	X "$indent`t`t<MarkNegatives>false</MarkNegatives>"
 	X "$indent`t`t<Mask/>"
 	X "$indent`t`t<MultiLine>false</MultiLine>"
 	X "$indent`t`t<ExtendedEdit>false</ExtendedEdit>"
 	X "$indent`t`t<MinValue xsi:nil=`"true`"/>"
 	X "$indent`t`t<MaxValue xsi:nil=`"true`"/>"
+	X "$indent`t`t<FillFromFillingValue>false</FillFromFillingValue>"
+	if ($flagFill -eq $true) {
+		X "$indent`t`t<FillValue xsi:type=`"xs:boolean`">true</FillValue>"
+	} elseif ($flagFill -eq $false) {
+		X "$indent`t`t<FillValue xsi:type=`"xs:boolean`">false</FillValue>"
+	} else {
+		# Незаданное значение заполнения платформа пишет пустой строкой, а не признаком nil.
+		X "$indent`t`t<FillValue xsi:type=`"xs:string`"/>"
+	}
 	X "$indent`t`t<FillChecking>DontCheck</FillChecking>"
+	X "$indent`t`t<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>"
 	X "$indent`t`t<ChoiceParameterLinks/>"
 	X "$indent`t`t<ChoiceParameters/>"
 	X "$indent`t`t<QuickChoice>Auto</QuickChoice>"
+	X "$indent`t`t<CreateOnInput>Auto</CreateOnInput>"
 	X "$indent`t`t<ChoiceForm/>"
 	X "$indent`t`t<LinkByType/>"
 	X "$indent`t`t<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
+	X "$indent`t`t<DataHistory>Use</DataHistory>"
 	X "$indent`t</Properties>"
-	X "$indent</AccountingFlag>"
+	X "$indent</$tag>"
+}
+
+function Emit-AccountingFlag {
+	param([string]$indent, $flag)
+	Emit-AccountingFlagProps $indent $flag 'AccountingFlag'
 }
 
 function Emit-ExtDimensionAccountingFlag {
-	param([string]$indent, [string]$flagName)
-	$uuid = New-Guid-String
-	$flagSynonym = Split-CamelCase $flagName
-
-	X "$indent<ExtDimensionAccountingFlag uuid=`"$uuid`">"
-	X "$indent`t<Properties>"
-	X "$indent`t`t<Name>$(Esc-Xml $flagName)</Name>"
-	Emit-MLText "$indent`t`t" "Synonym" $flagSynonym
-	X "$indent`t`t<Comment/>"
-	X "$indent`t`t<Type>"
-	X "$indent`t`t`t<v8:Type>xs:boolean</v8:Type>"
-	X "$indent`t`t</Type>"
-	X "$indent`t`t<PasswordMode>false</PasswordMode>"
-	X "$indent`t`t<Format/>"
-	X "$indent`t`t<EditFormat/>"
-	X "$indent`t`t<ToolTip/>"
-	X "$indent`t`t<MarkNegatives>false</MarkNegatives>"
-	X "$indent`t`t<Mask/>"
-	X "$indent`t`t<MultiLine>false</MultiLine>"
-	X "$indent`t`t<ExtendedEdit>false</ExtendedEdit>"
-	X "$indent`t`t<MinValue xsi:nil=`"true`"/>"
-	X "$indent`t`t<MaxValue xsi:nil=`"true`"/>"
-	X "$indent`t`t<FillChecking>DontCheck</FillChecking>"
-	X "$indent`t`t<ChoiceParameterLinks/>"
-	X "$indent`t`t<ChoiceParameters/>"
-	X "$indent`t`t<QuickChoice>Auto</QuickChoice>"
-	X "$indent`t`t<ChoiceForm/>"
-	X "$indent`t`t<LinkByType/>"
-	X "$indent`t`t<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
-	X "$indent`t</Properties>"
-	X "$indent</ExtDimensionAccountingFlag>"
+	param([string]$indent, $flag)
+	Emit-AccountingFlagProps $indent $flag 'ExtDimensionAccountingFlag'
 }
+
 
 function Emit-URLTemplate {
 	param([string]$indent, [string]$tmplName, $tmplDef)
@@ -3561,12 +3709,10 @@ if ($objType -in $typesWithAttrTS) {
 			Emit-TabularSection "`t`t`t" $tsName $columns $objType $objName $tsOptions[$tsName]
 		}
 		foreach ($af in $acctFlags) {
-			$afName = if ($af.name) { $af.name } else { "$af" }
-			Emit-AccountingFlag "`t`t`t" $afName
+			Emit-AccountingFlag "`t`t`t" $af
 		}
 		foreach ($edf in $extDimFlags) {
-			$edfName = if ($edf.name) { $edf.name } else { "$edf" }
-			Emit-ExtDimensionAccountingFlag "`t`t`t" $edfName
+			Emit-ExtDimensionAccountingFlag "`t`t`t" $edf
 		}
 		foreach ($cmdName in $objCommands.Keys) {
 			Emit-ObjectCommand "`t`t`t" $cmdName $objCommands[$cmdName]

@@ -254,7 +254,12 @@ def emit_mltext(indent, tag, text):
     X(f'{indent}<{tag}>')
     for lang, content in ml_items:
         X(f'{indent}\t<v8:item>')
-        X(f'{indent}\t\t<v8:lang>{lang}</v8:lang>')
+        # Пустой язык платформа пишет одиночным тегом: пара с пустым содержимым не совпадает
+        # с выгрузкой.
+        if lang:
+            X(f'{indent}\t\t<v8:lang>{lang}</v8:lang>')
+        else:
+            X(f'{indent}\t\t<v8:lang/>')
         X(f'{indent}\t\t<v8:content>{esc_xml(content)}</v8:content>')
         X(f'{indent}\t</v8:item>')
     X(f'{indent}</{tag}>')
@@ -718,11 +723,41 @@ def resolve_type_str(type_str):
 def emit_type_content(indent, type_str, cfg_prefix=False):
     if not type_str:
         return
-    # Composite type: "Type1 + Type2 + Type3"
+    # Составной тип платформа пишет блоками: сперва все типы, затем наборы типов, затем
+    # квалификаторы по одному на вид - числовой, строковый, дата. Наш вывод шел парами
+    # тип-квалификатор, и файл расходился с выгрузкой на каждом составном типе.
     if ' + ' in type_str:
         parts = [p.strip() for p in type_str.split('+')]
+        type_lines, set_lines, quals = [], [], {}
         for part in parts:
+            start = len(lines)
             emit_type_content(indent, part, cfg_prefix)
+            chunk = lines[start:]
+            del lines[start:]
+            open_kind = None
+            for line in chunk:
+                stripped = line.strip()
+                if open_kind:
+                    quals[open_kind].append(line)
+                    if stripped == f'</v8:{open_kind}>':
+                        open_kind = None
+                    continue
+                m_qual = re.match(r'<v8:(\w+Qualifiers)>', stripped)
+                if m_qual:
+                    open_kind = m_qual.group(1)
+                    quals.setdefault(open_kind, []).append(line)
+                elif stripped.startswith('<v8:TypeSet'):
+                    set_lines.append(line)
+                elif stripped.startswith('<v8:Type'):
+                    type_lines.append(line)
+                else:
+                    type_lines.append(line)
+        for line in type_lines + set_lines:
+            X(line)
+        ordered = ['NumberQualifiers', 'StringQualifiers', 'DateQualifiers']
+        for kind in ordered + [k for k in quals if k not in ordered]:
+            for line in quals.get(kind, []):
+                X(line)
         return
     type_str = resolve_type_str(type_str)
     # Boolean
@@ -793,6 +828,11 @@ def emit_type_content(indent, type_str, cfg_prefix=False):
             X(f'{indent}<v8:Type>cfg:{type_str}</v8:Type>')
         else:
             X(f'{indent}<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:{type_str}</v8:Type>')
+        return
+    # Ссылочный тип без имени объекта - это НАБОР типов, а не тип: любой справочник,
+    # любой документ. Платформа пишет его элементом TypeSet.
+    if re.fullmatch(r'CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef', type_str):
+        X(f'{indent}<v8:TypeSet>cfg:{type_str}</v8:TypeSet>')
         return
     # Fallback
     X(f'{indent}<v8:Type>{type_str}</v8:Type>')
@@ -1175,7 +1215,7 @@ def emit_object_command(indent, cmd_name, cmd_def):
     X(indent + '</Command>')
 
 
-def emit_standard_attribute(indent, attr_name):
+def emit_standard_attribute(indent, attr_name, required=False):
     # Настройки приходят ключом standardAttributes: заданное свойство заменяет умолчание,
     # остальные печатаются как есть.
     cfg = (defn.get('standardAttributes') or {}).get(attr_name) or {}
@@ -1184,7 +1224,7 @@ def emit_standard_attribute(indent, attr_name):
     X(f'{indent}\t<xr:LinkByType/>')
     # Владелец подчиненного справочника обязателен к заполнению - платформа выставляет это
     # сама. Владелец и родитель заполняются из значения заполнения.
-    default_checking = 'ShowError' if attr_name == 'Owner' else 'DontCheck'
+    default_checking = 'ShowError' if attr_name == 'Owner' or required else 'DontCheck'
     fill_checking = (normalize_enum_value('FillChecking', str(cfg['fillChecking']))
                      if cfg.get('fillChecking') else default_checking)
     X(f'{indent}\t<xr:FillChecking>{fill_checking}</xr:FillChecking>')
@@ -1316,11 +1356,11 @@ def emit_attribute(indent, parsed, context):
     X(f'{indent}\t\t<ExtendedEdit>false</ExtendedEdit>')
     X(f'{indent}\t\t<MinValue xsi:nil="true"/>')
     X(f'{indent}\t\t<MaxValue xsi:nil="true"/>')
-    # FillFromFillingValue / FillValue — not for tabular/processor/chart/register-other
-    # (Chart*, AccumulationRegister/AccountingRegister/CalculationRegister don't support these)
-    if context not in ('tabular', 'processor', 'chart', 'register-other'):
+    # Заполнение по значению не пишется у табличной части, обработки и регистров кроме
+    # сведений. Планы счетов и видов расчета его пишут - сверено с выгрузкой.
+    if context not in ('tabular', 'processor', 'register-other'):
         X(f'{indent}\t\t<FillFromFillingValue>false</FillFromFillingValue>')
-    if context not in ('tabular', 'processor', 'chart', 'register-other'):
+    if context not in ('tabular', 'processor', 'register-other'):
         emit_fill_value(f'{indent}\t\t', type_str)
     fill_checking = 'DontCheck'
     if 'req' in parsed.get('flags', []):
@@ -1348,8 +1388,8 @@ def emit_attribute(indent, parsed, context):
             indexing = parsed['indexing']
         X(f'{indent}\t\t<Indexing>{indexing}</Indexing>')
         X(f'{indent}\t\t<FullTextSearch>Use</FullTextSearch>')
-        # DataHistory — not for Chart* types and non-InformationRegister register family
-        if context not in ('chart', 'register-other'):
+        # История данных не пишется у регистров кроме сведений.
+        if context != 'register-other':
             X(f'{indent}\t\t<DataHistory>Use</DataHistory>')
     X(f'{indent}\t</Properties>')
     X(f'{indent}</Attribute>')
@@ -1613,10 +1653,18 @@ def emit_catalog_properties(indent):
     choice_mode = get_enum_prop('ChoiceMode', 'choiceMode', 'BothWays')
     X(f'{i}<QuickChoice>{quick_choice}</QuickChoice>')
     X(f'{i}<ChoiceMode>{choice_mode}</ChoiceMode>')
-    X(f'{i}<InputByString>')
-    X(f'{i}\t<xr:Field>Catalog.{obj_name}.StandardAttribute.Description</xr:Field>')
-    X(f'{i}\t<xr:Field>Catalog.{obj_name}.StandardAttribute.Code</xr:Field>')
-    X(f'{i}</InputByString>')
+    input_fields = []
+    if description_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>Catalog.{obj_name}.StandardAttribute.Description</xr:Field>')
+    if code_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>Catalog.{obj_name}.StandardAttribute.Code</xr:Field>')
+    if input_fields:
+        X(f'{i}<InputByString>')
+        for field_line in input_fields:
+            X(field_line)
+        X(f'{i}</InputByString>')
+    else:
+        X(f'{i}<InputByString/>')
     X(f'{i}<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>')
     X(f'{i}<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>')
     X(f'{i}<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>')
@@ -2328,10 +2376,18 @@ def emit_exchange_plan_properties(indent):
     X(f'{i}<BasedOn/>')
     X(f'{i}<QuickChoice>true</QuickChoice>')
     X(f'{i}<ChoiceMode>BothWays</ChoiceMode>')
-    X(f'{i}<InputByString>')
-    X(f'{i}\t<xr:Field>ExchangePlan.{obj_name}.StandardAttribute.Description</xr:Field>')
-    X(f'{i}\t<xr:Field>ExchangePlan.{obj_name}.StandardAttribute.Code</xr:Field>')
-    X(f'{i}</InputByString>')
+    input_fields = []
+    if description_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ExchangePlan.{obj_name}.StandardAttribute.Description</xr:Field>')
+    if code_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ExchangePlan.{obj_name}.StandardAttribute.Code</xr:Field>')
+    if input_fields:
+        X(f'{i}<InputByString>')
+        for field_line in input_fields:
+            X(field_line)
+        X(f'{i}</InputByString>')
+    else:
+        X(f'{i}<InputByString/>')
     X(f'{i}<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>')
     X(f'{i}<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>')
     X(f'{i}<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>')
@@ -2372,6 +2428,9 @@ def emit_chart_of_characteristic_types_properties(indent):
     else:
         X(f'{i}<CharacteristicExtValues/>')
     value_types = as_array(defn.get('valueTypes'))
+    if not value_types and defn.get('valueType'):
+        vt_raw = defn['valueType']
+        value_types = list(vt_raw) if isinstance(vt_raw, list) else [vt_raw]
     if value_types:
         X(f'{i}<Type>')
         for vt in value_types:
@@ -2400,14 +2459,14 @@ def emit_chart_of_characteristic_types_properties(indent):
     X(f'{i}<Hierarchical>{hierarchical}</Hierarchical>')
     X(f'{i}<FoldersOnTop>true</FoldersOnTop>')
     code_length = str(defn['codeLength']) if defn.get('codeLength') is not None else '9'
-    description_length = str(defn['descriptionLength']) if defn.get('descriptionLength') is not None else '25'
+    description_length = str(defn['descriptionLength']) if defn.get('descriptionLength') is not None else '100'
     code_allowed_length = get_enum_prop('CodeAllowedLength', 'codeAllowedLength', 'Variable')
     autonumbering = 'false' if defn.get('autonumbering') is False else 'true'
-    check_unique = 'true' if defn.get('checkUnique') is True else 'false'
+    check_unique = 'false' if defn.get('checkUnique') is False else 'true'
     X(f'{i}<CodeLength>{code_length}</CodeLength>')
     X(f'{i}<CodeAllowedLength>{code_allowed_length}</CodeAllowedLength>')
     X(f'{i}<DescriptionLength>{description_length}</DescriptionLength>')
-    code_series = defn.get('codeSeries') or 'WholeChartOfCharacteristicTypes'
+    code_series = defn.get('codeSeries') or 'WholeCharacteristicKind'
     X(f'{i}<CodeSeries>{code_series}</CodeSeries>')
     X(f'{i}<CheckUnique>{check_unique}</CheckUnique>')
     X(f'{i}<Autonumbering>{autonumbering}</Autonumbering>')
@@ -2416,13 +2475,23 @@ def emit_chart_of_characteristic_types_properties(indent):
     X(f'{i}<Characteristics/>')
     X(f'{i}<PredefinedDataUpdate>Auto</PredefinedDataUpdate>')
     X(f'{i}<EditType>InDialog</EditType>')
-    X(f'{i}<QuickChoice>true</QuickChoice>')
+    quick_choice = 'true' if defn.get('quickChoice') is True else 'false'
+    X(f'{i}<QuickChoice>{quick_choice}</QuickChoice>')
     X(f'{i}<ChoiceMode>BothWays</ChoiceMode>')
-    X(f'{i}<InputByString>')
-    X(f'{i}\t<xr:Field>ChartOfCharacteristicTypes.{obj_name}.StandardAttribute.Description</xr:Field>')
-    X(f'{i}\t<xr:Field>ChartOfCharacteristicTypes.{obj_name}.StandardAttribute.Code</xr:Field>')
-    X(f'{i}</InputByString>')
-    X(f'{i}<CreateOnInput>Use</CreateOnInput>')
+    input_fields = []
+    if description_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ChartOfCharacteristicTypes.{obj_name}.StandardAttribute.Description</xr:Field>')
+    if code_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ChartOfCharacteristicTypes.{obj_name}.StandardAttribute.Code</xr:Field>')
+    if input_fields:
+        X(f'{i}<InputByString>')
+        for field_line in input_fields:
+            X(field_line)
+        X(f'{i}</InputByString>')
+    else:
+        X(f'{i}<InputByString/>')
+    create_on_input = get_enum_prop('CreateOnInput', 'createOnInput', 'DontUse')
+    X(f'{i}<CreateOnInput>{create_on_input}</CreateOnInput>')
     X(f'{i}<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>')
     X(f'{i}<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>')
     X(f'{i}<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>')
@@ -2498,6 +2567,7 @@ def emit_chart_of_accounts_properties(indent):
     emit_comment(i)
     X(f'{i}<UseStandardCommands>true</UseStandardCommands>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
+    X(f'{i}<BasedOn/>')
     ext_dim_types = str(defn['extDimensionTypes']) if defn.get('extDimensionTypes') else ''
     if ext_dim_types:
         X(f'{i}<ExtDimensionTypes>{ext_dim_types}</ExtDimensionTypes>')
@@ -2523,50 +2593,69 @@ def emit_chart_of_accounts_properties(indent):
     description_length = str(defn['descriptionLength']) if defn.get('descriptionLength') is not None else '120'
     code_series = str(defn['codeSeries']) if defn.get('codeSeries') else 'WholeChartOfAccounts'
     auto_order = 'false' if defn.get('autoOrderByCode') is False else 'true'
-    order_length = str(defn['orderLength']) if defn.get('orderLength') is not None else '5'
+    order_length = str(defn['orderLength']) if defn.get('orderLength') is not None else '9'
     X(f'{i}<CodeLength>{code_length}</CodeLength>')
     X(f'{i}<DescriptionLength>{description_length}</DescriptionLength>')
     X(f'{i}<CodeSeries>{code_series}</CodeSeries>')
-    X(f'{i}<CheckUnique>false</CheckUnique>')
-    X(f'{i}<DefaultPresentation>AsDescription</DefaultPresentation>')
+    check_unique = 'false' if defn.get('checkUnique') is False else 'true'
+    X(f'{i}<CheckUnique>{check_unique}</CheckUnique>')
+    default_presentation = get_enum_prop('DefaultPresentation', 'defaultPresentation', 'AsCode')
+    X(f'{i}<DefaultPresentation>{default_presentation}</DefaultPresentation>')
     emit_standard_attributes(i, 'ChartOfAccounts')
+    X(f'{i}<Characteristics/>')
     X(f'{i}<StandardTabularSections>')
     X(f'{i}\t<xr:StandardTabularSection name="ExtDimensionTypes">')
+    # Стандартная табличная часть несет свой заголовок и проверку заполнения - платформа
+    # пишет их перед составом реквизитов.
+    X(f'{i}\t\t<xr:Synonym>')
+    X(f'{i}\t\t\t<v8:item>')
+    X(f'{i}\t\t\t\t<v8:lang/>')
+    X(f'{i}\t\t\t\t<v8:content>Виды субконто</v8:content>')
+    X(f'{i}\t\t\t</v8:item>')
+    X(f'{i}\t\t</xr:Synonym>')
+    X(f'{i}\t\t<xr:Comment/>')
+    X(f'{i}\t\t<xr:ToolTip/>')
+    X(f'{i}\t\t<xr:FillChecking>DontCheck</xr:FillChecking>')
     X(f'{i}\t\t<xr:StandardAttributes>')
     for st_attr in ['TurnoversOnly', 'Predefined', 'ExtDimensionType', 'LineNumber']:
-        emit_standard_attribute(f'{i}\t\t\t', st_attr)
+        # Вид субконто заполняется обязательно: без него строка табличной части бессмысленна.
+        required = st_attr == 'ExtDimensionType'
+        emit_standard_attribute(f'{i}\t\t\t', st_attr, required)
     X(f'{i}\t\t</xr:StandardAttributes>')
     X(f'{i}\t</xr:StandardTabularSection>')
     X(f'{i}</StandardTabularSections>')
-    X(f'{i}<Characteristics/>')
     X(f'{i}<PredefinedDataUpdate>Auto</PredefinedDataUpdate>')
     X(f'{i}<EditType>InDialog</EditType>')
-    X(f'{i}<QuickChoice>true</QuickChoice>')
+    quick_choice = 'true' if defn.get('quickChoice') is True else 'false'
+    X(f'{i}<QuickChoice>{quick_choice}</QuickChoice>')
     X(f'{i}<ChoiceMode>BothWays</ChoiceMode>')
-    X(f'{i}<InputByString>')
-    X(f'{i}\t<xr:Field>ChartOfAccounts.{obj_name}.StandardAttribute.Description</xr:Field>')
-    X(f'{i}\t<xr:Field>ChartOfAccounts.{obj_name}.StandardAttribute.Code</xr:Field>')
-    X(f'{i}</InputByString>')
+    input_fields = []
+    if description_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ChartOfAccounts.{obj_name}.StandardAttribute.Description</xr:Field>')
+    if code_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ChartOfAccounts.{obj_name}.StandardAttribute.Code</xr:Field>')
+    if input_fields:
+        X(f'{i}<InputByString>')
+        for field_line in input_fields:
+            X(field_line)
+        X(f'{i}</InputByString>')
+    else:
+        X(f'{i}<InputByString/>')
     X(f'{i}<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>')
     X(f'{i}<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>')
     X(f'{i}<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>')
+    create_on_input = get_enum_prop('CreateOnInput', 'createOnInput', 'DontUse')
+    X(f'{i}<CreateOnInput>{create_on_input}</CreateOnInput>')
+    X(f'{i}<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
     X(f'{i}<DefaultObjectForm/>')
     X(f'{i}<DefaultListForm/>')
     X(f'{i}<DefaultChoiceForm/>')
     X(f'{i}<AuxiliaryObjectForm/>')
     X(f'{i}<AuxiliaryListForm/>')
     X(f'{i}<AuxiliaryChoiceForm/>')
-    X(f'{i}<BasedOn/>')
-    X(f'{i}<DataLockFields/>')
-    X(f'{i}<ObjectPresentation/>')
-    X(f'{i}<ExtendedObjectPresentation/>')
-    X(f'{i}<ListPresentation/>')
-    X(f'{i}<ExtendedListPresentation/>')
-    X(f'{i}<Explanation/>')
-    X(f'{i}<CreateOnInput>Use</CreateOnInput>')
-    X(f'{i}<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
     X(f'{i}<AutoOrderByCode>{auto_order}</AutoOrderByCode>')
     X(f'{i}<OrderLength>{order_length}</OrderLength>')
+    X(f'{i}<DataLockFields/>')
     data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
     X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
     full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
@@ -2574,6 +2663,11 @@ def emit_chart_of_accounts_properties(indent):
     X(f'{i}<DataHistory>DontUse</DataHistory>')
     X(f'{i}<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>')
     X(f'{i}<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>')
+    X(f'{i}<ObjectPresentation/>')
+    X(f'{i}<ExtendedObjectPresentation/>')
+    X(f'{i}<ListPresentation/>')
+    X(f'{i}<ExtendedListPresentation/>')
+    X(f'{i}<Explanation/>')
 
 def emit_accounting_register_properties(indent):
     i = indent
@@ -2619,15 +2713,27 @@ def emit_chart_of_calculation_types_properties(indent):
     X(f'{i}<DefaultPresentation>AsDescription</DefaultPresentation>')
     emit_standard_attributes(i, 'ChartOfCalculationTypes')
     X(f'{i}<EditType>InDialog</EditType>')
-    X(f'{i}<QuickChoice>true</QuickChoice>')
+    quick_choice = 'true' if defn.get('quickChoice') is True else 'false'
+    X(f'{i}<QuickChoice>{quick_choice}</QuickChoice>')
     X(f'{i}<ChoiceMode>BothWays</ChoiceMode>')
-    X(f'{i}<InputByString>')
-    X(f'{i}\t<xr:Field>ChartOfCalculationTypes.{obj_name}.StandardAttribute.Description</xr:Field>')
-    X(f'{i}\t<xr:Field>ChartOfCalculationTypes.{obj_name}.StandardAttribute.Code</xr:Field>')
-    X(f'{i}</InputByString>')
+    input_fields = []
+    if description_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ChartOfCalculationTypes.{obj_name}.StandardAttribute.Description</xr:Field>')
+    if code_length != '0':
+        input_fields.append(f'{i}\t<xr:Field>ChartOfCalculationTypes.{obj_name}.StandardAttribute.Code</xr:Field>')
+    if input_fields:
+        X(f'{i}<InputByString>')
+        for field_line in input_fields:
+            X(field_line)
+        X(f'{i}</InputByString>')
+    else:
+        X(f'{i}<InputByString/>')
     X(f'{i}<SearchStringModeOnInputByString>Begin</SearchStringModeOnInputByString>')
     X(f'{i}<FullTextSearchOnInputByString>DontUse</FullTextSearchOnInputByString>')
     X(f'{i}<ChoiceDataGetModeOnInputByString>Directly</ChoiceDataGetModeOnInputByString>')
+    create_on_input = get_enum_prop('CreateOnInput', 'createOnInput', 'DontUse')
+    X(f'{i}<CreateOnInput>{create_on_input}</CreateOnInput>')
+    X(f'{i}<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
     X(f'{i}<DefaultObjectForm/>')
     X(f'{i}<DefaultListForm/>')
     X(f'{i}<DefaultChoiceForm/>')
@@ -2648,10 +2754,62 @@ def emit_chart_of_calculation_types_properties(indent):
     action_period_use = 'true' if defn.get('actionPeriodUse') is True else 'false'
     X(f'{i}<ActionPeriodUse>{action_period_use}</ActionPeriodUse>')
     X(f'{i}<Characteristics/>')
-    X(f'{i}<StandardTabularSections/>')
+    # Стандартные табличные части плана видов расчета: ведущие, вытесняющие и базовые виды.
+    # Состав задан платформой, настройке не подлежит.
+    X(f'{i}<StandardTabularSections>')
+    X(f'{i}\t<xr:StandardTabularSection name=\"LeadingCalculationTypes\">')
+    X(f'{i}\t\t<xr:Synonym>')
+    X(f'{i}\t\t\t<v8:item>')
+    X(f'{i}\t\t\t\t<v8:lang/>')
+    X(f'{i}\t\t\t\t<v8:content>Ведущие виды расчета</v8:content>')
+    X(f'{i}\t\t\t</v8:item>')
+    X(f'{i}\t\t</xr:Synonym>')
+    X(f'{i}\t\t<xr:Comment/>')
+    X(f'{i}\t\t<xr:ToolTip/>')
+    X(f'{i}\t\t<xr:FillChecking>DontCheck</xr:FillChecking>')
+    X(f'{i}\t\t<xr:StandardAttributes>')
+    for st_attr in ['Predefined', 'CalculationType', 'LineNumber']:
+        emit_standard_attribute(f'{i}\t\t\t', st_attr, st_attr == 'CalculationType')
+    X(f'{i}\t\t</xr:StandardAttributes>')
+    X(f'{i}\t</xr:StandardTabularSection>')
+    X(f'{i}\t<xr:StandardTabularSection name=\"DisplacingCalculationTypes\">')
+    X(f'{i}\t\t<xr:Synonym>')
+    X(f'{i}\t\t\t<v8:item>')
+    X(f'{i}\t\t\t\t<v8:lang/>')
+    X(f'{i}\t\t\t\t<v8:content>Вытесняющие виды расчета</v8:content>')
+    X(f'{i}\t\t\t</v8:item>')
+    X(f'{i}\t\t</xr:Synonym>')
+    X(f'{i}\t\t<xr:Comment/>')
+    X(f'{i}\t\t<xr:ToolTip/>')
+    X(f'{i}\t\t<xr:FillChecking>DontCheck</xr:FillChecking>')
+    X(f'{i}\t\t<xr:StandardAttributes>')
+    for st_attr in ['Predefined', 'CalculationType', 'LineNumber']:
+        emit_standard_attribute(f'{i}\t\t\t', st_attr, st_attr == 'CalculationType')
+    X(f'{i}\t\t</xr:StandardAttributes>')
+    X(f'{i}\t</xr:StandardTabularSection>')
+    X(f'{i}\t<xr:StandardTabularSection name=\"BaseCalculationTypes\">')
+    X(f'{i}\t\t<xr:Synonym>')
+    X(f'{i}\t\t\t<v8:item>')
+    X(f'{i}\t\t\t\t<v8:lang/>')
+    X(f'{i}\t\t\t\t<v8:content>Базовые виды расчета</v8:content>')
+    X(f'{i}\t\t\t</v8:item>')
+    X(f'{i}\t\t</xr:Synonym>')
+    X(f'{i}\t\t<xr:Comment/>')
+    X(f'{i}\t\t<xr:ToolTip/>')
+    X(f'{i}\t\t<xr:FillChecking>DontCheck</xr:FillChecking>')
+    X(f'{i}\t\t<xr:StandardAttributes>')
+    for st_attr in ['Predefined', 'CalculationType', 'LineNumber']:
+        emit_standard_attribute(f'{i}\t\t\t', st_attr, st_attr == 'CalculationType')
+    X(f'{i}\t\t</xr:StandardAttributes>')
+    X(f'{i}\t</xr:StandardTabularSection>')
+    X(f'{i}</StandardTabularSections>')
     X(f'{i}<PredefinedDataUpdate>Auto</PredefinedDataUpdate>')
     X(f'{i}<IncludeHelpInContents>false</IncludeHelpInContents>')
     X(f'{i}<DataLockFields/>')
+    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
+    X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
+    full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
+    X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
     X(f'{i}<ObjectPresentation/>')
     X(f'{i}<ExtendedObjectPresentation/>')
     X(f'{i}<ListPresentation/>')
@@ -2660,12 +2818,6 @@ def emit_chart_of_calculation_types_properties(indent):
     X(f'{i}<DataHistory>DontUse</DataHistory>')
     X(f'{i}<UpdateDataHistoryImmediatelyAfterWrite>false</UpdateDataHistoryImmediatelyAfterWrite>')
     X(f'{i}<ExecuteAfterWriteDataHistoryVersionProcessing>false</ExecuteAfterWriteDataHistoryVersionProcessing>')
-    X(f'{i}<CreateOnInput>Use</CreateOnInput>')
-    X(f'{i}<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
-    data_lock_control_mode = get_enum_prop('DataLockControlMode', 'dataLockControlMode', 'Managed')
-    X(f'{i}<DataLockControlMode>{data_lock_control_mode}</DataLockControlMode>')
-    full_text_search = get_enum_prop('FullTextSearch', 'fullTextSearch', 'Use')
-    X(f'{i}<FullTextSearch>{full_text_search}</FullTextSearch>')
 
 def emit_calculation_register_properties(indent):
     i = indent
@@ -2900,13 +3052,19 @@ def emit_column(indent, col_def):
     X(f'{indent}\t</Properties>')
     X(f'{indent}</Column>')
 
-def emit_accounting_flag(indent, flag_name):
+def emit_accounting_flag_props(indent, flag, tag):
+    """Признак учета и признак учета субконто различаются только именем элемента."""
+    if not isinstance(flag, dict):
+        flag = {'name': str(flag)}
+    flag_name = str(flag.get('name') or '')
     uid = new_uuid()
-    flag_synonym = split_camel_case(flag_name)
-    X(f'{indent}<AccountingFlag uuid="{uid}">')
+    synonym = flag.get('synonym') or split_camel_case(flag_name)
+    tooltip = flag.get('tooltip') or ''
+    fill_value = flag.get('fillValue')
+    X(f'{indent}<{tag} uuid="{uid}">')
     X(f'{indent}\t<Properties>')
     X(f'{indent}\t\t<Name>{esc_xml(flag_name)}</Name>')
-    emit_mltext(f'{indent}\t\t', 'Synonym', flag_synonym)
+    emit_mltext(f'{indent}\t\t', 'Synonym', synonym)
     X(f'{indent}\t\t<Comment/>')
     X(f'{indent}\t\t<Type>')
     X(f'{indent}\t\t\t<v8:Type>xs:boolean</v8:Type>')
@@ -2914,53 +3072,39 @@ def emit_accounting_flag(indent, flag_name):
     X(f'{indent}\t\t<PasswordMode>false</PasswordMode>')
     X(f'{indent}\t\t<Format/>')
     X(f'{indent}\t\t<EditFormat/>')
-    X(f'{indent}\t\t<ToolTip/>')
+    emit_mltext(f'{indent}\t\t', 'ToolTip', tooltip)
     X(f'{indent}\t\t<MarkNegatives>false</MarkNegatives>')
     X(f'{indent}\t\t<Mask/>')
     X(f'{indent}\t\t<MultiLine>false</MultiLine>')
     X(f'{indent}\t\t<ExtendedEdit>false</ExtendedEdit>')
     X(f'{indent}\t\t<MinValue xsi:nil="true"/>')
     X(f'{indent}\t\t<MaxValue xsi:nil="true"/>')
+    X(f'{indent}\t\t<FillFromFillingValue>false</FillFromFillingValue>')
+    if fill_value is True:
+        X(f'{indent}\t\t<FillValue xsi:type="xs:boolean">true</FillValue>')
+    elif fill_value is False:
+        X(f'{indent}\t\t<FillValue xsi:type="xs:boolean">false</FillValue>')
+    else:
+        # Незаданное значение заполнения платформа пишет пустой строкой, а не признаком nil.
+        X(f'{indent}\t\t<FillValue xsi:type="xs:string"/>')
     X(f'{indent}\t\t<FillChecking>DontCheck</FillChecking>')
+    X(f'{indent}\t\t<ChoiceFoldersAndItems>Items</ChoiceFoldersAndItems>')
     X(f'{indent}\t\t<ChoiceParameterLinks/>')
     X(f'{indent}\t\t<ChoiceParameters/>')
     X(f'{indent}\t\t<QuickChoice>Auto</QuickChoice>')
+    X(f'{indent}\t\t<CreateOnInput>Auto</CreateOnInput>')
     X(f'{indent}\t\t<ChoiceForm/>')
     X(f'{indent}\t\t<LinkByType/>')
     X(f'{indent}\t\t<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
+    X(f'{indent}\t\t<DataHistory>Use</DataHistory>')
     X(f'{indent}\t</Properties>')
-    X(f'{indent}</AccountingFlag>')
+    X(f'{indent}</{tag}>')
 
-def emit_ext_dimension_accounting_flag(indent, flag_name):
-    uid = new_uuid()
-    flag_synonym = split_camel_case(flag_name)
-    X(f'{indent}<ExtDimensionAccountingFlag uuid="{uid}">')
-    X(f'{indent}\t<Properties>')
-    X(f'{indent}\t\t<Name>{esc_xml(flag_name)}</Name>')
-    emit_mltext(f'{indent}\t\t', 'Synonym', flag_synonym)
-    X(f'{indent}\t\t<Comment/>')
-    X(f'{indent}\t\t<Type>')
-    X(f'{indent}\t\t\t<v8:Type>xs:boolean</v8:Type>')
-    X(f'{indent}\t\t</Type>')
-    X(f'{indent}\t\t<PasswordMode>false</PasswordMode>')
-    X(f'{indent}\t\t<Format/>')
-    X(f'{indent}\t\t<EditFormat/>')
-    X(f'{indent}\t\t<ToolTip/>')
-    X(f'{indent}\t\t<MarkNegatives>false</MarkNegatives>')
-    X(f'{indent}\t\t<Mask/>')
-    X(f'{indent}\t\t<MultiLine>false</MultiLine>')
-    X(f'{indent}\t\t<ExtendedEdit>false</ExtendedEdit>')
-    X(f'{indent}\t\t<MinValue xsi:nil="true"/>')
-    X(f'{indent}\t\t<MaxValue xsi:nil="true"/>')
-    X(f'{indent}\t\t<FillChecking>DontCheck</FillChecking>')
-    X(f'{indent}\t\t<ChoiceParameterLinks/>')
-    X(f'{indent}\t\t<ChoiceParameters/>')
-    X(f'{indent}\t\t<QuickChoice>Auto</QuickChoice>')
-    X(f'{indent}\t\t<ChoiceForm/>')
-    X(f'{indent}\t\t<LinkByType/>')
-    X(f'{indent}\t\t<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>')
-    X(f'{indent}\t</Properties>')
-    X(f'{indent}</ExtDimensionAccountingFlag>')
+def emit_accounting_flag(indent, flag):
+    emit_accounting_flag_props(indent, flag, 'AccountingFlag')
+
+def emit_ext_dimension_accounting_flag(indent, flag):
+    emit_accounting_flag_props(indent, flag, 'ExtDimensionAccountingFlag')
 
 def emit_url_template(indent, tmpl_name, tmpl_def):
     uid = new_uuid()
@@ -3326,11 +3470,9 @@ if obj_type in types_with_attr_ts:
             columns = ts_sections[ts_name]
             emit_tabular_section('\t\t\t', ts_name, columns, obj_type, obj_name, ts_options.get(ts_name))
         for af in acct_flags:
-            af_name = af['name'] if isinstance(af, dict) else str(af)
-            emit_accounting_flag('\t\t\t', af_name)
+            emit_accounting_flag('\t\t\t', af)
         for edf in ext_dim_flags:
-            edf_name = edf['name'] if isinstance(edf, dict) else str(edf)
-            emit_ext_dimension_accounting_flag('\t\t\t', edf_name)
+            emit_ext_dimension_accounting_flag('\t\t\t', edf)
         for cmd_name, cmd_def in obj_commands.items():
             emit_object_command('			', cmd_name, cmd_def)
         for aa in addr_attrs:

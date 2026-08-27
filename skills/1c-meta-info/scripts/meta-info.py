@@ -68,6 +68,15 @@ def out_standard_attributes(props, md_type, owners):
         self_ref = "ПВХСсылка" if md_type == "ChartOfCharacteristicTypes" else "СправочникСсылка"
         rows.append(f"  Родитель: {self_ref}.{self_name}")
 
+    if md_type == "ChartOfCharacteristicTypes":
+        value_types = format_type_list(find(props, "md:Type"))
+        if len(value_types) > 1:
+            # Полный состав уводится в разбор по -Name: в обзоре он занимал бы всю строку.
+            rows.append(f"  ТипЗначения: Составной ({len(value_types)})")
+            rows.append("  Полный состав типов: -Name ТипЗначения")
+        elif value_types:
+            rows.append(f"  ТипЗначения: {value_types[0]}")
+
     if md_type in ("Document", "BusinessProcess", "Task"):
         rows.append("  Дата - Дата, обязательный")
         # Номер описывается одной строкой: тип, периодичность и способ нумерации - его
@@ -298,6 +307,10 @@ def format_type(type_node_el):
         types.append(format_single_type(inner_text(t), type_node_el))
     for t in find_all(type_node_el, "v8:TypeSet"):
         raw = inner_text(t)
+        # Ссылочный набор без имени объекта разбирается тем же кодом, что и одиночный тип.
+        if re.match(r'^cfg:\w+Ref$', raw):
+            types.append(format_single_type(raw, type_node_el))
+            continue
         m = re.match(r'^cfg:DefinedType\.(.+)$', raw)
         if m:
             types.append(f"ОпределяемыйТип.{m.group(1)}")
@@ -312,6 +325,18 @@ def format_type(type_node_el):
     if len(types) == 1:
         return types[0]
     return " | ".join(types)
+
+
+def format_type_list(type_node_el):
+    """Типы узла по одному: свернутая запись и разбор по -Name считают их сами."""
+    if type_node_el is None:
+        return []
+    items = []
+    for t_el in find_all(type_node_el, "v8:Type"):
+        items.append(format_single_type(inner_text(t_el), type_node_el))
+    for t_el in find_all(type_node_el, "v8:TypeSet"):
+        items.append(format_single_type(inner_text(t_el), type_node_el))
+    return items
 
 
 def format_single_type(raw, parent_node):
@@ -354,6 +379,9 @@ def format_single_type(raw, parent_node):
         objn = m.group(2)
         if prefix in ref_type_map:
             return f"{ref_type_map[prefix]}.{objn}"
+    m = re.match(r'^cfg:(\w+)Ref$', raw)
+    if m and f"{m.group(1)}Ref" in ref_type_map:
+        return ref_type_map[f"{m.group(1)}Ref"]
     # cfg:EnumRef.Xxx
     m = re.match(r'^cfg:EnumRef\.(.+)$', raw)
     if m:
@@ -544,7 +572,40 @@ synonym = get_ml_text(syn_node)
 
 drill_done = False
 
-if drill_name and child_objs is not None:
+if drill_name:
+    # Стандартный реквизит не лежит в ChildObjects: его состав задан свойствами объекта.
+    drill_owners = []
+    owners_node = find(props, "md:Owners")
+    if owners_node is not None:
+        for owner_item in owners_node:
+            if (owner_item.text or '').strip():
+                drill_owners.append(owner_item.text.strip())
+    std_types = []
+    std_flags = []
+    if drill_name in ("Владелец", "Owner") and drill_owners:
+        for owner_ref in drill_owners:
+            kind = owner_ref.split(".")[0]
+            oname = owner_ref.split(".")[-1]
+            prefix = "СправочникСсылка" if kind == "Catalog" else kind
+            std_types.append(f"{prefix}.{oname}")
+        std_flags.append("обязательный")
+    elif drill_name in ("ТипЗначения", "ValueType") and md_type == "ChartOfCharacteristicTypes":
+        std_types = format_type_list(find(props, "md:Type"))
+    elif drill_name in ("Родитель", "Parent"):
+        hier = find(props, "md:Hierarchical")
+        if hier is not None and inner_text(hier) == "true":
+            self_ref = "ПВХСсылка" if md_type == "ChartOfCharacteristicTypes" else "СправочникСсылка"
+            std_types.append(f"{self_ref}.{obj_name}")
+    if std_types:
+        out(f"Стандартный реквизит: {drill_name}")
+        out(f"  Типы ({len(std_types)}):")
+        for std_type in std_types:
+            out(f"    {std_type}")
+        if std_flags:
+            out(f"  Свойства: {', '.join(std_flags)}")
+        drill_done = True
+
+if drill_name and not drill_done and child_objs is not None:
     # Search in attributes/dimensions/resources
     attr_tags = ["Attribute", "Dimension", "Resource"]
     for tag in attr_tags:
