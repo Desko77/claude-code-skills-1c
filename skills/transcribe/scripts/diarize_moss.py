@@ -8,9 +8,9 @@ Worker для MOSS-Transcribe-Diarize (end-to-end ASR + диаризация).
 Использует OpenMOSS-Team/MOSS-Transcribe-Diarize 0.9B (Qwen3-0.6B + Whisper-Medium encoder,
 bfloat16 на CUDA). End-to-end: текст + спикеры + таймстампы одним проходом. 50+ языков.
 
-В отличие от sherpa/pyannote (которые только сегментируют спикеров, текст даёт whisper),
-MOSS заменяет ОБА шага — поэтому при engine=="moss" orchestrator не запускает whisper,
-а берёт текст и спикеры из этого воркера.
+В отличие от sherpa/pyannote (которые только сегментируют спикеров, текст дает whisper),
+MOSS заменяет ОБА шага - поэтому при engine=="moss" orchestrator не запускает whisper,
+а берет текст и спикеры из этого воркера.
 
 Аргументы:
     --input <audio>        путь к аудио/видео (конвертируется ffmpeg в 16kHz mono WAV)
@@ -135,11 +135,11 @@ def moss_diarize(args) -> int:
         n_spk = len({u["speaker"] for u in utterances})
         print(f"[D] {len(utterances)} сегментов, {n_spk} спикеров", flush=True)
 
-        # Детект truncation: если последний сегмент заметно короче длительности —
-        # генерация упёрлась в max_new_tokens (молча обрезалась).
+        # Детект truncation: если последний сегмент заметно короче длительности -
+        # генерация уперлась в max_new_tokens (молча обрезалась).
         if utterances and utterances[-1]["end"] < duration - 30:
             print(f"[D] ВНИМАНИЕ: последний сегмент на {utterances[-1]['end']:.1f}с при длительности "
-                  f"{duration:.1f}с — возможна truncation транскрипции "
+                  f"{duration:.1f}с - возможна truncation транскрипции "
                   f"(передайте --max-new-tokens больше {max_tokens})", file=sys.stderr)
 
         payload = {

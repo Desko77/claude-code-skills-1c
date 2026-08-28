@@ -81,7 +81,7 @@ _load_dotenv()
 # ============================ Конфиг (env с дефолтами) ============================
 
 LOCAL_150_BASE = os.environ.get("LOCAL_150_BASE", "http://localhost:1234/v1")  # адрес LM Studio;
-#   реальный адрес сервера задаётся через env LOCAL_150_BASE (или .env, не в паблик-репо)
+#   реальный адрес сервера задается через env LOCAL_150_BASE (или .env, не в паблик-репо)
 LOCAL_VLM_MODEL = os.environ.get("LOCAL_VLM_MODEL", "qwen3-vl-8b-instruct")
 LOCAL_SUMMARY_MODEL = os.environ.get("LOCAL_SUMMARY_MODEL", "google/gemma-4-26b-a4b")
 LOCAL_SPEAKER_MODEL = os.environ.get("LOCAL_SPEAKER_MODEL", "qwen2.5-32b-instruct")  # маппинг спикеров->имена
@@ -90,7 +90,7 @@ LOCAL_SPEAKER_MODEL = os.environ.get("LOCAL_SPEAKER_MODEL", "qwen2.5-32b-instruc
 SCENE_THRESHOLD = _env_float("SCENE_THRESHOLD", 0.30)     # порог смены сцены (0..1)
 FRAME_FLOOR_SEC = _env_float("FRAME_FLOOR_SEC", 25.0)     # пол: кадр минимум каждые N сек (ловит плавные
 #                                                          изменения 1С-форм, не триггерящие scene-detect). 0=выкл.
-FRAME_CAP = _env_int("FRAME_CAP", 400)                    # жёсткий потолок кадров
+FRAME_CAP = _env_int("FRAME_CAP", 400)                    # жесткий потолок кадров
 DEDUP_HAMMING = _env_int("DEDUP_HAMMING", 6)              # dhash: <= => почти-дубль, отбрасываем
 FALLBACK_INTERVAL_SEC = _env_float("FALLBACK_INTERVAL_SEC", 20.0)  # выборка если сцен/пола не хватило
 
@@ -129,7 +129,7 @@ class LocalBackendError(RuntimeError):
     """Ошибка локального бэкенда (сервер 150 или ffmpeg).
 
     status/elapsed нужны, чтобы отличить выгруженную из памяти модель от настоящей поломки:
-    текст ошибки для этого не годится (LM Studio отдаёт generic-страницу), а время - годится.
+    текст ошибки для этого не годится (LM Studio отдает generic-страницу), а время - годится.
     """
 
     def __init__(self, message, status=None, elapsed=None):
@@ -216,7 +216,7 @@ def looks_context_overflow(err):
 
     Это НЕ повод бросать кадр: слоты LM Studio делят одно окно, поэтому виновата параллельность,
     а сам запрос корректен. Лечится снижением параллельности и повтором. Принимает и исключение,
-    и уже сохранённый текст ошибки - в статус-файл попадает строка.
+    и уже сохраненный текст ошибки - в статус-файл попадает строка.
     """
     text = str(err or "").lower()
     status = getattr(err, "status", None)
@@ -263,7 +263,7 @@ def _get_json(url, timeout=10):
 
 
 def _model_matches(entry, model):
-    """Совпадает ли запись каталога с запрошенным именем модели (с учётом варианта квантизации)."""
+    """Совпадает ли запись каталога с запрошенным именем модели (с учетом варианта квантизации)."""
     if model in (entry.get("key"), entry.get("id"), entry.get("selected_variant")):
         return True
     return model in (entry.get("variants") or [])
@@ -281,7 +281,7 @@ def get_loaded_info(model=None, base=None):
     root = _api_root(base)
     info = {"loaded": False, "context": None, "parallel": None, "reasoning": None}
 
-    try:  # /api/v1 точнее: отдаёт конфиг конкретного загруженного инстанса
+    try:  # /api/v1 точнее: отдает конфиг конкретного загруженного инстанса
         for m in _get_json(root + "/api/v1/models").get("models", []):
             if not _model_matches(m, model):
                 continue
@@ -315,9 +315,9 @@ def get_loaded_context(model=None, base=None):
 
 
 def warmup_model(model=None, base=None, timeout=180):
-    """JIT-прогрев: крошечный запрос, чтобы LM Studio загрузил модель (с сохранённым в её конфиге
-    контекстом) ДО расчёта бюджета. Иначе на холодном старте (модель выгружена по TTL)
-    get_loaded_context вернёт None -> бюджет уйдёт в fallback -> parallel=1, хотя модель грузится
+    """JIT-прогрев: крошечный запрос, чтобы LM Studio загрузил модель (с сохраненным в ее конфиге
+    контекстом) ДО расчета бюджета. Иначе на холодном старте (модель выгружена по TTL)
+    get_loaded_context вернет None -> бюджет уйдет в fallback -> parallel=1, хотя модель грузится
     на 32768. Возвращает True при ответе."""
     model = model or LOCAL_VLM_MODEL
     root = (base or LOCAL_150_BASE).rstrip("/")
@@ -351,7 +351,7 @@ def plan_vlm_budget(model=None, base=None, max_tokens=None, parallel_cap=None):
     max_tokens = max_tokens or VLM_MAX_TOKENS
     parallel_cap = parallel_cap or VLM_PARALLEL
     info = get_loaded_info(model, base=base)
-    if not info["loaded"]:   # выгружена по TTL - прогреть и перемерить, иначе бюджет уйдёт в fallback
+    if not info["loaded"]:   # выгружена по TTL - прогреть и перемерить, иначе бюджет уйдет в fallback
         warmup_model(model, base=base)
         info = get_loaded_info(model, base=base)
     ctx, source = info.get("context"), "api"
@@ -411,7 +411,7 @@ def vlm_read_frame(image_path, model=None, prompt=None, base=None, max_tokens=No
         {"type": "text", "text": prompt},
         {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}},
     ]}]
-    # Зрение остаётся на OpenAI-совместимом эндпоинте: нативный /api/v1/chat принимает только
+    # Зрение остается на OpenAI-совместимом эндпоинте: нативный /api/v1/chat принимает только
     # текстовый input, картинку туда не передать.
     resp = _post_chat(model, messages, base=base, max_tokens=max_tokens,
                       label=f"vlm:{Path(image_path).name}")
@@ -423,7 +423,7 @@ def vlm_read_frame(image_path, model=None, prompt=None, base=None, max_tokens=No
     pt = usage.get("prompt_tokens")
     if pt is not None and pt < MIN_PROMPT_TOKENS:
         text = (f"> [!] prompt_tokens={pt} (мало) - кадр мог быть ужат сервером, "
-                f"мелкий текст ненадёжен.\n\n") + text
+                f"мелкий текст ненадежен.\n\n") + text
     if finish == "length":
         text = text + ("\n\n> [!] описание достигло лимита вывода "
                        f"(finish=length, max_tokens={max_tokens}) - возможен обрыв хвоста, "
@@ -437,8 +437,8 @@ def _post_native_chat(model, input_text, base=None, reasoning="off", max_output_
     """POST /api/v1/chat - нативный эндпоинт LM Studio, ретраи как у _post_chat.
 
     Нужен ради параметра `reasoning`: на /v1/chat/completions он молча игнорируется (проверено на
-    150: off и on дают идентичный ответ), а chat_template_kwargs.enable_thinking для qwen3.x мёртв.
-    Размышления стоят 45-кратного времени и корневую ошибку привязки имён не лечат - по умолчанию off.
+    150: off и on дают идентичный ответ), а chat_template_kwargs.enable_thinking для qwen3.x мертв.
+    Размышления стоят 45-кратного времени и корневую ошибку привязки имен не лечат - по умолчанию off.
     """
     url = _api_root(base) + "/api/v1/chat"
     payload = {"model": model, "input": input_text, "reasoning": reasoning,
@@ -495,7 +495,7 @@ def llm_summary_pass(data_text, instruction, model=None, base=None, max_tokens=4
             f"Пустой ответ text-модели {model} (вывод {stats.get('total_output_tokens')} ток., "
             f"из них размышления {stats.get('reasoning_output_tokens')})")
     produced = stats.get("total_output_tokens") or 0
-    if produced >= max_tokens:   # упёрлись в потолок - хвост почти наверняка обрезан
+    if produced >= max_tokens:   # уперлись в потолок - хвост почти наверняка обрезан
         print(f"[warn] {model}: вывод достиг потолка {max_tokens} токенов - возможен обрыв хвоста",
               file=sys.stderr)
     return out
@@ -503,7 +503,7 @@ def llm_summary_pass(data_text, instruction, model=None, base=None, max_tokens=4
 
 def llm_json_pass(data_text, instruction, schema, model=None, base=None, max_tokens=2000):
     """Строгий JSON-проход: формат гарантирует СЕРВЕР (response_format=json_schema), а не послушание
-    модели. Живёт на /v1/chat/completions - нативный /api/v1/chat схемы вывода не принимает.
+    модели. Живет на /v1/chat/completions - нативный /api/v1/chat схемы вывода не принимает.
 
     Пустой ответ и невалидный JSON - громкая ошибка: тихо неверный маппинг спикеров дороже отказа.
     """
@@ -580,7 +580,7 @@ def extract_scene_frames(video, out_dir, threshold=None, floor_sec=None, cap=Non
     """
     Нарезать ключевые кадры видео. scene-detect + пол по частоте -> dhash-дедуп -> кап.
     Возвращает (frames: list[(timecode_sec, Path)], truncated: bool).
-    Первый кадр всегда берётся (isnan(prev_selected_t)); при отсутствии сцен - равномерная выборка.
+    Первый кадр всегда берется (isnan(prev_selected_t)); при отсутствии сцен - равномерная выборка.
     Старые кадры в out_dir чистятся перед стартом.
     """
     threshold = SCENE_THRESHOLD if threshold is None else threshold

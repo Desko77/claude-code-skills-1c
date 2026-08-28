@@ -45,7 +45,7 @@ So:
 
 | What | Rule |
 |------|------|
-| Our own document type (e.g. «Сборка контейнера») | Edit **in place**. Do not clone. |
+| Our own document type (e.g. "Сборка контейнера") | Edit **in place**. Do not clone. |
 | Our own operation (in the project root `Operations/`) | Edit **in place**. |
 | A **vendor/typical** operation we need to change | Make a copy `CL_<Name>` (placement below), edit the copy, and in the caller switch `operationName` to `CL_<Name>`. |
 | A new operation | Prefix `CL_` (latin). |
@@ -72,7 +72,7 @@ full rules; the essentials:
   document order". This is why the **physical order of `<Actions>` matters** - inserting an
   action in the wrong place silently changes the flow.
 - **Named transitions** point to an action's `name`. Resolution is **case-insensitive**
-  (a button direction `«Просмотр факт»` resolves to action `name="Просмотр Факт"`). So if a
+  (a button direction `"Просмотр факт"` resolves to action `name="Просмотр Факт"`). So if a
   transition "is not found", the cause is almost never letter-case - it is a genuinely
   missing action (often a stale file on the server).
 - **ConditionAction** branches with `yesDirection` (TRUE) and `noDirection` (FALSE); empty
@@ -169,7 +169,7 @@ Before suspecting the graph, rule out the input itself - the graph is usually in
 
 When a TSD document must, on completion, update an **existing** 1C document instead of creating
 a new one, the back-link is a Panel **setting**, not graph logic: in the БП open *"Настройка
-загрузки полей шапки документа"* and the rule whose target (приёмник) is the `Ссылка` field,
+загрузки полей шапки документа"* and the rule whose target (приемник) is the `Ссылка` field,
 match mode **Поиск по GUID**. The **source attribute** of that rule is a classic trap:
 
 - **`Идентификатор`** - the MS document's own Id. This is the **correct** source for dedup. It
@@ -203,6 +203,6 @@ Caveat for TSD-created docs: their MS Id is `new_<guid>`. A hand-rolled
 ## Constraints in 1C-integration projects
 
 Vendor extensions and 1C extensions are not edited directly - mark project insertions and
-prefer copies/wrappers. In this family of projects code and docs avoid the letter "ё" and
+prefer copies/wrappers. In this family of projects code and docs avoid the letter "е" and
 long dashes. Confirm destructive or shared-state actions (config transfer to Test/Prod)
 before doing them.

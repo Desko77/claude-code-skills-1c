@@ -1,6 +1,6 @@
 ---
 name: 1c-web-test
-description: Тестирование 1С через веб-клиент — автоматизация действий в браузере. Используй когда пользователь просит проверить, протестировать, автоматизировать действия в 1С через браузер
+description: Тестирование 1С через веб-клиент - автоматизация действий в браузере. Используй когда пользователь просит проверить, протестировать, автоматизировать действия в 1С через браузер
 argument-hint: "сценарий на естественном языке"
 allowed-tools:
   - Bash
@@ -10,9 +10,9 @@ allowed-tools:
   - Grep
 ---
 
-# /web-test — Browser automation for 1C web client
+# /web-test - Browser automation for 1C web client
 
-Automates user interactions with 1C:Enterprise web client via Playwright — navigating sections, filling forms, reading tables and reports, filtering lists.
+Automates user interactions with 1C:Enterprise web client via Playwright - navigating sections, filling forms, reading tables and reports, filtering lists.
 
 ## Quick start
 
@@ -80,7 +80,7 @@ node $RUN stop
 
 ### Writing exec scripts
 
-All browser.mjs exports are globals — no `import` needed.
+All browser.mjs exports are globals - no `import` needed.
 `console.log()` output is captured in the JSON response.
 `writeFileSync` / `readFileSync` also available.
 
@@ -124,25 +124,25 @@ Switch to an already-open tab/window (fuzzy match).
 #### `getFormState()` → `{ form, formCount, openForms, fields, buttons, tabs, navigation?, table, tables, filters, reportSettings? }`
 Returns current form structure. This is the primary way to understand what's on screen.
 
-**form** — active form number, or `null` when no form is open (desktop).
+**form** - active form number, or `null` when no form is open (desktop).
 
-**formCount** — number of open forms. Use this to know how many windows are stacked. `0` means desktop.
+**formCount** - number of open forms. Use this to know how many windows are stacked. `0` means desktop.
 
-**openForms** — array of all open form numbers (e.g. `[0, 1]`). Works even when the open-windows tab bar is hidden in 1C settings.
+**openForms** - array of all open form numbers (e.g. `[0, 1]`). Works even when the open-windows tab bar is hidden in 1C settings.
 
-**modal** — `true` when the active form is a modal dialog blocking the UI. Only present when modal is active.
+**modal** - `true` when the active form is a modal dialog blocking the UI. Only present when modal is active.
 
-**openTabs** — array of `{ name, active? }` from the open-windows tab bar. Only present when the tab bar is enabled in 1C settings. Do NOT rely on this — use `formCount`/`openForms` instead.
+**openTabs** - array of `{ name, active? }` from the open-windows tab bar. Only present when the tab bar is enabled in 1C settings. Do NOT rely on this - use `formCount`/`openForms` instead.
 
-**fields** — each field has: `name`, `value`, `label?`, `actions?` (select, clear, open), `required?` (true for unfilled mandatory fields)
+**fields** - each field has: `name`, `value`, `label?`, `actions?` (select, clear, open), `required?` (true for unfilled mandatory fields)
 
-**navigation** — form navigation panel links (for objects with subordinate catalogs): `[{ name, active? }]`. Clickable via `clickElement()`. Only present when the form has a navigation panel (e.g. "Основное", "Объекты метаданных", "Подсистемы").
+**navigation** - form navigation panel links (for objects with subordinate catalogs): `[{ name, active? }]`. Clickable via `clickElement()`. Only present when the form has a navigation panel (e.g. "Основное", "Объекты метаданных", "Подсистемы").
 
-**tables** — array of all visible grids: `[{ name, columns, rowCount, label? }]`. `label` is the visual group title shown on screen (e.g. "Входящие"), absent when grid has no visible title. Use `readTable()` for actual data.
+**tables** - array of all visible grids: `[{ name, columns, rowCount, label? }]`. `label` is the visual group title shown on screen (e.g. "Входящие"), absent when grid has no visible title. Use `readTable()` for actual data.
 
-**table** — backward-compatible alias for the first grid: `{ present, columns, rowCount }`.
+**table** - backward-compatible alias for the first grid: `{ present, columns, rowCount }`.
 
-**reportSettings** — for DCS reports: human-readable filter settings instead of raw technical names:
+**reportSettings** - for DCS reports: human-readable filter settings instead of raw technical names:
 ```js
 const form = await getFormState();
 // form.reportSettings = [
@@ -151,11 +151,11 @@ const form = await getFormState();
 // ]
 ```
 
-**errorModal** — if present, 1C showed an error dialog. Read the message and decide how to proceed.
+**errorModal** - if present, 1C showed an error dialog. Read the message and decide how to proceed.
 
-**confirmation** — if present, a Yes/No dialog is shown. Call `clickElement('Да')` or `clickElement('Нет')`.
+**confirmation** - if present, a Yes/No dialog is shown. Call `clickElement('Да')` or `clickElement('Нет')`.
 
-**errors.stateText** — array of SpreadsheetDocument state messages (e.g. `"Не установлено значение параметра \"X\""`, `"Отчет не сформирован..."`, `"Изменились настройки..."`). Present when the report area shows an info bar instead of data.
+**errors.stateText** - array of SpreadsheetDocument state messages (e.g. `"Не установлено значение параметра \"X\""`, `"Отчет не сформирован..."`, `"Изменились настройки..."`). Present when the report area shows an info bar instead of data.
 
 ### Reading data
 
@@ -166,16 +166,16 @@ Read actual grid data with pagination. Each row is `{ columnName: value }`.
 |--------|---------|-------------|
 | `maxRows` | 20 | Max rows to return per call |
 | `offset` | 0 | Skip first N rows |
-| `table` | — | Grid name from `tables[]` (for multi-grid forms) |
+| `table` | - | Grid name from `tables[]` (for multi-grid forms) |
 
 Special row fields:
-- `_kind: 'group'` — hierarchical group row
-- `_kind: 'parent'` — parent row in hierarchy
-- `_tree: 'expanded'|'collapsed'` — tree node state
-- `_level: N` — nesting depth in tree view
-- `_selected: true` — row is selected (highlighted). Use with `clickElement({ modifier: 'ctrl'|'shift' })` to verify multi-selection
-- `hierarchical: true` — list has groups (on result object)
-- `viewMode: 'tree'` — tree view active (on result object)
+- `_kind: 'group'` - hierarchical group row
+- `_kind: 'parent'` - parent row in hierarchy
+- `_tree: 'expanded'|'collapsed'` - tree node state
+- `_level: N` - nesting depth in tree view
+- `_selected: true` - row is selected (highlighted). Use with `clickElement({ modifier: 'ctrl'|'shift' })` to verify multi-selection
+- `hierarchical: true` - list has groups (on result object)
+- `viewMode: 'tree'` - tree view active (on result object)
 
 ```js
 const t = await readTable({ maxRows: 50 });
@@ -214,7 +214,7 @@ Sections + all open tabs.
 #### `clickElement(text, { dblclick?, table?, expand?, modifier? })` → form state
 Click button, hyperlink, tab, navigation panel link, or grid row (fuzzy match).
 
-- `table` — scope button search to a specific grid's command panel (by name from `tables[]`):
+- `table` - scope button search to a specific grid's command panel (by name from `tables[]`):
   ```js
   await clickElement('Добавить', { table: 'Исходящие' }); // clicks "Добавить" near "Исходящие" grid
   ```
@@ -222,9 +222,9 @@ Click button, hyperlink, tab, navigation panel link, or grid row (fuzzy match).
   ```js
   await clickElement('0000-000227', { dblclick: true }); // opens document
   ```
-- Returns `submenu[]` when a menu opens — click again with item name:
+- Returns `submenu[]` when a menu opens - click again with item name:
   ```js
-  const r = await clickElement('Ещё');
+  const r = await clickElement('Еще');
   // r.submenu = ['Расширенный поиск', 'Настройки', ...]
   await clickElement('Расширенный поиск');
   ```
@@ -256,7 +256,7 @@ Click button, hyperlink, tab, navigation panel link, or grid row (fuzzy match).
   // Totals row
   await clickElement({ row: 'totals', column: 'К6' }, { dblclick: true });
   ```
-  Text search also works as fallback — searches inside spreadsheet iframes:
+  Text search also works as fallback - searches inside spreadsheet iframes:
   ```js
   await clickElement('150 000', { dblclick: true }); // finds cell by text in report
   ```
@@ -286,7 +286,7 @@ Method is one of: `'clear'` | `'toggle'` | `'radio'` | `'paste'` | `'dropdown'` 
 #### `selectValue(field, search, opts?)` → form state with `selected`
 Select a value from reference field via dropdown or selection form. More reliable than `fillFields` for reference fields that need exact selection from a catalog. Pass empty `search` (`''` or `null`) to clear the field (Shift+F4).
 
-`search` — string for simple search, or `{ field: value }` object for per-field advanced search:
+`search` - string for simple search, or `{ field: value }` object for per-field advanced search:
 ```js
 await selectValue('Организация', 'Конфетпром');
 // result.selected = { field: 'Организация', search: 'Конфетпром', method: 'dropdown'|'form' }
@@ -302,7 +302,7 @@ await selectValue('Документ', '0000-000601', { type: 'Реализаци
 // result.selected = { field: 'Документ', search: '0000-000601', type: 'Реализация (акт', method: 'form' }
 ```
 
-Also supports DCS labels — auto-enables the paired checkbox.
+Also supports DCS labels - auto-enables the paired checkbox.
 
 #### `fillTableRow(fields, opts)` → form state
 Fill table row cells via Tab navigation. Value is a plain string, `{ value, type }` for composite-type cells, or `''`/`null` to clear (Shift+F4).
@@ -325,7 +325,7 @@ await fillTableRow(
   { 'Количество': '20' },
   { tab: 'Товары', row: 0 }
 );
-// Multi-grid form — add row to specific table:
+// Multi-grid form - add row to specific table:
 await fillTableRow(
   { 'Объект': 'БДДС' },
   { table: 'Исходящие', add: true }
@@ -337,7 +337,7 @@ await fillTableRow(
 );
 ```
 
-- Tab-based sequential navigation — field order set by 1C form config
+- Tab-based sequential navigation - field order set by 1C form config
 - Fuzzy cell match: "Количество" matches "ТоварыКоличество"
 - Reference cells auto-detected by autocomplete popup
 
@@ -353,16 +353,16 @@ Close the current form via Escape. Returns form state with `closed: true/false` 
 | `{ save: true }` | Auto-clicks "Да" on confirmation |
 | `{}` (omitted) | Returns `confirmation` field if dialog appears |
 
-**`closed`** — `true` if the form was closed (form number changed), `false` if it stayed open (e.g. Escape was ignored). Always check this to confirm the form actually closed. After closing, check `formCount` to see how many forms remain.
+**`closed`** - `true` if the form was closed (form number changed), `false` if it stayed open (e.g. Escape was ignored). Always check this to confirm the form actually closed. After closing, check `formCount` to see how many forms remain.
 
-Preferred over `clickElement('×')` — close buttons on tabs are ambiguous.
+Preferred over `clickElement('×')` - close buttons on tabs are ambiguous.
 
 #### `filterList(text, opts?)` → form state
 Filter list. Simple mode searches all columns, advanced mode targets a specific field.
 
 ```js
-await filterList('КП00-000018');                          // simple — all columns
-await filterList('Мишка', { field: 'Наименование' });     // advanced — specific column
+await filterList('КП00-000018');                          // simple - all columns
+await filterList('Мишка', { field: 'Наименование' });     // advanced - specific column
 await filterList('Мишка', { field: 'Наименование', exact: true }); // exact match
 ```
 
@@ -406,7 +406,7 @@ await clickElement('Провести и закрыть');
 
 ```js
 await clickElement('КП00-000227', { dblclick: true });
-// Always use { dblclick: true } — single click only selects the row
+// Always use { dblclick: true } - single click only selects the row
 ```
 
 ### Work with hierarchical lists
@@ -449,9 +449,9 @@ const drilldown = await readSpreadsheet();
 
 ### Work with multi-grid forms
 
-Some forms have multiple grids (e.g. "Входящие" and "Исходящие" tables on a single form). Without `table`, buttons like "Добавить" hit the first match and `readTable` reads the first grid — which may not be the one you need.
+Some forms have multiple grids (e.g. "Входящие" and "Исходящие" tables on a single form). Without `table`, buttons like "Добавить" hit the first match and `readTable` reads the first grid - which may not be the one you need.
 
-**Step 1 — discover tables** via `getFormState()`:
+**Step 1 - discover tables** via `getFormState()`:
 ```js
 const form = await getFormState();
 // form.tables = [
@@ -461,12 +461,12 @@ const form = await getFormState();
 // ]
 ```
 
-**Step 2 — use `table` name** in any grid operation:
+**Step 2 - use `table` name** in any grid operation:
 ```js
 // Read specific table
 const t = await readTable({ table: 'Исходящие' });
 
-// Add row — fillTableRow with add:true already clicks the right "Добавить" button
+// Add row - fillTableRow with add:true already clicks the right "Добавить" button
 await fillTableRow({ 'Объект': 'БДДС' }, { table: 'Исходящие', add: true });
 
 // Or click buttons separately
@@ -476,7 +476,7 @@ await clickElement('Добавить', { table: 'Входящие' });
 await deleteTableRow(0, { table: 'Исходящие' });
 ```
 
-Table matching accepts both technical name (`tables[].name`) and visual label (`tables[].label`). Label is the group title shown on screen — useful when working from screenshots. Name match takes priority over label match.
+Table matching accepts both technical name (`tables[].name`) and visual label (`tables[].label`). Label is the group title shown on screen - useful when working from screenshots. Name match takes priority over label match.
 
 ### Keyboard shortcuts
 
@@ -492,7 +492,7 @@ await page.keyboard.press('F8');  // example: create new item in focused referen
 | `F4` | Reference field focused | Open selection form |
 | `Alt+F` | List/table form | Open advanced search dialog |
 
-### Closing forms — which method to use
+### Closing forms - which method to use
 
 | Goal | Method |
 |------|--------|
@@ -500,7 +500,7 @@ await page.keyboard.press('F8');  // example: create new item in focused referen
 | Save & close catalog | `clickElement('Записать и закрыть')` |
 | Close without saving | `closeForm({ save: false })` |
 | Close and save | `closeForm({ save: true })` |
-| Close (manual confirm) | `closeForm()` — returns `confirmation` if dialog appears |
+| Close (manual confirm) | `closeForm()` - returns `confirmation` if dialog appears |
 
 ## Exec response format
 
@@ -515,17 +515,17 @@ On error (auto-screenshot taken):
 
 ## Avoiding loops
 
-- **Max 2 attempts per operation.** If an action fails twice with the same approach — stop and report to the user
-- **Not found = not found.** If `filterList` returns 0 rows or `readTable` is empty after filtering — the item likely doesn't exist in this database. Don't retry the same search 5 times with slight variations
+- **Max 2 attempts per operation.** If an action fails twice with the same approach - stop and report to the user
+- **Not found = not found.** If `filterList` returns 0 rows or `readTable` is empty after filtering - the item likely doesn't exist in this database. Don't retry the same search 5 times with slight variations
 - **Try a different approach, not the same one.** Couldn't find via section navigation? Try `navigateLink`. Couldn't find via simple search? Try advanced search with a specific field. But don't repeat the same method
-- **Report partial results.** If you found the list but not the specific item — say so. Show what IS available instead of silently retrying
+- **Report partial results.** If you found the list but not the specific item - say so. Show what IS available instead of silently retrying
 
 ## Important notes
 
-- **Headed mode** — 1C requires visible browser, no headless
-- **Startup time** — 1C loads 30-60s on initial connect (built into `start`)
-- **Fuzzy matching** — all name lookups: exact > startsWith > includes
-- **Clipboard paste** — all text fields filled via Ctrl+V (triggers 1C events properly)
-- **Cyrillic in bash** — use `cat <<'SCRIPT' | node $RUN exec -` to avoid escaping issues
-- **Non-breaking spaces** — 1C uses `\u00a0` instead of regular spaces. All matching is normalized internally
-- **Section panel display** — `navigateSection()` works with any panel position (side, top) but requires "Picture and text" or "Text" display mode. Icon-only mode is not supported — API cannot read section names from icons alone
+- **Headed mode** - 1C requires visible browser, no headless
+- **Startup time** - 1C loads 30-60s on initial connect (built into `start`)
+- **Fuzzy matching** - all name lookups: exact > startsWith > includes
+- **Clipboard paste** - all text fields filled via Ctrl+V (triggers 1C events properly)
+- **Cyrillic in bash** - use `cat <<'SCRIPT' | node $RUN exec -` to avoid escaping issues
+- **Non-breaking spaces** - 1C uses `\u00a0` instead of regular spaces. All matching is normalized internally
+- **Section panel display** - `navigateSection()` works with any panel position (side, top) but requires "Picture and text" or "Text" display mode. Icon-only mode is not supported - API cannot read section names from icons alone

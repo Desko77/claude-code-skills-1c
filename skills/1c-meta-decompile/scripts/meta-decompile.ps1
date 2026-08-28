@@ -1,4 +1,4 @@
-﻿# meta-decompile v0.64 — XML объекта метаданных 1С → JSON-черновик формата meta-compile
+﻿# meta-decompile v0.64 - XML объекта метаданных 1С → JSON-черновик формата meta-compile
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 #
 # Поддержаны: Catalog, ExchangePlan, ChartOfCharacteristicTypes, ChartOfAccounts, ChartOfCalculationTypes, Document,
@@ -38,7 +38,7 @@ function ConvertTo-CompactJson {
 	}
 	if ($node -is [System.Collections.IList]) {
 		if ($node.Count -eq 0) { return "[]" }
-		# Массив скаляров-строк — компактно в строку; массив объектов — по строкам.
+		# Массив скаляров-строк - компактно в строку; массив объектов - по строкам.
 		$allScalar = $true
 		foreach ($e in $node) { if ($e -is [System.Collections.IDictionary] -or $e -is [System.Collections.IList]) { $allScalar = $false; break } }
 		if ($allScalar) {
@@ -93,7 +93,7 @@ if (-not $objNode) { [Console]::Error.WriteLine("meta-decompile: пустой Me
 $objType = $objNode.LocalName
 
 if ($objType -notin @('Catalog', 'ExchangePlan', 'ChartOfCharacteristicTypes', 'ChartOfAccounts', 'ChartOfCalculationTypes', 'Document', 'InformationRegister', 'AccumulationRegister', 'AccountingRegister', 'CalculationRegister', 'BusinessProcess', 'Task', 'Enum', 'Report', 'DataProcessor', 'Constant', 'DefinedType', 'FunctionalOption', 'DocumentJournal', 'Sequence', 'FilterCriterion', 'DocumentNumerator', 'SettingsStorage', 'CommonModule', 'EventSubscription', 'ScheduledJob', 'CommonForm', 'SessionParameter', 'CommonCommand', 'CommandGroup', 'CommonAttribute', 'FunctionalOptionsParameter', 'WSReference', 'CommonPicture', 'CommonTemplate', 'HTTPService', 'WebService')) {
-	[Console]::Error.WriteLine("meta-decompile: тип '$objType' пока не поддержан (…, CommonPicture, CommonTemplate)"); exit 3
+	[Console]::Error.WriteLine("meta-decompile: тип '$objType' пока не поддержан (..., CommonPicture, CommonTemplate)"); exit 3
 }
 
 $props = $objNode.SelectSingleNode('md:Properties', $nsm)
@@ -129,14 +129,14 @@ function Get-MLValue {
 	return $o
 }
 # Авто-синоним: точное зеркало Split-CamelCase из meta-compile (стр.354). Совпало → ключ опускаем.
-# ВАЖНО: логика должна совпадать байт-в-байт с компилятором, иначе ложные «синоним==авто» → диффы.
+# ВАЖНО: логика должна совпадать байт-в-байт с компилятором, иначе ложные "синоним==авто" → диффы.
 function Split-CamelWords {
 	param([string]$name)
 	if (-not $name) { return $name }
 	$result = [regex]::Replace($name, '([а-яё])([А-ЯЁ])', '$1 $2')
 	$result = [regex]::Replace($result, '([a-z])([A-Z])', '$1 $2')
 	# HE-эвристика (зеркало Split-CamelCase компилятора): сохраняем прогон заглавных >=2, если сразу за ним
-	# НЕ буква (пробел/цифра/спецсимвол/конец); прилипшие предлоги/бренды перед буквой → лоуэркейз. Первый символ — как есть.
+	# НЕ буква (пробел/цифра/спецсимвол/конец); прилипшие предлоги/бренды перед буквой → лоуэркейз. Первый символ - как есть.
 	if ($result.Length -gt 1) {
 		$chars = $result.ToCharArray()
 		$n = $chars.Length
@@ -230,7 +230,7 @@ function Convert-ChScalarNode {
 		return [double]::Parse($txt, [System.Globalization.CultureInfo]::InvariantCulture)
 	}
 	# Пустой DesignTimeRef ≠ пустая строка: без маркера тип терялся, и компилятор эмитил xs:string.
-	# Та же конвенция, что у fillValue (см. ниже) — маркер emptyRef.
+	# Та же конвенция, что у fillValue (см. ниже) - маркер emptyRef.
 	if ($xt -match 'DesignTimeRef$' -and $txt -eq '') { return [ordered]@{ emptyRef = $true } }
 	return $txt
 }
@@ -299,7 +299,7 @@ function Attr-ToDsl {
 	$synVal = Get-MLValue $synNode
 	$synCustom = $false
 	# Пустой <Synonym/> (узел есть, значения нет) ≠ авто-синоним из имени → явный пустой (synonym:"").
-	# У Catalog-реквизитов не встречается (0/4018), у части ExchangePlan — да.
+	# У Catalog-реквизитов не встречается (0/4018), у части ExchangePlan - да.
 	$synEmpty = ($synNode -and $null -eq $synVal)
 	if ($synVal -is [string]) { if ($synVal -cne (Split-CamelWords $nm)) { $synCustom = $true } }
 	elseif ($null -ne $synVal) { $synCustom = $true }   # {ru,en} = всегда кастом
@@ -335,10 +335,10 @@ function Attr-ToDsl {
 	$v = & $en 'BaseDimension'; if ($v -eq 'true') { $extra['baseDimension'] = $true }
 	$v = & $en 'ScheduleLink'; if ($v) { $extra['scheduleLink'] = $v }  # ссылка на измерение графика (пустой → пропуск)
 	$v = & $en 'Balance'; if ($v -eq 'true') { $extra['balance'] = $true }
-	$v = & $en 'AccountingFlag'; if ($v) { $extra['accountingFlag'] = $v }  # ссылка на признак учёта ПС (пустой → пропуск)
+	$v = & $en 'AccountingFlag'; if ($v) { $extra['accountingFlag'] = $v }  # ссылка на признак учета ПС (пустой → пропуск)
 	$v = & $en 'ExtDimensionAccountingFlag'; if ($v) { $extra['extDimensionAccountingFlag'] = $v }
 	$v = & $en 'AddressingDimension'; if ($v) { $extra['addressingDimension'] = $v }  # ссылка на измерение регистра исполнителей
-	# MinValue/MaxValue — граница диапазона (omit при nil). Тип сохраняем: xs:string→строка, xs:decimal→число.
+	# MinValue/MaxValue - граница диапазона (omit при nil). Тип сохраняем: xs:string→строка, xs:decimal→число.
 	foreach ($mm in @('MinValue','MaxValue')) {
 		$mn = $ap.SelectSingleNode("md:$mm", $nsm)
 		if (-not $mn) { continue }
@@ -354,7 +354,7 @@ function Attr-ToDsl {
 	$efmtV = Get-MLValue ($ap.SelectSingleNode('md:EditFormat', $nsm)); if ($null -ne $efmtV) { $extra['editFormat'] = $efmtV }
 
 	# FillValue (значение заполнения). Форма по умолчанию зависит от типа реквизита: String→typed-empty,
-	# Number→zero, всё остальное→nil. Эмитим `fillValue` только при отклонении от дефолта (§4.2 spec).
+	# Number→zero, все остальное→nil. Эмитим `fillValue` только при отклонении от дефолта (§4.2 spec).
 	# nil у String/Number → JSON null (nil-override); реальное значение → строка/bool/число/DTR-путь verbatim.
 	$fvNode = $ap.SelectSingleNode('md:FillValue', $nsm)
 	if ($fvNode) {
@@ -369,11 +369,11 @@ function Attr-ToDsl {
 		$fvText = $fvNode.InnerText
 		if ($nilAttr -eq 'true') {
 			if ($fcat -eq 'String' -or $fcat -eq 'Number') { $extra['fillValue'] = $null }  # nil-override
-			# иначе nil — это дефолт → пропускаем
+			# иначе nil - это дефолт → пропускаем
 		} elseif ($xsiT -match 'boolean$') {
 			$extra['fillValue'] = ($fvText -eq 'true')
 		} elseif ($xsiT -match 'decimal$') {
-			# Захватываем как ЧИСЛО (не строку): на составном типе компилятор берёт xsi-тип из JSON-значения —
+			# Захватываем как ЧИСЛО (не строку): на составном типе компилятор берет xsi-тип из JSON-значения -
 			# строка "0" дала бы xs:string, число 0 → xs:decimal. У плоского Number эмиссия и так type-aware.
 			if (-not ($fcat -eq 'Number' -and ($fvText -eq '0' -or $fvText -eq ''))) {
 				$extra['fillValue'] = if ($fvText -match '^-?\d+$') { [long]$fvText } else { [double]$fvText }
@@ -403,7 +403,7 @@ function Attr-ToDsl {
 	$cplArr = Parse-ChoiceParameterLinks $ap 'md:ChoiceParameterLinks'; if ($null -ne $cplArr) { $extra['choiceParameterLinks'] = $cplArr }
 	$cpArr = Parse-ChoiceParameters $ap 'md:ChoiceParameters'; if ($null -ne $cpArr) { $extra['choiceParameters'] = $cpArr }
 
-	# Пустой <Type/> (реквизит без типа / произвольный) → $ts=''. Отличаем от «дефолтного» отсутствия:
+	# Пустой <Type/> (реквизит без типа / произвольный) → $ts=''. Отличаем от "дефолтного" отсутствия:
 	# заставляем объектную форму с явным type:'' (компилятор без маркера подставил бы xs:string).
 	$typeEmpty = ($ts -eq '')
 	if ($synCustom -or $synEmpty -or ($null -ne $ttVal) -or $extra.Count -gt 0 -or $typeEmpty) {
@@ -433,7 +433,7 @@ elseif ($null -ne $synVal) { $dsl['synonym'] = $synVal }
 elseif ($synNodeObj) { $dsl['synonym'] = '' }
 $cmt = P 'Comment'; if ($cmt) { $dsl['comment'] = $cmt }
 
-# Свойства Catalog (omit-on-default). Порядок ключей — как удобно DSL.
+# Свойства Catalog (omit-on-default). Порядок ключей - как удобно DSL.
 function Add-BoolProp { param([string]$key, [string]$tag, [bool]$default) $v = P $tag; if ($null -ne $v) { $b = ($v -eq 'true'); if ($b -ne $default) { $dsl[$key] = $b } } }
 # -cne: сравнение с дефолтом ВСЕГДА регистрочувствительное. PS -ne регистронезависим, и значение,
 # отличающееся от дефолта только регистром, молча терялось (ловилось трижды: синонимы, RootURL).
@@ -452,11 +452,11 @@ if ($ownersNode) {
 	if ($items.Count -gt 0) { $dsl['owners'] = [System.Collections.ArrayList]@($items | ForEach-Object { if ($_ -match '^Catalog\.') { ($_ -split '\.', 2)[1] } else { $_ } }) }
 }
 Add-EnumProp 'subordinationUse' 'SubordinationUse' 'ToItems'
-# Тип-зависимые дефолты (компилятор задаёт их по типу — декомпилятор обязан зеркалить, иначе omit ≠ значению).
+# Тип-зависимые дефолты (компилятор задает их по типу - декомпилятор обязан зеркалить, иначе omit ≠ значению).
 $descrLenDef  = switch ($objType) { 'ExchangePlan' { 150 } 'ChartOfCharacteristicTypes' { 100 } 'ChartOfCalculationTypes' { 100 } default { 25 } }
 $codeLenDef   = if ($objType -eq 'ChartOfCalculationTypes') { 5 } else { 9 }
 $createInpDef = if ($objType -in @('Catalog', 'Document')) { 'Use' } else { 'DontUse' }
-$dataLockDef  = 'Managed'   # компилятор эмитит Managed по умолчанию для всех типов (авторинг); Automatic несётся в DSL явно
+$dataLockDef  = 'Managed'   # компилятор эмитит Managed по умолчанию для всех типов (авторинг); Automatic несется в DSL явно
 $codeSeriesDef = switch ($objType) { 'ChartOfCharacteristicTypes' { 'WholeCharacteristicKind' } 'ChartOfAccounts' { 'WholeChartOfAccounts' } default { 'WholeCatalog' } }
 $checkUniqueDef = ($objType -in @('ChartOfCharacteristicTypes', 'ChartOfAccounts', 'Document', 'DocumentNumerator'))   # ПВХ/ПС/Документ/Нумератор дефолт true, Catalog false
 $defPresDef = if ($objType -eq 'ChartOfAccounts') { 'AsCode' } else { 'AsDescription' }   # ПС по умолчанию AsCode
@@ -468,11 +468,11 @@ Add-BoolProp 'autonumbering'     'Autonumbering'     $true
 Add-BoolProp 'checkUnique'       'CheckUnique'       $checkUniqueDef
 Add-EnumProp 'codeSeries'        'CodeSeries'        $codeSeriesDef
 Add-EnumProp 'defaultPresentation' 'DefaultPresentation' $defPresDef
-if ($objType -ne 'Constant') { Add-BoolProp 'quickChoice' 'QuickChoice' $(if ($objType -eq 'Enum') { $true } else { $false }) }   # Enum дефолт true; прочие false. Constant: QuickChoice — ENUM (Auto), не bool → ловим отдельно ниже
+if ($objType -ne 'Constant') { Add-BoolProp 'quickChoice' 'QuickChoice' $(if ($objType -eq 'Enum') { $true } else { $false }) }   # Enum дефолт true; прочие false. Constant: QuickChoice - ENUM (Auto), не bool → ловим отдельно ниже
 Add-EnumProp 'choiceMode'        'ChoiceMode'        'BothWays'
 Add-EnumProp 'dataLockControlMode' 'DataLockControlMode' $dataLockDef
 Add-EnumProp 'fullTextSearch'    'FullTextSearch'    'Use'
-Add-BoolProp 'useStandardCommands' 'UseStandardCommands' $(if ($objType -in @('Enum', 'CommonForm')) { $false } else { $true })   # Enum/CommonForm дефолт false (корпус); прочие (вкл. Report/DataProcessor) — true
+Add-BoolProp 'useStandardCommands' 'UseStandardCommands' $(if ($objType -in @('Enum', 'CommonForm')) { $false } else { $true })   # Enum/CommonForm дефолт false (корпус); прочие (вкл. Report/DataProcessor) - true
 Add-EnumProp 'createOnInput'     'CreateOnInput'     $createInpDef
 Add-EnumProp 'editType'          'EditType'          'InDialog'
 Add-BoolProp 'includeHelpInContents' 'IncludeHelpInContents' $false
@@ -494,7 +494,7 @@ if ($objType -eq 'ChartOfCharacteristicTypes') {
 	Add-BoolProp 'updateDataHistoryImmediatelyAfterWrite' 'UpdateDataHistoryImmediatelyAfterWrite' $false
 	Add-BoolProp 'executeAfterWriteDataHistoryVersionProcessing' 'ExecuteAfterWriteDataHistoryVersionProcessing' $false
 	$cev = P 'CharacteristicExtValues'; if ($cev) { $dsl['characteristicExtValues'] = $cev }
-	# Type — тип значения характеристики; valueType при отличии от дефолта (Boolean+String(100)+Number(15,2)+DateTime).
+	# Type - тип значения характеристики; valueType при отличии от дефолта (Boolean+String(100)+Number(15,2)+DateTime).
 	$vtNode = $props.SelectSingleNode('md:Type', $nsm)
 	if ($vtNode) {
 		$vtStr = Get-TypeShorthand $vtNode
@@ -504,7 +504,7 @@ if ($objType -eq 'ChartOfCharacteristicTypes') {
 # ChartOfAccounts-специфичные свойства (у Catalog этих тегов нет → блок его не трогает).
 if ($objType -eq 'ChartOfAccounts') {
 	$edt = P 'ExtDimensionTypes'; if ($edt) { $dsl['extDimensionTypes'] = $edt }
-	# Дефолт зеркалит компилятор: с ПВХ — 3, без — 0 (платформа не даёт > 0 без ПВХ).
+	# Дефолт зеркалит компилятор: с ПВХ - 3, без - 0 (платформа не дает > 0 без ПВХ).
 	Add-IntProp  'maxExtDimensionCount' 'MaxExtDimensionCount' $(if ($edt) { 3 } else { 0 })
 	$cm = P 'CodeMask'; if ($cm) { $dsl['codeMask'] = $cm }
 	Add-BoolProp 'autoOrderByCode' 'AutoOrderByCode' $true
@@ -517,7 +517,7 @@ if ($objType -eq 'ChartOfAccounts') {
 if ($objType -eq 'ChartOfCalculationTypes') {
 	Add-EnumProp 'dependenceOnCalculationTypes' 'DependenceOnCalculationTypes' 'DontUse'
 	Add-BoolProp 'actionPeriodUse' 'ActionPeriodUse' $false
-	# BaseCalculationTypes — список ссылок на ПВР (omit-on-empty, verbatim).
+	# BaseCalculationTypes - список ссылок на ПВР (omit-on-empty, verbatim).
 	$bctNode = $props.SelectSingleNode('md:BaseCalculationTypes', $nsm)
 	if ($bctNode) {
 		$bctItems = @($bctNode.SelectNodes('xr:Item', $nsm) | ForEach-Object { $_.InnerText })
@@ -542,7 +542,7 @@ if ($objType -eq 'Document') {
 	Add-EnumProp 'sequenceFilling'              'SequenceFilling'              'AutoFill'
 	Add-BoolProp 'postInPrivilegedMode'         'PostInPrivilegedMode'         $true
 	Add-BoolProp 'unpostInPrivilegedMode'       'UnpostInPrivilegedMode'       $true
-	# RegisterRecords — движения (список MDObjectRef, omit-on-empty, verbatim).
+	# RegisterRecords - движения (список MDObjectRef, omit-on-empty, verbatim).
 	$rrNode = $props.SelectSingleNode('md:RegisterRecords', $nsm)
 	if ($rrNode) {
 		$rrItems = @($rrNode.SelectNodes('xr:Item', $nsm) | ForEach-Object { $_.InnerText })
@@ -575,7 +575,7 @@ if ($objType -eq 'AccountingRegister') {
 	Add-IntProp  'periodAdjustmentLength' 'PeriodAdjustmentLength' 0
 	Add-BoolProp 'enableTotalsSplitting' 'EnableTotalsSplitting' $true
 }
-# CalculationRegister-специфичные свойства: ПВР-связь, периоды расчёта, график (все ссылки/enum — verbatim).
+# CalculationRegister-специфичные свойства: ПВР-связь, периоды расчета, график (все ссылки/enum - verbatim).
 if ($objType -eq 'CalculationRegister') {
 	$cct = P 'ChartOfCalculationTypes'; if ($cct) { $dsl['chartOfCalculationTypes'] = $cct }
 	Add-EnumProp 'periodicity' 'Periodicity' 'Month'
@@ -629,12 +629,12 @@ if ($objType -eq 'DataProcessor') {
 	$afm = P 'AuxiliaryForm'; if ($afm) { $dsl['auxiliaryForm'] = $afm }
 	$ep = Get-MLValue ($props.SelectSingleNode('md:ExtendedPresentation', $nsm)); if ($null -ne $ep) { $dsl['extendedPresentation'] = $ep }
 }
-# DefinedType — тип-псевдоним: только Name/Synonym/Comment/Type. valueType (составной через ' + ').
+# DefinedType - тип-псевдоним: только Name/Synonym/Comment/Type. valueType (составной через ' + ').
 if ($objType -eq 'DefinedType') {
 	$vt = Get-TypeShorthand ($props.SelectSingleNode('md:Type', $nsm))
 	if ($vt) { $dsl['valueType'] = $vt }
 }
-# FunctionalOption — функциональная опция: Location (хранилище значения) + PrivilegedGetMode + Content (зависимые объекты).
+# FunctionalOption - функциональная опция: Location (хранилище значения) + PrivilegedGetMode + Content (зависимые объекты).
 if ($objType -eq 'FunctionalOption') {
 	$loc = P 'Location'; if ($loc) { $dsl['location'] = $loc }
 	Add-BoolProp 'privilegedGetMode' 'PrivilegedGetMode' $true   # корпус 2864/2864 true → дефолт true, ловим false
@@ -644,7 +644,7 @@ if ($objType -eq 'FunctionalOption') {
 		if ($items.Count -gt 0) { $dsl['content'] = [System.Collections.ArrayList]@($items) }
 	}
 }
-# DocumentJournal — журнал документов: формы (плоские ref) + регистрируемые документы. Колонки → ChildObjects (ниже).
+# DocumentJournal - журнал документов: формы (плоские ref) + регистрируемые документы. Колонки → ChildObjects (ниже).
 if ($objType -eq 'DocumentJournal') {
 	$dfm = P 'DefaultForm'; if ($dfm) { $dsl['defaultForm'] = $dfm }
 	$afm = P 'AuxiliaryForm'; if ($afm) { $dsl['auxiliaryForm'] = $afm }
@@ -654,7 +654,7 @@ if ($objType -eq 'DocumentJournal') {
 		if ($rdItems.Count -gt 0) { $dsl['registeredDocuments'] = [System.Collections.ArrayList]@($rdItems) }
 	}
 }
-# Sequence — последовательность документов: граница, документы, движения, измерения (ChildObjects ниже).
+# Sequence - последовательность документов: граница, документы, движения, измерения (ChildObjects ниже).
 if ($objType -eq 'Sequence') {
 	Add-EnumProp 'moveBoundaryOnPosting' 'MoveBoundaryOnPosting' 'DontMove'
 	foreach ($ll in @(@('Documents','documents'), @('RegisterRecords','registerRecords'))) {
@@ -666,7 +666,7 @@ if ($objType -eq 'Sequence') {
 	}
 	# dataLockControlMode покрыт общим блоком (дефолт Managed для всех типов).
 }
-# FilterCriterion — критерий отбора: тип значения + состав (объекты отбора) + формы.
+# FilterCriterion - критерий отбора: тип значения + состав (объекты отбора) + формы.
 if ($objType -eq 'FilterCriterion') {
 	$vt = Get-TypeShorthand ($props.SelectSingleNode('md:Type', $nsm)); if ($vt) { $dsl['valueType'] = $vt }
 	$cn = $props.SelectSingleNode('md:Content', $nsm)
@@ -677,7 +677,7 @@ if ($objType -eq 'FilterCriterion') {
 	$dfm = P 'DefaultForm'; if ($dfm) { $dsl['defaultForm'] = $dfm }
 	$afm = P 'AuxiliaryForm'; if ($afm) { $dsl['auxiliaryForm'] = $afm }
 }
-# DocumentNumerator — нумератор документов: параметры нумерации (без InternalInfo/ChildObjects).
+# DocumentNumerator - нумератор документов: параметры нумерации (без InternalInfo/ChildObjects).
 if ($objType -eq 'DocumentNumerator') {
 	Add-EnumProp 'numberType'          'NumberType'          'String'
 	Add-IntProp  'numberLength'        'NumberLength'        11
@@ -685,13 +685,13 @@ if ($objType -eq 'DocumentNumerator') {
 	Add-EnumProp 'numberPeriodicity'   'NumberPeriodicity'   'Year'
 	# checkUnique покрыт общим блоком (дефолт true для DocumentNumerator).
 }
-# SettingsStorage — хранилище настроек: формы сохранения/загрузки (плоские ref).
+# SettingsStorage - хранилище настроек: формы сохранения/загрузки (плоские ref).
 if ($objType -eq 'SettingsStorage') {
 	foreach ($fp in @(@('DefaultSaveForm','defaultSaveForm'), @('DefaultLoadForm','defaultLoadForm'), @('AuxiliarySaveForm','auxiliarySaveForm'), @('AuxiliaryLoadForm','auxiliaryLoadForm'))) {
 		$fv = P $fp[0]; if ($fv) { $dsl[$fp[1]] = $fv }
 	}
 }
-# CommonModule — общий модуль: флаги контекста компиляции + повторное использование значений (тело .bsl вне скоупа).
+# CommonModule - общий модуль: флаги контекста компиляции + повторное использование значений (тело .bsl вне скоупа).
 if ($objType -eq 'CommonModule') {
 	Add-BoolProp 'global'                   'Global'                   $false
 	Add-BoolProp 'clientManagedApplication' 'ClientManagedApplication' $false
@@ -702,21 +702,21 @@ if ($objType -eq 'CommonModule') {
 	Add-BoolProp 'privileged'               'Privileged'               $false
 	Add-EnumProp 'returnValuesReuse'        'ReturnValuesReuse'        'DontUse'
 }
-# EventSubscription — подписка на событие: источники (набор типов), событие, обработчик.
+# EventSubscription - подписка на событие: источники (набор типов), событие, обработчик.
 if ($objType -eq 'EventSubscription') {
 	$srcNode = $props.SelectSingleNode('md:Source', $nsm)
 	if ($srcNode) {
-		# Источник — набор v8:Type (конкретный CatalogObject.X) И/ИЛИ v8:TypeSet (голый метатип ExchangePlanObject).
+		# Источник - набор v8:Type (конкретный CatalogObject.X) И/ИЛИ v8:TypeSet (голый метатип ExchangePlanObject).
 		$srcTypes = @($srcNode.SelectNodes('v8:Type|v8:TypeSet', $nsm) | ForEach-Object { Strip-NsPrefix $_.InnerText.Trim() })
 		if ($srcTypes.Count -gt 0) { $dsl['source'] = [System.Collections.ArrayList]@($srcTypes) }
 	}
 	Add-EnumProp 'event' 'Event' 'BeforeWrite'
 	$h = P 'Handler'; if ($h) { $dsl['handler'] = $h }
 }
-# CommonForm — общая форма (метаданные; содержимое формы Ext/Form.xml вне роундтрипа, территория form-compile).
+# CommonForm - общая форма (метаданные; содержимое формы Ext/Form.xml вне роундтрипа, территория form-compile).
 if ($objType -eq 'CommonForm') {
 	Add-EnumProp 'formType' 'FormType' 'Managed'
-	# UsePurposes — дефолт [PlatformApplication, MobilePlatformApplication]; захват при отличии.
+	# UsePurposes - дефолт [PlatformApplication, MobilePlatformApplication]; захват при отличии.
 	$upNode = $props.SelectSingleNode('md:UsePurposes', $nsm)
 	if ($upNode) {
 		$ups = @($upNode.SelectNodes('v8:Value', $nsm) | ForEach-Object { $_.InnerText })
@@ -726,25 +726,25 @@ if ($objType -eq 'CommonForm') {
 	}
 	$ep = Get-MLValue ($props.SelectSingleNode('md:ExtendedPresentation', $nsm)); if ($null -ne $ep) { $dsl['extendedPresentation'] = $ep }
 }
-# SessionParameter — параметр сеанса: только тип значения.
+# SessionParameter - параметр сеанса: только тип значения.
 if ($objType -eq 'SessionParameter') {
 	$vt = Get-TypeShorthand ($props.SelectSingleNode('md:Type', $nsm)); if ($vt) { $dsl['valueType'] = $vt }
 }
-# FunctionalOptionsParameter — параметр функ. опции: Use (список MDObjectRef).
+# FunctionalOptionsParameter - параметр функ. опции: Use (список MDObjectRef).
 if ($objType -eq 'FunctionalOptionsParameter') {
 	$un = $props.SelectSingleNode('md:Use', $nsm)
 	if ($un) { $items = @($un.SelectNodes('xr:Item', $nsm) | ForEach-Object { $_.InnerText }); if ($items.Count -gt 0) { $dsl['use'] = [System.Collections.ArrayList]@($items) } }
 }
-# WSReference — WS-ссылка: URL расположения WSDL (+InternalInfo Manager).
+# WSReference - WS-ссылка: URL расположения WSDL (+InternalInfo Manager).
 if ($objType -eq 'WSReference') {
 	$url = P 'LocationURL'; if ($url) { $dsl['locationURL'] = $url }
 }
-# CommonPicture — общая картинка: доступность (содержимое Ext/Picture вне скоупа).
+# CommonPicture - общая картинка: доступность (содержимое Ext/Picture вне скоупа).
 if ($objType -eq 'CommonPicture') {
 	Add-BoolProp 'availabilityForChoice'     'AvailabilityForChoice'     $false
 	Add-BoolProp 'availabilityForAppearance' 'AvailabilityForAppearance' $false
 }
-# CommonTemplate — общий макет: тип макета (содержимое Ext/Template.* вне скоупа).
+# CommonTemplate - общий макет: тип макета (содержимое Ext/Template.* вне скоупа).
 if ($objType -eq 'CommonTemplate') {
 	Add-EnumProp 'templateType' 'TemplateType' 'SpreadsheetDocument'
 }
@@ -764,14 +764,14 @@ function Get-PictureToDsl { param($propsNode, $tgt)
 		} else { $tgt['picture'] = $psrc; if ($ltFalse) { $tgt['loadTransparent'] = $false } }
 	}
 }
-# CommandGroup — группа команд: представление, подсказка, картинка, категория.
+# CommandGroup - группа команд: представление, подсказка, картинка, категория.
 if ($objType -eq 'CommandGroup') {
 	Add-EnumProp 'representation' 'Representation' 'Auto'
 	$tt = Get-MLValue ($props.SelectSingleNode('md:ToolTip', $nsm)); if ($null -ne $tt) { $dsl['tooltip'] = $tt }
 	Get-PictureToDsl $props $dsl
 	Add-EnumProp 'category' 'Category' 'NavigationPanel'
 }
-# CommonCommand — общая команда: группа, представление, подсказка, картинка, параметр, режимы.
+# CommonCommand - общая команда: группа, представление, подсказка, картинка, параметр, режимы.
 if ($objType -eq 'CommonCommand') {
 	$grp = P 'Group'; if ($grp) { $dsl['group'] = $grp }
 	Add-EnumProp 'representation' 'Representation' 'Auto'
@@ -783,8 +783,8 @@ if ($objType -eq 'CommonCommand') {
 	Add-BoolProp 'modifiesData' 'ModifiesData' $false
 	Add-EnumProp 'onMainServerUnavalableBehavior' 'OnMainServerUnavalableBehavior' 'Auto'
 }
-# XDTO-тип из элемента: если значение с префиксом (d6p1:Local) — разворачиваем префикс в URI и
-# отдаём в нотации Кларка "{uri}Local"; префиксы платформы (dNpM) произвольны и переносу не подлежат.
+# XDTO-тип из элемента: если значение с префиксом (d6p1:Local) - разворачиваем префикс в URI и
+# отдаем в нотации Кларка "{uri}Local"; префиксы платформы (dNpM) произвольны и переносу не подлежат.
 function Get-XDTOTypeValue {
 	param($node)
 	if (-not $node) { return $null }
@@ -792,12 +792,12 @@ function Get-XDTOTypeValue {
 	if ($txt -match '^([\w.-]+):(.+)$') {
 		$prefix = $Matches[1]; $local = $Matches[2]
 		$uri = $node.GetNamespaceOfPrefix($prefix)
-		# xs: и прочие стандартные оставляем как есть — компилятор их пишет дословно.
+		# xs: и прочие стандартные оставляем как есть - компилятор их пишет дословно.
 		if ($uri -and $prefix -notin @('xs','xsi','v8','xr')) { return "{$uri}$local" }
 	}
 	return $txt
 }
-# WebService — пространство имён, состав XDTO-пакетов, дескриптор, операции с параметрами.
+# WebService - пространство имен, состав XDTO-пакетов, дескриптор, операции с параметрами.
 if ($objType -eq 'WebService') {
 	$ns = P 'Namespace'; if ($ns) { $dsl['namespace'] = $ns }
 	$pkgNodes = @($props.SelectNodes('md:XDTOPackages/xr:Item/xr:Value', $nsm))
@@ -811,16 +811,16 @@ if ($objType -eq 'WebService') {
 	Add-EnumProp 'reuseSessions' 'ReuseSessions' 'DontUse'
 	Add-IntProp  'sessionMaxAge' 'SessionMaxAge' 20
 }
-# HTTPService — корневой URL, повторное использование сеансов, время жизни сеанса.
+# HTTPService - корневой URL, повторное использование сеансов, время жизни сеанса.
 # Шаблоны URL с методами разбираются в блоке ChildObjects.
 if ($objType -eq 'HTTPService') {
-	# -cne: дефолт — имя в нижнем регистре, но реальный RootURL часто отличается ТОЛЬКО регистром
+	# -cne: дефолт - имя в нижнем регистре, но реальный RootURL часто отличается ТОЛЬКО регистром
 	# (MobileAppReceiptScanner), и регистронезависимое сравнение считало его дефолтным.
 	$ru = P 'RootURL'; if ($ru -and $ru -cne $objName.ToLower()) { $dsl['rootURL'] = $ru }
 	Add-EnumProp 'reuseSessions' 'ReuseSessions' 'DontUse'
 	Add-IntProp  'sessionMaxAge' 'SessionMaxAge' 20
 }
-# CommonAttribute — общий реквизит: тип + value-свойства + состав объектов + свойства разделения данных.
+# CommonAttribute - общий реквизит: тип + value-свойства + состав объектов + свойства разделения данных.
 if ($objType -eq 'CommonAttribute') {
 	$vt = Get-TypeShorthand ($props.SelectSingleNode('md:Type', $nsm)); if ($vt -and $vt -ne 'String(0)') { $dsl['valueType'] = $vt }
 	Add-BoolProp 'passwordMode' 'PasswordMode' $false
@@ -862,7 +862,7 @@ if ($objType -eq 'CommonAttribute') {
 	Add-EnumProp 'createOnInput' 'CreateOnInput' 'Auto'
 	$cf = P 'ChoiceForm'; if ($cf) { $dsl['choiceForm'] = $cf }
 	Add-EnumProp 'choiceHistoryOnInput' 'ChoiceHistoryOnInput' 'Auto'
-	# Content — объекты, к которым добавлен общий реквизит.
+	# Content - объекты, к которым добавлен общий реквизит.
 	$cn = $props.SelectSingleNode('md:Content', $nsm)
 	if ($cn) {
 		$cArr = [System.Collections.ArrayList]@()
@@ -888,7 +888,7 @@ if ($objType -eq 'CommonAttribute') {
 	Add-EnumProp 'dataHistory' 'DataHistory' 'Use'
 	# fullTextSearch покрыт общим блоком (дефолт Use).
 }
-# ScheduledJob — регламентное задание: метод, ключ, флаги, рестарт.
+# ScheduledJob - регламентное задание: метод, ключ, флаги, рестарт.
 if ($objType -eq 'ScheduledJob') {
 	$mn = P 'MethodName'; if ($mn) { $dsl['methodName'] = $mn }
 	$descr = P 'Description'; if ($descr) { $dsl['description'] = $descr }
@@ -898,7 +898,7 @@ if ($objType -eq 'ScheduledJob') {
 	Add-IntProp  'restartCountOnFailure'    'RestartCountOnFailure'    3
 	Add-IntProp  'restartIntervalOnFailure' 'RestartIntervalOnFailure' 10
 }
-# Constant — богатый одиночный реквизит: Type + свойства значения (как у реквизита) + object-уровень.
+# Constant - богатый одиночный реквизит: Type + свойства значения (как у реквизита) + object-уровень.
 if ($objType -eq 'Constant') {
 	$vt = Get-TypeShorthand ($props.SelectSingleNode('md:Type', $nsm))
 	if ($vt) { $dsl['valueType'] = $vt } else { $dsl['valueType'] = '' }
@@ -912,7 +912,7 @@ if ($objType -eq 'Constant') {
 	$msk = P 'Mask'; if ($msk) { $dsl['mask'] = $msk }
 	Add-BoolProp 'multiLine' 'MultiLine' $false
 	Add-BoolProp 'extendedEdit' 'ExtendedEdit' $false
-	# MinValue/MaxValue (дефолт nil) — типизированное значение при наличии.
+	# MinValue/MaxValue (дефолт nil) - типизированное значение при наличии.
 	foreach ($mm in @(@('MinValue','minValue'), @('MaxValue','maxValue'))) {
 		$mn = $props.SelectSingleNode("md:$($mm[0])", $nsm)
 		if ($mn -and $mn.GetAttribute('nil', 'http://www.w3.org/2001/XMLSchema-instance') -ne 'true') {
@@ -942,10 +942,10 @@ if ($objType -eq 'Constant') {
 }
 
 # Короткая форма поля: <Type>.<Name>.StandardAttribute.X / .Attribute.X → StandardAttribute.X / Attribute.X
-# (Expand-DataPath компилятора разворачивает частичную форму обратно — dogfood резолвера).
+# (Expand-DataPath компилятора разворачивает частичную форму обратно - dogfood резолвера).
 function Short-Field { param([string]$full) if ($full -match '\.(StandardAttribute|Attribute)\.(.+)$') { return "$($Matches[1]).$($Matches[2])" } return $full }
 
-# InputByString — эмитим только при отличии от выведенного дефолта [Descr при D>0]+[Code при C>0].
+# InputByString - эмитим только при отличии от выведенного дефолта [Descr при D>0]+[Code при C>0].
 $ibNode = $props.SelectSingleNode('md:InputByString', $nsm)
 if ($ibNode) {
 	$ibActual = @($ibNode.SelectNodes('xr:Field', $nsm) | ForEach-Object { $_.InnerText })
@@ -961,14 +961,14 @@ if ($ibNode) {
 	if (-not $same) { $dsl['inputByString'] = [System.Collections.ArrayList]@($ibShort) }
 }
 
-# BasedOn — «ввод на основании», список MDObjectRef (omit-on-empty).
+# BasedOn - "ввод на основании", список MDObjectRef (omit-on-empty).
 $boNode = $props.SelectSingleNode('md:BasedOn', $nsm)
 if ($boNode) {
 	$boItems = @($boNode.SelectNodes('xr:Item', $nsm) | ForEach-Object { $_.InnerText })
 	if ($boItems.Count -gt 0) { $dsl['basedOn'] = [System.Collections.ArrayList]@($boItems) }
 }
 
-# DataLockFields — поля блокировки данных (omit-on-empty).
+# DataLockFields - поля блокировки данных (omit-on-empty).
 $dlfNode = $props.SelectSingleNode('md:DataLockFields', $nsm)
 if ($dlfNode) {
 	$dlfFields = @($dlfNode.SelectNodes('xr:Field', $nsm) | ForEach-Object { Short-Field $_.InnerText })
@@ -1030,7 +1030,7 @@ if ($charsNode) {
 				filterValue = if ($tfvNil -eq 'true') { $null } else { Convert-ChScalarNode $tfvNode }
 			}
 			# DataPathField полиморфно: обычно -1, но встречается ПУТЬ к полю (8 случаев на корпус).
-			# Жёсткое [int] на нём роняло декомпиляцию всего объекта.
+			# Жесткое [int] на нем роняло декомпиляцию всего объекта.
 			$dpfN = $ct.SelectSingleNode('xr:DataPathField', $nsm)
 			$dpfT = if ($dpfN) { $dpfN.InnerText } else { '' }
 			if ($dpfT -ne '' -and $dpfT -cne '-1') {
@@ -1052,7 +1052,7 @@ if ($charsNode) {
 }
 
 # --- StandardAttributes: захватываем ОТКЛОНЕНИЯ от профиля материализованного блока (профиль компилятор
-# восстановит сам). Профиль зеркалит stdAttrProfile компилятора — по типу объекта.
+# восстановит сам). Профиль зеркалит stdAttrProfile компилятора - по типу объекта.
 # Catalog: Owner{FC=ShowError,FFV=true}, Parent{FFV=true}, Description{FC=ShowError}.
 # ExchangePlan: Description{FC=ShowError}, Code{FC=ShowError} (блок всегда материализован). ---
 $stdProfileByType = @{
@@ -1082,7 +1082,7 @@ $stdProfileByType = @{
 	}
 }
 $catStdProfile = if ($stdProfileByType.ContainsKey($objType)) { $stdProfileByType[$objType] } else { @{} }
-# Фикс-список стандартных реквизитов типа (зеркало standardAttributesByType компилятора) — чтобы отличать
+# Фикс-список стандартных реквизитов типа (зеркало standardAttributesByType компилятора) - чтобы отличать
 # доп./опциональные (напр. ExchangeDate у ПланОбмена), которые эмитим по факту присутствия даже all-default.
 $stdFixedByType = @{
 	'Catalog'      = @('PredefinedDataName','Predefined','Ref','DeletionMark','IsFolder','Owner','Parent','Description','Code')
@@ -1096,7 +1096,7 @@ $stdFixedByType = @{
 }
 $stdFixed = if ($stdFixedByType.ContainsKey($objType)) { $stdFixedByType[$objType] } else { @() }
 # Условные типы: блок эмитим-как-триггер даже пустым (материализуется при отклонении ≥1 реквизита от schema-default;
-# у ExchangePlan это почти всегда — Description/Code=ShowError; редкий all-default EP блок опускает).
+# у ExchangePlan это почти всегда - Description/Code=ShowError; редкий all-default EP блок опускает).
 $stdConditionalTypes = @('Catalog', 'ExchangePlan', 'ChartOfCharacteristicTypes', 'ChartOfAccounts', 'ChartOfCalculationTypes', 'Document')
 $saNode = $props.SelectSingleNode('md:StandardAttributes', $nsm)
 if ($saNode) {
@@ -1113,7 +1113,7 @@ if ($saNode) {
 		$ffvN = $sa.SelectSingleNode('xr:FillFromFillingValue', $nsm); $ffv = ($ffvN -and $ffvN.InnerText -eq 'true')
 		$profFfv = ($prof['fillFromFillingValue'] -eq $true)
 		if ($ffv -ne $profFfv) { $ov['fillFromFillingValue'] = $ffv }
-		# Synonym / ToolTip (профиль пуст) — строка ru | {ru,en}
+		# Synonym / ToolTip (профиль пуст) - строка ru | {ru,en}
 		$syn = Get-MLValue ($sa.SelectSingleNode('xr:Synonym', $nsm))
 		if ($null -ne $syn) { $ov['synonym'] = $syn }
 		$tt = Get-MLValue ($sa.SelectSingleNode('xr:ToolTip', $nsm))
@@ -1121,7 +1121,7 @@ if ($saNode) {
 		# FullTextSearch / DataHistory (профиль = Use)
 		$ftsN = $sa.SelectSingleNode('xr:FullTextSearch', $nsm); if ($ftsN -and $ftsN.InnerText -ne 'Use') { $ov['fullTextSearch'] = $ftsN.InnerText }
 		$dhN = $sa.SelectSingleNode('xr:DataHistory', $nsm); if ($dhN -and $dhN.InnerText -ne 'Use') { $ov['dataHistory'] = $dhN.InnerText }
-		# FillValue (дефолт nil) — DTR-путь/строка/bool. Comment/Mask/ChoiceForm (дефолт пусто).
+		# FillValue (дефолт nil) - DTR-путь/строка/bool. Comment/Mask/ChoiceForm (дефолт пусто).
 		$fvN = $sa.SelectSingleNode('xr:FillValue', $nsm)
 		if ($fvN -and $fvN.GetAttribute('nil', 'http://www.w3.org/2001/XMLSchema-instance') -ne 'true') {
 			$fvXt = $fvN.GetAttribute('type', 'http://www.w3.org/2001/XMLSchema-instance')
@@ -1146,20 +1146,20 @@ if ($saNode) {
 				$ov['linkByType'] = [ordered]@{ dataPath = $saLbtDp.InnerText; linkItem = $li }
 			}
 		}
-		# Формат 2.20: режим приведения типов. Компилятор выводит его сам (TransformValues, у Owner —
+		# Формат 2.20: режим приведения типов. Компилятор выводит его сам (TransformValues, у Owner -
 		# Deny), поэтому захватываем только отклонение от этого правила.
 		$saTrmN = $sa.SelectSingleNode('xr:TypeReductionMode', $nsm)
 		if ($saTrmN -and $saTrmN.InnerText) {
 			$saTrmDef = if ($an -ceq 'Owner') { 'Deny' } else { 'TransformValues' }
 			if ($saTrmN.InnerText -ne $saTrmDef) { $ov['TypeReductionMode'] = $saTrmN.InnerText }
 		}
-		# Доп./опциональный реквизит (не в фикс-списке) — эмитим по присутствию даже без отклонений.
+		# Доп./опциональный реквизит (не в фикс-списке) - эмитим по присутствию даже без отклонений.
 		if ($ov.Count -gt 0 -or ($stdFixed -notcontains $an)) { $saMap[$an] = $ov }
 	}
 	# Условный тип (Catalog): пустой $saMap = триггер блока. Не-условный (ExchangePlan): блок и так эмитится → пустой не пишем.
 	if ($saMap.Count -gt 0 -or ($stdConditionalTypes -contains $objType)) { $dsl['standardAttributes'] = $saMap }
 } elseif ($objType -in @('InformationRegister', 'AccumulationRegister', 'AccountingRegister', 'CalculationRegister', 'BusinessProcess', 'Task', 'Enum', 'DocumentJournal')) {
-	# Регистр/БП/Задача опускают all-default блок стандартных реквизитов (правило не выводимо) — компилятор эмитит его
+	# Регистр/БП/Задача опускают all-default блок стандартных реквизитов (правило не выводимо) - компилятор эмитит его
 	# по дефолту, поэтому отсутствие фиксируем opt-out `standardAttributes:""` (дом-конвенция суппресса).
 	$dsl['standardAttributes'] = ''
 }
@@ -1167,7 +1167,7 @@ if ($saNode) {
 # --- ChildObjects: Attributes + TabularSections ---
 $childObjs = $objNode.SelectSingleNode('md:ChildObjects', $nsm)
 if ($childObjs) {
-	# WebService: операции с параметрами. Строчное сокращение — только тип возврата (когда всё
+	# WebService: операции с параметрами. Строчное сокращение - только тип возврата (когда все
 	# остальное дефолтно); иначе объект с nillable/transactioned/procedureName/параметрами.
 	$opNodes = @($childObjs.SelectNodes('md:Operation', $nsm))
 	if ($opNodes.Count -gt 0) {
@@ -1217,7 +1217,7 @@ if ($childObjs) {
 		}
 		$dsl['operations'] = $ops
 	}
-	# HTTPService: шаблоны URL и их методы. Шаблон — {template, methods{}}, метод — строка (только
+	# HTTPService: шаблоны URL и их методы. Шаблон - {template, methods{}}, метод - строка (только
 	# HTTP-метод, когда обработчик совпадает с авто-выводом ИмяШаблона+ИмяМетода) либо объект.
 	$tmplNodes = @($childObjs.SelectNodes('md:URLTemplate', $nsm))
 	if ($tmplNodes.Count -gt 0) {
@@ -1271,7 +1271,7 @@ if ($childObjs) {
 		foreach ($a in $attrs) { [void]$arr.Add((Attr-ToDsl $a)) }
 		$dsl['attributes'] = $arr
 	}
-	# Enum: значения перечисления. Плоский элемент name/synonym/comment. Короткая форма — строка "Имя"
+	# Enum: значения перечисления. Плоский элемент name/synonym/comment. Короткая форма - строка "Имя"
 	# (синоним == авто из имени, без comment, не мультиязычный); иначе объект {name, synonym?, comment?}.
 	$evNodes = @($childObjs.SelectNodes('md:EnumValue', $nsm))
 	if ($evNodes.Count -gt 0) {
@@ -1299,8 +1299,8 @@ if ($childObjs) {
 		}
 		$dsl['values'] = $evArr
 	}
-	# DocumentJournal: колонки. Каждая — object {name, synonym?, comment?, indexing?, references[]}.
-	# References — список MDObjectRef-путей к реквизитам регистрируемых документов (verbatim).
+	# DocumentJournal: колонки. Каждая - object {name, synonym?, comment?, indexing?, references[]}.
+	# References - список MDObjectRef-путей к реквизитам регистрируемых документов (verbatim).
 	$colNodes = @($childObjs.SelectNodes('md:Column', $nsm))
 	if ($colNodes.Count -gt 0) {
 		$colArr = [System.Collections.ArrayList]@()
@@ -1323,7 +1323,7 @@ if ($childObjs) {
 		}
 		$dsl['columns'] = $colArr
 	}
-	# ChartOfAccounts: признаки учёта (AccountingFlag) и признаки учёта субконто (ExtDimensionAccountingFlag) —
+	# ChartOfAccounts: признаки учета (AccountingFlag) и признаки учета субконто (ExtDimensionAccountingFlag) -
 	# структурно как реквизит, захватываем тем же Attr-ToDsl (тип Boolean уходит в короткую запись).
 	$acctFlagNodes = @($childObjs.SelectNodes('md:AccountingFlag', $nsm))
 	if ($acctFlagNodes.Count -gt 0) {
@@ -1337,8 +1337,8 @@ if ($childObjs) {
 		foreach ($a in $extDimFlagNodes) { [void]$arr.Add((Attr-ToDsl $a)) }
 		$dsl['extDimensionAccountingFlags'] = $arr
 	}
-	# Sequence: измерения несут DocumentMap/RegisterRecordsMap (соответствие реквизитам документов/движениям) —
-	# Attr-ToDsl их не знает → отдельный захват объектной формой. Прочие типы (регистры) — общий Attr-ToDsl.
+	# Sequence: измерения несут DocumentMap/RegisterRecordsMap (соответствие реквизитам документов/движениям) -
+	# Attr-ToDsl их не знает → отдельный захват объектной формой. Прочие типы (регистры) - общий Attr-ToDsl.
 	$dimNodes = @($childObjs.SelectNodes('md:Dimension', $nsm))
 	if ($dimNodes.Count -gt 0 -and $objType -eq 'Sequence') {
 		$arr = [System.Collections.ArrayList]@()
@@ -1372,7 +1372,7 @@ if ($childObjs) {
 		foreach ($a in $resNodes) { [void]$arr.Add((Attr-ToDsl $a)) }
 		$dsl['resources'] = $arr
 	}
-	# Задача: реквизиты адресации (AddressingAttribute) — структурно как реквизит + AddressingDimension.
+	# Задача: реквизиты адресации (AddressingAttribute) - структурно как реквизит + AddressingDimension.
 	$addrNodes = @($childObjs.SelectNodes('md:AddressingAttribute', $nsm))
 	if ($addrNodes.Count -gt 0) {
 		$arr = [System.Collections.ArrayList]@()
@@ -1399,7 +1399,7 @@ if ($childObjs) {
 			$tsFcN = $tsp.SelectSingleNode('md:FillChecking', $nsm); $tsFc = if ($tsFcN -and $tsFcN.InnerText -ne 'DontCheck') { $tsFcN.InnerText } else { '' }
 				# Use ТЧ (иерархические Catalog/ПВХ: ForItem/ForFolder/ForFolderAndItem; omit при дефолте ForItem).
 				$tsUseN = $tsp.SelectSingleNode('md:Use', $nsm); $tsUse = if ($tsUseN -and $tsUseN.InnerText -ne 'ForItem') { $tsUseN.InnerText } else { '' }
-			# TS-блок стандартных реквизитов (LineNumber). Наличие блока — пер-ТЧ артефакт (~6% ТЧ его опускают,
+			# TS-блок стандартных реквизитов (LineNumber). Наличие блока - пер-ТЧ артефакт (~6% ТЧ его опускают,
 			# правило не выводимо). Faithful roundtrip: нет блока → маркер подавления `lineNumber: ""` (дом-конвенция);
 			# есть блок → захват кастомизации LineNumber (omit-on-default по свойству), all-default → без ключа.
 			$lnObj = [ordered]@{}
@@ -1445,7 +1445,7 @@ if ($childObjs) {
 		$dsl['tabularSections'] = $tsMap
 	}
 	# --- Commands (полноблочные <Command> в ChildObjects) → DSL commands (map имя→объект, omit-on-default).
-	# Тела модулей команд (CommandModule.bsl) — вне скоупа (как ObjectModule). ---
+	# Тела модулей команд (CommandModule.bsl) - вне скоупа (как ObjectModule). ---
 	$cmdNodes = @($childObjs.SelectNodes('md:Command', $nsm))
 	if ($cmdNodes.Count -gt 0) {
 		$cmdMap = [ordered]@{}
@@ -1463,7 +1463,7 @@ if ($childObjs) {
 			$mdN = $cp.SelectSingleNode('md:ModifiesData', $nsm); if ($mdN -and $mdN.InnerText -eq 'true') { $o['modifiesData'] = $true }
 			$repN = $cp.SelectSingleNode('md:Representation', $nsm); if ($repN -and $repN.InnerText -ne 'Auto') { $o['representation'] = $repN.InnerText }
 			$ctt = Get-MLValue ($cp.SelectSingleNode('md:ToolTip', $nsm)); if ($null -ne $ctt) { $o['tooltip'] = $ctt }
-			# <Picture> — структурный блок (зеркало form-decompile Set-CommandPicture). Дефолт LoadTransparent=true:
+			# <Picture> - структурный блок (зеркало form-decompile Set-CommandPicture). Дефолт LoadTransparent=true:
 			# скаляр `picture` + sibling `loadTransparent:false` при отклонении; объект {src,loadTransparent?,transparentPixel} при TransparentPixel.
 			$refN = $cp.SelectSingleNode('md:Picture/xr:Ref', $nsm)
 			$absN = $cp.SelectSingleNode('md:Picture/xr:Abs', $nsm)
@@ -1490,9 +1490,9 @@ if ($childObjs) {
 	}
 }
 
-# --- Предопределённые (соседний Ext/Predefined.xml) → DSL predefined.
+# --- Предопределенные (соседний Ext/Predefined.xml) → DSL predefined.
 # Плоский элемент → строка "(Код) Имя [Наименование]" (Наименование: ==авто → опустить; '' → []; иначе [текст]).
-# Группа/иерархия → object {name, [code], [description], isFolder, childItems}. codeType — из свойства каталога. ---
+# Группа/иерархия → object {name, [code], [description], isFolder, childItems}. codeType - из свойства каталога. ---
 $objDir = Split-Path -Parent (Resolve-Path -LiteralPath $ObjectPath).Path
 $predefPath = Join-Path (Join-Path (Join-Path $objDir $objName) 'Ext') 'Predefined.xml'
 if (Test-Path -LiteralPath $predefPath) {
@@ -1509,9 +1509,9 @@ if (Test-Path -LiteralPath $predefPath) {
 		$isFolder = ($folderEl -and $folderEl.InnerText -eq 'true')
 		$childContainer = $itemEl.SelectSingleNode("*[local-name()='ChildItems']")
 		# ВАЖНО: обернуть весь if в @(), иначе PS распаковывает одноэлементный @(...) из if-блока
-		# обратно в узел → $kids.Count = $null → папки с ОДНИМ ребёнком теряют его.
+		# обратно в узел → $kids.Count = $null → папки с ОДНИМ ребенком теряют его.
 		$kids = @(if ($childContainer) { $childContainer.SelectNodes("*[local-name()='Item']") } else { @() })
-		# Type — тип значения предопределённой характеристики (ПВХ). Наличие → object-форма (в строку не влезает).
+		# Type - тип значения предопределенной характеристики (ПВХ). Наличие → object-форма (в строку не влезает).
 		# Наличие узла <Type> (даже пустого <Type/>) → object-форма с ключом type ('' для пустого); нет узла (Catalog) → без.
 		$typeEl = $itemEl.SelectSingleNode("*[local-name()='Type']")
 		$typeStr = if ($typeEl) { Get-TypeShorthand $typeEl } else { $null }
@@ -1521,7 +1521,7 @@ if (Test-Path -LiteralPath $predefPath) {
 		# Пустой <Type/> в короткую не влезает (нужен явный маркер) → object-форма с type:''.
 		# Сокращение неоднозначно, если значение содержит собственные разделители грамматики
 		# "(Код) Имя [Наим]: Тип": ')' или ':' в коде, пробел/скобка/':' в имени, скобки в наименовании.
-		# Компилятор разбирает код как [^)]*, а имя как \S+ — на "114 (108)" разбор рассыпается,
+		# Компилятор разбирает код как [^)]*, а имя как \S+ - на "114 (108)" разбор рассыпается,
 		# и элемент терял и имя, и код (6 элементов в БП и столько же в ERP).
 		$ambiguous = ($code -match '[):]') -or ($name -match '[\s:\[\]()]') -or ($desc -match '[\[\]]')
 		if (-not $isFolder -and $kids.Count -eq 0 -and ($null -eq $typeStr -or $typeStr -ne '') -and -not $ambiguous) {
@@ -1545,8 +1545,8 @@ if (Test-Path -LiteralPath $predefPath) {
 		}
 		return $o
 	}
-		# Предопределённые СЧЕТА Плана счетов — отдельная грамматика (AccountType/OffBalance/Order/AccountingFlags/
-		# ExtDimensionTypes). Флаги: захватываем только TRUE (компилятор развернёт по def-порядку признаков плана).
+		# Предопределенные СЧЕТА Плана счетов - отдельная грамматика (AccountType/OffBalance/Order/AccountingFlags/
+		# ExtDimensionTypes). Флаги: захватываем только TRUE (компилятор развернет по def-порядку признаков плана).
 		function PredefAccount-ToDsl {
 			param($itemEl)
 			$name = ($itemEl.SelectSingleNode("*[local-name()='Name']")).InnerText
@@ -1567,8 +1567,8 @@ if (Test-Path -LiteralPath $predefPath) {
 				if ($fl.InnerText -eq 'true') { $r = $fl.GetAttribute('ref'); $trueFlags += ($r -split '\.')[-1] }
 			}
 			# ExtDimensionTypes → subconto. Короткая запись "Тип | Признак1, Признак2": срезаем префикс ПВХ видов субконто
-			# плана (extDimensionTypes); «Только обороты» (Turnover=true) — предопределённый признак-токен `Turnover` первым
-			# в списке (наравне с добавленными). Захватываем только TRUE-признаки (компилятор развернёт по def-порядку).
+			# плана (extDimensionTypes); "Только обороты" (Turnover=true) - предопределенный признак-токен `Turnover` первым
+			# в списке (наравне с добавленными). Захватываем только TRUE-признаки (компилятор развернет по def-порядку).
 			$edtPfx = if ($dsl['extDimensionTypes']) { "$($dsl['extDimensionTypes'])." } else { $null }
 			$subconto = [System.Collections.ArrayList]@()
 			foreach ($edt in @($itemEl.SelectNodes("*[local-name()='ExtDimensionTypes']/*[local-name()='ExtDimensionType']"))) {
@@ -1588,7 +1588,7 @@ if (Test-Path -LiteralPath $predefPath) {
 
 			$o = [ordered]@{ name = $name }
 			if ($code) { $o['code'] = $code }
-			# -cne (регистрочувствительно!): PS `-ne` регистронезависим → «…ОС» == «…ос» и description ошибочно
+			# -cne (регистрочувствительно!): PS `-ne` регистронезависим → "...ОС" == "...ос" и description ошибочно
 			# опускался, а компилятор регенерил lowercase (Split-CamelCase). Хвостовые аббревиатуры (ОС/НМА) теряли регистр.
 			if ($desc -cne $auto) { $o['description'] = $desc }
 			$o['accountType'] = $acctType
@@ -1604,8 +1604,8 @@ if (Test-Path -LiteralPath $predefPath) {
 			return $o
 		}
 
-		# Предопределённые ВИДЫ РАСЧЁТА (плоские): Name/Code/Description/ActionPeriodIsBase. Строка при
-		# ActionPeriodIsBase=false, объект — при true.
+		# Предопределенные ВИДЫ РАСЧЕТА (плоские): Name/Code/Description/ActionPeriodIsBase. Строка при
+		# ActionPeriodIsBase=false, объект - при true.
 		function PredefCalcType-ToDsl {
 			param($itemEl)
 			$name = ($itemEl.SelectSingleNode("*[local-name()='Name']")).InnerText

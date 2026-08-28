@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-borrow v1.3 — Borrow objects from configuration into extension (CFE)
+# cfe-borrow v1.3 - Borrow objects from configuration into extension (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -1043,7 +1043,7 @@ def main():
             added += 1
 
         if added > 0:
-            # Insert attributes — handle both <ChildObjects/> and <ChildObjects>...</ChildObjects>
+            # Insert attributes - handle both <ChildObjects/> and <ChildObjects>...</ChildObjects>
             if re.search(r'<ChildObjects\s*/>', obj_content):
                 obj_content = re.sub(r'<ChildObjects\s*/>', f"<ChildObjects>{all_attr_xml}\r\n\t\t</ChildObjects>", obj_content)
             else:
@@ -1342,7 +1342,7 @@ def main():
             child_items_xml = re.sub(r'<CommandName>[^<]*</CommandName>', '<CommandName>0</CommandName>', child_items_xml)
             # Strip DataPath / TitleDataPath / RowPictureDataPath
             if borrow_main_attr:
-                # Keep only Объект.* DataPaths — strip form-attribute DataPaths (not borrowed)
+                # Keep only Объект.* DataPaths - strip form-attribute DataPaths (not borrowed)
                 child_items_xml = re.sub(r'\s*<DataPath>(?!\u041e\u0431\u044a\u0435\u043a\u0442\.)[^<]*</DataPath>', '', child_items_xml)
                 child_items_xml = re.sub(r'\s*<TitleDataPath>(?!\u041e\u0431\u044a\u0435\u043a\u0442\.)[^<]*</TitleDataPath>', '', child_items_xml)
                 child_items_xml = re.sub(r'\s*<RowPictureDataPath>[^<]*</RowPictureDataPath>', '', child_items_xml)
@@ -1382,7 +1382,7 @@ def main():
                         borrowed_files.append(target_file)
                         info(f"  Auto-borrowed: CommonPicture.{pic_name}")
                     else:
-                        warn(f"  CommonPicture.{pic_name} not found in source config — will strip from form")
+                        warn(f"  CommonPicture.{pic_name} not found in source config - will strip from form")
 
             # Collect all borrowed CommonPictures for Picture stripping
             borrowed_pic_set = set()

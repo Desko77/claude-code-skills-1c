@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-dump-cf v1.0 — Dump 1C configuration to CF file
+# db-dump-cf v1.0 - Dump 1C configuration to CF file
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse

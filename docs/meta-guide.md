@@ -1,6 +1,6 @@
 # Объекты метаданных конфигурации
 
-Навыки группы `/meta-*` позволяют создавать, анализировать, редактировать и проверять объекты метаданных конфигурации 1С — справочники, документы, регистры, перечисления и ещё 19 типов объектов из XML-выгрузки.
+Навыки группы `/meta-*` позволяют создавать, анализировать, редактировать и проверять объекты метаданных конфигурации 1С - справочники, документы, регистры, перечисления и еще 19 типов объектов из XML-выгрузки.
 
 ## Навыки
 
@@ -34,12 +34,12 @@
 | Прикладные | Catalog, Document, Enum, ChartOfCharacteristicTypes, ChartOfAccounts, ChartOfCalculationTypes |
 | Процессы | BusinessProcess, Task |
 | Регистры | InformationRegister, AccumulationRegister, AccountingRegister, CalculationRegister |
-| Отчёты/обработки | Report, DataProcessor |
+| Отчеты/обработки | Report, DataProcessor |
 | Интеграция | ExchangePlan, HTTPService, WebService |
 | Журналы | DocumentJournal, Sequence |
 | Прочие | Constant, CommonModule, SessionParameter, FunctionalOption, DefinedType |
 
-## Inline mode — типовые операции
+## Inline mode - типовые операции
 
 ### Реквизиты
 
@@ -90,7 +90,7 @@
 -Operation add-resource -Value "Сумма: Число(15,2)"
 ```
 
-## JSON mode — комбинированные операции
+## JSON mode - комбинированные операции
 
 Для сложных сценариев (несколько типов изменений в одном вызове) используйте JSON-файл:
 
@@ -127,7 +127,7 @@ Claude вызовет `/meta-info` и покажет: реквизиты с ти
 
 ```
 > Создай справочник Контрагенты: код 9, наименование 150, реквизиты ИНН(12), КПП(9),
-> иерархический с группами, владелец — Catalog.Организации
+> иерархический с группами, владелец - Catalog.Организации
 ```
 
 Claude сформирует JSON и вызовет `/meta-compile` → `/meta-validate` → `/meta-info`.
@@ -156,7 +156,7 @@ Claude вызовет `/meta-edit` с операцией `set-registerRecords`.
 > Удали справочник Catalogs/Устаревший из конфигурации src/
 ```
 
-Claude вызовет `/meta-remove` с `-DryRun`, покажет что будет удалено и проверит ссылки. Если объект нигде не используется — удалит файлы, уберёт из Configuration.xml и подсистем. Если есть ссылки — покажет список и заблокирует удаление.
+Claude вызовет `/meta-remove` с `-DryRun`, покажет что будет удалено и проверит ссылки. Если объект нигде не используется - удалит файлы, уберет из Configuration.xml и подсистем. Если есть ссылки - покажет список и заблокирует удаление.
 
 ### Проверка объекта после изменений
 
@@ -183,5 +183,5 @@ Claude вызовет `/meta-validate` и покажет ошибки и пре�
 
 ## Спецификации
 
-- [1c-config-objects-spec.md](1c-config-objects-spec.md) — XML-формат объектов метаданных, Properties, ChildObjects, типы
-- [meta-dsl-spec.md](meta-dsl-spec.md) — JSON DSL для описания объектов (`/meta-compile`)
+- [1c-config-objects-spec.md](1c-config-objects-spec.md) - XML-формат объектов метаданных, Properties, ChildObjects, типы
+- [meta-dsl-spec.md](meta-dsl-spec.md) - JSON DSL для описания объектов (`/meta-compile`)

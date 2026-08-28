@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-create v1.0 — Create 1C information base
+# db-create v1.0 - Create 1C information base
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse

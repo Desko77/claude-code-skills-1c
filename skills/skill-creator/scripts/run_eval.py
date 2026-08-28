@@ -36,7 +36,7 @@ def find_project_root() -> Path:
 def _stdout_reader(stdout, q):
     """Read stdout lines in a background thread and put them into a queue.
 
-    Uses threading instead of select.select() for Windows compatibility —
+    Uses threading instead of select.select() for Windows compatibility -
     select() on Windows only works with sockets, not pipes.
     Puts None as sentinel when EOF is reached.
     """

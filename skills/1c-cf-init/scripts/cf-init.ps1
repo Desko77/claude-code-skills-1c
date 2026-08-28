@@ -1,4 +1,4 @@
-﻿# cf-init v1.2 — Create empty 1C configuration scaffold
+﻿# cf-init v1.2 - Create empty 1C configuration scaffold
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]

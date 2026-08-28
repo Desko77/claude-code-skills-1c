@@ -1,4 +1,4 @@
-﻿# epf-add-form v1.1 — Add managed form to 1C processor
+﻿# epf-add-form v1.1 - Add managed form to 1C processor
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -232,5 +232,5 @@ Write-Host "     Метаданные: $formMetaPath"
 Write-Host "     Описание:   $formXmlPath"
 Write-Host "     Модуль:     $modulePath"
 if ($Main -or $isFirstForm) {
-	Write-Host "     DefaultForm обновлён"
+	Write-Host "     DefaultForm обновлен"
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-run v1.0 — Launch 1C:Enterprise
+# db-run v1.0 - Launch 1C:Enterprise
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse

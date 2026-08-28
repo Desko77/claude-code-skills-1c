@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# form-validate v1.4 — Validate 1C managed form
+# form-validate v1.4 - Validate 1C managed form
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -447,7 +447,7 @@ def main():
                 bind_root = re.sub(r'\[\d+\]', '', bind_path).split(".")[0]
                 if not opaque_path(bind_root) and bind_root not in attr_map:
                     report_error(f"[{tag}] '{el_name}': {bind_tag}='{bind_path}' "
-                                 f"— attribute '{bind_root}' not found")
+                                 f"- attribute '{bind_root}' not found")
                     path_errors += 1
 
             dp_node = node.find(f"{{{F_NS}}}DataPath")
@@ -495,7 +495,7 @@ def main():
                 link_checked += 1
                 if link_root not in attr_map:
                     report_error(f"Choice parameter link: DataPath='{value}' "
-                                 f"— attribute '{link_root}' not found")
+                                 f"- attribute '{link_root}' not found")
                     link_errors += 1
         if link_errors == 0 and link_checked > 0:
             report_ok(f"Choice parameter links: {link_checked} paths checked")

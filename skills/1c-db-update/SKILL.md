@@ -9,7 +9,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# /db-update — Обновление конфигурации БД
+# /db-update - Обновление конфигурации БД
 
 Применяет изменения основной конфигурации к конфигурации базы данных (`/UpdateDBCfg`). Обязательный шаг после `/db-load-cf`, `/db-load-xml`, `/db-load-git`.
 
@@ -26,13 +26,13 @@ allowed-tools:
 ## Параметры подключения
 
 Прочитай `.v8-project.json` из корня проекта. Возьми `v8path` (путь к платформе) и разреши базу:
-1. Если пользователь указал параметры подключения (путь, сервер) — используй напрямую
-2. Если указал базу по имени — ищи по id / alias / name в `.v8-project.json`
-3. Если не указал — сопоставь текущую ветку Git с `databases[].branches`
-4. Если ветка не совпала — используй `default`
-Если `v8path` не задан — автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
-Если файла нет — предложи `/db-list add`.
-Если использованная база не зарегистрирована — после выполнения предложи добавить через `/db-list add`.
+1. Если пользователь указал параметры подключения (путь, сервер) - используй напрямую
+2. Если указал базу по имени - ищи по id / alias / name в `.v8-project.json`
+3. Если не указал - сопоставь текущую ветку Git с `databases[].branches`
+4. Если ветка не совпала - используй `default`
+Если `v8path` не задан - автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
+Если файла нет - предложи `/db-list add`.
+Если использованная база не зарегистрирована - после выполнения предложи добавить через `/db-list add`.
 
 ## Команда
 
@@ -52,13 +52,13 @@ powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 <па�
 | `-Password <пароль>` | нет | Пароль |
 | `-Extension <имя>` | нет | Обновить расширение |
 | `-AllExtensions` | нет | Обновить все расширения |
-| `-Dynamic <+/->` | нет | `+` — динамическое обновление, `-` — отключить |
+| `-Dynamic <+/->` | нет | `+` - динамическое обновление, `-` - отключить |
 | `-Server` | нет | Обновление на стороне сервера |
 | `-WarningsAsErrors` | нет | Предупреждения считать ошибками (ключ платформы) |
 | `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 | `-CheckApplicability` | нет | Перед обновлением проверить, применимо ли расширение к этой базе |
 
-> `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
+> `*` - нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 
 ### Расширения: проверка применимости и путь отката
 
@@ -95,9 +95,9 @@ powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 <па�
 
 ## Предупреждения
 
-- Если обновление **не динамическое** — потребуется **монопольный доступ** к базе (все пользователи должны выйти)
+- Если обновление **не динамическое** - потребуется **монопольный доступ** к базе (все пользователи должны выйти)
 - Для серверных баз рекомендуется `-Dynamic+` для обновления без остановки
-- Если структура данных существенно изменилась (удаление реквизитов, изменение типов) — динамическое обновление может быть невозможно
+- Если структура данных существенно изменилась (удаление реквизитов, изменение типов) - динамическое обновление может быть невозможно
 
 ## Примеры
 
@@ -109,5 +109,5 @@ powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoB
 powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -Dynamic "+"
 
 # Обновление расширения
-powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -Extension "МоёРасширение"
+powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -Extension "МоеРасширение"
 ```

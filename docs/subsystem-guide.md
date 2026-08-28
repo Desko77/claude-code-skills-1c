@@ -1,6 +1,6 @@
 # Подсистемы и командный интерфейс
 
-Навыки групп `/subsystem-*` и `/interface-*` позволяют анализировать, создавать, редактировать и проверять подсистемы 1С и их командный интерфейс — XML-файлы Subsystem и CommandInterface.xml из выгрузки конфигурации.
+Навыки групп `/subsystem-*` и `/interface-*` позволяют анализировать, создавать, редактировать и проверять подсистемы 1С и их командный интерфейс - XML-файлы Subsystem и CommandInterface.xml из выгрузки конфигурации.
 
 ## Навыки
 
@@ -28,7 +28,7 @@
 5. `/subsystem-validate` и `/interface-validate` проверяют корректность XML
 6. `/subsystem-info` выводит компактную сводку для визуальной проверки
 
-## JSON DSL — формат подсистемы
+## JSON DSL - формат подсистемы
 
 Подсистемы описываются в JSON:
 
@@ -54,7 +54,7 @@
   "explanation": "Управление продажами и взаимодействием с клиентами",
   "picture": "CommonPicture.Продажи",
   "content": ["Catalog.Товары", "Document.Заказ", "Report.Продажи"],
-  "children": ["Настройки", "Отчёты"]
+  "children": ["Настройки", "Отчеты"]
 }
 ```
 
@@ -68,11 +68,11 @@
 | `includeInCommandInterface` | bool | `true` | Включать в командный интерфейс |
 | `useOneCommand` | bool | `false` | Режим одной команды (требует ровно 1 элемент в content) |
 | `explanation` | string | `""` | Описание раздела (подсказка) |
-| `picture` | string | — | Ссылка на общую картинку (`CommonPicture.Имя`) |
+| `picture` | string | - | Ссылка на общую картинку (`CommonPicture.Имя`) |
 | `content` | string[] | `[]` | Состав: `"Тип.Имя"` (Catalog.X, Document.Y, Report.Z, ...) |
 | `children` | string[] | `[]` | Имена дочерних подсистем |
 
-## Командный интерфейс — операции
+## Командный интерфейс - операции
 
 Навык `/interface-edit` управляет файлом `CommandInterface.xml` подсистемы.
 
@@ -81,7 +81,7 @@
 | Формат | Пример |
 |--------|--------|
 | StandardCommand | `Catalog.Товары.StandardCommand.OpenList` |
-| Command | `Report.Продажи.Command.Отчёт` |
+| Command | `Report.Продажи.Command.Отчет` |
 | CommonCommand | `CommonCommand.МояКоманда` |
 
 ### Операции
@@ -102,7 +102,7 @@
 ... -CIPath Subsystems/Продажи/Ext/CommandInterface.xml -Operation hide -Value "Catalog.Товары.StandardCommand.OpenList"
 
 # Показать команду
-... -Operation show -Value "Report.Продажи.Command.Отчёт"
+... -Operation show -Value "Report.Продажи.Command.Отчет"
 
 # Разместить в группе
 ... -Operation place -Value '{"command":"Report.X.Command.Y","group":"CommandGroup.Отчеты"}'
@@ -127,8 +127,8 @@ Claude вызовет `/subsystem-info` (tree → overview → ci) и опише
 ### Создание подсистемы по описанию
 
 ```
-> Создай подсистему Продажи: справочник Товары, документ Заказ, отчёт Продажи.
-> Дочерние подсистемы: Настройки, Отчёты. Картинка — CommonPicture.Продажи.
+> Создай подсистему Продажи: справочник Товары, документ Заказ, отчет Продажи.
+> Дочерние подсистемы: Настройки, Отчеты. Картинка - CommonPicture.Продажи.
 ```
 
 Claude сформирует JSON:
@@ -137,7 +137,7 @@ Claude сформирует JSON:
   "name": "Продажи",
   "synonym": "Продажи",
   "content": ["Catalog.Товары", "Document.Заказ", "Report.Продажи"],
-  "children": ["Настройки", "Отчёты"],
+  "children": ["Настройки", "Отчеты"],
   "picture": "CommonPicture.Продажи"
 }
 ```
@@ -147,18 +147,18 @@ Claude сформирует JSON:
 ### Добавление объектов в подсистему
 
 ```
-> Добавь Document.Счёт и Report.Задолженность в подсистему Продажи
+> Добавь Document.Счет и Report.Задолженность в подсистему Продажи
 ```
 
 Claude вызовет `/subsystem-edit` с операцией `add-content`:
 ```powershell
-... -SubsystemPath Subsystems/Продажи.xml -Operation add-content -Value '["Document.Счёт","Report.Задолженность"]'
+... -SubsystemPath Subsystems/Продажи.xml -Operation add-content -Value '["Document.Счет","Report.Задолженность"]'
 ```
 
 ### Настройка командного интерфейса
 
 ```
-> Скрой команду открытия списка товаров и размести отчёт Продажи в группе Отчёты
+> Скрой команду открытия списка товаров и размести отчет Продажи в группе Отчеты
 ```
 
 Claude вызовет `/interface-edit`:
@@ -167,7 +167,7 @@ Claude вызовет `/interface-edit`:
 ... -CIPath Subsystems/Продажи/Ext/CommandInterface.xml -Operation hide -Value "Catalog.Товары.StandardCommand.OpenList"
 
 # Разместить в группе
-... -Operation place -Value '{"command":"Report.Продажи.Command.Отчёт","group":"CommandGroup.Отчёты"}'
+... -Operation place -Value '{"command":"Report.Продажи.Command.Отчет","group":"CommandGroup.Отчеты"}'
 ```
 
 ### Проверка подсистемы
@@ -202,4 +202,4 @@ Subsystems/
 
 ## Спецификация
 
-- [1c-subsystem-spec.md](1c-subsystem-spec.md) — XML-формат подсистем, CommandInterface.xml, namespace, элементы
+- [1c-subsystem-spec.md](1c-subsystem-spec.md) - XML-формат подсистем, CommandInterface.xml, namespace, элементы

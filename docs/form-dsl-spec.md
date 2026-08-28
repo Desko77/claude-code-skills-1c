@@ -1,6 +1,6 @@
 # Form DSL Specification
 
-Спецификация JSON-формата для `/form-compile` — компактного описания управляемых форм 1С:Предприятия 8.3.
+Спецификация JSON-формата для `/form-compile` - компактного описания управляемых форм 1С:Предприятия 8.3.
 
 ---
 
@@ -23,7 +23,7 @@
 |------|-----|----------|
 | `title` | string | Заголовок формы (необязательный) |
 | `properties` | object | Свойства формы (необязательный) |
-| `excludedCommands` | string[] | Исключённые стандартные команды (необязательный) |
+| `excludedCommands` | string[] | Исключенные стандартные команды (необязательный) |
 | `events` | object | Обработчики событий формы (необязательный) |
 | `elements` | array | Дерево UI-элементов (необязательный) |
 | `attributes` | array | Реквизиты формы (необязательный) |
@@ -32,7 +32,7 @@
 
 ---
 
-## 2. Properties — свойства формы
+## 2. Properties - свойства формы
 
 Объект со свойствами в camelCase. Компилятор преобразует в PascalCase для XML.
 
@@ -70,7 +70,7 @@
 
 ---
 
-## 3. Events — обработчики событий формы
+## 3. Events - обработчики событий формы
 
 ```json
 "events": {
@@ -79,7 +79,7 @@
 }
 ```
 
-Ключ — имя события, значение — имя процедуры-обработчика.
+Ключ - имя события, значение - имя процедуры-обработчика.
 
 ### Доступные события
 
@@ -101,7 +101,7 @@
 
 ---
 
-## 4. Elements — дерево UI-элементов
+## 4. Elements - дерево UI-элементов
 
 Массив объектов. Тип элемента определяется ключом-идентификатором.
 
@@ -109,12 +109,12 @@
 
 | Свойство | Тип | Описание |
 |----------|-----|----------|
-| `name` | string | Имя элемента (по умолчанию — из значения ключа типа) |
+| `name` | string | Имя элемента (по умолчанию - из значения ключа типа) |
 | `title` | string | Заголовок |
 | `hidden` | bool | `true` → `<Visible>false</Visible>` |
 | `disabled` | bool | `true` → `<Enabled>false</Enabled>` |
 | `readOnly` | bool | `true` → `<ReadOnly>true</ReadOnly>` |
-| `on` | string[] | Массив имён событий |
+| `on` | string[] | Массив имен событий |
 | `handlers` | object | Явные имена обработчиков: `{"OnChange": "МойОбработчик"}` |
 
 ### 4.2. Автоименование обработчиков
@@ -148,7 +148,7 @@
 
 ### 4.3. Типы элементов
 
-#### group — UsualGroup
+#### group - UsualGroup
 
 ```json
 { "group": "horizontal", "name": "ГруппаШапка", "children": [ ... ] }
@@ -162,7 +162,7 @@
 | `representation` | string | `none`, `normal`, `weak`, `strong` |
 | `united` | bool | Объединение |
 
-#### input — InputField
+#### input - InputField
 
 ```json
 { "input": "Организация", "path": "Объект.Организация", "on": ["OnChange"] }
@@ -193,7 +193,7 @@
 | `autoMaxWidth` | bool | Автомаксимальная ширина |
 | `autoMaxHeight` | bool | Автомаксимальная высота |
 
-#### check — CheckBoxField
+#### check - CheckBoxField
 
 ```json
 { "check": "ФлагАктивности", "path": "Активен", "on": ["OnChange"] }
@@ -204,7 +204,7 @@
 | `path` | string | DataPath |
 | `titleLocation` | string | Расположение заголовка |
 
-#### label — LabelDecoration
+#### label - LabelDecoration
 
 ```json
 { "label": "Подсказка", "title": "Выберите параметры", "hyperlink": true }
@@ -219,7 +219,7 @@
 | `autoMaxWidth` | bool | Автомаксимальная ширина |
 | `autoMaxHeight` | bool | Автомаксимальная высота |
 
-#### labelField — LabelField
+#### labelField - LabelField
 
 ```json
 { "labelField": "СтатусОбработки", "path": "Статус" }
@@ -230,7 +230,7 @@
 | `path` | string | DataPath |
 | `hyperlink` | bool | Режим гиперссылки |
 
-#### table — Table
+#### table - Table
 
 ```json
 {
@@ -255,7 +255,7 @@
 | `searchStringLocation` | string | `None`, `Top`, `Bottom`, `CommandBar`, `Auto` |
 | `titleLocation` | string | `Top`, `None` (убрать заголовок таблицы) |
 
-#### pages / page — Pages / Page
+#### pages / page - Pages / Page
 
 ```json
 {
@@ -270,7 +270,7 @@ Page поддерживает `group` для задания ориентации
 
 Pages поддерживает `pagesRepresentation`: `None`, `TabsOnTop`, `TabsOnBottom`, `TabsOnLeft`, `TabsOnRight`.
 
-#### button — Button
+#### button - Button
 
 ```json
 { "button": "Загрузить", "command": "Загрузить", "defaultButton": true }
@@ -286,7 +286,7 @@ Pages поддерживает `pagesRepresentation`: `None`, `TabsOnTop`, `Tabs
 | `representation` | string | `Auto`, `Picture`, `Text`, `PictureAndText` |
 | `locationInCommandBar` | string | `InCommandBar`, `InAdditionalSubmenu` |
 
-#### picture — PictureDecoration
+#### picture - PictureDecoration
 
 ```json
 { "picture": "Логотип", "src": "CommonPicture.Логотип" }
@@ -299,25 +299,25 @@ Pages поддерживает `pagesRepresentation`: `None`, `TabsOnTop`, `Tabs
 | `width` | int | Ширина |
 | `height` | int | Высота |
 
-#### picField — PictureField
+#### picField - PictureField
 
 ```json
 { "picField": "Фото", "path": "Фотография" }
 ```
 
-#### calendar — CalendarField
+#### calendar - CalendarField
 
 ```json
 { "calendar": "Дата", "path": "ДатаОтчета" }
 ```
 
-#### cmdBar — CommandBar
+#### cmdBar - CommandBar
 
 ```json
 { "cmdBar": "КоманднаяПанель", "children": [ ... ] }
 ```
 
-#### popup — Popup
+#### popup - Popup
 
 ```json
 { "popup": "Печать", "picture": "StdPicture.Print", "children": [ ... ] }
@@ -325,7 +325,7 @@ Pages поддерживает `pagesRepresentation`: `None`, `TabsOnTop`, `Tabs
 
 ---
 
-## 5. Attributes — реквизиты формы
+## 5. Attributes - реквизиты формы
 
 ```json
 "attributes": [
@@ -350,7 +350,7 @@ Pages поддерживает `pagesRepresentation`: `None`, `TabsOnTop`, `Tabs
 
 ---
 
-## 6. Parameters — параметры формы
+## 6. Parameters - параметры формы
 
 ```json
 "parameters": [
@@ -367,7 +367,7 @@ Pages поддерживает `pagesRepresentation`: `None`, `TabsOnTop`, `Tabs
 
 ---
 
-## 7. Commands — команды формы
+## 7. Commands - команды формы
 
 ```json
 "commands": [

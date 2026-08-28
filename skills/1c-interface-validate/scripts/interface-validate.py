@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# interface-validate v1.1 — Validate 1C CommandInterface.xml structure
+# interface-validate v1.1 - Validate 1C CommandInterface.xml structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates CommandInterface.xml sections, command references, order, duplicates."""
 import sys, os, argparse, re
@@ -227,7 +227,7 @@ def main():
                     vis_ok = False
             if vis_ok:
                 r.ok(f'5. CommandsVisibility: {vis_count} entries, all valid')
-        # CommandsVisibility not present — no check needed
+        # CommandsVisibility not present - no check needed
 
     # --- 6. CommandsVisibility duplicates ---
     if not r.stopped:
@@ -267,7 +267,7 @@ def main():
                     r.warn(f"7. CommandsPlacement[{cmd_name}]: Placement='{(placement_el.text or '').strip()}' (expected Auto)")
             if plc_ok:
                 r.ok(f'7. CommandsPlacement: {plc_count} entries, all valid')
-        # CommandsPlacement not present — no check needed
+        # CommandsPlacement not present - no check needed
 
     # --- 8. CommandsOrder ---
     if not r.stopped:
@@ -291,7 +291,7 @@ def main():
                     ord_ok = False
             if ord_ok:
                 r.ok(f'8. CommandsOrder: {ord_count} entries, all valid')
-        # CommandsOrder not present — no check needed
+        # CommandsOrder not present - no check needed
 
     # --- 9. SubsystemsOrder format ---
     sub_names = []
@@ -314,7 +314,7 @@ def main():
                     sub_ok = False
             if sub_ok:
                 r.ok(f'9. SubsystemsOrder: {sub_count} entries, all valid format')
-        # SubsystemsOrder not present — no check needed
+        # SubsystemsOrder not present - no check needed
 
     # --- 10. SubsystemsOrder duplicates ---
     if not r.stopped:
@@ -343,7 +343,7 @@ def main():
                     grp_ok = False
             if grp_ok:
                 r.ok(f'11. GroupsOrder: {grp_count} entries, all valid')
-        # GroupsOrder not present — no check needed
+        # GroupsOrder not present - no check needed
 
     # --- 12. GroupsOrder duplicates ---
     if not r.stopped:

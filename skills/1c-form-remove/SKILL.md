@@ -1,6 +1,6 @@
 ---
 name: 1c-form-remove
-description: Удалить форму из объекта 1С (обработка, отчёт, справочник, документ и др.)
+description: Удалить форму из объекта 1С (обработка, отчет, справочник, документ и др.)
 argument-hint: <ObjectName> <FormName>
 disable-model-invocation: true
 allowed-tools:
@@ -12,9 +12,9 @@ allowed-tools:
   - Grep
 ---
 
-# /form-remove — Удаление формы
+# /form-remove - Удаление формы
 
-Удаляет форму и убирает её регистрацию из корневого XML объекта.
+Удаляет форму и убирает ее регистрацию из корневого XML объекта.
 
 ## Usage
 
@@ -24,8 +24,8 @@ allowed-tools:
 
 | Параметр   | Обязательный | По умолчанию | Описание                            |
 |------------|:------------:|--------------|-------------------------------------|
-| ObjectName | да           | —            | Имя объекта                         |
-| FormName   | да           | —            | Имя формы для удаления              |
+| ObjectName | да           | -            | Имя объекта                         |
+| FormName   | да           | -            | Имя формы для удаления              |
 | SrcDir     | нет          | `src`        | Каталог исходников                  |
 
 ## Команда
@@ -43,5 +43,5 @@ powershell.exe -NoProfile -File skills/1c-form-remove/scripts/remove-form.ps1 -O
 
 ## Что модифицируется
 
-- `<SrcDir>/<ObjectName>.xml` — убирается `<Form>` из `ChildObjects`
-- Если удаляемая форма была DefaultForm — очищается значение DefaultForm
+- `<SrcDir>/<ObjectName>.xml` - убирается `<Form>` из `ChildObjects`
+- Если удаляемая форма была DefaultForm - очищается значение DefaultForm

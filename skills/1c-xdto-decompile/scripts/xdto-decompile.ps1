@@ -1,4 +1,4 @@
-﻿# xdto-decompile v1.1 — Convert 1C XDTO package to XML Schema (XSD)
+﻿# xdto-decompile v1.1 - Convert 1C XDTO package to XML Schema (XSD)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
 	[Parameter(Mandatory=$true)]
@@ -98,7 +98,7 @@ function EscText([string]$s) {
 
 function Convert-QName([System.Xml.XmlElement]$el, [string]$qname) {
 	if (-not $qname) { return $null }
-	# Нотация Кларка {ns}local — так записаны почти все memberTypes
+	# Нотация Кларка {ns}local - так записаны почти все memberTypes
 	if ($qname.StartsWith("{")) {
 		$close = $qname.IndexOf("}")
 		if ($close -gt 0) {
@@ -160,8 +160,8 @@ function Mirror([string]$name, $value) {
 	return " xdto:$name=`"$(Esc ([string]$value))`""
 }
 
-# Обычно префиксы генерируются схемой dNpM, но изредка узел несёт осмысленный
-# префикс (например dcsset) — его надо сохранить, иначе round-trip не сойдётся.
+# Обычно префиксы генерируются схемой dNpM, но изредка узел несет осмысленный
+# префикс (например dcsset) - его надо сохранить, иначе round-trip не сойдется.
 function Mirror-Prefix([System.Xml.XmlElement]$el) {
 	foreach ($a in $el.Attributes) {
 		if ($a.Prefix -ne "xmlns") { continue }
@@ -186,7 +186,7 @@ function Emit-Facets([System.Xml.XmlElement]$el, [string]$indent) {
 		if ($child.get_LocalName() -eq "pattern") {
 			X "$indent<xs:pattern value=`"$(Esc $child.InnerText)`"/>"
 		} elseif ($child.get_LocalName() -eq "enumeration") {
-			# xsi:type on enumeration has no XSD counterpart — mirror it
+			# xsi:type on enumeration has no XSD counterpart - mirror it
 			$xsiType = $child.GetAttribute("type", $XSI_NS)
 			$m = ""
 			if ($xsiType) { $m = Mirror "type" (Convert-QName $child $xsiType) }
@@ -220,7 +220,7 @@ function Emit-SimpleTypeBody([System.Xml.XmlElement]$el, [string]$indent) {
 	if ($null -ne $rawMembers -and -not $rawMembers.StartsWith("{")) {
 		$mv += Mirror "memberTypesForm" "prefixed"
 	}
-	# При нотации Кларка объявление xmlns:dNpM иногда присутствует, иногда нет —
+	# При нотации Кларка объявление xmlns:dNpM иногда присутствует, иногда нет -
 	# из значения это не выводится (зависит от состояния сериализатора), зеркалим факт
 	if ($null -ne $rawMembers -and $rawMembers.StartsWith("{")) {
 		foreach ($a in $el.Attributes) {
@@ -302,15 +302,15 @@ function Emit-Property([System.Xml.XmlElement]$p, [string]$indent, [bool]$isGlob
 	$nill  = A $p "nillable"
 	$def   = A $p "default"
 	$fix   = A $p "fixed"
-	# В модели fixed — булев флаг, значение лежит в default; в XSD наоборот:
-	# fixed="V" несёт само значение. Переводим, а не копируем.
+	# В модели fixed - булев флаг, значение лежит в default; в XSD наоборот:
+	# fixed="V" несет само значение. Переводим, а не копируем.
 	$defOut = $def
 	$fixOut = $null
 	$fixMirror = ""
 	if ($fix -eq "true" -and $null -ne $def) { $fixOut = $def; $defOut = $null }
 	elseif ($null -ne $fix) { $fixMirror = Mirror "fixed" $fix }
 	$anon  = Get-AnonTypeDef $p
-	# qualified записан как атрибут в пространстве имён XDTO
+	# qualified записан как атрибут в пространстве имен XDTO
 	$qual  = $p.GetAttribute("qualified", $XDTO_NS)
 	if ($qual -eq "") { $qual = $null }
 
@@ -461,8 +461,8 @@ function ComplexTypeAttrs([System.Xml.XmlElement]$el) {
 	if ($mixed -eq "true")    { $out += " mixed=`"true`"" }    elseif ($null -ne $mixed)    { $out += Mirror "mixed" $mixed }
 
 	# XSD требует объявлять атрибуты после частицы, поэтому исходный порядок свойств
-	# восстановим как «сначала form=Attribute, потом остальные» — это верно для 96.5%
-	# типов корпуса. Расхождения (768 типов) зеркалим списком имён.
+	# восстановим как "сначала form=Attribute, потом остальные" - это верно для 96.5%
+	# типов корпуса. Расхождения (768 типов) зеркалим списком имен.
 	$order = @(); $kinds = @()
 	foreach ($c in $el.ChildNodes) {
 		if ($c.NodeType -ne [System.Xml.XmlNodeType]::Element -or $c.get_LocalName() -ne "property") { continue }
@@ -597,7 +597,7 @@ if ($meta) {
 [void]$sb.Append($bodyBuilder.ToString())
 X "</xs:schema>"
 
-# --- Output (UTF-8 with BOM, CRLF — matches the Designer's own XSD export) ---
+# --- Output (UTF-8 with BOM, CRLF - matches the Designer's own XSD export) ---
 
 $text = $sb.ToString()
 if ($OutFile) {

@@ -1,4 +1,4 @@
-# xdto-edit v1.6 — Point edits of a 1C XDTO package (Python port) (+support-guard: общая реализация вместо урезанной)
+# xdto-edit v1.6 - Point edits of a 1C XDTO package (Python port) (+support-guard: общая реализация вместо урезанной)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 import argparse
 import json
@@ -15,7 +15,7 @@ from lxml import etree
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-# Регистронезависимый ввод — паритет с PS1: в PowerShell имена параметров и [ValidateSet]
+# Регистронезависимый ввод - паритет с PS1: в PowerShell имена параметров и [ValidateSet]
 # регистр не различают, в argparse совпадение точное.
 def ci_parse_args(parser, argv=None):
     """parse_args по правилам PS: имена параметров и значения choices регистронезависимы."""
@@ -24,7 +24,7 @@ def ci_parse_args(parser, argv=None):
     for i, tok in enumerate(argv):
         if tok.startswith('-') and tok.lower() in names:
             argv[i] = names[tok.lower()]
-    # choices — зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
+    # choices - зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
     choice_map = {}
     for a in parser._actions:
         if a.choices:
@@ -64,7 +64,7 @@ def local(el):
 
 
 def _parse_xml(source, from_string=False):
-    """Разбор с узким отступлением для не-URI пространств имён.
+    """Разбор с узким отступлением для не-URI пространств имен.
 
     Платформа допускает в targetNamespace произвольную строку, .NET такое принимает,
     а libxml2 отвергает. Откатываемся на восстанавливающий разбор ТОЛЬКО на этой ошибке.
@@ -79,10 +79,10 @@ def _parse_xml(source, from_string=False):
 
 
 # ============================================================
-# Support guard (Ext/ParentConfigurations.bin) — see docs/1c-support-state-spec.md
+# Support guard (Ext/ParentConfigurations.bin) - see docs/1c-support-state-spec.md
 # Blocks edits of vendor objects "на замке" / read-only configs. Trigger = bin
 # present; reaction from .v8-project.json editingAllowedCheck (deny|warn|off,
-# default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
+# default deny). Never throws (except sys.exit on deny) - errors degrade to allow.
 # ============================================================
 
 def _sg_parse(xml_path):
@@ -218,12 +218,12 @@ def assert_edit_allowed(target_path, require):
             if best is not None and best != 2:
                 blocked = True
                 code = "not-removed"
-                reason = "объект не снят с поддержки — удаление сломает обновления"
+                reason = "объект не снят с поддержки - удаление сломает обновления"
         else:
             if best is not None and best == 0:
                 blocked = True
                 code = "locked"
-                reason = "объект на замке — редактирование сломает обновления"
+                reason = "объект на замке - редактирование сломает обновления"
         if not blocked:
             return
         mode = _sg_get_edit_mode(cfg_dir)
@@ -233,28 +233,28 @@ def assert_edit_allowed(target_path, require):
             sys.stderr.write(f"[support-guard] ПРЕДУПРЕЖДЕНИЕ: {reason}. Цель: {rp}\n")
             return
         head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
         off_note = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
         if code == "capability-off":
-            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «{rp}» редактировать нельзя."
+            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '{rp}' редактировать нельзя."
             fix = (
                 "Либо снять защиту явно (навык support-edit, два шага):\n"
-                f'  1. support-edit -Path "{cfg_dir}" -Capability on — включить возможность изменения (объекты пока остаются на замке);\n'
-                f'  2. support-edit -Path "{rp}" -Set editable — открыть этот объект для редактирования.\n'
+                f'  1. support-edit -Path "{cfg_dir}" -Capability on - включить возможность изменения (объекты пока остаются на замке);\n'
+                f'  2. support-edit -Path "{rp}" -Set editable - открыть этот объект для редактирования.\n'
                 "  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
             )
         elif code == "not-removed":
-            state = f"Состояние: объект «{rp}» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+            state = f"Состояние: объект '{rp}' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
             fix = (
                 "Либо сначала снять объект с поддержки, затем удалять:\n"
-                f'  support-edit -Path "{rp}" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно.'
+                f'  support-edit -Path "{rp}" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно.'
             )
         else:
-            state = f"Состояние: объект «{rp}» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+            state = f"Состояние: объект '{rp}' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
             fix = (
                 "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):\n"
-                f'  support-edit -Path "{rp}" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
-                f'  support-edit -Path "{rp}" -Set off-support — снять с поддержки: обновления по объекту больше не приходят.'
+                f'  support-edit -Path "{rp}" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
+                f'  support-edit -Path "{rp}" -Set off-support - снять с поддержки: обновления по объекту больше не приходят.'
             )
         sys.stderr.write(head + "\n" + state + "\n" + cfe + "\n" + fix + "\n" + off_note + "\n")
         sys.exit(1)
@@ -288,8 +288,8 @@ bin_file = os.path.join(pkg_dir, "Ext", "Package.bin")
 md_file = os.path.join(xdto_root, pkg_name + ".xml")
 config_xml = os.path.join(config_root, "Configuration.xml")
 
-# -Value "@путь" — содержимое берётся из файла. Передавать XSD-фрагмент инлайном
-# ненадёжно: вложенные кавычки схлопываются на границе процессов, и вместо понятной
+# -Value "@путь" - содержимое берется из файла. Передавать XSD-фрагмент инлайном
+# ненадежно: вложенные кавычки схлопываются на границе процессов, и вместо понятной
 # ошибки получается сырой сбой разбора XML.
 if args.Value.startswith("@"):
     value_file = args.Value[1:]
@@ -309,9 +309,9 @@ VALIDATE = os.path.join(SKILLS, "1c-xdto-validate", "scripts", "xdto-validate.py
 
 
 # Исключение из автономности навыков, сделанное осознанно: конвертер XSD <-> модель
-# нельзя скопировать буквально (xdto-compile — скрипт со сквозным потоком, не библиотека),
-# а вторая его реализация разошлась бы с первой. Обещание «правка не меняет ни байта
-# в нетронутом» держится именно на том, что код тот же самый.
+# нельзя скопировать буквально (xdto-compile - скрипт со сквозным потоком, не библиотека),
+# а вторая его реализация разошлась бы с первой. Обещание "правка не меняет ни байта
+# в нетронутом" держится именно на том, что код тот же самый.
 # Проверяем комплектность заранее, чтобы не падать на середине правки.
 def assert_siblings_present(operation):
     needed = {}
@@ -342,10 +342,10 @@ def save_xml(doc, path):
     # альтернации и возвращаются как есть.
     raw = re.sub(rb'(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|(?<=\S) />',
                     lambda m: b'/>' if m.group(0) == b' />' else m.group(0), raw)
-    # lxml пишет декларацию в ОДИНАРНЫХ кавычках, платформа и PS-порт — в двойных.
+    # lxml пишет декларацию в ОДИНАРНЫХ кавычках, платформа и PS-порт - в двойных.
     raw = raw.replace(b"<?xml version='1.0' encoding='UTF-8'?>",
                       b'<?xml version="1.0" encoding="UTF-8"?>')
-    # Парсер XML по спецификации схлопывает CRLF в LF, поэтому tostring отдаёт
+    # Парсер XML по спецификации схлопывает CRLF в LF, поэтому tostring отдает
     # LF-документ. Возвращаем EOL файла-назначения: правка существующего файла
     # сохраняет его стиль (#44/#46/#47), новый получает канон CRLF. Правило то же,
     # что у _detect_xml_style и у $targetEol в PS-порту: есть CRLF → CRLF.
@@ -434,7 +434,7 @@ def rename_package(new_name):
             save_xml(cfg, config_xml)
             print(f"  Configuration.xml: <XDTOPackage> переименован в {new_name}")
         else:
-            print(f"WARNING: В Configuration.xml не найдена запись <XDTOPackage>{pkg_name}</XDTOPackage> — "
+            print(f"WARNING: В Configuration.xml не найдена запись <XDTOPackage>{pkg_name}</XDTOPackage> - "
                   "зарегистрируйте пакет вручную", file=sys.stderr)
     print(f"✓ Пакет переименован: {pkg_name} → {new_name}")
     print(f"  Перемещены: {new_name}.xml, {new_name}/")
@@ -481,7 +481,7 @@ def find_declaration(body, prop_name):
 
 
 def resolve_path(schema, path):
-    # Точка безопасна: имена в модели XDTO — идентификаторы 1С
+    # Точка безопасна: имена в модели XDTO - идентификаторы 1С
     segments = path.split(".")
     type_el = find_type_element(schema, segments[0])
     if len(segments) == 1:
@@ -495,7 +495,7 @@ def resolve_path(schema, path):
         if i < len(segments) - 1:
             inner = xs_first(decl, "complexType")
             if inner is None:
-                die(f'Свойство "{segments[i]}" не содержит вложенного типа — путь дальше не идёт')
+                die(f'Свойство "{segments[i]}" не содержит вложенного типа - путь дальше не идет')
             body = get_type_body(inner)
     return (type_el, decl)
 
@@ -515,7 +515,7 @@ def import_fragment(schema, xml):
         die("Не удалось разобрать -Value как фрагмент XML-схемы: " + str(e) + "\n"
             + "Получено: " + xml + "\n"
             + "Если фрагмент передан инлайном, кавычки могли схлопнуться на границе "
-              'процессов — положите его в файл и укажите -Value "@путь".')
+              'процессов - положите его в файл и укажите -Value "@путь".')
     res = [c for c in wrapped if isinstance(c.tag, str)]
     if not res:
         die(f"Во фрагменте нет ни одного элемента: {xml}")
@@ -590,7 +590,7 @@ def apply_model_operation(schema):
         for one in [x.strip() for x in args.Target.split(";;") if x.strip()]:
             t = find_type_element(schema, one)
             t.getparent().remove(t)
-            print(f"  − тип {one} удалён")
+            print(f"  − тип {one} удален")
 
     elif op == "add-enum":
         if not args.Target:
@@ -659,7 +659,7 @@ elif args.Operation == "set-synonym":
     print(f"✓ Синоним: {args.Value}")
 elif args.Operation == "set-comment":
     edit_metadata("Comment", args.Value)
-    print("✓ Комментарий обновлён")
+    print("✓ Комментарий обновлен")
 else:
     tmp_dir = tempfile.mkdtemp(prefix="xdto-edit_")
     try:
@@ -714,7 +714,7 @@ else:
                 print("")
                 print(f"WARNING: Старый namespace импортируют пакеты ({len(dependents)}): "
                       + ", ".join(dependents)
-                      + ". Они не изменены — при версионировании это верно; "
+                      + ". Они не изменены - при версионировании это верно; "
                         "если нет, поправьте их импорты.", file=sys.stderr)
         print(f"✓ Пакет пересобран: XDTOPackages/{pkg_name}/Ext/Package.bin")
     finally:

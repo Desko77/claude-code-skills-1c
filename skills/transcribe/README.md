@@ -8,13 +8,13 @@
 
 Производительность на RTX 5070 Ti Laptop: ~7 мин на 30 мин аудио с диаризацией (RTF ~0.24).
 
-Если нужна только локальная транскрипция аудио (без видео и Gemini) - используйте более лёгкий скил `transcribe-audio-local` в этом же репо.
+Если нужна только локальная транскрипция аудио (без видео и Gemini) - используйте более легкий скил `transcribe-audio-local` в этом же репо.
 
 ## Системные требования
 
 - **Python 3.10+** (рекомендуется 3.12)
 - **NVIDIA GPU** с CUDA 12 и cuDNN 9 (для локального GPU режима)
-- **ffmpeg** и **ffprobe** — либо в PATH, либо setup поставит `static-ffmpeg` (pip-пакет с обоими бинарниками) в venv-whisper автоматически. Системные права не нужны.
+- **ffmpeg** и **ffprobe** - либо в PATH, либо setup поставит `static-ffmpeg` (pip-пакет с обоими бинарниками) в venv-whisper автоматически. Системные права не нужны.
 - **Windows x64** или **Linux x64**
 - **~6 ГБ свободного места** (venv-whisper ~2 ГБ, venv-sherpa ~3 ГБ, модели ~91 МБ)
 - Для Gemini-режима: API-ключ с https://aistudio.google.com/apikey
@@ -27,7 +27,7 @@
 python ~/.claude/skills/transcribe/scripts/setup.py
 ```
 
-Что произойдёт:
+Что произойдет:
 1. Проверка Python и ffmpeg.
 2. Создание `venv-whisper/` со всеми зависимостями (faster-whisper, ctranslate2-CUDA, google-genai, python-dotenv, nvidia-*).
 3. Создание `venv-sherpa/` с sherpa-onnx GPU + onnxruntime-gpu.
@@ -58,7 +58,7 @@ python scripts/verify.py --full      # с реальным прогоном ло
 
 ### Для AI-агентов
 
-Установка длинная (~20-30 минут с загрузкой моделей и Gemini-зависимостей). Перед запуском `setup.py` через subprocess/Bash увеличьте таймаут до 30 минут или используйте фоновый режим. См. раздел «Для агента» в `SKILL.md`.
+Установка длинная (~20-30 минут с загрузкой моделей и Gemini-зависимостей). Перед запуском `setup.py` через subprocess/Bash увеличьте таймаут до 30 минут или используйте фоновый режим. См. раздел "Для агента" в `SKILL.md`.
 
 ### Заполнить .env
 
@@ -134,7 +134,7 @@ python ~/.claude/skills/transcribe/scripts/analyze_video_local.py \
 
 Сохраняются в `<каталог-входа>/Транскрипция/<имя>/`:
 
-| Файл | Когда создаётся |
+| Файл | Когда создается |
 |---|---|
 | `<имя> - транскрипция.md` | всегда (md с таймкодами) |
 | `<имя> - транскрипция.txt` | локальный движок (plain text) |
@@ -151,7 +151,7 @@ python ~/.claude/skills/transcribe/scripts/analyze_video_local.py \
 скил/
 ├── SKILL.md                    # описание для Claude Code
 ├── README.md                   # эта инструкция
-├── .env                        # ключи API (создаётся setup)
+├── .env                        # ключи API (создается setup)
 ├── glossary.txt                # термины и ослышки распознавателя (правится руками)
 ├── scripts/
 │   ├── transcribe_local.py     # orchestrator локального аудио (faster-whisper + diarize)
@@ -167,8 +167,8 @@ python ~/.claude/skills/transcribe/scripts/analyze_video_local.py \
 │   ├── diarize_moss.py         # worker MOSS end-to-end (ASR + диаризация одной моделью)
 │   ├── setup.py                # установщик
 │   └── verify.py               # проверка установки
-├── venv-whisper/               # создаётся setup: faster-whisper + Gemini + CUDA
-├── venv-sherpa/                # создаётся setup: sherpa-onnx + onnxruntime-gpu
+├── venv-whisper/               # создается setup: faster-whisper + Gemini + CUDA
+├── venv-sherpa/                # создается setup: sherpa-onnx + onnxruntime-gpu
 └── models/                     # скачивается setup
     ├── sherpa-onnx-pyannote-segmentation-3-0/model.onnx
     └── 3dspeaker_speech_eres2net_base_200k_sv_zh-cn_16k-common.onnx
@@ -215,7 +215,7 @@ CPU-вариант: `pip install sherpa-onnx` без `-f`.
 
 Бесплатная квота Gemini 2.5 Flash ~1500 запросов/день. На больших файлах (>1ч) может закончиться. Варианты:
 - Подождать сброса квоты (00:00 PT)
-- Для аудио — fallback на локальный движок (`transcribe_local.py`)
+- Для аудио - fallback на локальный движок (`transcribe_local.py`)
 - Заплатить за PAYG-тарифа в AI Studio
 
 ### Модели не скачиваются
@@ -224,7 +224,7 @@ URL k2-fsa releases:
 - https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2
 - https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_200k_sv_zh-cn_16k-common.onnx
 
-Если недоступны - скачайте вручную в `models/`, повторите `setup.py --skip-models` (распаковка архива всё равно произойдёт).
+Если недоступны - скачайте вручную в `models/`, повторите `setup.py --skip-models` (распаковка архива все равно произойдет).
 
 ### CUDA DLL не находятся
 

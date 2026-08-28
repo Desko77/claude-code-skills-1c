@@ -1,4 +1,4 @@
-﻿# xdto-compile v1.11 — Build a 1C XDTO package from an XML Schema (XSD) (+support-guard: общая реализация вместо урезанной)
+﻿# xdto-compile v1.11 - Build a 1C XDTO package from an XML Schema (XSD) (+support-guard: общая реализация вместо урезанной)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
 	[Parameter(Mandatory=$true, ParameterSetName='File')]
@@ -16,7 +16,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Эти пространства имён предоставляет сама платформа — пакетов в конфигурации
+# Эти пространства имен предоставляет сама платформа - пакетов в конфигурации
 # для них нет и быть не должно (выведено по корпусу: импортируются, но
 # targetNamespace с таким значением ни у одного пакета нет)
 $PLATFORM_NS = @(
@@ -40,7 +40,7 @@ $V8_NS   = "http://v8.1c.ru/8.1/data/core"
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
 # .v8-project.json editingAllowedCheck (deny|warn|off, default deny). Never
-# throws — guard errors degrade to allow.
+# throws - guard errors degrade to allow.
 function Get-RootUuid([string]$xmlPath) {
 	if (-not (Test-Path $xmlPath)) { return $null }
 	try {
@@ -138,29 +138,29 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 		$blocked = $false; $code = ""; $reason = ""
 		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
 		elseif ($require -eq 'removed') {
-			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки - удаление сломает обновления" }
 		}
 		else {
-			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке - редактирование сломает обновления" }
 		}
 		if (-not $blocked) { return }
 		$mode = Get-EditMode $cfgDir
 		if ($mode -eq 'off') { return }
-		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# Use Console.Error (not Write-Error) - under ErrorActionPreference=Stop the
 		# latter throws and would be swallowed by this function's own catch.
 		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
 		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
 		$offNote = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
 		if ($code -eq "capability-off") {
-			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
-			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '$rp' редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on - включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable - открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
 		} elseif ($code -eq "not-removed") {
-			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
-			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+			$state = "Состояние: объект '$rp' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно."
 		} else {
-			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
-			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+			$state = "Состояние: объект '$rp' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support - снять с поддержки: обновления по объекту больше не приходят."
 		}
 		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
 		exit 1
@@ -173,7 +173,7 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 function Detect-FormatVersion([string]$dir) {
 	$d = $dir
 	while ($d) {
-		# Автономная внешняя обработка/отчёт: своего Configuration.xml у неё нет, версию несёт
+		# Автономная внешняя обработка/отчет: своего Configuration.xml у нее нет, версию несет
 		# корень самой обработки. Без этого форма и макет внутри обработки 2.21 писались бы 2.17.
 		$extPath = "$d.xml"
 		if (Test-Path $extPath) {
@@ -184,8 +184,8 @@ function Detect-FormatVersion([string]$dir) {
 		$cfgPath = Join-Path $d "Configuration.xml"
 		if (Test-Path $cfgPath) {
 			$cfgText = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8)
-			# Длину среза берём по СТРОКЕ, а не по размеру файла: размер в БАЙТАХ, Substring считает
-			# СИМВОЛЫ, и на кириллице байт больше — короткий Configuration.xml ронял навык исключением.
+			# Длину среза берем по СТРОКЕ, а не по размеру файла: размер в БАЙТАХ, Substring считает
+			# СИМВОЛЫ, и на кириллице байт больше - короткий Configuration.xml ронял навык исключением.
 			$head = $cfgText.Substring(0, [Math]::Min(2000, $cfgText.Length))
 			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
 		}
@@ -213,7 +213,7 @@ try { $xdoc.LoadXml($xsdText) } catch { throw "Не удалось разобр�
 
 $schema = $xdoc.DocumentElement
 if ($schema.get_LocalName() -ne "schema" -or $schema.NamespaceURI -ne $XS_NS) {
-	throw "Ожидался корневой <xs:schema> в пространстве имён $XS_NS"
+	throw "Ожидался корневой <xs:schema> в пространстве имен $XS_NS"
 }
 
 $targetNs = $schema.GetAttribute("targetNamespace")
@@ -240,7 +240,7 @@ function Add-QListAttr($node, [string]$name, $pairs, [bool]$clark) {
 }
 function Add-Child($node, $child) { if ($child) { [void]$node.Children.Add($child) } }
 
-# Canonical attribute order per element — derived by topological sort over the
+# Canonical attribute order per element - derived by topological sort over the
 # whole 8.3.24 corpus (acc + erp, 760 packages), see docs/1c-xdto-spec.md.
 $ATTR_ORDER = @{
 	"package"     = @("targetNamespace", "elementFormQualified", "attributeFormQualified")
@@ -280,9 +280,9 @@ function Serialize-Node($node, [int]$depth, $inherited) {
 	$indent = "`t" * ($depth - 1)
 	$attrs = Sort-Attrs $node
 
-	# Namespaces needing a NEW declaration here: те, что ещё не в области видимости.
+	# Namespaces needing a NEW declaration here: те, что еще не в области видимости.
 	# Сериализатор платформы объявляет префикс на первом узле, где он нужен, а
-	# потомки его переиспользуют — отсюда d2p1 у property внутри objectType.
+	# потомки его переиспользуют - отсюда d2p1 у property внутри objectType.
 	$localNs = New-Object System.Collections.ArrayList
 	function Need-Prefix([string]$ns) {
 		if (-not $ns -or $ns -eq $XS_NS -or $ns -eq $XSI_NS) { return }
@@ -291,13 +291,13 @@ function Serialize-Node($node, [int]$depth, $inherited) {
 	}
 	foreach ($a in $attrs) {
 		if ($a.PSObject.Properties.Name -contains 'List' -and $a.List) {
-			# Нотация Кларка несёт ns в значении и префикса не требует; редкие
-			# случаи, где платформа его всё же объявила, приходят зеркалом declareNs
+			# Нотация Кларка несет ns в значении и префикса не требует; редкие
+			# случаи, где платформа его все же объявила, приходят зеркалом declareNs
 			if (-not $a.Clark) { foreach ($p in $a.List) { Need-Prefix $p.Ns } }
 		} elseif ($a.Ns) { Need-Prefix $a.Ns }
 	}
 	# Свойство с qualified платформа сериализует с явным префиксом пространства
-	# имён XDTO — и в имени тега, и в имени самого атрибута
+	# имен XDTO - и в имени тега, и в имени самого атрибута
 	$hasQualified = $false
 	foreach ($a in $attrs) { if ($a.Name -eq "qualified") { $hasQualified = $true } }
 	if ($hasQualified) { Need-Prefix $XDTO_NS }
@@ -359,8 +359,8 @@ function Serialize-Node($node, [int]$depth, $inherited) {
 
 # --- XSD reading helpers ---
 
-# Предупреждения о том, что XSD выражает, а модель XDTO — нет. Молча ронять
-# такие конструкции нельзя: пакет соберётся, а половина свойств исчезнет.
+# Предупреждения о том, что XSD выражает, а модель XDTO - нет. Молча ронять
+# такие конструкции нельзя: пакет соберется, а половина свойств исчезнет.
 $script:warnings = New-Object System.Collections.ArrayList
 function Warn([string]$msg) {
 	if (-not $script:warnings.Contains($msg)) { [void]$script:warnings.Add($msg) }
@@ -371,7 +371,7 @@ function XA([System.Xml.XmlElement]$el, [string]$name) {
 	return $null
 }
 function MA([System.Xml.XmlElement]$el, [string]$name) {
-	# xdto: mirror attribute — the literal value to write into Package.bin.
+	# xdto: mirror attribute - the literal value to write into Package.bin.
 	# Префикс не фиксируем: ищем по namespace, а не по строке "xdto:".
 	$a = $el.Attributes.GetNamedItem($name, $XDTO_NS)
 	if ($null -eq $a) { return $null }
@@ -434,12 +434,12 @@ function Fill-SimpleType($node, [System.Xml.XmlElement]$st) {
 		$mv = MA $union "variety"
 		Set-AttrValue $node "variety" $(if ($null -ne $mv) { $mv } else { "Union" })
 		$members = @(Split-QNameList $union (XA $union "memberTypes"))
-		# По умолчанию нотация Кларка — так записано 125 из 135 memberTypes корпуса
+		# По умолчанию нотация Кларка - так записано 125 из 135 memberTypes корпуса
 		$useClark = ((MA $union "memberTypesForm") -ne "prefixed")
 		if ($members.Count -gt 0) { Add-QListAttr $node "memberTypes" $members $useClark }
 		$node.DeclareNs = MA $union "declareNs"
 		foreach ($anon in (XChildren $union "simpleType")) {
-			# typeDef в контексте простого типа xsi:type не несёт (40 узлов корпуса)
+			# typeDef в контексте простого типа xsi:type не несет (40 узлов корпуса)
 			$td = New-Node "typeDef"
 			Fill-SimpleType $td $anon
 			Add-Child $node $td
@@ -451,7 +451,7 @@ function Fill-SimpleType($node, [System.Xml.XmlElement]$st) {
 		if ($b) { Add-QAttr $node "base" $b.Ns $b.Local }
 		$mv = MA $restriction "variety"
 		if ($null -ne $mv) { Add-Attr $node "variety" $mv }
-		# Анонимный базовый тип внутри xs:restriction — typeDef без xsi:type
+		# Анонимный базовый тип внутри xs:restriction - typeDef без xsi:type
 		$anonBase = XFirst $restriction "simpleType"
 		if ($anonBase) {
 			$td = New-Node "typeDef"
@@ -540,14 +540,14 @@ function Build-Property([System.Xml.XmlElement]$el, [bool]$isAttribute) {
 		Add-Attr $p "nillable" (XA $el "nillable")
 	}
 
-	# XSD-шный fixed="V" несёт значение, в модели это fixed="true" + default="V".
+	# XSD-шный fixed="V" несет значение, в модели это fixed="true" + default="V".
 	# Прощающий ввод: модельная форма через зеркало xdto:fixed тоже принимается.
 	$mFixed = MA $el "fixed"
 	if ($null -ne $mFixed) {
 		Add-Attr $p "fixed" $mFixed
 		Add-Attr $p "default" (XA $el "default")
 		if ($mFixed -ceq "true" -and $null -eq (XA $el "default")) {
-			Warn "Свойство `"$(XA $el 'name')`": xdto:fixed=`"true`" без default — платформа отвергнет пакет («Отсутствует фиксированное значение»). Значение задаётся атрибутом default, либо пишите XSD-форму fixed=`"значение`""
+			Warn "Свойство `"$(XA $el 'name')`": xdto:fixed=`"true`" без default - платформа отвергнет пакет (Отсутствует фиксированное значение). Значение задается атрибутом default, либо пишите XSD-форму fixed=`"значение`""
 		}
 	} elseif ($null -ne (XA $el "fixed")) {
 		Add-Attr $p "fixed" "true"
@@ -599,7 +599,7 @@ function Resolve-Group([System.Xml.XmlElement]$el, [string]$kind) {
 }
 
 # Модель XDTO знает только плоский список свойств: вложенные частицы уплощаются.
-# Каждое уплощение — предупреждение, потому что меняется смысл схемы.
+# Каждое уплощение - предупреждение, потому что меняется смысл схемы.
 function Collect-Particle([System.Xml.XmlElement]$particle, $elemList, [ref]$isOpen, [string]$typeName, [int]$depth, [bool]$optionalize = $false) {
 	if ($depth -gt 20) { return }
 	foreach ($c in $particle.ChildNodes) {
@@ -607,14 +607,14 @@ function Collect-Particle([System.Xml.XmlElement]$particle, $elemList, [ref]$isO
 		switch ($c.get_LocalName()) {
 			"element" {
 				$prop = Build-Property $c $false
-				# Ветка уплощённого xs:choice обязана стать необязательной: иначе
-				# «одно из двух» превращается в «оба сразу», и тип нельзя заполнить
+				# Ветка уплощенного xs:choice обязана стать необязательной: иначе
+				# "одно из двух" превращается в "оба сразу", и тип нельзя заполнить
 				if ($optionalize) { Set-AttrValue $prop "lowerBound" "0" }
 				[void]$elemList.Add($prop)
 			}
 			"any"     { $isOpen.Value = $true }
 			"sequence" {
-				Warn "$typeName : вложенная xs:sequence уплощена — модель XDTO хранит плоский список свойств"
+				Warn "$typeName : вложенная xs:sequence уплощена - модель XDTO хранит плоский список свойств"
 				Collect-Particle $c $elemList $isOpen $typeName ($depth + 1) $optionalize
 			}
 			"choice" {
@@ -625,8 +625,8 @@ function Collect-Particle([System.Xml.XmlElement]$particle, $elemList, [ref]$isO
 					}
 				}
 				$list = if ($branches.Count -gt 0) { " (" + ($branches -join ", ") + ")" } else { "" }
-				Warn ("$typeName : вложенная xs:choice уплощена — ветки$list сделаны необязательными. " +
-					"Выбор одного из вариантов не сохранён: модель не запретит заполнить сразу несколько или ни одного")
+				Warn ("$typeName : вложенная xs:choice уплощена - ветки$list сделаны необязательными. " +
+					"Выбор одного из вариантов не сохранен: модель не запретит заполнить сразу несколько или ни одного")
 				Collect-Particle $c $elemList $isOpen $typeName ($depth + 1) $true
 			}
 			"all" {
@@ -643,7 +643,7 @@ function Collect-Particle([System.Xml.XmlElement]$particle, $elemList, [ref]$isO
 						}
 					}
 				} else {
-					Warn "$typeName : не найдена группа $(XA $c 'ref') — её свойства в пакет не попали"
+					Warn "$typeName : не найдена группа $(XA $c 'ref') - ее свойства в пакет не попали"
 				}
 			}
 		}
@@ -732,7 +732,7 @@ function Fill-ComplexType($node, [System.Xml.XmlElement]$ct) {
 			Warn "$typeName : xs:all трактуется как последовательность"
 		}
 		if ($grp -and -not $seq -and -not $cho -and -not $all) {
-			# Корневая частица задана ссылкой на группу — раскрываем её содержимое
+			# Корневая частица задана ссылкой на группу - раскрываем ее содержимое
 			$g = Resolve-Group $grp "group"
 			if ($g) {
 				foreach ($gc in $g.ChildNodes) {
@@ -742,7 +742,7 @@ function Fill-ComplexType($node, [System.Xml.XmlElement]$ct) {
 					}
 				}
 			} else {
-				Warn "$typeName : не найдена группа $(XA $grp 'ref') — её свойства в пакет не попали"
+				Warn "$typeName : не найдена группа $(XA $grp 'ref') - ее свойства в пакет не попали"
 			}
 		} else {
 			Collect-Particle $particle $elemProps $openRef $typeName 0
@@ -756,7 +756,7 @@ function Fill-ComplexType($node, [System.Xml.XmlElement]$ct) {
 		if ($g) {
 			foreach ($a in (XChildren $g "attribute")) { Add-Child $node (Build-Property $a $true) }
 		} else {
-			Warn "Не найдена группа атрибутов $(XA $ag 'ref') — её атрибуты в пакет не попали"
+			Warn "Не найдена группа атрибутов $(XA $ag 'ref') - ее атрибуты в пакет не попали"
 		}
 	}
 	foreach ($e in $elemProps) { Add-Child $node $e }
@@ -802,7 +802,7 @@ if ($ann) {
 	}
 }
 
-# Реестр глобальных групп — нужен до обхода, чтобы раскрывать ссылки
+# Реестр глобальных групп - нужен до обхода, чтобы раскрывать ссылки
 foreach ($node in $schema.ChildNodes) {
 	if ($node.NodeType -ne [System.Xml.XmlNodeType]::Element -or $node.NamespaceURI -ne $XS_NS) { continue }
 	$nm = XA $node "name"
@@ -812,15 +812,15 @@ foreach ($node in $schema.ChildNodes) {
 
 # Конструкции XSD, которым в модели XDTO нет соответствия
 foreach ($sg in $schema.SelectNodes("//*[local-name()='element'][@substitutionGroup]")) {
-	Warn "Подстановочные группы (substitutionGroup) не поддерживаются моделью XDTO — объявление $($sg.GetAttribute('name')) сохранено как обычное"
+	Warn "Подстановочные группы (substitutionGroup) не поддерживаются моделью XDTO - объявление $($sg.GetAttribute('name')) сохранено как обычное"
 }
 foreach ($idc in @("key", "keyref", "unique")) {
 	if ($schema.SelectNodes("//*[local-name()='$idc']").Count -gt 0) {
-		Warn "Ограничения целостности (xs:$idc) в модели XDTO не хранятся — отброшены"
+		Warn "Ограничения целостности (xs:$idc) в модели XDTO не хранятся - отброшены"
 	}
 }
 if ($schema.SelectNodes("//*[local-name()='redefine']").Count -gt 0) {
-	Warn "xs:redefine не поддерживается — переопределения проигнорированы"
+	Warn "xs:redefine не поддерживается - переопределения проигнорированы"
 }
 if ($schema.SelectNodes("//*[local-name()='include']").Count -gt 0) {
 	Warn "xs:include проигнорирован: модель XDTO разрешает зависимости только по namespace. Соберите включаемую схему отдельным пакетом и добавьте <xs:import>"
@@ -860,8 +860,8 @@ foreach ($node in $schema.ChildNodes) {
 
 # Модель XDTO требует строгой последовательности элементов верхнего уровня:
 # import → property → valueType → objectType. Порядок объявлений в XSD произвольный,
-# поэтому пересортировываем — иначе платформа отвергает пакет с «Ошибка преобразования
-# данных XDTO». Все 760 пакетов корпуса этому порядку удовлетворяют, так что
+# поэтому пересортировываем - иначе платформа отвергает пакет с "Ошибка преобразования
+# данных XDTO". Все 760 пакетов корпуса этому порядку удовлетворяют, так что
 # round-trip не затрагивается.
 $TOP_ORDER = @("import", "property", "valueType", "objectType")
 $sortedChildren = New-Object System.Collections.ArrayList
@@ -894,18 +894,18 @@ Assert-EditAllowed $OutputDir "editable"
 
 $script:formatVersion = Detect-FormatVersion $OutputDir
 
-# Объявления пространств имён — одной переменной: место эмиссии её только интерполирует.
+# Объявления пространств имен - одной переменной: место эмиссии ее только интерполирует.
 # Правки шапки (как xmlns:pal в формате 2.21) делаются здесь, в одном месте.
 $script:xmlnsDecl = 'xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:cmi="http://v8.1c.ru/8.2/managed-application/cmi" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xen="http://v8.1c.ru/8.3/xcf/enums" xmlns:xpr="http://v8.1c.ru/8.3/xcf/predef" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
 
 # Версия формата как число для сравнений: "2.20" → 220, "2.9" → 209.
-# Строковое сравнение здесь неверно ("2.9" > "2.17" лексикографически) — известная ловушка.
+# Строковое сравнение здесь неверно ("2.9" > "2.17" лексикографически) - известная ловушка.
 function Get-FormatRank([string]$ver) {
 	if ($ver -match '^(\d+)\.(\d+)$') { return [int]$Matches[1] * 100 + [int]$Matches[2] }
 	return 0
 }
 
-# 2.21 (8.5) добавила в шапку пространство палитры — ради <Color> у значений перечисления.
+# 2.21 (8.5) добавила в шапку пространство палитры - ради <Color> у значений перечисления.
 # Вставляем НА МЕСТО (после lf, перед style): платформа держит объявления по алфавиту,
 # дописать в конец нельзя.
 if ((Get-FormatRank $script:formatVersion) -ge 221) {
@@ -983,7 +983,7 @@ if ($declaredImports.Count -gt 0 -and (Test-Path $xdtoRootDir)) {
 	}
 	foreach ($imp in $declaredImports) {
 		if (-not $knownNs.ContainsKey($imp) -and $PLATFORM_NS -notcontains $imp) {
-			Warn "Импорт `"$imp`" не разрешается: пакета с таким namespace в конфигурации нет. Платформа отвергнет пакет при обновлении — соберите зависимость первой"
+			Warn "Импорт `"$imp`" не разрешается: пакета с таким namespace в конфигурации нет. Платформа отвергнет пакет при обновлении - соберите зависимость первой"
 		}
 	}
 }
@@ -1037,11 +1037,11 @@ if (Test-Path $configXmlPath) {
 			$memStream.Close()
 			if ($cfgText.Length -gt 0 -and $cfgText[0] -eq [char]0xFEFF) { $cfgText = $cfgText.Substring(1) }
 			$cfgText = $cfgText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
-			# Пустой элемент: XmlWriter отдаёт `<a />`, Конфигуратор пишет `<a/>`. Внутри
+			# Пустой элемент: XmlWriter отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
 			# CDATA/комментария или значения атрибута ` />` может быть содержимым,
 			# поэтому они идут первыми ветками альтернации и возвращаются как есть.
 			$cfgText = [regex]::Replace($cfgText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
-			# Целевой перевод строки: стиль файла-назначения — правка наследует его (#44/#46/#47),
+			# Целевой перевод строки: стиль файла-назначения - правка наследует его (#44/#46/#47),
 			# новый файл получает канон выгрузки CRLF. Зеркало _detect_xml_style в py-порту.
 			$targetEol = if ((Test-Path -LiteralPath $configXmlPath) -and ([System.IO.File]::ReadAllText($configXmlPath) -notmatch "`r`n")) { "`n" } else { "`r`n" }
 			$cfgText = ($cfgText -replace "`r`n", "`n") -replace "`n", $targetEol
@@ -1062,12 +1062,12 @@ Write-Host "  Типов: $typeCount"
 Write-Host "  Файлы: XDTOPackages/$Name.xml, XDTOPackages/$Name/Ext/Package.bin"
 if ($script:warnings.Count -gt 0) {
 	Write-Host ""
-	Write-Host "Предупреждения ($($script:warnings.Count)) — конструкции XSD без точного соответствия в модели XDTO:"
+	Write-Host "Предупреждения ($($script:warnings.Count)) - конструкции XSD без точного соответствия в модели XDTO:"
 	foreach ($w in $script:warnings) { Write-Host "  ! $w" }
 	Write-Host ""
 }
 switch ($regResult) {
 	"added"     { Write-Host "  Configuration.xml: <XDTOPackage>$Name</XDTOPackage> добавлен в ChildObjects" }
 	"already"   { Write-Host "  Configuration.xml: <XDTOPackage>$Name</XDTOPackage> уже зарегистрирован" }
-	"no-config" { Write-Host "  Configuration.xml не найден — регистрация пропущена" }
+	"no-config" { Write-Host "  Configuration.xml не найден - регистрация пропущена" }
 }

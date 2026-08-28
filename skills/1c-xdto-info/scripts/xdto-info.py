@@ -1,4 +1,4 @@
-# xdto-info v1.1 — Analyze 1C XDTO package structure (Python port)
+# xdto-info v1.1 - Analyze 1C XDTO package structure (Python port)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 import argparse
 import os
@@ -10,7 +10,7 @@ from lxml import etree
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-# Регистронезависимый ввод — паритет с PS1: в PowerShell имена параметров и [ValidateSet]
+# Регистронезависимый ввод - паритет с PS1: в PowerShell имена параметров и [ValidateSet]
 # регистр не различают, в argparse совпадение точное.
 def ci_parse_args(parser, argv=None):
     """parse_args по правилам PS: имена параметров и значения choices регистронезависимы."""
@@ -19,7 +19,7 @@ def ci_parse_args(parser, argv=None):
     for i, tok in enumerate(argv):
         if tok.startswith('-') and tok.lower() in names:
             argv[i] = names[tok.lower()]
-    # choices — зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
+    # choices - зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
     choice_map = {}
     for a in parser._actions:
         if a.choices:
@@ -71,17 +71,17 @@ def flush_output():
 
 
 def die(msg):
-    # Отрицательный результат поиска — не исключение: сообщение и код 1,
+    # Отрицательный результат поиска - не исключение: сообщение и код 1,
     # без трассировки
     print(msg)
     sys.exit(1)
 
 
 def _parse_xml(source, from_string=False):
-    """Разбор с узким отступлением для не-URI пространств имён.
+    """Разбор с узким отступлением для не-URI пространств имен.
 
     Платформа допускает в targetNamespace произвольную строку (в выгрузке БП есть
-    пакет с кириллическим «ДопФайлУниверсальный»), .NET такое принимает, а libxml2
+    пакет с кириллическим "ДопФайлУниверсальный"), .NET такое принимает, а libxml2
     отвергает. Откатываемся на восстанавливающий разбор ТОЛЬКО на этой ошибке,
     иначе по-настоящему битый XML перестал бы отличаться от корректного.
     """
@@ -338,7 +338,7 @@ def format_notes(res):
     if "pattern" in res["Facets"]:
         p = res["Facets"]["pattern"]
         if len(p) > 40:
-            p = p[:40] + "…"
+            p = p[:40] + "..."
         notes.append("шаблон " + p)
     for k in ("minInclusive", "maxInclusive", "minExclusive", "maxExclusive"):
         if k in res["Facets"]:
@@ -374,8 +374,8 @@ def get_prop_rows(type_el, pkg, depth, indent, seen):
         type_text = ""
         children = None
         child_pkg = pkg
-        # Именованный вложенный тип берётся так же, как корневой; окольный путь
-        # через свойство владельца нужен только анонимному — имени у него нет
+        # Именованный вложенный тип берется так же, как корневой; окольный путь
+        # через свойство владельца нужен только анонимному - имени у него нет
         obj_name = None
         obj_ns = None
 
@@ -439,7 +439,7 @@ def get_prop_rows(type_el, pkg, depth, indent, seen):
     return rows
 
 
-# Оставить только обязательные свойства. Ребёнок необязательного объекта тоже
+# Оставить только обязательные свойства. Ребенок необязательного объекта тоже
 # уходит: он лежит под необязательной веткой и заполнять его не обязательно.
 def select_required(rows):
     res = []
@@ -473,7 +473,7 @@ def write_rows(rows):
             line += ", ".join(r["Notes"])
         O(line.rstrip())
     if len(rows) > len(shown):
-        O(f"  … показано {len(shown)} из {len(rows)}; листать через -Offset/-Limit")
+        O(f"  ... показано {len(shown)} из {len(rows)}; листать через -Offset/-Limit")
 
 
 # ── modes ────────────────────────────────────────────────────
@@ -489,11 +489,11 @@ def show_package_list():
         O("  " + p.Name.ljust(wn + 2) + str(len(p.Types)).rjust(4) + "  " + p.Namespace)
     if len(packages) > len(shown):
         O("")
-        O(f"  … показано {len(shown)} из {len(packages)}; листать через -Offset/-Limit")
+        O(f"  ... показано {len(shown)} из {len(packages)}; листать через -Offset/-Limit")
     O("")
     O("Колонки: имя пакета, число типов, namespace.")
-    O("Следующий шаг: -Package <имя> или -Namespace <URI> — состав пакета; "
-      "-Name <Тип> — поиск типа по всем пакетам")
+    O("Следующий шаг: -Package <имя> или -Namespace <URI> - состав пакета; "
+      "-Name <Тип> - поиск типа по всем пакетам")
 
 
 def show_package_overview(pkg):
@@ -507,10 +507,10 @@ def show_package_overview(pkg):
             O(f"  {i}  →  {dep}")
     if not pkg.GlobalProps:
         O("")
-        O("Точки входа: нет — пакет не объявляет корневых элементов документа")
+        O("Точки входа: нет - пакет не объявляет корневых элементов документа")
     else:
         O("")
-        O(f"Точки входа ({len(pkg.GlobalProps)}) — корневые элементы документа:")
+        O(f"Точки входа ({len(pkg.GlobalProps)}) - корневые элементы документа:")
         for gp in pkg.GlobalProps:
             q = split_ref(gp, gp.get("type"))
             tn = format_ref_name(q, pkg) if q else "произвольный"
@@ -536,26 +536,26 @@ def show_package_overview(pkg):
                 line += "  значения: " + ", ".join(res["Enum"][:6])
             O(line)
     O("")
-    O("Следующий шаг: -Name <Тип> — структура типа для заполнения")
+    O("Следующий шаг: -Name <Тип> - структура типа для заполнения")
 
 
-# Легенда едет вместе с выводом, а не живёт в инструкции: показываем только те
+# Легенда едет вместе с выводом, а не живет в инструкции: показываем только те
 # обозначения, которые реально встретились, иначе она сама становится шумом.
 def write_legend(rows):
     text = " ".join(r["Type"] + " " + ",".join(r["Flags"]) + " " + ",".join(r["Notes"]) for r in rows)
     items = []
     if "объект " in text:
-        items.append("объект X — присвоить вложенный объект XDTO, состав раскрывает -Depth")
+        items.append("объект X - присвоить вложенный объект XDTO, состав раскрывает -Depth")
     if "←" in text:
-        items.append("← Имя — исходный тип из схемы, слева от стрелки развёрнутое значение")
+        items.append("← Имя - исходный тип из схемы, слева от стрелки развернутое значение")
     if "список" in text:
-        items.append("список — коллекция, заполняется через .Добавить()")
+        items.append("список - коллекция, заполняется через .Добавить()")
     if re.search(r"до \d", text):
-        items.append("до N — коллекция с ограничением сверху")
+        items.append("до N - коллекция с ограничением сверху")
     if "значение элемента" in text:
-        items.append("значение элемента — собственное значение узла XML")
+        items.append("значение элемента - собственное значение узла XML")
     if "·" in text:
-        items.append("· Пакет — тип объявлен в другом пакете")
+        items.append("· Пакет - тип объявлен в другом пакете")
     if not items:
         return
     O("")
@@ -581,7 +581,7 @@ def show_type(pkg, type_name):
                 O("  " + v)
         O("")
         O("Создание:")
-        # Создать(<Тип>, <Значение>) принимает именно ТипЗначенияXDTO —
+        # Создать(<Тип>, <Значение>) принимает именно ТипЗначенияXDTO -
         # для объектного типа эта форма неприменима
         O(f'  Значение = ФабрикаXDTO.Создать(ФабрикаXDTO.Тип("{pkg.Namespace}", "{type_name}"), Значение);')
         return
@@ -595,9 +595,9 @@ def show_type(pkg, type_name):
     if base:
         O("Наследует: " + base[1])
     if el.get("abstract") == "true":
-        O("Абстрактный — создаётся только тип-наследник")
+        O("Абстрактный - создается только тип-наследник")
     if el.get("open") == "true":
-        O("Открытый — допускает произвольные элементы и атрибуты")
+        O("Открытый - допускает произвольные элементы и атрибуты")
     O("")
 
     seen = {f"{pkg.Namespace}#{type_name}"}
@@ -619,14 +619,14 @@ def show_type(pkg, type_name):
     O(f'  Тип = ФабрикаXDTO.Тип("{pkg.Namespace}", "{type_name}");')
     O("  Объект = ФабрикаXDTO.Создать(Тип);")
     # Рецепты для вложенных и анонимных типов: имени у анонимного нет, через
-    # ФабрикаXDTO.Тип(ns, имя) его не получить — только от свойства владельца
+    # ФабрикаXDTO.Тип(ns, имя) его не получить - только от свойства владельца
     named = next((r for r in rows if r.get("ObjName") and r.get("ObjName") != "(анонимный)"), None)
     if named:
-        O("  // вложенный именованный тип — так же, как корневой:")
+        O("  // вложенный именованный тип - так же, как корневой:")
         O(f'  {named["Name"]} = ФабрикаXDTO.Создать(ФабрикаXDTO.Тип("{named["ObjNs"]}", "{named["ObjName"]}"));')
     anon_row = next((r for r in rows if r.get("ObjName") == "(анонимный)"), None)
     if anon_row:
-        O("  // у анонимного типа нет имени — только через свойство владельца:")
+        O("  // у анонимного типа нет имени - только через свойство владельца:")
         O(f'  {anon_row["Name"]} = ФабрикаXDTO.Создать(Тип.Свойства.Получить("{anon_row["Name"]}").Тип);')
     text_row = next((r for r in rows if "значение элемента" in r["Flags"]), None)
     if text_row:
@@ -693,7 +693,7 @@ if args.Mode == "used-by":
 
 if args.Name:
     if not selected:
-        # Тип известен, пакет — нет: ищем по всей конфигурации
+        # Тип известен, пакет - нет: ищем по всей конфигурации
         found = [p for p in packages if args.Name in p.Types]
         if not found:
             die(f'Тип "{args.Name}" не найден ни в одном пакете конфигурации')

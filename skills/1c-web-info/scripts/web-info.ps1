@@ -1,4 +1,4 @@
-﻿# web-info v1.0 — Apache & 1C publication status
+﻿# web-info v1.0 - Apache & 1C publication status
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
@@ -78,7 +78,7 @@ if (-not (Test-Path $confFile)) {
 $confContent = [System.IO.File]::ReadAllText($confFile)
 
 # Extract port from global block
-$port = "—"
+$port = "-"
 if ($confContent -match '(?m)^Listen\s+(\d+)') {
     $port = $Matches[1]
 }
@@ -104,7 +104,7 @@ if ($pubMatches.Count -eq 0) {
 
         # Read default.vrd for this publication
         $vrdPath = Join-Path (Join-Path (Join-Path $ApachePath "publish") $appName) "default.vrd"
-        $ibInfo = "—"
+        $ibInfo = "-"
         if (Test-Path $vrdPath) {
             $vrdContent = [System.IO.File]::ReadAllText($vrdPath)
             if ($vrdContent -match 'ib="([^"]*)"') {

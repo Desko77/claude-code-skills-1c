@@ -9,7 +9,7 @@ allowed-tools:
   - Glob
 ---
 
-# /role-compile — генерация роли 1С из JSON DSL
+# /role-compile - генерация роли 1С из JSON DSL
 
 Принимает JSON-определение роли → генерирует `Roles/Имя.xml` (метаданные) и `Roles/Имя/Ext/Rights.xml` (права). UUID автоматически.
 
@@ -24,7 +24,7 @@ allowed-tools:
 powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
 ```
 
-Создаёт `{OutputDir}/Roles/Имя.xml` и `{OutputDir}/Roles/Имя/Ext/Rights.xml`. Регистрирует `<Role>` в `Configuration.xml`.
+Создает `{OutputDir}/Roles/Имя.xml` и `{OutputDir}/Roles/Имя/Ext/Rights.xml`. Регистрирует `<Role>` в `Configuration.xml`.
 
 ## JSON DSL
 
@@ -55,12 +55,12 @@ powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 
 
 | Пресет | Действие |
 |--------|----------|
-| `@view` | Просмотр — Read, View (+InputByString для справочников/документов; Use+View для обработок/отчётов) |
-| `@edit` | Полное редактирование — CRUD + Interactive* + Posting (документы) |
+| `@view` | Просмотр - Read, View (+InputByString для справочников/документов; Use+View для обработок/отчетов) |
+| `@edit` | Полное редактирование - CRUD + Interactive* + Posting (документы) |
 
-`@` обязателен в shorthand. В объектной форме — `"preset": "view"` без `@`.
+`@` обязателен в shorthand. В объектной форме - `"preset": "view"` без `@`.
 
-Для сервисов (WebService, HTTPService, IntegrationService) пресеты не определены — используй явные права: `"WebService.Имя: Use"`.
+Для сервисов (WebService, HTTPService, IntegrationService) пресеты не определены - используй явные права: `"WebService.Имя: Use"`.
 
 ### Русские синонимы
 
@@ -99,11 +99,11 @@ powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 
 }
 ```
 
-Подробные таблицы пресетов, русских синонимов и дополнительные примеры — в `dsl-reference.md`.
+Подробные таблицы пресетов, русских синонимов и дополнительные примеры - в `dsl-reference.md`.
 
 ## Верификация
 
 ```
-/role-validate <RightsPath> [MetadataPath]  — проверка корректности XML, прав, RLS
-/role-info <RightsPath>                     — визуальная сводка структуры
+/role-validate <RightsPath> [MetadataPath]  - проверка корректности XML, прав, RLS
+/role-info <RightsPath>                     - визуальная сводка структуры
 ```

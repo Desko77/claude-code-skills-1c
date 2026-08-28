@@ -28,7 +28,7 @@ MMD_EXTS = {".mmd", ".mermaid"}
 
 
 def resolve_mmdc() -> str:
-    """Найти исполняемый mmdc (.cmd на Windows, .js обёртку на Unix)."""
+    """Найти исполняемый mmdc (.cmd на Windows, .js обертку на Unix)."""
     for cand in ("mmdc.cmd", "mmdc"):
         path = shutil.which(cand)
         if path:
@@ -73,7 +73,7 @@ def determine_output(input_path: Path, output: str | None, fmt: str) -> Path:
 
 
 def list_outputs(output: Path, is_markdown: bool) -> list[Path]:
-    """mmdc для .md создаёт <stem>-1.<ext>, <stem>-2.<ext> и т.д."""
+    """mmdc для .md создает <stem>-1.<ext>, <stem>-2.<ext> и т.д."""
     if not is_markdown:
         return [output] if output.exists() else []
     pattern = f"{output.with_suffix('').name}-*{output.suffix}"

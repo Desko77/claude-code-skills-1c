@@ -1,4 +1,4 @@
-﻿# xdto-edit v1.6 — Point edits of a 1C XDTO package (+support-guard: общая реализация вместо урезанной)
+﻿# xdto-edit v1.6 - Point edits of a 1C XDTO package (+support-guard: общая реализация вместо урезанной)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
 	[Parameter(Mandatory=$true)]
@@ -26,7 +26,7 @@ $V8_NS   = "http://v8.1c.ru/8.1/data/core"
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
 # .v8-project.json editingAllowedCheck (deny|warn|off, default deny). Never
-# throws — guard errors degrade to allow.
+# throws - guard errors degrade to allow.
 function Get-RootUuid([string]$xmlPath) {
 	if (-not (Test-Path $xmlPath)) { return $null }
 	try {
@@ -124,29 +124,29 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 		$blocked = $false; $code = ""; $reason = ""
 		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
 		elseif ($require -eq 'removed') {
-			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки - удаление сломает обновления" }
 		}
 		else {
-			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке - редактирование сломает обновления" }
 		}
 		if (-not $blocked) { return }
 		$mode = Get-EditMode $cfgDir
 		if ($mode -eq 'off') { return }
-		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# Use Console.Error (not Write-Error) - under ErrorActionPreference=Stop the
 		# latter throws and would be swallowed by this function's own catch.
 		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
 		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
 		$offNote = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
 		if ($code -eq "capability-off") {
-			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
-			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '$rp' редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on - включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable - открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
 		} elseif ($code -eq "not-removed") {
-			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
-			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+			$state = "Состояние: объект '$rp' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно."
 		} else {
-			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
-			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+			$state = "Состояние: объект '$rp' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support - снять с поддержки: обновления по объекту больше не приходят."
 		}
 		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
 		exit 1
@@ -179,8 +179,8 @@ $binFile    = Join-Path (Join-Path $pkgDir "Ext") "Package.bin"
 $mdFile     = Join-Path $xdtoRoot "$pkgName.xml"
 $configXml  = Join-Path $configRoot "Configuration.xml"
 
-# -Value "@путь" — содержимое берётся из файла. Передавать XSD-фрагмент инлайном
-# через powershell.exe -File ненадёжно: вложенные кавычки схлопываются на границе
+# -Value "@путь" - содержимое берется из файла. Передавать XSD-фрагмент инлайном
+# через powershell.exe -File ненадежно: вложенные кавычки схлопываются на границе
 # процессов, и вместо понятной ошибки получается сырой сбой разбора XML.
 if ($Value -and $Value.StartsWith("@")) {
 	$valueFile = $Value.Substring(1)
@@ -196,18 +196,18 @@ Assert-EditAllowed $pkgDir "editable"
 $encBom = New-Object System.Text.UTF8Encoding($true)
 
 # --- Sibling skills -------------------------------------------------------------
-# Правка идёт через уже проверенный round-trip: пакет выгружается в XSD, операция
-# применяется к схеме, пакет собирается обратно. Второго эмиттера не заводим —
-# байт-точность для всего нетронутого достаётся от компилятора.
+# Правка идет через уже проверенный round-trip: пакет выгружается в XSD, операция
+# применяется к схеме, пакет собирается обратно. Второго эмиттера не заводим -
+# байт-точность для всего нетронутого достается от компилятора.
 
 $decompileScript = Join-Path (Join-Path $PSScriptRoot "..\..\1c-xdto-decompile") "scripts\xdto-decompile.ps1"
 $compileScript   = Join-Path (Join-Path $PSScriptRoot "..\..\1c-xdto-compile") "scripts\xdto-compile.ps1"
 $validateScript  = Join-Path (Join-Path $PSScriptRoot "..\..\1c-xdto-validate") "scripts\xdto-validate.ps1"
 
 # Исключение из автономности навыков, сделанное осознанно: конвертер XSD ↔ модель
-# нельзя скопировать буквально (xdto-compile — скрипт со сквозным потоком, не библиотека),
-# а вторая его реализация разошлась бы с первой. Обещание «правка не меняет ни байта
-# в нетронутом» держится именно на том, что код тот же самый.
+# нельзя скопировать буквально (xdto-compile - скрипт со сквозным потоком, не библиотека),
+# а вторая его реализация разошлась бы с первой. Обещание "правка не меняет ни байта
+# в нетронутом" держится именно на том, что код тот же самый.
 # Проверяем комплектность заранее, чтобы не падать на середине правки.
 function Assert-SiblingsPresent([string]$operation) {
 	$needed = @{}
@@ -297,11 +297,11 @@ function Edit-Metadata([string]$field, [string]$newValue) {
 	$memStream.Close()
 	if ($mdText.Length -gt 0 -and $mdText[0] -eq [char]0xFEFF) { $mdText = $mdText.Substring(1) }
 	$mdText = $mdText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
-	# Пустой элемент: XmlWriter отдаёт `<a />`, Конфигуратор пишет `<a/>`. Внутри
+	# Пустой элемент: XmlWriter отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
 	# CDATA/комментария или значения атрибута ` />` может быть содержимым,
 	# поэтому они идут первыми ветками альтернации и возвращаются как есть.
 	$mdText = [regex]::Replace($mdText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
-	# Целевой перевод строки: стиль файла-назначения — правка наследует его (#44/#46/#47),
+	# Целевой перевод строки: стиль файла-назначения - правка наследует его (#44/#46/#47),
 	# новый файл получает канон выгрузки CRLF. Зеркало _detect_xml_style в py-порту.
 	$targetEol = if ((Test-Path -LiteralPath $mdFile) -and ([System.IO.File]::ReadAllText($mdFile) -notmatch "`r`n")) { "`n" } else { "`r`n" }
 	$mdText = ($mdText -replace "`r`n", "`n") -replace "`n", $targetEol
@@ -343,18 +343,18 @@ function Rename-Package([string]$newName) {
 			if ($cfgText.Length -gt 0 -and $cfgText[0] -eq [char]0xFEFF) { $cfgText = $cfgText.Substring(1) }
 			$cfgText = $cfgText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 			$cfgText = [regex]::Replace($cfgText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
-			# Пустой элемент: XmlWriter отдаёт `<a />`, Конфигуратор пишет `<a/>`. Внутри
+			# Пустой элемент: XmlWriter отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
 			# CDATA/комментария или значения атрибута ` />` может быть содержимым,
 			# поэтому они идут первыми ветками альтернации и возвращаются как есть.
 			$cfgText = [regex]::Replace($cfgText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
-			# Целевой перевод строки: стиль файла-назначения — правка наследует его (#44/#46/#47),
+			# Целевой перевод строки: стиль файла-назначения - правка наследует его (#44/#46/#47),
 			# новый файл получает канон выгрузки CRLF. Зеркало _detect_xml_style в py-порту.
 			$targetEol = if ((Test-Path -LiteralPath $configXml) -and ([System.IO.File]::ReadAllText($configXml) -notmatch "`r`n")) { "`n" } else { "`r`n" }
 			$cfgText = ($cfgText -replace "`r`n", "`n") -replace "`n", $targetEol
 			[System.IO.File]::WriteAllText($configXml, $cfgText, $encBom)
 			Write-Host "  Configuration.xml: <XDTOPackage> переименован в $newName"
 		} else {
-			Write-Warning "В Configuration.xml не найдена запись <XDTOPackage>$pkgName</XDTOPackage> — зарегистрируйте пакет вручную"
+			Write-Warning "В Configuration.xml не найдена запись <XDTOPackage>$pkgName</XDTOPackage> - зарегистрируйте пакет вручную"
 		}
 	}
 	Write-Host "✓ Пакет переименован: $pkgName → $newName"
@@ -406,7 +406,7 @@ function Find-Declaration([System.Xml.XmlElement]$body, [string]$propName) {
 	return $null
 }
 
-# Путь Тип.Свойство[.Вложенное...] — точка безопасна: имена в модели XDTO
+# Путь Тип.Свойство[.Вложенное...] - точка безопасна: имена в модели XDTO
 # являются идентификаторами 1С и точку содержать не могут
 function Resolve-Path($schema, [string]$path) {
 	$segments = $path.Split(".")
@@ -420,7 +420,7 @@ function Resolve-Path($schema, [string]$path) {
 		if (-not $decl) { throw "По пути `"$path`" не найдено свойство `"$($segments[$i])`"" }
 		if ($i -lt $segments.Count - 1) {
 			$inner = Get-SchemaFirst $decl "complexType"
-			if (-not $inner) { throw "Свойство `"$($segments[$i])`" не содержит вложенного типа — путь дальше не идёт" }
+			if (-not $inner) { throw "Свойство `"$($segments[$i])`" не содержит вложенного типа - путь дальше не идет" }
 			$body = Get-TypeBody $inner
 		}
 	}
@@ -441,7 +441,7 @@ function Import-Fragment($schema, [string]$xml) {
 	catch {
 		throw ("Не удалось разобрать -Value как фрагмент XML-схемы: " + $_.Exception.InnerException.Message + "`n" +
 			"Получено: " + $xml + "`n" +
-			"Если фрагмент передан инлайном, кавычки могли схлопнуться на границе процессов — " +
+			"Если фрагмент передан инлайном, кавычки могли схлопнуться на границе процессов - " +
 			"положите его в файл и укажите -Value `"@путь`".")
 	}
 	$res = New-Object System.Collections.ArrayList
@@ -520,7 +520,7 @@ function Apply-ModelOperation($schema) {
 				if (-not $one) { continue }
 				$t = Find-TypeElement $schema $one
 				$t.ParentNode.RemoveChild($t) | Out-Null
-				Write-Host "  − тип $one удалён"
+				Write-Host "  − тип $one удален"
 			}
 		}
 
@@ -561,10 +561,10 @@ function Apply-ModelOperation($schema) {
 			if (-not $Value) { throw "set-namespace требует -Value <URI>" }
 			$old = $schema.GetAttribute("targetNamespace")
 			# Установка того же значения не отбрасывается: пакет пересобирается вхолостую,
-			# и это заодно проба точности пути «выгрузить → собрать» на любом пакете
+			# и это заодно проба точности пути "выгрузить → собрать" на любом пакете
 			if ($old -eq $Value) { Write-Host "  = namespace уже $Value, пакет пересобран без изменений" }
 			# Меняем и targetNamespace, и объявление префикса, который на него указывал:
-			# иначе ссылки на собственные типы станут ссылками в чужое пространство имён
+			# иначе ссылки на собственные типы станут ссылками в чужое пространство имен
 			$schema.SetAttribute("targetNamespace", $Value)
 			foreach ($a in @($schema.Attributes)) {
 				if ($a.Prefix -eq "xmlns" -and $a.Value -eq $old) {
@@ -596,7 +596,7 @@ if ($Operation -eq "rename") {
 	Write-Host "✓ Синоним: $Value"
 } elseif ($Operation -eq "set-comment") {
 	Edit-Metadata "Comment" $Value
-	Write-Host "✓ Комментарий обновлён"
+	Write-Host "✓ Комментарий обновлен"
 } else {
 	$tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("xdto-edit_" + [guid]::NewGuid().ToString("N").Substring(0, 8))
 	New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
@@ -636,7 +636,7 @@ if ($Operation -eq "rename") {
 			if ($dependents.Count -gt 0) {
 				Write-Host ""
 				Write-Warning ("Старый namespace импортируют пакеты ($($dependents.Count)): " + ($dependents -join ", ") +
-				               ". Они не изменены — при версионировании это верно; если нет, поправьте их импорты.")
+				               ". Они не изменены - при версионировании это верно; если нет, поправьте их импорты.")
 			}
 		}
 		Write-Host "✓ Пакет пересобран: XDTOPackages/$pkgName/Ext/Package.bin"

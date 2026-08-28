@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# mxl-info v1.0 — Analyze 1C spreadsheet structure
+# mxl-info v1.0 - Analyze 1C spreadsheet structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse

@@ -1,4 +1,4 @@
-# Веб-публикация 1С — техническая спецификация
+# Веб-публикация 1С - техническая спецификация
 
 Описание артефактов, необходимых для публикации информационной базы 1С через Apache HTTP Server.
 
@@ -74,7 +74,7 @@ Apache загружает модуль расширения 1С:
 LoadModule _1cws_module "C:/Program Files/1cv8/8.3.24.1691/bin/wsap24.dll"
 ```
 
-- Модуль `wsap24.dll` — 64-разрядный, требует x64-версию Apache
+- Модуль `wsap24.dll` - 64-разрядный, требует x64-версию Apache
 - Путь использует forward slashes
 
 ### Listen
@@ -99,9 +99,9 @@ Alias "/appname" "C:/path/to/apache/publish/appname"
 </Directory>
 ```
 
-- `Alias` — URL-путь → физический каталог
-- `SetHandler 1c-application` — делегирование обработки запросов модулю wsap24
-- `ManagedApplicationDescriptor` — путь к default.vrd
+- `Alias` - URL-путь → физический каталог
+- `SetHandler 1c-application` - делегирование обработки запросов модулю wsap24
+- `ManagedApplicationDescriptor` - путь к default.vrd
 
 ### Маркерный подход
 
@@ -138,7 +138,7 @@ Alias "/mydb" "C:/tools/apache24/publish/mydb"
 
 ### Дистрибутив
 
-Apache Lounge — Windows-сборка Apache HTTP Server (x64):
+Apache Lounge - Windows-сборка Apache HTTP Server (x64):
 - Сайт: `https://www.apachelounge.com/download/`
 - Прямая ссылка (2.4.62, VS17): `https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.62-240904-win64-VS17.zip`
 - Внутри ZIP: каталог `Apache24/` с полной структурой
@@ -174,7 +174,7 @@ Define SRVROOT "C:/path/to/apache24"
 ServerRoot "${SRVROOT}"
 ```
 
-Путь `SRVROOT` — абсолютный, с forward slashes.
+Путь `SRVROOT` - абсолютный, с forward slashes.
 
 ### Запуск
 

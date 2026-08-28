@@ -1,11 +1,11 @@
-﻿# db-load-git v1.3 — Load Git changes into 1C database
+﻿# db-load-git v1.3 - Load Git changes into 1C database
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
     Загрузка изменений из Git в базу 1С
 
 .DESCRIPTION
-    Определяет изменённые файлы конфигурации по данным Git и выполняет
+    Определяет измененные файлы конфигурации по данным Git и выполняет
     частичную загрузку в информационную базу.
 
 .PARAMETER V8Path
@@ -346,7 +346,7 @@ foreach ($file in $changedFiles) {
     $fullPath = Join-Path $ConfigDir $file
 
     if ($file -match '\.xml$') {
-        # XML file — add directly if exists
+        # XML file - add directly if exists
         if (Test-Path $fullPath) {
             if ($configFiles -notcontains $file) {
                 $configFiles += $file
@@ -354,7 +354,7 @@ foreach ($file in $changedFiles) {
         }
     }
     else {
-        # Non-XML (BSL, HTML, etc.) — map to parent object XML + include all Ext/ files
+        # Non-XML (BSL, HTML, etc.) - map to parent object XML + include all Ext/ files
         $objectXml = Get-ObjectXmlFromSubFile -RelativePath $file
         if ($objectXml) {
             $fullXmlPath = Join-Path $ConfigDir $objectXml

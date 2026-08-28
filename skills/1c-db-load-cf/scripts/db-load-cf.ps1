@@ -1,4 +1,4 @@
-﻿# db-load-cf v1.0 — Load 1C configuration from CF file
+﻿# db-load-cf v1.0 - Load 1C configuration from CF file
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
@@ -39,7 +39,7 @@
     .\db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "config.cf"
 
 .EXAMPLE
-    .\db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "ext.cfe" -Extension "МоёРасширение"
+    .\db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "ext.cfe" -Extension "МоеРасширение"
 #>
 
 [CmdletBinding()]

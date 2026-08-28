@@ -105,7 +105,7 @@ MIN_DRIVER_VERSION = (525, 0)  # минимум для CUDA 12.0+
 def check_gpu() -> tuple[bool, bool]:
     """Probe NVIDIA GPU + версия драйвера. Возвращает (gpu_found, driver_ok).
 
-    Печатает info-строки. Если драйвер старый - выдаёт инструкцию обновить.
+    Печатает info-строки. Если драйвер старый - выдает инструкцию обновить.
     """
     if not shutil.which("nvidia-smi"):
         return False, False

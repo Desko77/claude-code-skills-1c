@@ -1,8 +1,8 @@
-﻿# epf-dump v1.0 — Dump external data processor or report (EPF/ERF) to XML sources
+﻿# epf-dump v1.0 - Dump external data processor or report (EPF/ERF) to XML sources
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
-    Разборка внешней обработки/отчёта 1С в XML-исходники
+    Разборка внешней обработки/отчета 1С в XML-исходники
 
 .DESCRIPTION
     Разбирает EPF/ERF-файл во XML-исходники с помощью платформы 1С.
@@ -39,7 +39,7 @@
     .\epf-dump.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "build\МояОбработка.epf" -OutputDir "src"
 
 .EXAMPLE
-    .\epf-dump.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "build\МойОтчёт.erf" -OutputDir "src"
+    .\epf-dump.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "build\МойОтчет.erf" -OutputDir "src"
 #>
 
 [CmdletBinding()]

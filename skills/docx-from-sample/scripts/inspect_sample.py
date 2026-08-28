@@ -319,7 +319,7 @@ def guess_profile(path, styles, tables, sections, params, hf=None):
         foot = next((v for k, v in sorted(hf.items()) if k.startswith("footer")), "")
     if foot:
         # В подвале образца стоит название чужого документа: заменяем его подстановкой.
-        prof["footer"]["template"] = re.sub(r"\s{2,}", " ", re.sub(r"«[^»]*»", "«{title}»", foot)).strip("_ ")
+        prof["footer"]["template"] = re.sub(r"\s{2,}", " ", re.sub(chr(0xab) + r'[^' + chr(0xbb) + r']*' + chr(0xbb), chr(0xab) + '{title}' + chr(0xbb), foot)).strip("_ ")
     return prof
 
 

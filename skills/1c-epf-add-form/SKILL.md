@@ -11,9 +11,9 @@ allowed-tools:
   - Grep
 ---
 
-# /epf-add-form — Добавление формы
+# /epf-add-form - Добавление формы
 
-Создаёт управляемую форму и регистрирует её в корневом XML обработки.
+Создает управляемую форму и регистрирует ее в корневом XML обработки.
 
 ## Usage
 
@@ -23,8 +23,8 @@ allowed-tools:
 
 | Параметр      | Обязательный | По умолчанию | Описание                                  |
 |---------------|:------------:|--------------|-------------------------------------------|
-| ProcessorName | да           | —            | Имя обработки (должна существовать)       |
-| FormName      | да           | —            | Имя формы                                 |
+| ProcessorName | да           | -            | Имя обработки (должна существовать)       |
+| FormName      | да           | -            | Имя формы                                 |
 | Synonym       | нет          | = FormName   | Синоним формы                             |
 | --main        | нет          | авто         | Установить как форму по умолчанию (автоматически для первой формы) |
 | SrcDir        | нет          | `src`        | Каталог исходников                        |
@@ -35,7 +35,7 @@ allowed-tools:
 powershell.exe -NoProfile -File skills/1c-epf-add-form/scripts/add-form.ps1 -ProcessorName "<ProcessorName>" -FormName "<FormName>" [-Synonym "<Synonym>"] [-Main] [-SrcDir "<SrcDir>"]
 ```
 
-## Что создаётся
+## Что создается
 
 ```
 <SrcDir>/<ProcessorName>/Forms/
@@ -49,7 +49,7 @@ powershell.exe -NoProfile -File skills/1c-epf-add-form/scripts/add-form.ps1 -Pro
 
 ## Что модифицируется
 
-- `<SrcDir>/<ProcessorName>.xml` — добавляется `<Form>` в `ChildObjects`, обновляется `DefaultForm` (автоматически если это первая форма, или явно при `--main`)
+- `<SrcDir>/<ProcessorName>.xml` - добавляется `<Form>` в `ChildObjects`, обновляется `DefaultForm` (автоматически если это первая форма, или явно при `--main`)
 
 ## Детали
 

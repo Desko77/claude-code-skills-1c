@@ -1,4 +1,4 @@
-﻿# erf-init v1.0 — Init 1C external report scaffold
+﻿# erf-init v1.0 - Init 1C external report scaffold
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -150,7 +150,7 @@ $moduleBsl = @"
 $modulePath = Join-Path $extDir "ObjectModule.bsl"
 [System.IO.File]::WriteAllText($modulePath, $moduleBsl, $enc)
 
-Write-Host "[OK] Создан отчёт: $rootFile"
+Write-Host "[OK] Создан отчет: $rootFile"
 Write-Host "     Каталог: $reportDir"
 Write-Host "     Модуль:  $modulePath"
 

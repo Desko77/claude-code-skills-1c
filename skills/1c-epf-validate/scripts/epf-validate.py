@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# epf-validate v1.2 — Validate 1C external data processor / report structure
+# epf-validate v1.2 - Validate 1C external data processor / report structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
-# Works for both EPF (ExternalDataProcessor) and ERF (ExternalReport) — auto-detects
+# Works for both EPF (ExternalDataProcessor) and ERF (ExternalReport) - auto-detects
 
 import argparse
 import os
@@ -383,7 +383,7 @@ def main():
             else:
                 report_ok("4. ChildObjects: empty")
     else:
-        pass  # no ChildObjects — nothing to check
+        pass  # no ChildObjects - nothing to check
 
     if stopped:
         finalize()

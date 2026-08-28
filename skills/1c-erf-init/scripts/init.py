@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# erf-init v1.0 — Init 1C external report scaffold
+# erf-init v1.0 - Init 1C external report scaffold
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Generates minimal XML source files for a 1C external report."""
 import sys, os, re, argparse, uuid
@@ -141,7 +141,7 @@ def main():
     module_path = os.path.join(ext_dir, "ObjectModule.bsl")
     write_utf8_bom(module_path, module_bsl)
 
-    print(f"[OK] Создан отчёт: {root_file}")
+    print(f"[OK] Создан отчет: {root_file}")
     print(f"     Каталог: {report_dir}")
     print(f"     Модуль:  {module_path}")
 

@@ -19,7 +19,7 @@ tools/ffmpeg/
 └── ...
 ```
 
-Код автоматически найдёт `tools/ffmpeg/bin/ffmpeg.exe` — ничего больше настраивать не нужно.
+Код автоматически найдет `tools/ffmpeg/bin/ffmpeg.exe` - ничего больше настраивать не нужно.
 
 ### Вариант 2: глобально (один раз на машину)
 
@@ -40,10 +40,10 @@ tools/ffmpeg/
 
 ### Порядок поиска ffmpeg
 
-1. `opts.ffmpegPath` — явный путь (из `.v8-project.json` или параметра)
-2. `FFMPEG_PATH` — переменная окружения
-3. `ffmpeg` — в системном PATH
-4. `tools/ffmpeg/bin/ffmpeg.exe` — относительно корня проекта
+1. `opts.ffmpegPath` - явный путь (из `.v8-project.json` или параметра)
+2. `FFMPEG_PATH` - переменная окружения
+3. `ffmpeg` - в системном PATH
+4. `tools/ffmpeg/bin/ffmpeg.exe` - относительно корня проекта
 
 ## API
 
@@ -94,9 +94,9 @@ Display a text overlay on the page (visible in recording). Calling again updates
 
 When `text` is empty but `speech` is a string, the caption is still recorded for TTS (no visible overlay). Useful for narration-only captions (e.g. podcast mode).
 
-The overlay uses `pointer-events: none` — does not interfere with clicking.
+The overlay uses `pointer-events: none` - does not interfere with clicking.
 
-**Smart TTS wait** (during recording): `showCaption` automatically pauses for the estimated TTS speech duration (default ~70ms per character, min 2s; configurable via `startRecording({ speechRate })`). The next `wait()` call accounts for this — if the explicit pause is shorter than the TTS wait already done, no extra delay is added. If longer, only the remaining difference is waited. This means script authors don't need to calculate TTS timing manually.
+**Smart TTS wait** (during recording): `showCaption` automatically pauses for the estimated TTS speech duration (default ~70ms per character, min 2s; configurable via `startRecording({ speechRate })`). The next `wait()` call accounts for this - if the explicit pause is shorter than the TTS wait already done, no extra delay is added. If longer, only the remaining difference is waited. This means script authors don't need to calculate TTS timing manually.
 
 ### `hideCaption()`
 
@@ -124,7 +124,7 @@ Remove the title slide overlay.
 
 ### `showImage(imagePath, opts?)`
 
-Display a full-screen image overlay (e.g. presentation slide screenshot). Reads the file, base64-encodes it, and renders as `<img>` in a fixed overlay — captured by CDP screencast automatically.
+Display a full-screen image overlay (e.g. presentation slide screenshot). Reads the file, base64-encodes it, and renders as `<img>` in a fixed overlay - captured by CDP screencast automatically.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -136,10 +136,10 @@ Display a full-screen image overlay (e.g. presentation slide screenshot). Reads 
 | `opts.voice` | string | - | Per-caption voice override for `addNarration` |
 
 **Style presets:**
-- `blur` — blurred+dimmed copy of the image as background, centered image with shadow
-- `dark` — dark background (#2a2a2a) with shadow
-- `light` — white background with shadow
-- `full` — image fills entire screen (contain, no crop), black background, no shadow
+- `blur` - blurred+dimmed copy of the image as background, centered image with shadow
+- `dark` - dark background (#2a2a2a) with shadow
+- `light` - white background with shadow
+- `full` - image fills entire screen (contain, no crop), black background, no shadow
 
 Images are auto-scaled: small images scale up (min 50% of viewport), large images scale down (max 92%).
 
@@ -169,12 +169,12 @@ Manually highlight a UI element by name (fuzzy match). Places a semi-transparent
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `text` | string | Element name — button, link, field, group/panel, section, or command |
+| `text` | string | Element name - button, link, field, group/panel, section, or command |
 
 - Fuzzy match order: exact → startsWith → includes
 - Search priority: popup items → commands → **form groups/panels** → form elements (buttons, fields) → sections
 - Groups are matched by visible title or internal name (e.g., `highlight('Оргструктура')` finds the group panel)
-- `pointer-events: none` — does not block clicks
+- `pointer-events: none` - does not block clicks
 
 ### `unhighlight()`
 
@@ -203,7 +203,7 @@ await hideImage();
 setHighlight(true); // enable auto-highlight for all actions
 
 // Steps: caption → pause → action (highlight is automatic)
-await showCaption('Шаг 1. Переходим в раздел «Продажи»');
+await showCaption('Шаг 1. Переходим в раздел "Продажи"');
 await wait(1.5);
 await navigateSection('Продажи');
 
@@ -211,7 +211,7 @@ await showCaption('Шаг 2. Открываем заказы клиентов');
 await wait(1.5);
 await openCommand('Заказы клиентов');
 
-await showCaption('Шаг 3. Создаём новый заказ');
+await showCaption('Шаг 3. Создаем новый заказ');
 await wait(1.5);
 await clickElement('Создать');
 await wait(2); // wait for form to load
@@ -227,9 +227,9 @@ const result = await stopRecording();
 console.log(`Recorded ${result.duration}s, ${(result.size / 1024 / 1024).toFixed(1)} MB`);
 ```
 
-**Caption timing**: show the caption *before* the action — `showCaption` auto-waits for estimated TTS duration during recording. The subsequent `wait()` is absorbed by the credit system (no double-waiting). Add `wait()` *after* the action only when the next step needs the result to load (e.g., form opening).
+**Caption timing**: show the caption *before* the action - `showCaption` auto-waits for estimated TTS duration during recording. The subsequent `wait()` is absorbed by the credit system (no double-waiting). Add `wait()` *after* the action only when the next step needs the result to load (e.g., form opening).
 
-**Highlight timing**: `setHighlight(true)` enables auto-mode — each action function highlights the target for 500ms, then removes the highlight before performing the action. No manual `highlight()`/`unhighlight()` calls needed. Enable after title slide, disable before `stopRecording()`.
+**Highlight timing**: `setHighlight(true)` enables auto-mode - each action function highlights the target for 500ms, then removes the highlight before performing the action. No manual `highlight()`/`unhighlight()` calls needed. Enable after title slide, disable before `stopRecording()`.
 
 ## TTS Narration
 
@@ -237,8 +237,8 @@ Add voiceover to recorded videos. Captions shown via `showCaption()` are automat
 
 ### Prerequisites
 
-- **ffmpeg** — same as for video recording (ffprobe must be next to ffmpeg)
-- **node-edge-tts** — `npm install --prefix tools/tts node-edge-tts` (for Edge TTS provider, free, no API key). Also works if installed globally or at project level — the resolver tries multiple locations automatically
+- **ffmpeg** - same as for video recording (ffprobe must be next to ffmpeg)
+- **node-edge-tts** - `npm install --prefix tools/tts node-edge-tts` (for Edge TTS provider, free, no API key). Also works if installed globally or at project level - the resolver tries multiple locations automatically
 
 ### Configuration in `.v8-project.json`
 
@@ -279,8 +279,8 @@ Note: `voice` is the ElevenLabs voice ID (not a name). Default model: `eleven_mu
 The `speech` option controls what text is narrated (vs displayed):
 
 ```js
-await showCaption('Дт 60.02 — Кт 51');                           // narrates the displayed text
-await showCaption('Дт 60.02 — Кт 51', { speech: 'Проводка: дебет шестьдесят ноль два, кредит пятьдесят один' }); // custom narration
+await showCaption('Дт 60.02 - Кт 51');                           // narrates the displayed text
+await showCaption('Дт 60.02 - Кт 51', { speech: 'Проводка: дебет шестьдесят ноль два, кредит пятьдесят один' }); // custom narration
 await showCaption('Техническая информация', { speech: false });   // no narration for this caption
 ```
 
@@ -342,7 +342,7 @@ const result = await addNarration('recordings/demo.mp4', { voice: 'ru-RU-Svetlan
 | Recording file is 0 bytes | Check that output path is writable. ffmpeg may have crashed |
 | Video is choppy | Add `wait()` between steps. Reduce `quality` for faster capture |
 | "Already recording" | Call `stopRecording()` before starting a new recording |
-| Recording stops on disconnect | Expected — auto-stop prevents orphaned ffmpeg processes |
+| Recording stops on disconnect | Expected - auto-stop prevents orphaned ffmpeg processes |
 | "No captions available" | Use `showCaption()` during recording, or pass `opts.captions` |
 | TTS timeout | Check internet connection. Edge TTS requires network access |
 | Audio cuts off between captions | Smart TTS wait should handle this automatically. If warnings appear, add longer `wait()` after `showCaption` |

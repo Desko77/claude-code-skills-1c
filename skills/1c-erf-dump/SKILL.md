@@ -1,6 +1,6 @@
 ---
 name: 1c-erf-dump
-description: Разобрать ERF-файл отчёта 1С в XML-исходники. Используй когда пользователь просит разобрать, декомпилировать отчёт, получить исходники из ERF файла
+description: Разобрать ERF-файл отчета 1С в XML-исходники. Используй когда пользователь просит разобрать, декомпилировать отчет, получить исходники из ERF файла
 argument-hint: <ErfFile>
 allowed-tools:
   - Bash
@@ -9,7 +9,7 @@ allowed-tools:
   - Grep
 ---
 
-# /erf-dump — Разборка отчёта
+# /erf-dump - Разборка отчета
 
 ## Usage
 
@@ -19,7 +19,7 @@ allowed-tools:
 
 | Параметр | Обязательный | По умолчанию | Описание                            |
 |----------|:------------:|--------------|-------------------------------------|
-| ErfFile  | да           | —            | Путь к ERF-файлу                    |
+| ErfFile  | да           | -            | Путь к ERF-файлу                    |
 | OutDir   | нет          | `src`        | Каталог для выгрузки исходников     |
 
 ## Параметры подключения (обязательно)
@@ -27,14 +27,14 @@ allowed-tools:
 Для разборки EPF/ERF требуется информационная база с конфигурацией. Без базы ссылочные типы безвозвратно теряются.
 
 1. Прочитай `.v8-project.json` из корня проекта. Возьми `v8path` и разреши базу:
-2. Если пользователь указал параметры подключения (путь, сервер) — используй напрямую
-3. Если указал базу по имени — ищи по id / alias / name в `.v8-project.json`
-4. Если не указал — сопоставь текущую ветку Git с `databases[].branches`
-5. Если ветка не совпала — используй `default`
-6. Если `.v8-project.json` нет или база не найдена — **сообщи пользователю об ошибке**. Для dump база обязательна: в пустой базе ссылочные типы (CatalogRef, DocumentRef и т.д.) безвозвратно сбрасываются в строки. Предложи указать базу или зарегистрировать через `/db-list add`.
+2. Если пользователь указал параметры подключения (путь, сервер) - используй напрямую
+3. Если указал базу по имени - ищи по id / alias / name в `.v8-project.json`
+4. Если не указал - сопоставь текущую ветку Git с `databases[].branches`
+5. Если ветка не совпала - используй `default`
+6. Если `.v8-project.json` нет или база не найдена - **сообщи пользователю об ошибке**. Для dump база обязательна: в пустой базе ссылочные типы (CatalogRef, DocumentRef и т.д.) безвозвратно сбрасываются в строки. Предложи указать базу или зарегистрировать через `/db-list add`.
 
-Если `v8path` не задан — автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
-Если использованная база не зарегистрирована — после выполнения предложи добавить через `/db-list add`.
+Если `v8path` не задан - автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
+Если использованная база не зарегистрирована - после выполнения предложи добавить через `/db-list add`.
 
 ## Команда
 
@@ -58,14 +58,14 @@ powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 <пар�
 | `-OutputDir <путь>` | да | Каталог для выгрузки исходников |
 | `-Format <формат>` | нет | `Hierarchical` (по умолч.) / `Plain` |
 
-> `*` — обязательно хотя бы одно подключение. Без базы скрипт завершится с ошибкой (dump в пустой базе безвозвратно теряет ссылочные типы)
+> `*` - обязательно хотя бы одно подключение. Без базы скрипт завершится с ошибкой (dump в пустой базе безвозвратно теряет ссылочные типы)
 
 ## Примеры
 
 ```powershell
-# Разборка отчёта (файловая база)
-powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "build/МойОтчёт.erf" -OutputDir "src"
+# Разборка отчета (файловая база)
+powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "build/МойОтчет.erf" -OutputDir "src"
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -InputFile "build/МойОтчёт.erf" -OutputDir "src"
+powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -InputFile "build/МойОтчет.erf" -OutputDir "src"
 ```

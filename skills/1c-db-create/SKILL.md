@@ -10,22 +10,22 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# /db-create — Создание информационной базы
+# /db-create - Создание информационной базы
 
-Создаёт новую информационную базу 1С (файловую или серверную) и предлагает зарегистрировать в `.v8-project.json`.
+Создает новую информационную базу 1С (файловую или серверную) и предлагает зарегистрировать в `.v8-project.json`.
 
 ## Usage
 
 ```
-/db-create <path>                   — файловая база по указанному пути
-/db-create <server>/<name>          — серверная база
-/db-create                          — интерактивно
+/db-create <path>                   - файловая база по указанному пути
+/db-create <server>/<name>          - серверная база
+/db-create                          - интерактивно
 ```
 
 ## Параметры подключения
 
 Прочитай `.v8-project.json` из корня проекта для `v8path` (путь к платформе).
-Если `v8path` не задан — автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
+Если `v8path` не задан - автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
 После создания базы предложи зарегистрировать через `/db-list add`.
 
 ## Команда
@@ -49,7 +49,7 @@ powershell.exe -NoProfile -File skills/1c-db-create/scripts/db-create.ps1 <па�
 | `-AdditionalV8Arguments <список>` | нет | Аргументы платформы через запятую |
 | `-AdditionalIbcmdArguments <список>` | нет | Аргументы утилиты администрирования через запятую |
 
-> `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
+> `*` - нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 
 ## Коды возврата
 
@@ -62,7 +62,7 @@ powershell.exe -NoProfile -File skills/1c-db-create/scripts/db-create.ps1 <па�
 
 1. Прочитай лог-файл и покажи результат
 2. Предложи зарегистрировать базу в `.v8-project.json` (через `/db-list add`)
-3. Если указан шаблон `/UseTemplate` — предупреди что конфигурация будет загружена из шаблона
+3. Если указан шаблон `/UseTemplate` - предупреди что конфигурация будет загружена из шаблона
 
 ## Примеры
 

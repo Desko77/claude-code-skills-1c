@@ -8,8 +8,8 @@
 
 | Режим | Назначение |
 |-------|-----------|
-| `DESIGNER` | Конфигуратор — работа с конфигурацией, сборка EPF, обновление БД |
-| `ENTERPRISE` | Предприятие — запуск обработок, навигация по ссылкам |
+| `DESIGNER` | Конфигуратор - работа с конфигурацией, сборка EPF, обновление БД |
+| `ENTERPRISE` | Предприятие - запуск обработок, навигация по ссылкам |
 | `CREATEINFOBASE` | Создание новой информационной базы |
 
 **Путь к 1cv8.exe** зависит от версии платформы: `C:\Program Files\1cv8\8.3.27.1859\bin\1cv8.exe`.
@@ -18,8 +18,8 @@
 
 | Параметр | Описание |
 |----------|----------|
-| `/F <каталог>` | Файловая база — каталог с файлом `1Cv8.1CD` |
-| `/S <адрес>` | Серверная база — формат `server/ibname` |
+| `/F <каталог>` | Файловая база - каталог с файлом `1Cv8.1CD` |
+| `/S <адрес>` | Серверная база - формат `server/ibname` |
 | `/IBName <имя>` | По имени из списка баз (в кавычках если содержит пробелы) |
 | `/IBConnectionString` | Полная строка соединения |
 
@@ -45,10 +45,10 @@
 
 | Параметр | Описание |
 |----------|----------|
-| `/DisableStartupDialogs` | Подавляет интерактивные диалоги (Yes/No). **Обязательно** для пакетного режима — без него конфигуратор может зависнуть в ожидании ввода |
-| `/DisableStartupMessages` | Подавляет стартовые предупреждения («Конфигурация БД не соответствует...» и т.п.). **Обязательно** — без него конфигуратор зависает при расхождении основной конфигурации и конфигурации БД |
-| `/Out <файл> [-NoTruncate]` | Файл для вывода служебных сообщений (UTF-8). `-NoTruncate` — не очищать файл перед записью |
-| `/DumpResult <файл>` | Записать числовой код результата в файл (0 — успех, 1 — ошибка, 101 — ошибки проверки) |
+| `/DisableStartupDialogs` | Подавляет интерактивные диалоги (Yes/No). **Обязательно** для пакетного режима - без него конфигуратор может зависнуть в ожидании ввода |
+| `/DisableStartupMessages` | Подавляет стартовые предупреждения ("Конфигурация БД не соответствует..." и т.п.). **Обязательно** - без него конфигуратор зависает при расхождении основной конфигурации и конфигурации БД |
+| `/Out <файл> [-NoTruncate]` | Файл для вывода служебных сообщений (UTF-8). `-NoTruncate` - не очищать файл перед записью |
+| `/DumpResult <файл>` | Записать числовой код результата в файл (0 - успех, 1 - ошибка, 101 - ошибки проверки) |
 | `/Visible` | Показать окно конфигуратора (по умолчанию скрыто в пакетном режиме) |
 
 ## Создание информационной базы
@@ -75,11 +75,11 @@
 |----------|----------|
 | `File="<путь>"` | Строка соединения для файловой базы |
 | `Srvr="<сервер>";Ref="<имя>"` | Строка соединения для серверной базы |
-| `/AddToList [<имя>]` | Добавить в список баз. Имя — необязательно |
+| `/AddToList [<имя>]` | Добавить в список баз. Имя - необязательно |
 | `/UseTemplate <файл>` | Создать по шаблону (.cf или .dt) |
-| `/DumpResult <файл>` | Записать результат (0 — успех) |
+| `/DumpResult <файл>` | Записать результат (0 - успех) |
 
-## Работа с конфигурацией — бинарные файлы (CF)
+## Работа с конфигурацией - бинарные файлы (CF)
 
 ### Выгрузка конфигурации в CF-файл
 
@@ -87,7 +87,7 @@
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DumpCfg config.cf /Out log.txt
 ```
 
-**`/DumpCfg <файл> [-Extension <имя>]`** — сохранить конфигурацию в .cf-файл.
+**`/DumpCfg <файл> [-Extension <имя>]`** - сохранить конфигурацию в .cf-файл.
 
 ### Загрузка конфигурации из CF-файла
 
@@ -95,16 +95,16 @@
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /LoadCfg config.cf /Out log.txt
 ```
 
-**`/LoadCfg <файл> [-Extension <имя>] [-AllExtensions]`** — загрузить конфигурацию из .cf-файла.
+**`/LoadCfg <файл> [-Extension <имя>] [-AllExtensions]`** - загрузить конфигурацию из .cf-файла.
 
 | Параметр | Описание |
 |----------|----------|
 | `-Extension <имя>` | Работа с расширением (указать имя) |
-| `-AllExtensions` | Работа со всеми расширениями (файл — архив расширений) |
+| `-AllExtensions` | Работа со всеми расширениями (файл - архив расширений) |
 
-> После `/LoadCfg` конфигурация загружается в «основную» конфигурацию конфигуратора. Для применения к БД необходим `/UpdateDBCfg`.
+> После `/LoadCfg` конфигурация загружается в "основную" конфигурацию конфигуратора. Для применения к БД необходим `/UpdateDBCfg`.
 
-## Работа с конфигурацией — XML-исходники
+## Работа с конфигурацией - XML-исходники
 
 ### Выгрузка `/DumpConfigToFiles`
 
@@ -123,12 +123,12 @@
 
 #### Режимы выгрузки
 
-**Полная выгрузка** — все объекты конфигурации:
+**Полная выгрузка** - все объекты конфигурации:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DumpConfigToFiles "C:\src\config" /Out log.txt
 ```
 
-**Инкрементальная выгрузка** — только изменённые объекты:
+**Инкрементальная выгрузка** - только измененные объекты:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DumpConfigToFiles "C:\src\config" -update -force /Out log.txt
 ```
@@ -138,12 +138,12 @@
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DumpConfigToFiles "C:\src\config" -update -getChanges "changes.txt" -configDumpInfoForChanges "old\ConfigDumpInfo.xml" /Out log.txt
 ```
 
-**Частичная выгрузка** — выбранные объекты по списку:
+**Частичная выгрузка** - выбранные объекты по списку:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DumpConfigToFiles "C:\src\config" -listFile "dump_objects.txt" /Out log.txt
 ```
 
-**Обновление ConfigDumpInfo.xml** — без выгрузки файлов:
+**Обновление ConfigDumpInfo.xml** - без выгрузки файлов:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DumpConfigToFiles "C:\src\config" -configDumpInfoOnly /Out log.txt
 ```
@@ -152,9 +152,9 @@
 
 | Параметр | Описание |
 |----------|----------|
-| `-update` | Обновляющая (инкрементальная) выгрузка — только изменённые объекты |
+| `-update` | Обновляющая (инкрементальная) выгрузка - только измененные объекты |
 | `-force` | Принудительная полная выгрузка. Используется с `-update` при несовпадении версий |
-| `-getChanges <файл>` | Записать список изменённых файлов |
+| `-getChanges <файл>` | Записать список измененных файлов |
 | `-configDumpInfoForChanges <файл>` | Файл ConfigDumpInfo.xml для определения изменений |
 | `-listFile <файл>` | Файл со списком выгружаемых объектов (по одному на строку) |
 | `-configDumpInfoOnly` | Выгрузить только ConfigDumpInfo.xml |
@@ -163,7 +163,7 @@
 | `-Server` | Выгрузка на стороне сервера |
 | `-Format <формат>` | Формат файлов (Hierarchical / Plain) |
 | `-Archive <файл>` | Выгрузка в архивный файл |
-| `-ignoreUnresolvedReferences` | Игнорировать неразрешённые ссылки |
+| `-ignoreUnresolvedReferences` | Игнорировать неразрешенные ссылки |
 
 #### Формат listFile для выгрузки
 
@@ -193,12 +193,12 @@
 
 #### Режимы загрузки
 
-**Полная загрузка** — замена всей конфигурации:
+**Полная загрузка** - замена всей конфигурации:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /LoadConfigFromFiles "C:\src\config" /Out log.txt
 ```
 
-**Частичная загрузка** — выбранные файлы по списку:
+**Частичная загрузка** - выбранные файлы по списку:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /LoadConfigFromFiles "C:\src\config" -listFile "load_list.txt" -Format Hierarchical -partial -updateConfigDumpInfo /Out log.txt
 ```
@@ -209,10 +209,10 @@
 |----------|----------|
 | `-files "<файлы>"` | Список файлов для частичной загрузки (через запятую, в кавычках). Несовместим с `-AllExtensions` |
 | `-listFile <файл>` | Файл со списком загружаемых файлов (по одному на строку, UTF-8). Несовместим с `-AllExtensions` |
-| `-partial` | Частичная загрузка — загружать только указанные элементы описания объекта, не заменяя всю конфигурацию |
+| `-partial` | Частичная загрузка - загружать только указанные элементы описания объекта, не заменяя всю конфигурацию |
 | `-updateConfigDumpInfo` | Обновить ConfigDumpInfo.xml после загрузки |
 | `-NoCheck` | Не проверять целостность при загрузке (ускоряет загрузку заведомо целостной конфигурации) |
-| `-Extension <имя>` | Загрузить в расширение. Если расширения нет — оно создаётся |
+| `-Extension <имя>` | Загрузить в расширение. Если расширения нет - оно создается |
 | `-AllExtensions` | Загрузить все расширения (каждый подкаталог = расширение). Несовместим с `-files`/`-listFile` |
 | `-Server` | Загрузка на стороне сервера |
 | `-Archive <файл>` | Загрузка из ZIP-архива. Несовместим с указанием каталога загрузки |
@@ -259,11 +259,11 @@ Catalogs/Номенклатура.xml
 Catalogs/Номенклатура/Ext/ManagerModule.bsl
 ```
 
-> **Важно:** корневой XML объекта (`Catalogs/Номенклатура.xml`) нужно включать всегда — он содержит реестр подчинённых элементов (форм, макетов, модулей). Без него конфигуратор может не обнаружить изменения.
+> **Важно:** корневой XML объекта (`Catalogs/Номенклатура.xml`) нужно включать всегда - он содержит реестр подчиненных элементов (форм, макетов, модулей). Без него конфигуратор может не обнаружить изменения.
 
 > **Важно: различие форматов listFile для dump и load:**
-> - **Выгрузка** (`/DumpConfigToFiles -listFile`): **имена объектов метаданных** — `Справочник.Номенклатура`
-> - **Загрузка** (`/LoadConfigFromFiles -listFile`): **относительные пути файлов** — `Catalogs/Валюты.xml`
+> - **Выгрузка** (`/DumpConfigToFiles -listFile`): **имена объектов метаданных** - `Справочник.Номенклатура`
+> - **Загрузка** (`/LoadConfigFromFiles -listFile`): **относительные пути файлов** - `Catalogs/Валюты.xml`
 
 ## Обновление конфигурации БД
 
@@ -314,7 +314,7 @@ Catalogs/Номенклатура/Ext/ManagerModule.bsl
 | `<корневой_xml>` | Путь к корневому XML-файлу обработки (например, `src\МояОбработка.xml`) |
 | `<путь_к_epf>` | Путь к выходному файлу `.epf` или `.erf` |
 
-> **Важно**: первый аргумент — путь к **корневому XML-файлу** (не к каталогу). Если указать каталог, конфигуратор вернёт ошибку.
+> **Важно**: первый аргумент - путь к **корневому XML-файлу** (не к каталогу). Если указать каталог, конфигуратор вернет ошибку.
 
 ### Разборка (EPF → XML)
 
@@ -331,13 +331,13 @@ Catalogs/Номенклатура/Ext/ManagerModule.bsl
 
 ### Примечания по сборке
 
-- Если база не указана — скрипт `epf-build.ps1` автоматически создаёт временную базу. Для обработок со ссылочными типами (`CatalogRef.*`, `DocumentRef.*` и т.п.) генерируются заглушки метаданных. Временная база удаляется после сборки.
-- Категории колонок регистров (Dimension/Resource/Attribute) угадываются по Form.xml — при round-trip через реальную базу привязки полей формы могут не сохраниться.
+- Если база не указана - скрипт `epf-build.ps1` автоматически создает временную базу. Для обработок со ссылочными типами (`CatalogRef.*`, `DocumentRef.*` и т.п.) генерируются заглушки метаданных. Временная база удаляется после сборки.
+- Категории колонок регистров (Dimension/Resource/Attribute) угадываются по Form.xml - при round-trip через реальную базу привязки полей формы могут не сохраниться.
 
 ### Примечания по разборке
 
 - Разборка **обязательно** требует базу с конфигурацией, содержащей используемые типы.
-- Dump в пустой базе **безвозвратно** теряет ссылочные типы — `CatalogRef.XXX` превращается в `xs:string`.
+- Dump в пустой базе **безвозвратно** теряет ссылочные типы - `CatalogRef.XXX` превращается в `xs:string`.
 
 ## Запуск в режиме предприятия
 
@@ -370,20 +370,20 @@ Catalogs/Номенклатура/Ext/ManagerModule.bsl
 
 Числовой код можно записать в файл через `/DumpResult <файл>`.
 
-При работе с расширениями (`-Extension`, `-AllExtensions`): 0 — успех, 1 — ошибка.
+При работе с расширениями (`-Extension`, `-AllExtensions`): 0 - успех, 1 - ошибка.
 
 ## ConfigDumpInfo.xml
 
-`ConfigDumpInfo.xml` — служебный файл, создаваемый при выгрузке конфигурации в файлы (`/DumpConfigToFiles`). Содержит информацию о составе и версиях объектов конфигурации на момент выгрузки.
+`ConfigDumpInfo.xml` - служебный файл, создаваемый при выгрузке конфигурации в файлы (`/DumpConfigToFiles`). Содержит информацию о составе и версиях объектов конфигурации на момент выгрузки.
 
 **Назначение:**
 - Определение изменений при инкрементальной выгрузке (`-update`, `-configDumpInfoForChanges`)
 - Синхронизация состояния выгрузки с конфигурацией ИБ
 
 **Использование:**
-- `-configDumpInfoForChanges <файл>` — передать предыдущий ConfigDumpInfo.xml для определения изменений
-- `-configDumpInfoOnly` — обновить только этот файл без выгрузки объектов
-- `-updateConfigDumpInfo` — обновить файл после частичной загрузки (`/LoadConfigFromFiles`)
+- `-configDumpInfoForChanges <файл>` - передать предыдущий ConfigDumpInfo.xml для определения изменений
+- `-configDumpInfoOnly` - обновить только этот файл без выгрузки объектов
+- `-updateConfigDumpInfo` - обновить файл после частичной загрузки (`/LoadConfigFromFiles`)
 
 **Расположение:** корень каталога выгрузки (рядом с `Configuration.xml`).
 
@@ -391,7 +391,7 @@ Catalogs/Номенклатура/Ext/ManagerModule.bsl
 
 ### Зависание без `/DisableStartupMessages`
 
-Если конфигурация БД не соответствует основной конфигурации, конфигуратор показывает интерактивный диалог «Конфигурация базы данных не соответствует сохраненной конфигурации. Продолжить?» и ждёт ввода пользователя. В пакетном режиме это приводит к зависанию процесса.
+Если конфигурация БД не соответствует основной конфигурации, конфигуратор показывает интерактивный диалог "Конфигурация базы данных не соответствует сохраненной конфигурации. Продолжить?" и ждет ввода пользователя. В пакетном режиме это приводит к зависанию процесса.
 
 **Решение:** всегда добавлять `/DisableStartupMessages` в командную строку.
 
@@ -403,11 +403,11 @@ Catalogs/Номенклатура/Ext/ManagerModule.bsl
 
 ### XDTO-ошибка при сборке EPF в пустой базе
 
-Если внешняя обработка ссылается на типы конфигурации (`CatalogRef.*`, `DocumentRef.*` и т.п.) в реквизитах, табличных частях или реквизитах форм, сборка в пустой базе упадёт с ошибкой XDTO — платформа не может разрешить ссылки на несуществующие типы.
+Если внешняя обработка ссылается на типы конфигурации (`CatalogRef.*`, `DocumentRef.*` и т.п.) в реквизитах, табличных частях или реквизитах форм, сборка в пустой базе упадет с ошибкой XDTO - платформа не может разрешить ссылки на несуществующие типы.
 
 **Решение:** использовать базу с целевой конфигурацией (в которой определены используемые объекты метаданных).
 
-### «Несоответствие свойства» при частичной загрузке
+### "Несоответствие свойства" при частичной загрузке
 
 Ошибка `Несоответствие свойства и элемента данных XDTO` возникает при неполном listFile. При изменении формы нужно загружать **все связанные файлы**: XML-дескриптор формы, весь каталог `Ext/` формы (Form.xml, Module.bsl) и корневой XML объекта.
 
@@ -428,7 +428,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 | Переменная | Описание |
 |-----------|----------|
 | `V8_PATH` | Каталог `bin` платформы 1С (например, `C:\Program Files\1cv8\8.3.27.1859\bin`) |
-| `V8_BASE` | Путь к пустой ИБ для EPF-сборки (создаётся автоматически при первом запуске) |
+| `V8_BASE` | Путь к пустой ИБ для EPF-сборки (создается автоматически при первом запуске) |
 
 ## Выгрузка и загрузка информационной базы (DT)
 
@@ -468,7 +468,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DumpDBCfg config_db.cf /Out log.txt
 ```
 
-**`/DumpDBCfg <файл> [-Extension <имя>]`** — сохранить конфигурацию **базы данных** (не основную) в файл. Полезно для получения конфигурации в актуальном состоянии БД.
+**`/DumpDBCfg <файл> [-Extension <имя>]`** - сохранить конфигурацию **базы данных** (не основную) в файл. Полезно для получения конфигурации в актуальном состоянии БД.
 
 ### Возврат к конфигурации БД `/RollbackCfg`
 
@@ -476,15 +476,15 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /RollbackCfg /Out log.txt
 ```
 
-**`/RollbackCfg [-Extension <имя>]`** — откатить основную конфигурацию к конфигурации БД. С параметром `-Extension` — откатить конкретное расширение.
+**`/RollbackCfg [-Extension <имя>]`** - откатить основную конфигурацию к конфигурации БД. С параметром `-Extension` - откатить конкретное расширение.
 
 ### Удаление расширения `/DeleteCfg`
 
 ```
-1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DeleteCfg -Extension "МоёРасширение" /Out log.txt
+1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /DeleteCfg -Extension "МоеРасширение" /Out log.txt
 ```
 
-**`/DeleteCfg [-Extension <имя>] [-AllExtensions]`** — удалить расширение. Использование команды без параметра не допускается.
+**`/DeleteCfg [-Extension <имя>] [-AllExtensions]`** - удалить расширение. Использование команды без параметра не допускается.
 
 ### Объединение конфигураций `/MergeCfg`
 
@@ -506,9 +506,9 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 | `-EnableSupport` | Поставить на поддержку (с правилами из файла настроек) |
 | `-DisableSupport` | Не выполнять постановку на поддержку |
 | `-IncludeObjectsByUnresolvedRefs` | Автоматически включать зависимые объекты |
-| `-ClearUnresolvedRefs` | Очищать неразрешённые ссылки |
+| `-ClearUnresolvedRefs` | Очищать неразрешенные ссылки |
 | `-Extension <имя>` | Объединение с расширением |
-| `-force` | Продолжать при предупреждениях об удалённых объектах |
+| `-force` | Продолжать при предупреждениях об удаленных объектах |
 
 ## Выгрузка и загрузка свойств объектов
 
@@ -536,7 +536,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /LoadConfigFiles "C:\modules" -Module /Out log.txt
 ```
 
-Аналогичные параметры. При загрузке в расширение, подключённое к хранилищу — загружаемые объекты должны быть захвачены.
+Аналогичные параметры. При загрузке в расширение, подключенное к хранилищу - загружаемые объекты должны быть захвачены.
 
 > **Отличие от `/DumpConfigToFiles` и `/LoadConfigFromFiles`:** команды `/DumpConfigFiles` и `/LoadConfigFiles` работают с **отдельными свойствами** объектов (модули, макеты, справка), а не с полной XML-выгрузкой конфигурации.
 
@@ -592,7 +592,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 | Параметр | Описание |
 |----------|----------|
 | `-ConfigLogIntegrity` | Проверка логической целостности конфигурации |
-| `-IncorrectReferences` | Поиск некорректных ссылок на удалённые объекты |
+| `-IncorrectReferences` | Поиск некорректных ссылок на удаленные объекты |
 | `-DistributiveModules` | Проверка поставки модулей без исходных текстов |
 | `-UnreferenceProcedures` | Поиск неиспользуемых локальных процедур и функций |
 | `-HandlersExistence` | Проверка существования назначенных обработчиков событий |
@@ -601,15 +601,15 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 | `-CheckUseModality` | Поиск использования модальных методов (только с `-ExtendedModulesCheck`) |
 | `-CheckUseSynchronousCalls` | Поиск использования синхронных вызовов (только с `-ExtendedModulesCheck`) |
 
-> **Отличие от `/CheckModules`:** `/CheckConfig` — расширенная проверка, включающая логическую целостность, некорректные ссылки, неиспользуемые процедуры, пустые обработчики. `/CheckModules` — только синтаксический контроль модулей в указанных режимах.
+> **Отличие от `/CheckModules`:** `/CheckConfig` - расширенная проверка, включающая логическую целостность, некорректные ссылки, неиспользуемые процедуры, пустые обработчики. `/CheckModules` - только синтаксический контроль модулей в указанных режимах.
 
 ### Проверка применимости расширений `/CheckCanApplyConfigurationExtensions`
 
 ```
-1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /CheckCanApplyConfigurationExtensions -Extension "МоёРасширение" /Out log.txt
+1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /CheckCanApplyConfigurationExtensions -Extension "МоеРасширение" /Out log.txt
 ```
 
-**`/CheckCanApplyConfigurationExtensions [-Extension <имя>] [-AllZones] [-Z <разделители>]`** — проверяет, может ли расширение быть применено в конкретной информационной базе.
+**`/CheckCanApplyConfigurationExtensions [-Extension <имя>] [-AllZones] [-Z <разделители>]`** - проверяет, может ли расширение быть применено в конкретной информационной базе.
 
 ## Тестирование и исправление ИБ
 
@@ -635,22 +635,22 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 | `-ReIndex` | Реиндексация таблиц |
 | `-LogIntegrity` | Проверка логической целостности |
 | `-LogAndRefsIntegrity` | Проверка логической и ссылочной целостности |
-| `-RecalcTotals` | Пересчёт итогов |
+| `-RecalcTotals` | Пересчет итогов |
 | `-IBCompression` | Сжатие таблиц |
 | `-Rebuild` | Реструктуризация таблиц ИБ |
 | `-TestOnly` | Только тестирование (без исправлений) |
-| `-BadRefCreate` | При битых ссылках — создавать объекты |
-| `-BadRefClear` | При битых ссылках — очищать |
-| `-BadRefNone` | При битых ссылках — не изменять |
-| `-BadDataCreate` | При частичной потере данных — создавать объекты |
-| `-BadDataDelete` | При частичной потере данных — удалять |
+| `-BadRefCreate` | При битых ссылках - создавать объекты |
+| `-BadRefClear` | При битых ссылках - очищать |
+| `-BadRefNone` | При битых ссылках - не изменять |
+| `-BadDataCreate` | При частичной потере данных - создавать объекты |
+| `-BadDataDelete` | При частичной потере данных - удалять |
 | `-ConfigurationExtensionsLogIntegrity` | Проверка целостности расширений (не требует монопольного доступа) |
 | `-RebuildConfigurationExtension` | Реструктуризация таблиц расширений (не требует монопольного доступа) |
 | `-UseStartPoint` | Продолжить с точки остановки предыдущей проверки |
 | `-TimeLimit:hhh:mm` | Ограничение времени выполнения |
 | `-JobsCount <N>` | Количество фоновых заданий (0 = авто) |
 
-Пример — только тестирование без исправлений:
+Пример - только тестирование без исправлений:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /IBCheckAndRepair -LogAndRefsIntegrity -TestOnly /Out log.txt
 ```
@@ -678,7 +678,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 
 > Группа параметров `-f`/`-v` повторяется столько раз, сколько дистрибутивов включается в обновление.
 
-Пример — создание поставки и обновления:
+Пример - создание поставки и обновления:
 ```
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /CreateDistributionFiles -cffile release.cf -cfufile update.cfu -v "1.0.0.1" -v "1.0.0.2" /Out log.txt
 ```
@@ -706,7 +706,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 | Параметр | Описание |
 |----------|----------|
 | `-AllowConfigurationChanges` | Включить возможность изменения (если на поддержке) |
-| `-ChangesAllowedRule <правило>` | Правило для разрешённых изменений: `ObjectNotEditable`, `ObjectIsEditableSupportEnabled`, `ObjectNotSupported` |
+| `-ChangesAllowedRule <правило>` | Правило для разрешенных изменений: `ObjectNotEditable`, `ObjectIsEditableSupportEnabled`, `ObjectNotSupported` |
 | `-ChangesNotRecommendedRule <правило>` | Правило для нерекомендуемых изменений |
 | `-NoBind` | Не подключать к созданному хранилищу |
 | `-Extension <имя>` | Создать хранилище для расширения |
@@ -721,7 +721,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 
 | Параметр | Описание |
 |----------|----------|
-| `-v <номер>` | Номер версии (-1 или не указан — последняя). Игнорируется если подключены к хранилищу |
+| `-v <номер>` | Номер версии (-1 или не указан - последняя). Игнорируется если подключены к хранилищу |
 | `-revised` | Получать захваченные объекты, если потребуется |
 | `-force` | Подтвердить добавление/удаление объектов при обновлении |
 | `-Objects <файл>` | Список объектов для обновления |
@@ -733,7 +733,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /ConfigurationRepositoryF "C:\Repo" /ConfigurationRepositoryN Admin /ConfigurationRepositoryP "" /ConfigurationRepositoryDumpCfg repo_config.cf /Out log.txt
 ```
 
-**`/ConfigurationRepositoryDumpCfg <файл.cf> [-v <номер>] [-Extension <имя>]`** — сохранить конфигурацию из хранилища в CF-файл. `-v -1` или без `-v` — последняя версия.
+**`/ConfigurationRepositoryDumpCfg <файл.cf> [-v <номер>] [-Extension <имя>]`** - сохранить конфигурацию из хранилища в CF-файл. `-v -1` или без `-v` - последняя версия.
 
 ### Захват и помещение объектов
 
@@ -742,7 +742,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /ConfigurationRepositoryF "C:\Repo" /ConfigurationRepositoryN Admin /ConfigurationRepositoryP "" /ConfigurationRepositoryLock -Objects objects.txt /Out log.txt
 ```
 
-**`/ConfigurationRepositoryLock [-Objects <файл>] [-revised] [-Extension <имя>]`** — захватить объекты для редактирования.
+**`/ConfigurationRepositoryLock [-Objects <файл>] [-revised] [-Extension <имя>]`** - захватить объекты для редактирования.
 
 **Помещение:**
 ```
@@ -754,13 +754,13 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 | Параметр | Описание |
 |----------|----------|
 | `-Objects <файл>` | Список объектов для помещения |
-| `-comment <текст>` | Комментарий (в кавычках). Для многострочного — несколько `-comment` |
+| `-comment <текст>` | Комментарий (в кавычках). Для многострочного - несколько `-comment` |
 | `-keepLocked` | Оставить объекты захваченными после помещения |
-| `-force` | Очищать ссылки на удалённые объекты |
+| `-force` | Очищать ссылки на удаленные объекты |
 
 **Отмена захвата:**
 
-**`/ConfigurationRepositoryUnLock [-Objects <файл>] [-force] [-Extension <имя>]`** — отменить захват. С `-force` — локальные изменения будут потеряны.
+**`/ConfigurationRepositoryUnLock [-Objects <файл>] [-force] [-Extension <имя>]`** - отменить захват. С `-force` - локальные изменения будут потеряны.
 
 ### Отчет по версиям `/ConfigurationRepositoryReport`
 
@@ -768,7 +768,7 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /ConfigurationRepositoryF "C:\Repo" /ConfigurationRepositoryN Admin /ConfigurationRepositoryP "" /ConfigurationRepositoryReport report.txt /Out log.txt
 ```
 
-**`/ConfigurationRepositoryReport <файл>`** — сформировать отчет по версиям хранилища в указанный файл.
+**`/ConfigurationRepositoryReport <файл>`** - сформировать отчет по версиям хранилища в указанный файл.
 
 Замерено на 8.3.27.1859 против живого хранилища: операция завершается кодом 0, пишет `0` в файл
 `/DumpResult` и строку `Отчет успешно построен` в `/Out`. **Отчет отдается в формате MXL** (табличный
@@ -804,9 +804,9 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 
 ### Подключение и отключение
 
-**`/ConfigurationRepositoryBindCfg [-forceBindAlreadyBindedUser] [-forceReplaceCfg] [-Extension <имя>]`** — подключить ИБ к хранилищу.
+**`/ConfigurationRepositoryBindCfg [-forceBindAlreadyBindedUser] [-forceReplaceCfg] [-Extension <имя>]`** - подключить ИБ к хранилищу.
 
-**`/ConfigurationRepositoryUnbindCfg [-force] [-Extension <имя>]`** — отключить от хранилища. С `-force` — без аутентификации и при наличии захваченных объектов.
+**`/ConfigurationRepositoryUnbindCfg [-force] [-Extension <имя>]`** - отключить от хранилища. С `-force` - без аутентификации и при наличии захваченных объектов.
 
 ### Сравнение конфигураций `/CompareCfg`
 
@@ -814,5 +814,5 @@ $enc = New-Object System.Text.UTF8Encoding($true)  # BOM
 1cv8.exe DESIGNER /F <база> /DisableStartupDialogs /CompareCfg -FirstConfigurationType MainConfiguration -SecondConfigurationType DBConfiguration -ReportType Full -ReportFormat txt -ReportFile compare.txt /Out log.txt
 ```
 
-Сравнивает две конфигурации и формирует отчёт. Типы конфигураций: `MainConfiguration`, `DBConfiguration`, `VendorConfiguration`, `ExtensionConfiguration`, `ExtensionDBConfiguration`, `ConfigurationRepository`, `File`.
+Сравнивает две конфигурации и формирует отчет. Типы конфигураций: `MainConfiguration`, `DBConfiguration`, `VendorConfiguration`, `ExtensionConfiguration`, `ExtensionDBConfiguration`, `ConfigurationRepository`, `File`.
 

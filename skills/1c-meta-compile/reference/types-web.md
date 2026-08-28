@@ -11,12 +11,12 @@
 
 Модули: `Ext/Module.bsl`.
 
-### urlTemplates — вложенная структура
+### urlTemplates - вложенная структура
 
-`urlTemplates` — объект `{ "TemplateName": templateDef, ... }`.
+`urlTemplates` - объект `{ "TemplateName": templateDef, ... }`.
 
 Каждый `templateDef`:
-- Строка — URL-шаблон: `"/v1/users"` (без методов)
+- Строка - URL-шаблон: `"/v1/users"` (без методов)
 - Объект:
 
 | Поле | Умолчание | Описание |
@@ -26,7 +26,7 @@
 
 Допустимые HTTPMethod: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`, `CONNECT`, `TRACE`, `MERGE`.
 
-Обработчик метода генерируется автоматически: `{TemplateName}{MethodName}` — должен быть реализован в `Ext/Module.bsl`.
+Обработчик метода генерируется автоматически: `{TemplateName}{MethodName}` - должен быть реализован в `Ext/Module.bsl`.
 
 ```json
 {
@@ -45,7 +45,7 @@
 
 | Поле JSON | Умолчание | XML элемент |
 |-----------|----------|-------------|
-| `namespace` | `""` | Namespace (URI пространства имён WSDL) |
+| `namespace` | `""` | Namespace (URI пространства имен WSDL) |
 | `xdtoPackages` | `""` | XDTOPackages |
 | `reuseSessions` | `DontUse` | ReuseSessions |
 | `sessionMaxAge` | `20` | SessionMaxAge |
@@ -53,12 +53,12 @@
 
 Модули: `Ext/Module.bsl`.
 
-### operations — вложенная структура
+### operations - вложенная структура
 
-`operations` — объект `{ "OperationName": operationDef, ... }`.
+`operations` - объект `{ "OperationName": operationDef, ... }`.
 
 Каждый `operationDef`:
-- Строка — тип возврата: `"xs:boolean"` (параметров нет, обработчик = имя операции)
+- Строка - тип возврата: `"xs:boolean"` (параметров нет, обработчик = имя операции)
 - Объект:
 
 | Поле | Умолчание | Описание |
@@ -69,12 +69,12 @@
 | `handler` | `= operationName` | Имя процедуры в модуле |
 | `parameters` | `{}` | Параметры операции |
 
-### parameters — параметры операции
+### parameters - параметры операции
 
-`parameters` — объект `{ "ParamName": paramDef, ... }`.
+`parameters` - объект `{ "ParamName": paramDef, ... }`.
 
 Каждый `paramDef`:
-- Строка — XDTO-тип: `"xs:string"` (direction = In, nillable = true)
+- Строка - XDTO-тип: `"xs:string"` (direction = In, nillable = true)
 - Объект:
 
 | Поле | Умолчание | Описание |

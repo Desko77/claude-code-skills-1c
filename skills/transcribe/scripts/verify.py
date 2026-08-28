@@ -2,8 +2,8 @@
 Smoke-тест после установки скила transcribe.
 
 Что проверяет:
-1. venv-whisper существует и в нём установлены faster-whisper + google-genai
-2. venv-sherpa существует и в нём установлены sherpa_onnx + onnxruntime
+1. venv-whisper существует и в нем установлены faster-whisper + google-genai
+2. venv-sherpa существует и в нем установлены sherpa_onnx + onnxruntime
 3. Модели sherpa-onnx и 3D-Speaker лежат в models/
 4. ffmpeg + ffprobe доступны
 5. .env существует и GEMINI_API_KEY заполнен (предупреждение если нет)
@@ -11,7 +11,7 @@ Smoke-тест после установки скила transcribe.
 
 Запуск:
     python scripts/verify.py             # все проверки кроме прогона
-    python scripts/verify.py --full      # + тестовый прогон (создаёт 3-сек тон и транскрибирует)
+    python scripts/verify.py --full      # + тестовый прогон (создает 3-сек тон и транскрибирует)
 
 Выход: 0 если все проверки прошли (предупреждения не считаются), 1 если FAIL.
 """
@@ -121,7 +121,7 @@ def run_transcribe_test() -> bool:
                 capture_output=True, text=True, timeout=180,
             )
             if result.returncode == 0:
-                check("smoke-test транскрипция", "OK", "transcribe_local прошёл")
+                check("smoke-test транскрипция", "OK", "transcribe_local прошел")
                 return True
             check("smoke-test транскрипция", "FAIL", f"rc={result.returncode}: {result.stderr[-200:]}")
             return False

@@ -26,7 +26,7 @@ Two mechanisms, used together:
 2. **Named transition.** A direction attribute holds the `name` of a target action. Example:
    `nextDirection="Главное меню"` jumps to the action `name="Главное меню"`.
 
-**Name resolution is case-insensitive.** A button whose direction is `«Просмотр факт»`
+**Name resolution is case-insensitive.** A button whose direction is `"Просмотр факт"`
 resolves to the action `name="Просмотр Факт"`. Practical consequence: when the Panel reports
 "действие для перехода не найдено", it is **not** a letter-case problem - the target action is
 genuinely absent (most often because a stale file was loaded onto the server, or a button was
@@ -53,7 +53,7 @@ These are resolved by the platform, not by an action name. Treat them as always 
 
 `ConditionAction` example: `expression="CurrentItem == null"` with `yesDirection=""` (fall to
 the next action when TRUE) and `noDirection="подтвердить"` (jump when FALSE). To read it: "if
-CurrentItem is null, continue to the next node; otherwise go to «подтвердить»".
+CurrentItem is null, continue to the next node; otherwise go to "подтвердить"".
 
 ## Menus: QuestionAction and its three parallel arrays
 

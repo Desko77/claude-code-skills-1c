@@ -1,4 +1,4 @@
-﻿# xdto-validate v1.3 — Validate a 1C XDTO package (+Report-*: общий эталон вывода валидаторов)
+﻿# xdto-validate v1.3 - Validate a 1C XDTO package (+Report-*: общий эталон вывода валидаторов)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
 	[Parameter(Mandatory)]
@@ -16,7 +16,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Эти пространства имён предоставляет сама платформа — пакетов в конфигурации
+# Эти пространства имен предоставляет сама платформа - пакетов в конфигурации
 # для них нет и быть не должно (выведено по корпусу: импортируются, но
 # targetNamespace с таким значением ни у одного пакета нет)
 $PLATFORM_NS = @(
@@ -97,7 +97,7 @@ if (-not $binPath) {
 	exit 1
 }
 
-# Каталог конфигурации — для проверок регистрации и зависимостей
+# Каталог конфигурации - для проверок регистрации и зависимостей
 if (-not $ConfigDir) {
 	$d = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetDirectoryName([System.IO.Path]::GetDirectoryName($binPath)))
 	# .../XDTOPackages/<Имя>/Ext/Package.bin -> .../XDTOPackages -> корень
@@ -149,7 +149,7 @@ if (-not $targetNs) {
 
 $bytes = [System.IO.File]::ReadAllBytes($binPath)
 if (-not ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)) {
-	Report-Warn "Package.bin без BOM UTF-8 — платформа пишет файл с BOM"
+	Report-Warn "Package.bin без BOM UTF-8 - платформа пишет файл с BOM"
 } else {
 	Report-OK "Кодировка: UTF-8 с BOM"
 }
@@ -176,7 +176,7 @@ foreach ($n in $pkg.ChildNodes) {
 
 # --- Порядок элементов верхнего уровня ---
 # Модель требует import -> property -> valueType -> objectType. Нарушение платформа
-# не прощает: db-update падает с «Ошибка преобразования данных XDTO».
+# не прощает: db-update падает с "Ошибка преобразования данных XDTO".
 $TOP_ORDER = @("import", "property", "valueType", "objectType")
 $prevRank = -1
 $orderOk = $true
@@ -278,26 +278,26 @@ if (-not $script:stopped) { Report-OK "$nodeCount узлов: ссылки на 
 if ($script:stopped) { & $finalize; exit 1 }
 
 # --- 6. Silent degradation to xs:anyType ---
-# Платформа при импорте XML-схемы молча подменяет неразрешённый чужой тип на anyType.
+# Платформа при импорте XML-схемы молча подменяет неразрешенный чужой тип на anyType.
 
 if ($anyTypeProps.Count -gt 0 -and $imports.Count -gt 0) {
 	$names = @()
 	foreach ($p in $anyTypeProps) { if ($p.HasAttribute("name")) { $names += $p.GetAttribute("name") } }
 	$shown = ($names | Select-Object -First 5) -join ", "
-	Report-Warn "Свойств с type=`"xs:anyType`": $($anyTypeProps.Count) при объявленных импортах ($shown). Тип не разрешён — заполнить структурно такое свойство нельзя. Обычно это след импорта XML-схемы: платформа заменяет неразрешённый чужой тип на anyType без ошибки"
+	Report-Warn "Свойств с type=`"xs:anyType`": $($anyTypeProps.Count) при объявленных импортах ($shown). Тип не разрешен - заполнить структурно такое свойство нельзя. Обычно это след импорта XML-схемы: платформа заменяет неразрешенный чужой тип на anyType без ошибки"
 }
 
 # --- 7. Unused imports ---
 
 # Сам по себе неиспользуемый импорт безвреден и встречается в четверти пакетов
-# типовых конфигураций. Сигналом он становится только вместе с anyType — тогда это
-# почти наверняка неразрешённая зависимость.
+# типовых конфигураций. Сигналом он становится только вместе с anyType - тогда это
+# почти наверняка неразрешенная зависимость.
 $unused = @()
 foreach ($imp in $imports) { if (-not $usedNamespaces.Contains($imp)) { $unused += $imp } }
 if ($unused.Count -gt 0 -and $anyTypeProps.Count -gt 0) {
-	Report-Warn "Импорт(ы) без единого использованного типа: $($unused -join ', ') — вместе с anyType это признак неразрешённой зависимости"
+	Report-Warn "Импорт(ы) без единого использованного типа: $($unused -join ', ') - вместе с anyType это признак неразрешенной зависимости"
 }
-if ($imports.Count -gt 0 -and $unused.Count -eq 0) { Report-OK "$($imports.Count) импорт(ов) — все используются" }
+if ($imports.Count -gt 0 -and $unused.Count -eq 0) { Report-OK "$($imports.Count) импорт(ов) - все используются" }
 
 # --- 8. nillable on attribute-form properties ---
 
@@ -308,7 +308,7 @@ foreach ($p in $pkg.SelectNodes("//*[local-name()='property']")) {
 	}
 }
 if ($nillAttrs.Count -gt 0) {
-	Report-Warn "Свойств с nillable=`"true`" и form=`"Attribute`": $($nillAttrs.Count) ($(($nillAttrs | Select-Object -First 5) -join ', ')). Спецификация XSD не допускает nillable у атрибутов — экспорт XML-схемы в Конфигураторе их потеряет"
+	Report-Warn "Свойств с nillable=`"true`" и form=`"Attribute`": $($nillAttrs.Count) ($(($nillAttrs | Select-Object -First 5) -join ', ')). Спецификация XSD не допускает nillable у атрибутов - экспорт XML-схемы в Конфигураторе их потеряет"
 }
 
 # --- 9. Facet consistency ---
@@ -322,8 +322,8 @@ foreach ($t in $pkg.SelectNodes("//*[local-name()='valueType' or local-name()='t
 
 	$len = $t.GetAttribute("length")
 	if ($len -and ($t.HasAttribute("minLength") -or $t.HasAttribute("maxLength"))) {
-		# Спецификация XSD это запрещает, но платформа такие типы хранит — предупреждение, не ошибка
-		Report-Warn "$nm : length задан вместе с minLength/maxLength — спецификация XSD считает их взаимоисключающими"
+		# Спецификация XSD это запрещает, но платформа такие типы хранит - предупреждение, не ошибка
+		Report-Warn "$nm : length задан вместе с minLength/maxLength - спецификация XSD считает их взаимоисключающими"
 	}
 	$minL = $t.GetAttribute("minLength"); $maxL = $t.GetAttribute("maxLength")
 	if ($minL -and $maxL -and ([int]$minL -gt [int]$maxL)) {
@@ -368,13 +368,13 @@ foreach ($p in $pkg.SelectNodes("//*[local-name()='property']")) {
 	if (-not $p.HasAttribute("name") -and -not $p.HasAttribute("ref")) {
 		Report-Error "Свойство без name и без ref"
 	}
-	# В модели XDTO fixed — булев признак, само значение лежит в default.
+	# В модели XDTO fixed - булев признак, само значение лежит в default.
 	# В XML-схеме наоборот: fixed="V" совмещает признак и значение.
 	if ($p.HasAttribute("fixed")) {
 		$fx = $p.GetAttribute("fixed")
 		$pName = if ($p.HasAttribute("name")) { $p.GetAttribute("name") } else { $p.GetAttribute("ref") }
 		if (@("true", "false") -cnotcontains $fx) {
-			Report-Error "Свойство `"$pName`": fixed=`"$fx`" — в модели это булев признак, значение задаётся в default (в XML-схеме признак и значение совмещены в fixed)"
+			Report-Error "Свойство `"$pName`": fixed=`"$fx`" - в модели это булев признак, значение задается в default (в XML-схеме признак и значение совмещены в fixed)"
 		} elseif ($fx -ceq "true" -and -not $p.HasAttribute("default")) {
 			Report-Error "Отсутствует фиксированное значение свойства '$pName': есть fixed=`"true`", нет default"
 		}
@@ -407,7 +407,7 @@ foreach ($t in $pkg.SelectNodes("//*[local-name()='objectType' or local-name()='
 foreach ($p in $pkg.SelectNodes("//*[local-name()='property']")) {
 	$pn = if ($p.HasAttribute("name")) { $p.GetAttribute("name") } else { $p.GetAttribute("ref") }
 	if ($p.HasAttribute("name") -and $p.HasAttribute("ref")) {
-		Report-Error "Свойство `"$pn`": заданы одновременно name и ref — допустимо только одно"
+		Report-Error "Свойство `"$pn`": заданы одновременно name и ref - допустимо только одно"
 		$structOk = $false
 	}
 	$inlineTypeDef = $null
@@ -415,7 +415,7 @@ foreach ($p in $pkg.SelectNodes("//*[local-name()='property']")) {
 		if ($c.NodeType -eq [System.Xml.XmlNodeType]::Element -and $c.get_LocalName() -eq "typeDef") { $inlineTypeDef = $c; break }
 	}
 	if ($inlineTypeDef -and $p.HasAttribute("type")) {
-		Report-Error "Свойство `"$pn`": заданы одновременно type и вложенный <typeDef> — допустимо только одно"
+		Report-Error "Свойство `"$pn`": заданы одновременно type и вложенный <typeDef> - допустимо только одно"
 		$structOk = $false
 	}
 	if ($inlineTypeDef -and -not $inlineTypeDef.HasAttribute("type", $XSI_NS)) {
@@ -425,12 +425,12 @@ foreach ($p in $pkg.SelectNodes("//*[local-name()='property']")) {
 	if ($script:stopped) { break }
 }
 
-# Анонимный тип внутри valueType задаёт базовый тип и xsi:type не несёт
+# Анонимный тип внутри valueType задает базовый тип и xsi:type не несет
 foreach ($vt in $pkg.SelectNodes("//*[local-name()='valueType']")) {
 	foreach ($c in $vt.ChildNodes) {
 		if ($c.NodeType -ne [System.Xml.XmlNodeType]::Element -or $c.get_LocalName() -ne "typeDef") { continue }
 		if ($c.HasAttribute("type", $XSI_NS)) {
-			Report-Warn "$($vt.GetAttribute('name')) : у <typeDef> внутри <valueType> задан xsi:type — платформа его здесь не пишет"
+			Report-Warn "$($vt.GetAttribute('name')) : у <typeDef> внутри <valueType> задан xsi:type - платформа его здесь не пишет"
 		}
 	}
 }
@@ -468,7 +468,7 @@ foreach ($t in $pkg.SelectNodes("//*[local-name()='valueType' or local-name()='t
 	}
 	if (-not $hasMember) {
 		$tn = if ($t.HasAttribute("name")) { $t.GetAttribute("name") } else { "(анонимный тип)" }
-		Report-Warn "$tn : variety=`"Union`" без memberTypes и без вложенных типов — состав объединения пуст"
+		Report-Warn "$tn : variety=`"Union`" без memberTypes и без вложенных типов - состав объединения пуст"
 	}
 }
 
@@ -516,7 +516,7 @@ if (Test-Path $configXml) {
 	if ($registered) {
 		Report-OK "Зарегистрирован в Configuration.xml"
 	} else {
-		Report-Error "<XDTOPackage>$fileName</XDTOPackage> отсутствует в ChildObjects файла Configuration.xml — платформа пакет не увидит"
+		Report-Error "<XDTOPackage>$fileName</XDTOPackage> отсутствует в ChildObjects файла Configuration.xml - платформа пакет не увидит"
 	}
 
 	# Уникальность targetNamespace среди пакетов конфигурации
@@ -534,7 +534,7 @@ if (Test-Path $configXml) {
 			} catch {}
 		}
 		# Платформа отвергает пакет, если импортируемого namespace нет в конфигурации:
-		# «Ошибка проверки модели XDTO: xdto-package-3.3 … не определен»
+		# "Ошибка проверки модели XDTO: xdto-package-3.3 ... не определен"
 		$knownNs = @{}
 		foreach ($other in (Get-ChildItem $pkgRoot -Directory -ErrorAction SilentlyContinue)) {
 			$ob = Join-Path (Join-Path $other.FullName "Ext") "Package.bin"
@@ -549,19 +549,19 @@ if (Test-Path $configXml) {
 		foreach ($imp in $imports) { if (-not $knownNs.ContainsKey($imp) -and $PLATFORM_NS -notcontains $imp) { $missing += $imp } }
 		if ($missing.Count -gt 0) {
 			Report-Error ("Импортируемые пакеты не определены в конфигурации: " + ($missing -join ", ") +
-			              ". Платформа отвергнет пакет при обновлении конфигурации — соберите зависимости первыми")
+			              ". Платформа отвергнет пакет при обновлении конфигурации - соберите зависимости первыми")
 		} elseif ($imports.Count -gt 0) {
 			Report-OK "Все импорты разрешаются в пакеты конфигурации"
 		}
 
 		if ($clash.Count -gt 0) {
-			Report-Warn "targetNamespace `"$targetNs`" объявлен также в пакет(ах): $($clash -join ', '). Платформа это допускает, но <import> на это пространство имён становится неоднозначным"
+			Report-Warn "targetNamespace `"$targetNs`" объявлен также в пакет(ах): $($clash -join ', '). Платформа это допускает, но <import> на это пространство имен становится неоднозначным"
 		} else {
 			Report-OK "targetNamespace уникален в конфигурации"
 		}
 	}
 } else {
-	Report-Warn "Configuration.xml не найден ($ConfigDir) — проверки регистрации и уникальности namespace пропущены"
+	Report-Warn "Configuration.xml не найден ($ConfigDir) - проверки регистрации и уникальности namespace пропущены"
 }
 
 # --- Final ---

@@ -1,4 +1,4 @@
-# skd-edit v1.11 — Atomic 1C DCS editor (Python port)
+# skd-edit v1.11 - Atomic 1C DCS editor (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import os
@@ -9,10 +9,10 @@ import uuid
 from lxml import etree
 
 # ============================================================
-# Support guard (Ext/ParentConfigurations.bin) — see docs/1c-support-state-spec.md
+# Support guard (Ext/ParentConfigurations.bin) - see docs/1c-support-state-spec.md
 # Blocks edits of vendor objects "на замке" / read-only configs. Trigger = bin
 # present; reaction from .v8-project.json editingAllowedCheck (deny|warn|off,
-# default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
+# default deny). Never throws (except sys.exit on deny) - errors degrade to allow.
 # ============================================================
 
 def _sg_parse(xml_path):
@@ -148,12 +148,12 @@ def assert_edit_allowed(target_path, require):
             if best is not None and best != 2:
                 blocked = True
                 code = "not-removed"
-                reason = "объект не снят с поддержки — удаление сломает обновления"
+                reason = "объект не снят с поддержки - удаление сломает обновления"
         else:
             if best is not None and best == 0:
                 blocked = True
                 code = "locked"
-                reason = "объект на замке — редактирование сломает обновления"
+                reason = "объект на замке - редактирование сломает обновления"
         if not blocked:
             return
         mode = _sg_get_edit_mode(cfg_dir)
@@ -163,28 +163,28 @@ def assert_edit_allowed(target_path, require):
             sys.stderr.write(f"[support-guard] ПРЕДУПРЕЖДЕНИЕ: {reason}. Цель: {rp}\n")
             return
         head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
         off_note = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
         if code == "capability-off":
-            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «{rp}» редактировать нельзя."
+            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '{rp}' редактировать нельзя."
             fix = (
                 "Либо снять защиту явно (навык support-edit, два шага):\n"
-                f'  1. support-edit -Path "{cfg_dir}" -Capability on — включить возможность изменения (объекты пока остаются на замке);\n'
-                f'  2. support-edit -Path "{rp}" -Set editable — открыть этот объект для редактирования.\n'
+                f'  1. support-edit -Path "{cfg_dir}" -Capability on - включить возможность изменения (объекты пока остаются на замке);\n'
+                f'  2. support-edit -Path "{rp}" -Set editable - открыть этот объект для редактирования.\n'
                 "  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
             )
         elif code == "not-removed":
-            state = f"Состояние: объект «{rp}» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+            state = f"Состояние: объект '{rp}' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
             fix = (
                 "Либо сначала снять объект с поддержки, затем удалять:\n"
-                f'  support-edit -Path "{rp}" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно.'
+                f'  support-edit -Path "{rp}" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно.'
             )
         else:
-            state = f"Состояние: объект «{rp}» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+            state = f"Состояние: объект '{rp}' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
             fix = (
                 "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):\n"
-                f'  support-edit -Path "{rp}" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
-                f'  support-edit -Path "{rp}" -Set off-support — снять с поддержки: обновления по объекту больше не приходят.'
+                f'  support-edit -Path "{rp}" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
+                f'  support-edit -Path "{rp}" -Set off-support - снять с поддержки: обновления по объекту больше не приходят.'
             )
         sys.stderr.write(head + "\n" + state + "\n" + cfe + "\n" + fix + "\n" + off_note + "\n")
         sys.exit(1)
@@ -458,7 +458,7 @@ def parse_calc_shorthand(s):
     # Pattern: "Name [Title]: type = Expression #noField #noFilter ...".
     # - `[Title]` is extracted only from the LHS of '=' so that `[...]` inside
     #   an expression (e.g. index access) isn't interpreted as a title.
-    # - `#restrict` flags use a known-names pattern and are extracted globally —
+    # - `#restrict` flags use a known-names pattern and are extracted globally -
     #   the docs put them after `=`, and the closed flag set avoids matching
     #   `#word` that happens to appear inside a string literal.
     restrict_pattern = r'#(noField|noFilter|noCondition|noGroup|noOrder)\b'
@@ -2710,7 +2710,7 @@ elif operation == "remove-filter":
         print(f'[OK] Filter for "{field_name}" removed from variant "{var_name}"')
 
 elif operation == "add-drilldown":
-    # String-based manipulation — templates use dcsat namespace with inline xmlns
+    # String-based manipulation - templates use dcsat namespace with inline xmlns
     with open(resolved_path, "r", encoding="utf-8-sig") as f:
         raw_text = f.read()
     nl = "\r\n"
@@ -2743,7 +2743,7 @@ elif operation == "add-drilldown":
     if not tpl_blocks:
         print("[WARN] No named templates found in schema")
 
-    # Collect all insertions as (position, text) — apply in reverse order
+    # Collect all insertions as (position, text) - apply in reverse order
     insertions = []
 
     expr_regex = re.compile(
@@ -2766,13 +2766,13 @@ elif operation == "add-drilldown":
 
             # Idempotency: check if already exists
             if drill_name in tpl_text:
-                print(f"[INFO] {drill_name} already exists in {tpl_name} — skipped")
+                print(f"[INFO] {drill_name} already exists in {tpl_name} - skipped")
                 continue
 
             # Find ExpressionAreaTemplateParameter by expression
             param_name = expr_map.get(resource)
             if param_name is None:
-                print(f'[WARN] Expression "{resource}" not found in template {tpl_name} — skipped')
+                print(f'[WARN] Expression "{resource}" not found in template {tpl_name} - skipped')
                 continue
 
             cell_count = 0
@@ -2817,7 +2817,7 @@ elif operation == "add-drilldown":
                     search_start = cell_end + 1
                     continue
 
-                # Detect indent for appearance items — insert after \n, before indent of </dcsat:appearance>
+                # Detect indent for appearance items - insert after \n, before indent of </dcsat:appearance>
                 app_prev_nl = tpl_text.rfind("\n", 0, app_end)
                 app_indent = "\t\t\t\t\t\t"
                 if app_prev_nl >= 0:
@@ -2847,7 +2847,7 @@ elif operation == "add-drilldown":
     for pos, text, _seq in insertions:
         raw_text = raw_text[:pos] + text + raw_text[pos:]
 
-    # Write directly — skip lxml save
+    # Write directly - skip lxml save
     with open(resolved_path, "wb") as f:
         f.write(b'\xef\xbb\xbf')
         f.write(raw_text.encode("utf-8"))

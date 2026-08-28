@@ -9,7 +9,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# /db-load-cf — Загрузка конфигурации из CF-файла
+# /db-load-cf - Загрузка конфигурации из CF-файла
 
 Загружает конфигурацию из бинарного CF-файла в информационную базу.
 
@@ -25,13 +25,13 @@ allowed-tools:
 ## Параметры подключения
 
 Прочитай `.v8-project.json` из корня проекта. Возьми `v8path` (путь к платформе) и разреши базу:
-1. Если пользователь указал параметры подключения (путь, сервер) — используй напрямую
-2. Если указал базу по имени — ищи по id / alias / name в `.v8-project.json`
-3. Если не указал — сопоставь текущую ветку Git с `databases[].branches`
-4. Если ветка не совпала — используй `default`
-Если `v8path` не задан — автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
-Если файла нет — предложи `/db-list add`.
-Если использованная база не зарегистрирована — после выполнения предложи добавить через `/db-list add`.
+1. Если пользователь указал параметры подключения (путь, сервер) - используй напрямую
+2. Если указал базу по имени - ищи по id / alias / name в `.v8-project.json`
+3. Если не указал - сопоставь текущую ветку Git с `databases[].branches`
+4. Если ветка не совпала - используй `default`
+Если `v8path` не задан - автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
+Если файла нет - предложи `/db-list add`.
+Если использованная база не зарегистрирована - после выполнения предложи добавить через `/db-list add`.
 
 ## Команда
 
@@ -54,7 +54,7 @@ powershell.exe -NoProfile -File skills/1c-db-load-cf/scripts/db-load-cf.ps1 <п�
 | `-AllExtensions` | нет | Загрузить все расширения из архива |
 | `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
-> `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
+> `*` - нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 
 ## Коды возврата
 
@@ -66,7 +66,7 @@ powershell.exe -NoProfile -File skills/1c-db-load-cf/scripts/db-load-cf.ps1 <п�
 ## После выполнения
 
 1. Прочитай лог-файл и покажи результат
-2. **Предложи выполнить `/db-update`** — загрузка CF обновляет только «основную» конфигурацию конфигуратора, для применения к БД нужен `/UpdateDBCfg`
+2. **Предложи выполнить `/db-update`** - загрузка CF обновляет только "основную" конфигурацию конфигуратора, для применения к БД нужен `/UpdateDBCfg`
 
 ## Примеры
 
@@ -78,5 +78,5 @@ powershell.exe -NoProfile -File skills/1c-db-load-cf/scripts/db-load-cf.ps1 -Inf
 powershell.exe -NoProfile -File skills/1c-db-load-cf/scripts/db-load-cf.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Test" -UserName "Admin" -Password "secret" -InputFile "config.cf"
 
 # Загрузка расширения
-powershell.exe -NoProfile -File skills/1c-db-load-cf/scripts/db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -InputFile "ext.cfe" -Extension "МоёРасширение"
+powershell.exe -NoProfile -File skills/1c-db-load-cf/scripts/db-load-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -InputFile "ext.cfe" -Extension "МоеРасширение"
 ```

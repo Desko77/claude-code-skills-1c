@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# db-load-git v1.3 — Load Git changes into 1C database
+# db-load-git v1.3 - Load Git changes into 1C database
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -277,12 +277,12 @@ def main():
         full_path = os.path.join(args.ConfigDir, file)
 
         if file.endswith(".xml"):
-            # XML file — add directly if exists
+            # XML file - add directly if exists
             if os.path.exists(full_path):
                 if file not in config_files:
                     config_files.append(file)
         else:
-            # Non-XML (BSL, HTML, etc.) — map to parent object XML + include all Ext/ files
+            # Non-XML (BSL, HTML, etc.) - map to parent object XML + include all Ext/ files
             object_xml = get_object_xml_from_subfile(file)
             if object_xml:
                 full_xml_path = os.path.join(args.ConfigDir, object_xml)

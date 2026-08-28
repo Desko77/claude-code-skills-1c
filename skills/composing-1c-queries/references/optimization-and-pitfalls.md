@@ -22,14 +22,14 @@
 1C query optimizer splits WHERE conditions into two categories:
 
 ### Main condition (основное условие)
-- **Used for index lookup** — determines which index range to scan
+- **Used for index lookup** - determines which index range to scan
 - Must be the most restrictive part of the filter
 - Allowed operators: `=`, `>`, `<`, `>=`, `<=`, `ПОДОБНО`, `МЕЖДУ`, `В`
 - Combined with other main conditions using `И` only
 - **Forbidden in main condition:** `ИЛИ`, `ВЫБОР`, arithmetic expressions, function calls (like `ПОДСТРОКА`), `НЕ`
 
 ### Additional condition (дополнительное условие)
-- Applied **after** index scan — filters rows one by one
+- Applied **after** index scan - filters rows one by one
 - Can use any operators, `ИЛИ`, `ВЫБОР`, arithmetic, functions
 - Combined with the main condition using `И`
 
@@ -59,13 +59,13 @@ If a query is slow, check if conditions prevent index use. Fix by:
 - AND can be replaced with `В (...)`:
 
 ```
-// BAD — breaks index on both Контрагент and Организация:
+// BAD - breaks index on both Контрагент and Организация:
 ГДЕ Контрагент = &К1 ИЛИ Организация = &Орг
 
-// GOOD — use В instead:
+// GOOD - use В instead:
 ГДЕ Контрагент В (&К1, &К2, &К3)
 
-// GOOD — split into UNION ALL:
+// GOOD - split into UNION ALL:
 ВЫБРАТЬ ... ГДЕ Контрагент = &К1
 ОБЪЕДИНИТЬ ВСЕ
 ВЫБРАТЬ ... ГДЕ Организация = &Орг
@@ -122,11 +122,11 @@ Virtual tables (Остатки, Обороты, СрезПоследних, etc.
 **CRITICAL: Always pass conditions into virtual table parameters, NOT into WHERE.**
 
 ```
-// BAD — full table scan, then filter:
+// BAD - full table scan, then filter:
 ВЫБРАТЬ * ИЗ РегистрНакопления.Товары.Остатки() КАК Ост
 ГДЕ Ост.Склад = &Склад
 
-// GOOD — pre-filtered at storage level:
+// GOOD - pre-filtered at storage level:
 ВЫБРАТЬ * ИЗ РегистрНакопления.Товары.Остатки(, Склад = &Склад) КАК Ост
 ```
 
@@ -135,7 +135,7 @@ Virtual tables (Остатки, Обороты, СрезПоследних, etc.
 - Multiple conditions separated by commas (implicit AND)
 - NO subqueries inside parameters (use temp table + `В (ВЫБРАТЬ ... ИЗ ВТ)` pattern)
 - NO joins inside parameters
-- For Остатки without date parameter — returns current (latest) balances
+- For Остатки without date parameter - returns current (latest) balances
 
 ---
 
@@ -172,13 +172,13 @@ Use `Счет В ИЕРАРХИИ(&Счет)` to include all sub-accounts of a p
 
 ### Parameter distribution across virtual tables
 
-Each virtual table has its own parameter set. Do not mix them. Параметры по счету (`УсловиеСчета`/`УсловиеКорСчета`/`УсловиеСчетаДт`/`УсловиеСчетаКт`) — отдельные позиционные параметры, не часть `Условие`:
+Each virtual table has its own parameter set. Do not mix them. Параметры по счету (`УсловиеСчета`/`УсловиеКорСчета`/`УсловиеСчетаДт`/`УсловиеСчетаКт`) - отдельные позиционные параметры, не часть `Условие`:
 
-- `Остатки` — 4 параметра, `УсловиеСчета` на позиции 2
-- `Обороты` — 8 параметров (`УсловиеСчета` на 4, `УсловиеКорСчета` на 7, `КорСубконто` на 8)
-- `ОстаткиИОбороты` — 7 параметров, есть `МетодДополненияПериодов` (4) и `УсловиеСчета` (5)
-- `ОборотыДтКт` — 8 параметров с раздельными `УсловиеСчетаДт`/`СубконтоДт` и `УсловиеСчетаКт`/`СубконтоКт`
-- `ДвиженияССубконто` — 5 параметров, отдельного `УсловиеСчета` нет — фильтр по счету идёт через `Условие` (3-й параметр)
+- `Остатки` - 4 параметра, `УсловиеСчета` на позиции 2
+- `Обороты` - 8 параметров (`УсловиеСчета` на 4, `УсловиеКорСчета` на 7, `КорСубконто` на 8)
+- `ОстаткиИОбороты` - 7 параметров, есть `МетодДополненияПериодов` (4) и `УсловиеСчета` (5)
+- `ОборотыДтКт` - 8 параметров с раздельными `УсловиеСчетаДт`/`СубконтоДт` и `УсловиеСчетаКт`/`СубконтоКт`
+- `ДвиженияССубконто` - 5 параметров, отдельного `УсловиеСчета` нет - фильтр по счету идет через `Условие` (3-й параметр)
 
 See the parameter table in the main skill file for exact positional order.
 
@@ -186,23 +186,23 @@ See the parameter table in the main skill file for exact positional order.
 
 ## Nested Joins Prohibition
 
-**Never nest joins** — i.e., do not join to a subquery that itself contains joins.
+**Never nest joins** - i.e., do not join to a subquery that itself contains joins.
 
 ```
-// BAD — nested join:
+// BAD - nested join:
 ЛЕВОЕ СОЕДИНЕНИЕ (
     ВЫБРАТЬ ... ИЗ Т1 ВНУТРЕННЕЕ СОЕДИНЕНИЕ Т2 ПО ...
 ) КАК Подзапрос
 ПО ...
 
-// GOOD — use temp table:
+// GOOD - use temp table:
 ВЫБРАТЬ ... ПОМЕСТИТЬ ВТ ИЗ Т1 ВНУТРЕННЕЕ СОЕДИНЕНИЕ Т2 ПО ...;
 ... ЛЕВОЕ СОЕДИНЕНИЕ ВТ ПО ...
 ```
 
 **Also avoid:**
 - Joining to subqueries with `В` that contain joins
-- Complex conditions in `ПО` (join ON clause) — especially subqueries
+- Complex conditions in `ПО` (join ON clause) - especially subqueries
 
 Replace all such patterns with sequential queries using temporary tables.
 
@@ -217,11 +217,11 @@ Replace all such patterns with sequential queries using temporary tables.
 - Store intermediate results for reuse in batch queries
 
 **Rules:**
-- `ИНДЕКСИРОВАТЬ ПО <field>` — always add when table has >1000 rows and is used in JOIN or `В` subquery
+- `ИНДЕКСИРОВАТЬ ПО <field>` - always add when table has >1000 rows and is used in JOIN or `В` subquery
 - Minimize data volume: select only needed fields
 - Minimize row count: apply filters early
-- **Never create/drop temp tables in a loop** — pre-compute or batch-process instead
-- Don't copy a temp table just to rename it — use the original
+- **Never create/drop temp tables in a loop** - pre-compute or batch-process instead
+- Don't copy a temp table just to rename it - use the original
 - For very large datasets, process in portions rather than loading everything into one temp table
 
 ---

@@ -10,7 +10,7 @@
 
 - **Python 3.10+** (рекомендуется 3.12)
 - **NVIDIA GPU** с CUDA 12 и cuDNN 9 (для GPU режима)
-- **ffmpeg** — либо в PATH, либо setup поставит `static-ffmpeg` (pip-пакет) в venv-whisper автоматически. Системные права не нужны.
+- **ffmpeg** - либо в PATH, либо setup поставит `static-ffmpeg` (pip-пакет) в venv-whisper автоматически. Системные права не нужны.
 - **Windows x64** или **Linux x64**
 - **~5 ГБ свободного места** (venv-whisper ~2 ГБ, venv-sherpa ~3 ГБ, модели ~91 МБ)
 
@@ -28,7 +28,7 @@ CPU-режим работает, но в 10+ раз медленнее.
 python ~/.claude/skills/transcribe-audio-local/scripts/setup.py
 ```
 
-Что произойдёт:
+Что произойдет:
 1. Проверка Python и ffmpeg.
 2. Создание `venv-whisper/` рядом со скилом и установка `faster-whisper` + CUDA-стека.
 3. Создание `venv-sherpa/` и установка `sherpa-onnx` (GPU сборка) + `onnxruntime-gpu`.
@@ -58,7 +58,7 @@ python scripts/verify.py --full      # с реальным прогоном на
 
 ### Для AI-агентов
 
-Установка длинная (~15-25 минут с загрузкой моделей). Перед запуском `setup.py` через subprocess/Bash увеличьте таймаут до 25-30 минут или используйте фоновый режим. См. раздел «Для агента» в `SKILL.md`.
+Установка длинная (~15-25 минут с загрузкой моделей). Перед запуском `setup.py` через subprocess/Bash увеличьте таймаут до 25-30 минут или используйте фоновый режим. См. раздел "Для агента" в `SKILL.md`.
 
 ## Использование
 
@@ -68,7 +68,7 @@ python scripts/verify.py --full      # с реальным прогоном на
 python ~/.claude/skills/transcribe-audio-local/scripts/transcribe.py "путь/к/audio.mp3"
 ```
 
-Создаёт в `путь/к/Транскрипция/audio/`:
+Создает в `путь/к/Транскрипция/audio/`:
 - `audio - транскрипция.md` (markdown с таймкодами)
 - `audio - транскрипция.txt` (plain text)
 
@@ -78,7 +78,7 @@ python ~/.claude/skills/transcribe-audio-local/scripts/transcribe.py "путь/�
 python ~/.claude/skills/transcribe-audio-local/scripts/transcribe.py "путь/к/audio.mp3" --diarize
 ```
 
-Дополнительно создаёт:
+Дополнительно создает:
 - `audio - со спикерами.md` (реплики с `[SPEAKER_XX, MM:SS]`)
 
 ### Все опции
@@ -119,8 +119,8 @@ ffmpeg -i video.mp4 -vn -acodec libmp3lame -ab 192k audio.mp3
 │   ├── transcribe.py       # orchestrator (CLI)
 │   ├── diarize_sherpa.py   # worker диаризации
 │   └── setup.py            # установщик зависимостей
-├── venv-whisper/           # создаётся setup.py: faster-whisper + CUDA
-├── venv-sherpa/            # создаётся setup.py: sherpa-onnx + onnxruntime-gpu
+├── venv-whisper/           # создается setup.py: faster-whisper + CUDA
+├── venv-sherpa/            # создается setup.py: sherpa-onnx + onnxruntime-gpu
 └── models/                 # скачивается setup.py
     ├── sherpa-onnx-pyannote-segmentation-3-0/model.onnx
     └── 3dspeaker_speech_eres2net_base_200k_sv_zh-cn_16k-common.onnx
@@ -170,7 +170,7 @@ URL из `setup.py`:
 - https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2
 - https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_200k_sv_zh-cn_16k-common.onnx
 
-Если они недоступны - скачайте вручную, положите в `models/`, повторите `setup.py --skip-models` (распаковка архива всё равно произойдёт).
+Если они недоступны - скачайте вручную, положите в `models/`, повторите `setup.py --skip-models` (распаковка архива все равно произойдет).
 
 ### Транскрипция падает с `dll not found`
 

@@ -100,9 +100,9 @@ paths:
 </attributes>
 ```
 
-**`<id>` обязателен у каждой колонки** — без него платформа не может связать FormField-элементы в таблице с конкретной колонкой реквизита. Симптом: на форме **все колонки показывают заголовок первой колонки** (например, все 12 колонок называются "Пометка"), хотя FormField имеют правильные `dataPath`.
+**`<id>` обязателен у каждой колонки** - без него платформа не может связать FormField-элементы в таблице с конкретной колонкой реквизита. Симптом: на форме **все колонки показывают заголовок первой колонки** (например, все 12 колонок называются "Пометка"), хотя FormField имеют правильные `dataPath`.
 
-id колонок должны быть уникальны в рамках всего Form.form (не пересекаться с id других элементов). Безопасный подход — начинать нумерацию колонок от большого числа (500+), чтобы не пересечься с id-шниками, которые EDT-дизайнер генерирует для FormField/FormGroup (обычно 1-300).
+id колонок должны быть уникальны в рамках всего Form.form (не пересекаться с id других элементов). Безопасный подход - начинать нумерацию колонок от большого числа (500+), чтобы не пересечься с id-шниками, которые EDT-дизайнер генерирует для FormField/FormGroup (обычно 1-300).
 
 Без view/edit у columns - колонки помечены крестиком в дизайнере.
 
@@ -137,11 +137,11 @@ id колонок должны быть уникальны в рамках вс�
 
 ## form:Table - специфичные требования (частая причина "форма не рендерится")
 
-У `<items xsi:type="form:Table">` структура свойств **отличается** от `form:FormGroup` и `form:FormField`. Ошибка здесь даёт "валидная форма, 0 ошибок в EDT, но дизайнер показывает пустоту".
+У `<items xsi:type="form:Table">` структура свойств **отличается** от `form:FormGroup` и `form:FormField`. Ошибка здесь дает "валидная форма, 0 ошибок в EDT, но дизайнер показывает пустоту".
 
 ### Запрещено
 
-1. **`<extInfo xsi:type="form:TableExtInfo">`** — НЕ писать у form:Table. EDT не создаёт extInfo для таблиц вообще. Все свойства таблицы идут **прямо на уровне `<items xsi:type="form:Table">`**, а НЕ внутри extInfo.
+1. **`<extInfo xsi:type="form:TableExtInfo">`** - НЕ писать у form:Table. EDT не создает extInfo для таблиц вообще. Все свойства таблицы идут **прямо на уровне `<items xsi:type="form:Table">`**, а НЕ внутри extInfo.
 
    ```xml
    <!-- НЕПРАВИЛЬНО -->
@@ -163,13 +163,13 @@ id колонок должны быть уникальны в рамках вс�
    </items>
    ```
 
-2. **`<commandBarLocation>Top</commandBarLocation>`** — не валидно для form:Table.
+2. **`<commandBarLocation>Top</commandBarLocation>`** - не валидно для form:Table.
 
-3. **`<rowsPicture xsi:type="core:PictureRef"/>`** — не нужно.
+3. **`<rowsPicture xsi:type="core:PictureRef"/>`** - не нужно.
 
 ### Обязательно (на уровне самого items, не в extInfo)
 
-- `<titleLocation>None</titleLocation>` — если заголовок не нужен
+- `<titleLocation>None</titleLocation>` - если заголовок не нужен
 - `<changeRowSet>true</changeRowSet>` / `<changeRowOrder>true</changeRowOrder>`
 - `<autoMaxWidth>true</autoMaxWidth>` / `<autoMaxHeight>true</autoMaxHeight>`
 - `<autoMaxRowsCount>true</autoMaxRowsCount>`
@@ -184,25 +184,25 @@ id колонок должны быть уникальны в рамках вс�
 - `<fileDragMode>AsFileRef</fileDragMode>` (EDT добавляет сам)
 - `<rowFilter xsi:type="core:UndefinedValue"/>` (EDT добавляет сам)
 
-### Три дополнения таблицы — разные вещи
+### Три дополнения таблицы - разные вещи
 
 У ТЧ-таблицы могут присутствовать **три** дополнения (одновременно):
-- `<searchStringAddition>` — строка поиска (внутри `source` = имя таблицы)
-- `<viewStatusAddition>` — строка состояния просмотра
-- `<searchControlAddition>` — контрол поиска (`<type>SearchControlAddition</type>`)
+- `<searchStringAddition>` - строка поиска (внутри `source` = имя таблицы)
+- `<viewStatusAddition>` - строка состояния просмотра
+- `<searchControlAddition>` - контрол поиска (`<type>SearchControlAddition</type>`)
 
 ### FormField внутри form:Table
 
 У каждого `<items xsi:type="form:FormField">` внутри таблицы обязательны:
-- `<contextMenu>` с уникальным именем и `<autoFill>true</autoFill>` — БЕЗ него EDT не принимает
-- `<editMode>EnterOnInput</editMode>` (не `Enter` — EDT переписывает)
+- `<contextMenu>` с уникальным именем и `<autoFill>true</autoFill>` - БЕЗ него EDT не принимает
+- `<editMode>EnterOnInput</editMode>` (не `Enter` - EDT переписывает)
 - `<extendedTooltip>` с `<type>Label</type>` и `<extInfo xsi:type="form:LabelDecorationExtInfo">`
 - `<showInHeader>true</showInHeader>` / `<headerHorizontalAlign>Left</headerHorizontalAlign>` / `<showInFooter>true</showInFooter>`
 - Для `InputField`: в `<extInfo xsi:type="form:InputFieldExtInfo">` обязателен `<wrap>true</wrap>`
 
 ### Обработчики таблицы (handlers)
 
-События таблицы (`OnActivateRow`, `BeforeRowChange`, `OnStartEdit`, `OnEndEditRow` и др.) — блок `<handlers>` **внутри `<items xsi:type="form:Table">`**, после `<userVisible>` и до `<dataPath>`:
+События таблицы (`OnActivateRow`, `BeforeRowChange`, `OnStartEdit`, `OnEndEditRow` и др.) - блок `<handlers>` **внутри `<items xsi:type="form:Table">`**, после `<userVisible>` и до `<dataPath>`:
 
 ```xml
 <items xsi:type="form:Table">
@@ -222,24 +222,24 @@ id колонок должны быть уникальны в рамках вс�
 </items>
 ```
 
-**ВНИМАНИЕ:** при пересоздании таблицы в EDT-дизайнере блок `<handlers>` **теряется** — всегда проверять и восстанавливать после пересоздания.
+**ВНИМАНИЕ:** при пересоздании таблицы в EDT-дизайнере блок `<handlers>` **теряется** - всегда проверять и восстанавливать после пересоздания.
 
 ### Диагностика
 
-- `get_project_errors` / `validate_form` / `revalidate_objects` НЕ ловят ошибки структуры `form:Table`. Форма валидна в EDT-смысле, но дизайнер её не рисует.
+- `get_project_errors` / `validate_form` / `revalidate_objects` НЕ ловят ошибки структуры `form:Table`. Форма валидна в EDT-смысле, но дизайнер ее не рисует.
 - Сигнал от пользователя: "пересоздал таблицу в дизайнере, теперь работает" = ручная структура была некорректной.
 - Проверка: сравнить diff между ручной версией и пересозданной EDT-дизайнером.
 
 ### Рекомендация
 
 При ручной генерации Form.form с таблицами:
-1. **Предпочтительно** — скопировать структуру `<items xsi:type="form:Table">` из эталонного примера в том же проекте (форма, которая точно открывается) и адаптировать имена/колонки.
-2. **Альтернатива** — оставить items-таблицу пустой заготовкой, попросить пользователя пересоздать в дизайнере, затем добавить привязки данных (handlers, dataPath) вручную.
-3. **Не рекомендуется** — писать form:Table с нуля по памяти. Ручная генерация — hit-or-miss, с высоким шансом получить валидный но не рендерящийся XML.
+1. **Предпочтительно** - скопировать структуру `<items xsi:type="form:Table">` из эталонного примера в том же проекте (форма, которая точно открывается) и адаптировать имена/колонки.
+2. **Альтернатива** - оставить items-таблицу пустой заготовкой, попросить пользователя пересоздать в дизайнере, затем добавить привязки данных (handlers, dataPath) вручную.
+3. **Не рекомендуется** - писать form:Table с нуля по памяти. Ручная генерация - hit-or-miss, с высоким шансом получить валидный но не рендерящийся XML.
 
 ### attributes (реквизиты формы) с ValueTable - без изменений
 
-При пересоздании таблиц в дизайнере блок `<attributes>` с `<types>ValueTable</types>` и колонками остаётся как был (только EDT может переставить `<title>` перед `<id>` - не критично). Дело только в `<items xsi:type="form:Table">`.
+При пересоздании таблиц в дизайнере блок `<attributes>` с `<types>ValueTable</types>` и колонками остается как был (только EDT может переставить `<title>` перед `<id>` - не критично). Дело только в `<items xsi:type="form:Table">`.
 
 ---
 

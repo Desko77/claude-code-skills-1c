@@ -48,7 +48,7 @@
 | `attributes` | `[]` | → Attribute в ChildObjects |
 | `tabularSections` | `{}` | → TabularSection в ChildObjects |
 
-RegisterRecords — массив строк: `"AccumulationRegister.Продажи"`, `"InformationRegister.Цены"`.
+RegisterRecords - массив строк: `"AccumulationRegister.Продажи"`, `"InformationRegister.Цены"`.
 
 ```json
 {
@@ -86,7 +86,7 @@ RegisterRecords — массив строк: `"AccumulationRegister.Продаж
 | Поле JSON | Умолчание | XML элемент |
 |-----------|----------|-------------|
 | `valueTypes` | `[]` | Type (составной тип) |
-| `valueType` | — | Алиас для `valueTypes` (строка или массив) |
+| `valueType` | - | Алиас для `valueTypes` (строка или массив) |
 
 ```json
 { "type": "DefinedType", "name": "ДенежныеСредства", "valueTypes": ["CatalogRef.БанковскиеСчета", "CatalogRef.Кассы"] }

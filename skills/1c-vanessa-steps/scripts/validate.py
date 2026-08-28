@@ -481,7 +481,7 @@ class ScenarioValidator:
                     'line': line_num,
                     'type': 'variable',
                     'message': f'Переменная "${var}$" используется, но не определена',
-                    'suggestion': f'Добавьте шаг для определения переменной "{var}" перед её использованием'
+                    'suggestion': f'Добавьте шаг для определения переменной "{var}" перед ее использованием'
                 })
     
     def _check_quotes(self, lines: List[str]):

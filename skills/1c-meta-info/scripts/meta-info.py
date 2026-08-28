@@ -1,4 +1,4 @@
-# meta-info v1.1 — Compact summary of 1C metadata object (Python port)
+# meta-info v1.1 - Compact summary of 1C metadata object (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import os
@@ -219,11 +219,11 @@ type_name_map = {
     "Catalog": "Справочник", "Document": "Документ", "Enum": "Перечисление",
     "Constant": "Константа", "InformationRegister": "Регистр сведений",
     "AccumulationRegister": "Регистр накопления", "AccountingRegister": "Регистр бухгалтерии",
-    "CalculationRegister": "Регистр расчёта", "ChartOfAccounts": "План счетов",
+    "CalculationRegister": "Регистр расчета", "ChartOfAccounts": "План счетов",
     "ChartOfCharacteristicTypes": "План видов характеристик",
-    "ChartOfCalculationTypes": "План видов расчёта", "BusinessProcess": "Бизнес-процесс",
+    "ChartOfCalculationTypes": "План видов расчета", "BusinessProcess": "Бизнес-процесс",
     "Task": "Задача", "ExchangePlan": "План обмена", "DocumentJournal": "Журнал документов",
-    "Report": "Отчёт", "DataProcessor": "Обработка",
+    "Report": "Отчет", "DataProcessor": "Обработка",
     "DefinedType": "Определяемый тип", "CommonModule": "Общий модуль",
     "ScheduledJob": "Регламентное задание", "EventSubscription": "Подписка на событие",
     "HTTPService": "HTTP-сервис", "WebService": "Веб-сервис",
@@ -769,7 +769,7 @@ if not drill_done:
                 if (item.text or '').strip():
                     brief_owners.append(item.text.strip().split('.')[-1])
         if brief_owners:
-            out('Подчинён: ' + ', '.join(brief_owners))
+            out('Подчинен: ' + ', '.join(brief_owners))
 
         # Attributes
         attrs = get_attributes(child_objs) if child_objs is not None else []
@@ -845,7 +845,7 @@ if not drill_done:
             use = find(props, "md:Use")
             sj_parts.append(f"Использование: {'да' if use is not None and inner_text(use) == 'true' else 'нет'}")
             predef = find(props, "md:Predefined")
-            sj_parts.append(f"Предопределённое: {'да' if predef is not None and inner_text(predef) == 'true' else 'нет'}")
+            sj_parts.append(f"Предопределенное: {'да' if predef is not None and inner_text(predef) == 'true' else 'нет'}")
             restart_cnt = find(props, "md:RestartCountOnFailure")
             restart_int = find(props, "md:RestartIntervalOnFailure")
             if restart_cnt is not None and inner_text(restart_cnt).isdigit() and int(inner_text(restart_cnt)) > 0:
@@ -889,7 +889,7 @@ if not drill_done:
         if md_type == "WebService":
             ns_url = find(props, "md:Namespace")
             if ns_url is not None and inner_text(ns_url):
-                out(f"Пространство имён: {inner_text(ns_url)}")
+                out(f"Пространство имен: {inner_text(ns_url)}")
             if child_objs is not None:
                 ops = get_ws_operations(child_objs)
                 if ops:
@@ -932,7 +932,7 @@ if not drill_done:
                     if (item.text or "").strip():
                         owners.append(item.text.strip())
             if owners:
-                parts.append("Подчинён: " + ", ".join(o.split(".")[-1] for o in owners))
+                parts.append("Подчинен: " + ", ".join(o.split(".")[-1] for o in owners))
             if parts:
                 out(" | ".join(parts))
 
@@ -1026,7 +1026,7 @@ if not drill_done:
             use = find(props, "md:Use")
             sj_parts.append(f"Использование: {'да' if use is not None and inner_text(use) == 'true' else 'нет'}")
             predef = find(props, "md:Predefined")
-            sj_parts.append(f"Предопределённое: {'да' if predef is not None and inner_text(predef) == 'true' else 'нет'}")
+            sj_parts.append(f"Предопределенное: {'да' if predef is not None and inner_text(predef) == 'true' else 'нет'}")
             restart_cnt = find(props, "md:RestartCountOnFailure")
             restart_int = find(props, "md:RestartIntervalOnFailure")
             if restart_cnt is not None and inner_text(restart_cnt).isdigit() and int(inner_text(restart_cnt)) > 0:
@@ -1078,7 +1078,7 @@ if not drill_done:
         if md_type == "WebService":
             ns_url = find(props, "md:Namespace")
             if ns_url is not None and inner_text(ns_url):
-                out(f"Пространство имён: {inner_text(ns_url)}")
+                out(f"Пространство имен: {inner_text(ns_url)}")
             if child_objs is not None:
                 ops = get_ws_operations(child_objs)
                 if ops:

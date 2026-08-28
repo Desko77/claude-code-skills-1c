@@ -1,6 +1,6 @@
 # Спецификация формата ролей 1С:Предприятия 8.3
 
-Полное описание XML-формата ролей в выгрузке конфигурации. Версии формата: 2.17 (платформа 8.3.20–8.3.24), 2.20 (8.3.27+). Структура идентична, отличается только атрибут `version`.
+Полное описание XML-формата ролей в выгрузке конфигурации. Версии формата: 2.17 (платформа 8.3.20-8.3.24), 2.20 (8.3.27+). Структура идентична, отличается только атрибут `version`.
 
 ## Файловая структура
 
@@ -18,7 +18,7 @@ Roles/
 
 При создании роли необходимо прописать ссылки в следующих местах:
 
-### Configuration.xml — ChildObjects
+### Configuration.xml - ChildObjects
 
 Регистрация объекта в составе конфигурации:
 
@@ -32,7 +32,7 @@ Roles/
 
 Элементы `<Role>` располагаются среди других объектов конфигурации в секции `<ChildObjects>`.
 
-### Configuration.xml — DefaultRoles (опционально)
+### Configuration.xml - DefaultRoles (опционально)
 
 Если роль должна назначаться новым пользователям по умолчанию:
 
@@ -42,7 +42,7 @@ Roles/
 </DefaultRoles>
 ```
 
-### Form.xml — права редактирования реквизитов (опционально)
+### Form.xml - права редактирования реквизитов (опционально)
 
 В формах роль может упоминаться для ограничения редактирования реквизитов:
 
@@ -135,7 +135,7 @@ Roles/
 
 ### Namespace
 
-`http://v8.1c.ru/8.2/roles` (NB: 8.2, а не 8.3 — исторически)
+`http://v8.1c.ru/8.2/roles` (NB: 8.2, а не 8.3 - исторически)
 
 ### Глобальные флаги
 
@@ -143,7 +143,7 @@ Roles/
 |------|-----|:------------:|----------|
 | `setForNewObjects` | boolean | false | Устанавливать права для новых объектов конфигурации |
 | `setForAttributesByDefault` | boolean | true | Устанавливать права для реквизитов по умолчанию |
-| `independentRightsOfChildObjects` | boolean | false | Независимые права подчинённых объектов |
+| `independentRightsOfChildObjects` | boolean | false | Независимые права подчиненных объектов |
 
 ### Структура блока `<object>`
 
@@ -180,7 +180,7 @@ Roles/
 ТипОбъекта.ИмяОбъекта[.ТипВложенного[.ИмяВложенного[...]]]
 ```
 
-#### Верхний уровень — объекты метаданных
+#### Верхний уровень - объекты метаданных
 
 ```
 Catalog.Контрагенты
@@ -289,7 +289,7 @@ Subsystem.Администрирование.Subsystem.Пользователи
 | `SaveUserData` | Сохранение данных пользователя |
 | `TechnicalSpecialistMode` | Режим технического специалиста |
 | `InteractiveOpenExtDataProcessors` | Интерактивное открытие внешних обработок |
-| `InteractiveOpenExtReports` | Интерактивное открытие внешних отчётов |
+| `InteractiveOpenExtReports` | Интерактивное открытие внешних отчетов |
 | `AnalyticsSystemClient` | Клиент системы аналитики |
 | `CollaborationSystemInfoBaseRegistration` | Регистрация ИБ в системе взаимодействия |
 | `MainWindowModeNormal` | Режим обычного окна |
@@ -314,10 +314,10 @@ Subsystem.Администрирование.Subsystem.Пользователи
 | `InteractiveClearDeletionMark` | Интерактивное снятие пометки удаления |
 | `InteractiveDelete` | Интерактивное удаление |
 | `InteractiveDeleteMarked` | Интерактивное удаление помеченных |
-| `InteractiveDeletePredefinedData` | Интерактивное удаление предопределённых |
-| `InteractiveSetDeletionMarkPredefinedData` | Пометка удаления предопределённых |
-| `InteractiveClearDeletionMarkPredefinedData` | Снятие пометки удаления предопределённых |
-| `InteractiveDeleteMarkedPredefinedData` | Удаление помеченных предопределённых |
+| `InteractiveDeletePredefinedData` | Интерактивное удаление предопределенных |
+| `InteractiveSetDeletionMarkPredefinedData` | Пометка удаления предопределенных |
+| `InteractiveClearDeletionMarkPredefinedData` | Снятие пометки удаления предопределенных |
+| `InteractiveDeleteMarkedPredefinedData` | Удаление помеченных предопределенных |
 | `ReadDataHistory` | Чтение истории данных |
 | `ViewDataHistory` | Просмотр истории данных |
 | `UpdateDataHistory` | Обновление истории данных |
@@ -330,7 +330,7 @@ Subsystem.Администрирование.Subsystem.Пользователи
 
 #### Document
 
-Все права Catalog (кроме предопределённых) плюс:
+Все права Catalog (кроме предопределенных) плюс:
 
 | Право | Описание |
 |-------|----------|
@@ -339,7 +339,7 @@ Subsystem.Администрирование.Subsystem.Пользователи
 | `InteractivePosting` | Интерактивное проведение |
 | `InteractivePostingRegular` | Интерактивное проведение (неоперативное) |
 | `InteractiveUndoPosting` | Интерактивная отмена проведения |
-| `InteractiveChangeOfPosted` | Интерактивное изменение проведённых |
+| `InteractiveChangeOfPosted` | Интерактивное изменение проведенных |
 
 #### InformationRegister
 
@@ -418,10 +418,10 @@ Subsystem.Администрирование.Subsystem.Пользователи
 | `InteractiveSetDeletionMark` | Пометка удаления |
 | `InteractiveClearDeletionMark` | Снятие пометки удаления |
 | `InteractiveDelete` | Интерактивное удаление |
-| `InteractiveDeletePredefinedData` | Удаление предопределённых |
-| `InteractiveSetDeletionMarkPredefinedData` | Пометка удаления предопределённых |
-| `InteractiveClearDeletionMarkPredefinedData` | Снятие пометки удаления предопределённых |
-| `InteractiveDeleteMarkedPredefinedData` | Удаление помеченных предопределённых |
+| `InteractiveDeletePredefinedData` | Удаление предопределенных |
+| `InteractiveSetDeletionMarkPredefinedData` | Пометка удаления предопределенных |
+| `InteractiveClearDeletionMarkPredefinedData` | Снятие пометки удаления предопределенных |
+| `InteractiveDeleteMarkedPredefinedData` | Удаление помеченных предопределенных |
 | `ReadDataHistory` | Чтение истории данных |
 | `ReadDataHistoryOfMissingData` | Чтение истории отсутствующих данных |
 | `UpdateDataHistory` | Обновление истории данных |
@@ -455,10 +455,10 @@ Subsystem.Администрирование.Subsystem.Пользователи
 | `InteractiveSetDeletionMark` | Пометка удаления |
 | `InteractiveClearDeletionMark` | Снятие пометки удаления |
 | `InteractiveDelete` | Интерактивное удаление |
-| `InteractiveDeletePredefinedData` | Удаление предопределённых |
-| `InteractiveSetDeletionMarkPredefinedData` | Пометка удаления предопределённых |
-| `InteractiveClearDeletionMarkPredefinedData` | Снятие пометки предопределённых |
-| `InteractiveDeleteMarkedPredefinedData` | Удаление помеченных предопределённых |
+| `InteractiveDeletePredefinedData` | Удаление предопределенных |
+| `InteractiveSetDeletionMarkPredefinedData` | Пометка удаления предопределенных |
+| `InteractiveClearDeletionMarkPredefinedData` | Снятие пометки предопределенных |
+| `InteractiveDeleteMarkedPredefinedData` | Удаление помеченных предопределенных |
 
 #### ExchangePlan
 
@@ -580,11 +580,11 @@ Subsystem.Администрирование.Subsystem.Пользователи
 ```
 
 Применимо к:
-- `*.StandardAttribute.*` — стандартные реквизиты
-- `*.Attribute.*` — реквизиты
-- `*.TabularSection.*` — табличные части (целиком)
-- `*.TabularSection.*.Attribute.*` — реквизиты табличных частей
-- `*.TabularSection.*.StandardAttribute.*` — стандартные реквизиты табличных частей
+- `*.StandardAttribute.*` - стандартные реквизиты
+- `*.Attribute.*` - реквизиты
+- `*.TabularSection.*` - табличные части (целиком)
+- `*.TabularSection.*.Attribute.*` - реквизиты табличных частей
+- `*.TabularSection.*.StandardAttribute.*` - стандартные реквизиты табличных частей
 
 #### Измерения, ресурсы регистров
 
@@ -620,7 +620,7 @@ Subsystem.Администрирование.Subsystem.Пользователи
 ```
 
 Применимо к:
-- `*.Command.*` — команды любого объекта
+- `*.Command.*` - команды любого объекта
 
 #### Реквизиты адресации (Task)
 

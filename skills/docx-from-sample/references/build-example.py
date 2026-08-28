@@ -44,7 +44,7 @@ DOCS = [
 
 def build(spec):
     d = SampleDoc(PROFILE)
-    d.footer_for_all("Отчет «%s»" % spec["title"])
+    d.footer_for_all("Отчет '%s'" % spec["title"])
 
     # титул: линейка, блок подписей, название
     d.rule_table(cols=3)

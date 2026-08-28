@@ -354,7 +354,7 @@ def create_env_template(skip_gemini: bool) -> None:
     ENV_FILE.write_text(ENV_TEMPLATE, encoding="utf-8")
     info(f"Создан: {ENV_FILE}")
     if not skip_gemini:
-        info("Заполните GEMINI_API_KEY=<ключ> (нужен для Gemini-режима — видео).")
+        info("Заполните GEMINI_API_KEY=<ключ> (нужен для Gemini-режима - видео).")
 
 
 def main() -> int:

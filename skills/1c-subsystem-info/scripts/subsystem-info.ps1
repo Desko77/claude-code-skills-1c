@@ -1,4 +1,4 @@
-﻿# subsystem-info v1.0 — Compact summary of 1C subsystem structure
+﻿# subsystem-info v1.0 - Compact summary of 1C subsystem structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory=$true)][string]$SubsystemPath,
@@ -290,10 +290,10 @@ if ($Mode -eq "tree") {
 	$rootXml = $null
 
 	if ($isDir) {
-		# Subsystems/ directory — show all top-level subsystems
+		# Subsystems/ directory - show all top-level subsystems
 		$rootDir = $SubsystemPath
 	} else {
-		# Specific subsystem XML — show tree from this subsystem
+		# Specific subsystem XML - show tree from this subsystem
 		if (-not (Test-Path $SubsystemPath)) {
 			Write-Host "[ERROR] File not found: $SubsystemPath"
 			exit 1
@@ -377,13 +377,13 @@ if ($Mode -eq "tree") {
 
 } elseif ($Mode -eq "ci") {
 # ============================================================
-# Mode: ci — CommandInterface.xml
+# Mode: ci - CommandInterface.xml
 # ============================================================
 	if (Test-Path $SubsystemPath -PathType Container) {
 		Write-Host "[ERROR] ci mode requires a subsystem .xml file, not a directory"
 		exit 1
 	}
-	# File not found — check Dir/Name/Name.xml → Dir/Name.xml
+	# File not found - check Dir/Name/Name.xml → Dir/Name.xml
 	if (-not (Test-Path $SubsystemPath)) {
 		$fn = [System.IO.Path]::GetFileNameWithoutExtension($SubsystemPath)
 		$pd = Split-Path $SubsystemPath
@@ -406,7 +406,7 @@ if ($Mode -eq "tree") {
 
 } else {
 # ============================================================
-# Mode: overview / content — requires a subsystem XML file
+# Mode: overview / content - requires a subsystem XML file
 # ============================================================
 	if (Test-Path $SubsystemPath -PathType Container) {
 		$dirName = Split-Path $SubsystemPath -Leaf
@@ -422,7 +422,7 @@ if ($Mode -eq "tree") {
 		}
 	}
 
-	# File not found — check Dir/Name/Name.xml → Dir/Name.xml
+	# File not found - check Dir/Name/Name.xml → Dir/Name.xml
 	if (-not (Test-Path $SubsystemPath)) {
 		$fn = [System.IO.Path]::GetFileNameWithoutExtension($SubsystemPath)
 		$pd = Split-Path $SubsystemPath

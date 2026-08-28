@@ -3,7 +3,7 @@ name: powershell-windows
 description: "PowerShell scripting rules for Windows environment. Use when running shell commands, Docker operations, or HTTP requests on Windows PowerShell."
 ---
 
-# PowerShell Windows — Scripting Rules
+# PowerShell Windows - Scripting Rules
 
 Essential rules for correct PowerShell usage on Windows. Follow these rules to avoid common errors when executing shell commands.
 

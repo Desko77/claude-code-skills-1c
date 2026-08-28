@@ -133,8 +133,8 @@
 | `autoOrderByCode` | `true` | AutoOrderByCode |
 | `orderLength` | `5` | OrderLength |
 | `hierarchical` | `false` | Hierarchical |
-| `accountingFlags` | `[]` | → AccountingFlag (Boolean-тип, массив имён) |
-| `extDimensionAccountingFlags` | `[]` | → ExtDimensionAccountingFlag (Boolean-тип, массив имён) |
+| `accountingFlags` | `[]` | → AccountingFlag (Boolean-тип, массив имен) |
+| `extDimensionAccountingFlags` | `[]` | → ExtDimensionAccountingFlag (Boolean-тип, массив имен) |
 | `attributes` | `[]` | → Attribute |
 | `tabularSections` | `{}` | → TabularSection |
 

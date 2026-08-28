@@ -24,11 +24,11 @@ src/ExternalDataSources/<ИмяВИД>/
       <ИмяТаблицы2>.mdo
 ```
 
-**Важно:** Поля таблицы (`tableFields`) описываются ВНУТРИ MDO-файла таблицы — НЕ как отдельные файлы. Это отличает ExternalDataSource от справочников/документов, где реквизиты — отдельные файлы.
+**Важно:** Поля таблицы (`tableFields`) описываются ВНУТРИ MDO-файла таблицы - НЕ как отдельные файлы. Это отличает ExternalDataSource от справочников/документов, где реквизиты - отдельные файлы.
 
 ---
 
-## Корневой MDO — ExternalDataSource
+## Корневой MDO - ExternalDataSource
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -52,13 +52,13 @@ src/ExternalDataSources/<ИмяВИД>/
 ### producedTypes
 
 ExternalDataSource имеет 3 типа (НЕ путать с Table, у которой 8):
-- `managerType` — менеджер ВИД
-- `tablesManagerType` — менеджер таблиц
-- `cubesManagerType` — менеджер кубов
+- `managerType` - менеджер ВИД
+- `tablesManagerType` - менеджер таблиц
+- `cubesManagerType` - менеджер кубов
 
 ---
 
-## MDO таблицы — Table
+## MDO таблицы - Table
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -93,8 +93,8 @@ ExternalDataSource имеет 3 типа (НЕ путать с Table, у кот�
 ### producedTypes таблицы
 
 Table имеет 8 типов:
-- `refType`, `listType`, `objectType`, `managerType` — стандартные
-- `recordManagerType`, `recordSetType`, `recordType`, `recordKeyType` — для работы с записями (МенеджерЗаписи)
+- `refType`, `listType`, `objectType`, `managerType` - стандартные
+- `recordManagerType`, `recordSetType`, `recordType`, `recordKeyType` - для работы с записями (МенеджерЗаписи)
 
 ### Ключевые атрибуты
 
@@ -107,9 +107,9 @@ Table имеет 8 типов:
 
 ---
 
-## Поля таблицы — tableFields
+## Поля таблицы - tableFields
 
-Каждое поле — элемент `<tableFields>` внутри MDO таблицы.
+Каждое поле - элемент `<tableFields>` внутри MDO таблицы.
 
 ### Числовое поле
 
@@ -182,19 +182,19 @@ Table имеет 8 типов:
 
 | PostgreSQL | 1С тип | precision | scale | Примечания |
 |------------|--------|-----------|-------|-----------|
-| bigint / int8 | Number | 15 | — | nonNegative если unsigned |
-| integer / int4 | Number | 10 | — | |
-| smallint / int2 | Number | 5 | — | |
+| bigint / int8 | Number | 15 | - | nonNegative если unsigned |
+| integer / int4 | Number | 10 | - | |
+| smallint / int2 | Number | 5 | - | |
 | numeric(p,s) | Number | p | s | |
-| varchar(n) | String | length=n | — | |
-| text | String | length=1024+ | — | Выбрать разумный лимит |
-| date | Date | dateFractions=Date | — | |
-| timestamp | Date | dateFractions=DateTime | — | |
-| boolean | Number | 1 | — | 0/1 |
+| varchar(n) | String | length=n | - | |
+| text | String | length=1024+ | - | Выбрать разумный лимит |
+| date | Date | dateFractions=Date | - | |
+| timestamp | Date | dateFractions=DateTime | - | |
+| boolean | Number | 1 | - | 0/1 |
 
 ---
 
-## fillValue — правила
+## fillValue - правила
 
 | Тип | fillValue |
 |-----|-----------|
@@ -204,11 +204,11 @@ Table имеет 8 типов:
 
 ---
 
-## PostgreSQL — case-sensitive имена
+## PostgreSQL - case-sensitive имена
 
 Если таблицы/поля в PostgreSQL созданы в кавычках (CamelCase, UPPERCASE), они case-sensitive. В MDO:
 - `nameInDataSource` обязательно содержит `&quot;ИмяВТочности&quot;`
-- Без кавычек PostgreSQL приведёт имя к lowercase и не найдёт таблицу
+- Без кавычек PostgreSQL приведет имя к lowercase и не найдет таблицу
 
 ---
 
@@ -216,10 +216,10 @@ Table имеет 8 типов:
 
 После создания MDO-файлов:
 
-1. **Configuration.mdo** — добавить `<externalDataSources>ExternalDataSource.ИмяВИД</externalDataSources>`
-2. **Подсистема** — включить в нужную подсистему (например: `Расш_НовыеОбъекты`)
-3. **Роли** — добавить права на чтение/запись обеих таблиц
-4. **UUID-проверка** — убедиться в уникальности всех UUID
+1. **Configuration.mdo** - добавить `<externalDataSources>ExternalDataSource.ИмяВИД</externalDataSources>`
+2. **Подсистема** - включить в нужную подсистему (например: `Расш_НовыеОбъекты`)
+3. **Роли** - добавить права на чтение/запись обеих таблиц
+4. **UUID-проверка** - убедиться в уникальности всех UUID
 
 ---
 
@@ -261,7 +261,7 @@ Table имеет 8 типов:
 ВнешниеИсточникиДанных.ИмяВИД.УстановитьСоединение();
 ```
 
-Строка подключения хранится в ИБ, не в метаданных — при переносе между средами настраивается заново.
+Строка подключения хранится в ИБ, не в метаданных - при переносе между средами настраивается заново.
 
 ---
 
@@ -279,7 +279,7 @@ Table имеет 8 типов:
 ### Как использовать
 
 1. Скопировать нужный шаблон в проект
-2. Заменить UUID (каждый — уникальный, генерировать через `[guid]::NewGuid()`)
+2. Заменить UUID (каждый - уникальный, генерировать через `[guid]::NewGuid()`)
 3. Заменить имена (ВИД, таблица, поля)
 4. Добавить/удалить поля по схеме внешней БД
 5. Зарегистрировать в Configuration.mdo, подсистеме, ролях
@@ -288,4 +288,4 @@ Table имеет 8 типов:
 
 - PostgreSQL: все `nameInDataSource` содержат `&quot;ИмяВТочности&quot;` (case-sensitive)
 - Типы полей: Number (precision/scale/nonNegative), String (length), Date (dateFractions)
-- `Table_with_FK.mdo` — пример таблицы-детали с полем `TableRecNo` (ссылка на RecNo мастер-таблицы)
+- `Table_with_FK.mdo` - пример таблицы-детали с полем `TableRecNo` (ссылка на RecNo мастер-таблицы)

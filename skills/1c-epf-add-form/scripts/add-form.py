@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# add-form v1.1 — Add managed form to 1C external data processor
+# add-form v1.1 - Add managed form to 1C external data processor
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -280,7 +280,7 @@ def main():
     print(f"     Описание:   {form_xml_path}")
     print(f"     Модуль:     {module_path}")
     if is_main or is_first_form:
-        print("     DefaultForm обновлён")
+        print("     DefaultForm обновлен")
 
 
 if __name__ == "__main__":

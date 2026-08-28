@@ -5,11 +5,11 @@ description: "Advanced query patterns for 1C: temporary tables, joins, DCS optim
 
 # 1C Query Optimization Skill (Advanced Patterns)
 
-Продвинутые паттерны оптимизации запросов. Базовые оптимизации (ВЫРАЗИТЬ, ПРЕДСТАВЛЕНИЕ, ВТ вместо подзапросов, ОБЪЕДИНИТЬ ВСЕ, индексы, СКД) — см. правило `query-optimization-tips.md`. Анти-паттерны (запрос в цикле, обращение через точку) — см. `anti_patterns.md`.
+Продвинутые паттерны оптимизации запросов. Базовые оптимизации (ВЫРАЗИТЬ, ПРЕДСТАВЛЕНИЕ, ВТ вместо подзапросов, ОБЪЕДИНИТЬ ВСЕ, индексы, СКД) - см. правило `query-optimization-tips.md`. Анти-паттерны (запрос в цикле, обращение через точку) - см. `anti_patterns.md`.
 
 ## Validate Query via AI-EDT
 
-Если сервер AI-EDT подключен (инструменты `ai-edt` доступны), проверяй оптимизированный запрос через `validate_query` — убедись, что после рефакторинга нет синтаксических/семантических ошибок. Для запросов СКД: `dcsMode=true`.
+Если сервер AI-EDT подключен (инструменты `ai-edt` доступны), проверяй оптимизированный запрос через `validate_query` - убедись, что после рефакторинга нет синтаксических/семантических ошибок. Для запросов СКД: `dcsMode=true`.
 
 ## When to Use
 
@@ -19,7 +19,7 @@ Invoke this skill when:
 - Implementing DCS reports
 - Processing large datasets in portions
 
-## Temporary Tables — When to Use
+## Temporary Tables - When to Use
 
 Use temporary tables for:
 - Complex multi-step data processing

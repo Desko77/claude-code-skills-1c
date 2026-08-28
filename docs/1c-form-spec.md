@@ -1,7 +1,7 @@
 # 1C Form.xml Format Specification
 
 Спецификация формата управляемых форм 1С:Предприятие 8.3 (version 2.17).
-Составлена на основе анализа 7723 форм конфигурации «Бухгалтерия предприятия 3.0.180».
+Составлена на основе анализа 7723 форм конфигурации "Бухгалтерия предприятия 3.0.180".
 
 ---
 
@@ -16,12 +16,12 @@
   ИмяФормы.xml                  ← метаданные (UUID, имя, синоним, FormType)
   ИмяФормы/
     Ext/
-      Form.xml                   ← определение формы (описано в разделах 1–17)
+      Form.xml                   ← определение формы (описано в разделах 1-17)
       Form/
         Module.bsl               ← модуль формы (1С-код)
 ```
 
-Общие формы (CommonForm) — аналогично, но на верхнем уровне конфигурации:
+Общие формы (CommonForm) - аналогично, но на верхнем уровне конфигурации:
 
 ```
 CommonForms/
@@ -33,7 +33,7 @@ CommonForms/
         Module.bsl
 ```
 
-### Метаданные формы — шаблон
+### Метаданные формы - шаблон
 
 #### Форма объекта (Document, Catalog, DataProcessor, Report, ...)
 
@@ -150,7 +150,7 @@ CommonForms регистрируются в `Configuration.xml`:
 | ExchangePlan | DefaultObjectForm, DefaultListForm, DefaultChoiceForm |
 | BusinessProcess | DefaultObjectForm, DefaultListForm, DefaultChoiceForm |
 | Task | DefaultObjectForm, DefaultListForm, DefaultChoiceForm |
-| CommonForm | — (регистрируется в Configuration.xml, нет DefaultForm) |
+| CommonForm | - (регистрируется в Configuration.xml, нет DefaultForm) |
 
 > Report.DefaultForm может указывать на общую форму: `CommonForm.ФормаОтчета`.
 
@@ -201,25 +201,25 @@ CommonForms регистрируются в `Configuration.xml`:
 | `xsi` | `http://www.w3.org/2001/XMLSchema-instance` | XML Schema Instance |
 | `app` | `http://v8.1c.ru/8.2/managed-application/core` | Ядро управляемого приложения |
 | `lf` | `http://v8.1c.ru/8.2/managed-application/logform` | Формы управляемого приложения |
-| `dcscor` | `http://v8.1c.ru/8.1/data-composition-system/core` | СКД — ядро |
-| `dcssch` | `http://v8.1c.ru/8.1/data-composition-system/schema` | СКД — схема |
-| `dcsset` | `http://v8.1c.ru/8.1/data-composition-system/settings` | СКД — настройки |
+| `dcscor` | `http://v8.1c.ru/8.1/data-composition-system/core` | СКД - ядро |
+| `dcssch` | `http://v8.1c.ru/8.1/data-composition-system/schema` | СКД - схема |
+| `dcsset` | `http://v8.1c.ru/8.1/data-composition-system/settings` | СКД - настройки |
 | `ent` | `http://v8.1c.ru/8.1/data/enterprise` | Данные предприятия |
 
 ---
 
-## 2. Структура Form — порядок дочерних элементов
+## 2. Структура Form - порядок дочерних элементов
 
 ```
 <Form>
   ┌─ Свойства формы (необязательные, в произвольном порядке)
-  ├─ <CommandSet>           — исключённые стандартные команды
-  ├─ <AutoCommandBar>       — главная командная панель (обязательный, id="-1")
-  ├─ <Events>               — обработчики событий формы
-  ├─ <ChildItems>           — дерево UI-элементов
-  ├─ <Attributes>           — реквизиты формы
-  ├─ <Parameters>           — параметры открытия формы
-  └─ <Commands>             — пользовательские команды
+  ├─ <CommandSet>           - исключенные стандартные команды
+  ├─ <AutoCommandBar>       - главная командная панель (обязательный, id="-1")
+  ├─ <Events>               - обработчики событий формы
+  ├─ <ChildItems>           - дерево UI-элементов
+  ├─ <Attributes>           - реквизиты формы
+  ├─ <Parameters>           - параметры открытия формы
+  └─ <Commands>             - пользовательские команды
 </Form>
 ```
 
@@ -233,9 +233,9 @@ CommonForms регистрируются в `Configuration.xml`:
 
 | Элемент | Тип | Значения | Описание |
 |---------|-----|----------|----------|
-| `<Title>` | multilang | — | Заголовок формы |
+| `<Title>` | multilang | - | Заголовок формы |
 | `<Width>` | int | 60, 67... | Ширина формы в символах |
-| `<Height>` | int | — | Высота формы в символах |
+| `<Height>` | int | - | Высота формы в символах |
 | `<Group>` | enum | `Vertical`, `Horizontal`, `AlwaysHorizontal`, `AlwaysVertical` | Направление размещения |
 | `<WindowOpeningMode>` | enum | `LockOwnerWindow`, `Modeless` | Режим открытия окна |
 | `<EnterKeyBehavior>` | enum | `DefaultButton`, `NewLine` | Действие по Enter |
@@ -245,7 +245,7 @@ CommonForms регистрируются в `Configuration.xml`:
 | `<Customizable>` | bool | `true`/`false` | Разрешить настройку |
 | `<CommandBarLocation>` | enum | `Top`, `Bottom`, `None` | Расположение панели команд |
 | `<VerticalScroll>` | enum | `useIfNecessary`, `Auto`, `AlwaysShow`, `Never` | Вертикальная прокрутка |
-| `<ScalingMode>` | enum | — | Режим масштабирования |
+| `<ScalingMode>` | enum | - | Режим масштабирования |
 
 ### Свойства сохранения данных (DataProcessors)
 
@@ -268,13 +268,13 @@ CommonForms регистрируются в `Configuration.xml`:
 |---------|----------|----------|
 | `<UseForFoldersAndItems>` | `Folders`, `Items`, `FoldersAndItems` | Назначение формы |
 
-### Свойства отчётов (Reports)
+### Свойства отчетов (Reports)
 
 | Элемент | Значения | Описание |
 |---------|----------|----------|
 | `<ReportResult>` | string | Имя реквизита результата (`Результат`) |
 | `<DetailsData>` | string | Имя реквизита расшифровки (`ДанныеРасшифровки`) |
-| `<ReportFormType>` | `Main`, `Settings`, `Choice` | Тип формы отчёта |
+| `<ReportFormType>` | `Main`, `Settings`, `Choice` | Тип формы отчета |
 | `<AutoShowState>` | `Auto`, `Show`, `Hide` | Автоотображение состояния |
 | `<ReportResultViewMode>` | `Auto`, `Table`, `Spreadsheet` | Режим отображения результата |
 | `<ViewModeApplicationOnSetReportResult>` | `Auto`, `Always`, `Never` | Применение режима |
@@ -290,19 +290,19 @@ CommonForms регистрируются в `Configuration.xml`:
 | Свойство | CommonForm | Document | Catalog | Report | DataProcessor | InfoRegister |
 |----------|:---:|:---:|:---:|:---:|:---:|:---:|
 | Title | + | + | + | + | + | + |
-| Width | — | — | + | — | + | — |
-| WindowOpeningMode | + | + | + | — | + | — |
+| Width | - | - | + | - | + | - |
+| WindowOpeningMode | + | + | + | - | + | - |
 | AutoTitle | + | + | + | + | + | + |
 | CommandBarLocation | + | + | + | + | + | + |
-| AutoTime | — | + | — | — | — | — |
-| UsePostingMode | — | + | — | — | — | — |
-| UseForFoldersAndItems | — | — | + | — | — | — |
-| ReportResult | — | — | — | + | — | — |
-| SaveDataInSettings | — | — | — | — | + | — |
+| AutoTime | - | + | - | - | - | - |
+| UsePostingMode | - | + | - | - | - | - |
+| UseForFoldersAndItems | - | - | + | - | - | - |
+| ReportResult | - | - | - | + | - | - |
+| SaveDataInSettings | - | - | - | - | + | - |
 
 ---
 
-## 4. CommandSet — исключённые команды
+## 4. CommandSet - исключенные команды
 
 ```xml
 <CommandSet>
@@ -319,13 +319,13 @@ CommonForms регистрируются в `Configuration.xml`:
 
 `Copy`, `Delete`, `SetDeletionMark`, `CreateInitialImage`, `ReadChanges`, `WriteChanges`
 
-### Команды отчётов
+### Команды отчетов
 
 `CustomizeForm`
 
 ---
 
-## 5. AutoCommandBar — главная панель команд
+## 5. AutoCommandBar - главная панель команд
 
 Всегда присутствует. Фиксированные `name="ФормаКоманднаяПанель"` и `id="-1"`.
 
@@ -344,7 +344,7 @@ CommonForms регистрируются в `Configuration.xml`:
 
 ---
 
-## 6. Events — обработчики событий формы
+## 6. Events - обработчики событий формы
 
 ```xml
 <Events>
@@ -371,8 +371,8 @@ CommonForms регистрируются в `Configuration.xml`:
 | `ChoiceProcessing` | Клиент | Обработка результата выбора |
 | `NewWriteProcessing` | Сервер | Создание нового объекта |
 | `FillCheckProcessingAtServer` | Сервер | Проверка заполнения |
-| `OnLoadUserSettingsAtServer` | Сервер | Загрузка пользовательских настроек (отчёты) |
-| `OnSaveUserSettingsAtServer` | Сервер | Сохранение пользовательских настроек (отчёты) |
+| `OnLoadUserSettingsAtServer` | Сервер | Загрузка пользовательских настроек (отчеты) |
+| `OnSaveUserSettingsAtServer` | Сервер | Сохранение пользовательских настроек (отчеты) |
 | `URLProcessing` | Клиент | Обработка навигационных ссылок |
 
 ### Типичные комбинации по типам форм
@@ -383,11 +383,11 @@ CommonForms регистрируются в `Configuration.xml`:
 
 **Справочник:** `OnCreateAtServer` + `OnOpen` + `OnReadAtServer` + `BeforeWriteAtServer` + `AfterWrite` + `NotificationProcessing`
 
-**Отчёт:** `OnCreateAtServer` + `OnOpen` + `BeforeClose` + `OnClose` + `OnLoadUserSettingsAtServer` + `OnSaveUserSettingsAtServer` + `NotificationProcessing` + `ChoiceProcessing` + `URLProcessing`
+**Отчет:** `OnCreateAtServer` + `OnOpen` + `BeforeClose` + `OnClose` + `OnLoadUserSettingsAtServer` + `OnSaveUserSettingsAtServer` + `NotificationProcessing` + `ChoiceProcessing` + `URLProcessing`
 
 ---
 
-## 7. ChildItems — дерево UI-элементов
+## 7. ChildItems - дерево UI-элементов
 
 ### 7.1. Иерархия вложенности
 
@@ -453,9 +453,9 @@ ChildItems
 
 ---
 
-## 8. Типы UI-элементов — полное описание
+## 8. Типы UI-элементов - полное описание
 
-### 8.1. UsualGroup — группа элементов
+### 8.1. UsualGroup - группа элементов
 
 Основной контейнер для компоновки. Используется в ~90% форм.
 
@@ -485,7 +485,7 @@ ChildItems
 </UsualGroup>
 ```
 
-### 8.2. InputField — поле ввода
+### 8.2. InputField - поле ввода
 
 Основной элемент ввода данных. Используется в ~80% форм.
 
@@ -569,7 +569,7 @@ ChildItems
 </InputField>
 ```
 
-### 8.3. Button — кнопка
+### 8.3. Button - кнопка
 
 Тип кнопки зависит от размещения: `UsualButton` для кнопок на форме (вне CommandBar), `CommandBarButton` для кнопок в командной панели (дефолт). Имя кнопки = имя команды.
 
@@ -596,7 +596,7 @@ ChildItems
 </Button>
 ```
 
-### 8.4. Table — таблица
+### 8.4. Table - таблица
 
 ```xml
 <Table name="..." id="...">
@@ -644,7 +644,7 @@ ChildItems
   <AutoRefreshPeriod>seconds</AutoRefreshPeriod>
   <UpdateOnDataChange>Auto | DontUpdate</UpdateOnDataChange>
 
-  <!-- Исключённые команды таблицы -->
+  <!-- Исключенные команды таблицы -->
   <CommandSet>
     <ExcludedCommand>...</ExcludedCommand>
   </CommandSet>
@@ -677,7 +677,7 @@ ChildItems
 </Table>
 ```
 
-### 8.5. Pages / Page — вкладки
+### 8.5. Pages / Page - вкладки
 
 ```xml
 <Pages name="..." id="...">
@@ -704,7 +704,7 @@ ChildItems
 </Pages>
 ```
 
-### 8.6. CommandBar — командная панель
+### 8.6. CommandBar - командная панель
 
 ```xml
 <CommandBar name="..." id="...">
@@ -720,7 +720,7 @@ ChildItems
 </CommandBar>
 ```
 
-### 8.7. ButtonGroup — группа кнопок
+### 8.7. ButtonGroup - группа кнопок
 
 ```xml
 <ButtonGroup name="..." id="...">
@@ -733,7 +733,7 @@ ChildItems
 </ButtonGroup>
 ```
 
-### 8.8. Popup — выпадающее меню
+### 8.8. Popup - выпадающее меню
 
 ```xml
 <Popup name="..." id="...">
@@ -751,7 +751,7 @@ ChildItems
 </Popup>
 ```
 
-### 8.9. LabelDecoration — декоративная надпись
+### 8.9. LabelDecoration - декоративная надпись
 
 ```xml
 <LabelDecoration name="..." id="...">
@@ -774,7 +774,7 @@ ChildItems
 </LabelDecoration>
 ```
 
-### 8.10. LabelField — поле надписи (привязанное к данным)
+### 8.10. LabelField - поле надписи (привязанное к данным)
 
 ```xml
 <LabelField name="..." id="...">
@@ -795,7 +795,7 @@ ChildItems
 </LabelField>
 ```
 
-### 8.11. CheckBoxField — флажок
+### 8.11. CheckBoxField - флажок
 
 ```xml
 <CheckBoxField name="..." id="...">
@@ -810,7 +810,7 @@ ChildItems
 </CheckBoxField>
 ```
 
-### 8.12. PictureDecoration — декоративная картинка
+### 8.12. PictureDecoration - декоративная картинка
 
 ```xml
 <PictureDecoration name="..." id="...">
@@ -834,7 +834,7 @@ ChildItems
 </PictureDecoration>
 ```
 
-### 8.13. PictureField — поле картинки (привязанное к данным)
+### 8.13. PictureField - поле картинки (привязанное к данным)
 
 ```xml
 <PictureField name="..." id="...">
@@ -860,7 +860,7 @@ ChildItems
 </PictureField>
 ```
 
-### 8.14. CalendarField — календарь
+### 8.14. CalendarField - календарь
 
 ```xml
 <CalendarField name="..." id="...">
@@ -881,7 +881,7 @@ ChildItems
 
 ---
 
-## 9. Attributes — реквизиты формы
+## 9. Attributes - реквизиты формы
 
 ```xml
 <Attributes>
@@ -955,13 +955,13 @@ ChildItems
 | `cfg:DocumentObject.<Имя>` | `cfg:DocumentObject.ПроцессПокупки` | Объект документа |
 | `cfg:EnumRef.<Имя>` | `cfg:EnumRef.СпособДоставки` | Ссылка на перечисление |
 | `cfg:ChartOfAccountsRef.<Имя>` | `cfg:ChartOfAccountsRef.Хозрасчетный` | Ссылка на план счетов |
-| `cfg:ChartOfCalculationTypesRef.<Имя>` | — | Ссылка на план видов расчёта |
-| `cfg:ChartOfCharacteristicTypesRef.<Имя>` | — | Ссылка на план видов характеристик |
+| `cfg:ChartOfCalculationTypesRef.<Имя>` | - | Ссылка на план видов расчета |
+| `cfg:ChartOfCharacteristicTypesRef.<Имя>` | - | Ссылка на план видов характеристик |
 | `cfg:ExchangePlanRef.<Имя>` | `cfg:ExchangePlanRef.АвтономнаяРабота` | Ссылка на план обмена |
-| `cfg:BusinessProcessRef.<Имя>` | — | Ссылка на бизнес-процесс |
-| `cfg:TaskRef.<Имя>` | — | Ссылка на задачу |
-| `cfg:InformationRegisterRecordSet.<Имя>` | — | Набор записей регистра сведений |
-| `cfg:AccumulationRegisterRecordSet.<Имя>` | — | Набор записей регистра накопления |
+| `cfg:BusinessProcessRef.<Имя>` | - | Ссылка на бизнес-процесс |
+| `cfg:TaskRef.<Имя>` | - | Ссылка на задачу |
+| `cfg:InformationRegisterRecordSet.<Имя>` | - | Набор записей регистра сведений |
+| `cfg:AccumulationRegisterRecordSet.<Имя>` | - | Набор записей регистра накопления |
 
 #### Платформенные типы (v8:*)
 
@@ -1040,7 +1040,7 @@ ChildItems
 
 ---
 
-## 10. Parameters — параметры формы
+## 10. Parameters - параметры формы
 
 ```xml
 <Parameters>
@@ -1051,11 +1051,11 @@ ChildItems
 </Parameters>
 ```
 
-Параметры **не имеют** атрибута `id`. Типы — те же, что для Attributes.
+Параметры **не имеют** атрибута `id`. Типы - те же, что для Attributes.
 
 ---
 
-## 11. Commands — команды формы
+## 11. Commands - команды формы
 
 ```xml
 <Commands>
@@ -1135,7 +1135,7 @@ ChildItems
 
 ---
 
-## 15. DataPath — привязка к данным
+## 15. DataPath - привязка к данным
 
 Формат пути:
 
@@ -1143,7 +1143,7 @@ ChildItems
 |--------|----------|
 | `Объект.Организация` | Реквизит основного объекта формы |
 | `Объект.Товары.Номенклатура` | Колонка табличной части объекта |
-| `Отчет.НачалоПериода` | Параметр отчёта |
+| `Отчет.НачалоПериода` | Параметр отчета |
 | `Запись.ОКОФ` | Поле записи регистра |
 | `ТекстСообщения` | Реквизит формы верхнего уровня |
 

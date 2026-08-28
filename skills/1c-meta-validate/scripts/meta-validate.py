@@ -1,4 +1,4 @@
-# meta-validate v1.3 — Validate 1C metadata object structure (Python port)
+# meta-validate v1.3 - Validate 1C metadata object structure (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import json
@@ -429,7 +429,7 @@ props_node = find(type_node, "md:Properties")
 name_node = find(props_node, "md:Name") if props_node is not None else None
 obj_name = inner_text(name_node) if name_node is not None and inner_text(name_node) else "(unknown)"
 
-# Now emit header — insert at beginning
+# Now emit header - insert at beginning
 output_lines.insert(0, f"=== Validation: {md_type}.{obj_name} ===")
 
 if check1_ok:
@@ -1005,7 +1005,7 @@ if props_node is not None:
         if action_period is not None and text_of(action_period) == 'true':
             schedule = find(props_node, 'md:Schedule')
             if schedule is None or not text_of(schedule):
-                report_warn('10. CalculationRegister: ActionPeriod=true but Schedule is empty — platform requires a schedule register')
+                report_warn('10. CalculationRegister: ActionPeriod=true but Schedule is empty - platform requires a schedule register')
                 check10_issues += 1
 
     # DocumentJournal: RegisteredDocuments should not be empty

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# remove-form v1.0 — Remove form from 1C object
+# remove-form v1.0 - Remove form from 1C object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -72,10 +72,10 @@ def main():
 
     if os.path.isdir(form_dir):
         shutil.rmtree(form_dir)
-        print(f"[OK] Удалён каталог: {form_dir}")
+        print(f"[OK] Удален каталог: {form_dir}")
 
     os.remove(form_meta_path)
-    print(f"[OK] Удалён файл: {form_meta_path}")
+    print(f"[OK] Удален файл: {form_meta_path}")
 
     # --- Modify root XML ---
 
@@ -94,7 +94,7 @@ def main():
                 if prev.tail and prev.tail.strip() == "":
                     prev.tail = ""
             else:
-                # First child — whitespace is in parent.text
+                # First child - whitespace is in parent.text
                 if parent.text and parent.text.strip() == "":
                     parent.text = ""
             parent.remove(node)

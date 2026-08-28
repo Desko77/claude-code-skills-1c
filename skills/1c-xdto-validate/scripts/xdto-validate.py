@@ -1,4 +1,4 @@
-# xdto-validate v1.3 — Validate a 1C XDTO package (Python port) (+Report-*: общий эталон вывода валидаторов)
+# xdto-validate v1.3 - Validate a 1C XDTO package (Python port) (+Report-*: общий эталон вывода валидаторов)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 import argparse
 import os
@@ -6,7 +6,7 @@ import sys
 
 from lxml import etree
 
-# Эти пространства имён предоставляет сама платформа — пакетов в конфигурации
+# Эти пространства имен предоставляет сама платформа - пакетов в конфигурации
 # для них нет и быть не должно (выведено по корпусу)
 PLATFORM_NS = {
     "http://v8.1c.ru/8.1/data/core",
@@ -21,7 +21,7 @@ PLATFORM_NS = {
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-# Регистронезависимый ввод — паритет с PS1: в PowerShell имена параметров и [ValidateSet]
+# Регистронезависимый ввод - паритет с PS1: в PowerShell имена параметров и [ValidateSet]
 # регистр не различают, в argparse совпадение точное.
 def ci_parse_args(parser, argv=None):
     """parse_args по правилам PS: имена параметров и значения choices регистронезависимы."""
@@ -30,7 +30,7 @@ def ci_parse_args(parser, argv=None):
     for i, tok in enumerate(argv):
         if tok.startswith('-') and tok.lower() in names:
             argv[i] = names[tok.lower()]
-    # choices — зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
+    # choices - зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
     choice_map = {}
     for a in parser._actions:
         if a.choices:
@@ -141,10 +141,10 @@ def finalize():
 
 
 def _parse_xml(source, from_string=False):
-    """Разбор с узким отступлением для не-URI пространств имён.
+    """Разбор с узким отступлением для не-URI пространств имен.
 
     Платформа допускает в targetNamespace произвольную строку (в выгрузке БП есть
-    пакет с кириллическим «ДопФайлУниверсальный»), .NET такое принимает, а libxml2
+    пакет с кириллическим "ДопФайлУниверсальный"), .NET такое принимает, а libxml2
     отвергает. Откатываемся на восстанавливающий разбор ТОЛЬКО на этой ошибке,
     иначе по-настоящему битый XML перестал бы отличаться от корректного.
     """
@@ -188,7 +188,7 @@ else:
 with open(bin_path, "rb") as f:
     head = f.read(3)
 if head != b"\xef\xbb\xbf":
-    report_warn("Package.bin без BOM UTF-8 — платформа пишет файл с BOM")
+    report_warn("Package.bin без BOM UTF-8 - платформа пишет файл с BOM")
 else:
     report_ok("Кодировка: UTF-8 с BOM")
 
@@ -219,7 +219,7 @@ for n in pkg:
 
 # ── порядок элементов верхнего уровня ────────────────────────
 # Модель требует import -> property -> valueType -> objectType. Нарушение платформа
-# не прощает: db-update падает с «Ошибка преобразования данных XDTO».
+# не прощает: db-update падает с "Ошибка преобразования данных XDTO".
 TOP_ORDER = ["import", "property", "valueType", "objectType"]
 prev_rank = -1
 order_ok = True
@@ -327,7 +327,7 @@ if any_type_props and imports:
     shown = ", ".join(names[:5])
     report_warn(
         f'Свойств с type="xs:anyType": {len(any_type_props)} при объявленных импортах ({shown}). '
-        "Тип не разрешён — заполнить структурно такое свойство нельзя. Обычно это след импорта XML-схемы: платформа заменяет неразрешённый "
+        "Тип не разрешен - заполнить структурно такое свойство нельзя. Обычно это след импорта XML-схемы: платформа заменяет неразрешенный "
         "чужой тип на anyType без ошибки"
     )
 
@@ -337,10 +337,10 @@ if any_type_props and imports:
 # типовых конфигураций. Сигналом он становится только вместе с anyType.
 unused = [i for i in imports if i not in used_namespaces]
 if unused and any_type_props:
-    report_warn(f'Импорт(ы) без единого использованного типа: {", ".join(unused)} — '
-                "вместе с anyType это признак неразрешённой зависимости")
+    report_warn(f'Импорт(ы) без единого использованного типа: {", ".join(unused)} - '
+                "вместе с anyType это признак неразрешенной зависимости")
 if imports and not unused:
-    report_ok(f"{len(imports)} импорт(ов) — все используются")
+    report_ok(f"{len(imports)} импорт(ов) - все используются")
 
 # ── 8. nillable on attribute-form properties ─────────────────
 
@@ -350,7 +350,7 @@ nill_attrs = [p.get("name") for p in pkg.iter()
 if nill_attrs:
     report_warn(
         f'Свойств с nillable="true" и form="Attribute": {len(nill_attrs)} ({", ".join(nill_attrs[:5])}). '
-        "Спецификация XSD не допускает nillable у атрибутов — экспорт XML-схемы в Конфигураторе их потеряет"
+        "Спецификация XSD не допускает nillable у атрибутов - экспорт XML-схемы в Конфигураторе их потеряет"
     )
 
 # ── 9. facet consistency ─────────────────────────────────────
@@ -365,8 +365,8 @@ for t in pkg.iter():
     nm = t.get("name") or "(анонимный тип)"
 
     if t.get("length") and (t.get("minLength") or t.get("maxLength")):
-        # Спецификация XSD это запрещает, но платформа такие типы хранит — предупреждение, не ошибка
-        report_warn(f"{nm} : length задан вместе с minLength/maxLength — "
+        # Спецификация XSD это запрещает, но платформа такие типы хранит - предупреждение, не ошибка
+        report_warn(f"{nm} : length задан вместе с minLength/maxLength - "
                     "спецификация XSD считает их взаимоисключающими")
     min_l, max_l = t.get("minLength"), t.get("maxLength")
     if min_l and max_l and int(min_l) > int(max_l):
@@ -407,15 +407,15 @@ for p in pkg.iter():
         report_error(f'Свойство "{p.get("name")}": lowerBound ({lb}) больше upperBound ({ub})')
     if p.get("name") is None and p.get("ref") is None:
         report_error("Свойство без name и без ref")
-    # В модели XDTO fixed — булев признак, само значение лежит в default.
+    # В модели XDTO fixed - булев признак, само значение лежит в default.
     # В XML-схеме наоборот: fixed="V" совмещает признак и значение.
     fx = p.get("fixed")
     if fx is not None:
         p_name = p.get("name") if p.get("name") is not None else p.get("ref")
         if fx not in ("true", "false"):
             report_error(
-                f'Свойство "{p_name}": fixed="{fx}" — в модели это булев признак, '
-                "значение задаётся в default (в XML-схеме признак и значение совмещены в fixed)"
+                f'Свойство "{p_name}": fixed="{fx}" - в модели это булев признак, '
+                "значение задается в default (в XML-схеме признак и значение совмещены в fixed)"
             )
         elif fx == "true" and p.get("default") is None:
             report_error(
@@ -454,11 +454,11 @@ for p_ in pkg.iter():
         continue
     pn = p_.get("name") or p_.get("ref")
     if p_.get("name") is not None and p_.get("ref") is not None:
-        report_error(f'Свойство "{pn}": заданы одновременно name и ref — допустимо только одно')
+        report_error(f'Свойство "{pn}": заданы одновременно name и ref - допустимо только одно')
         struct_ok = False
     inline = next((c for c in p_ if isinstance(c.tag, str) and local(c) == "typeDef"), None)
     if inline is not None and p_.get("type") is not None:
-        report_error(f'Свойство "{pn}": заданы одновременно type и вложенный <typeDef> — допустимо только одно')
+        report_error(f'Свойство "{pn}": заданы одновременно type и вложенный <typeDef> - допустимо только одно')
         struct_ok = False
     if inline is not None and inline.get(f"{{{XSI_NS}}}type") is None:
         report_error(f'Свойство "{pn}": у вложенного <typeDef> не задан xsi:type (ValueType или ObjectType)')
@@ -466,13 +466,13 @@ for p_ in pkg.iter():
     if state["stopped"]:
         break
 
-# Анонимный тип внутри valueType задаёт базовый тип и xsi:type не несёт
+# Анонимный тип внутри valueType задает базовый тип и xsi:type не несет
 for vt in pkg.iter():
     if not isinstance(vt.tag, str) or local(vt) != "valueType":
         continue
     for c in vt:
         if isinstance(c.tag, str) and local(c) == "typeDef" and c.get(f"{{{XSI_NS}}}type") is not None:
-            report_warn(f'{vt.get("name")} : у <typeDef> внутри <valueType> задан xsi:type — '
+            report_warn(f'{vt.get("name")} : у <typeDef> внутри <valueType> задан xsi:type - '
                         "платформа его здесь не пишет")
 
 # Род базового типа должен совпадать
@@ -504,7 +504,7 @@ for t in pkg.iter():
         continue
     if not any(isinstance(c.tag, str) and local(c) == "typeDef" for c in t):
         tn = t.get("name") or "(анонимный тип)"
-        report_warn(f'{tn} : variety="Union" без memberTypes и без вложенных типов — состав объединения пуст')
+        report_warn(f'{tn} : variety="Union" без memberTypes и без вложенных типов - состав объединения пуст')
 
 if struct_ok and not state["stopped"]:
     report_ok("Структура типов и свойств согласована")
@@ -543,7 +543,7 @@ if os.path.exists(config_xml):
         report_ok("Зарегистрирован в Configuration.xml")
     else:
         report_error(f"<XDTOPackage>{file_name}</XDTOPackage> отсутствует в ChildObjects файла "
-                     "Configuration.xml — платформа пакет не увидит")
+                     "Configuration.xml - платформа пакет не увидит")
 
     pkg_root = os.path.join(config_dir, "XDTOPackages")
     if os.path.isdir(pkg_root):
@@ -560,7 +560,7 @@ if os.path.exists(config_xml):
             except Exception:  # noqa: BLE001
                 pass
         # Платформа отвергает пакет, если импортируемого namespace нет в конфигурации:
-        # «Ошибка проверки модели XDTO: xdto-package-3.3 … не определен»
+        # "Ошибка проверки модели XDTO: xdto-package-3.3 ... не определен"
         known_ns = {}
         for other in sorted(os.listdir(pkg_root)):
             ob = os.path.join(pkg_root, other, "Ext", "Package.bin")
@@ -574,18 +574,18 @@ if os.path.exists(config_xml):
         if missing_imports:
             report_error("Импортируемые пакеты не определены в конфигурации: "
                          + ", ".join(missing_imports)
-                         + ". Платформа отвергнет пакет при обновлении конфигурации — "
+                         + ". Платформа отвергнет пакет при обновлении конфигурации - "
                            "соберите зависимости первыми")
         elif imports:
             report_ok("Все импорты разрешаются в пакеты конфигурации")
 
         if clash:
             report_warn(f'targetNamespace "{target_ns}" объявлен также в пакет(ах): {", ".join(clash)}. '
-                        "Платформа это допускает, но <import> на это пространство имён становится неоднозначным")
+                        "Платформа это допускает, но <import> на это пространство имен становится неоднозначным")
         else:
             report_ok("targetNamespace уникален в конфигурации")
 else:
-    report_warn(f"Configuration.xml не найден ({config_dir}) — проверки регистрации и уникальности namespace пропущены")
+    report_warn(f"Configuration.xml не найден ({config_dir}) - проверки регистрации и уникальности namespace пропущены")
 
 finalize()
 sys.exit(1 if state["errors"] > 0 else 0)

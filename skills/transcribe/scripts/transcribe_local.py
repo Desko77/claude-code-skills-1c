@@ -15,7 +15,7 @@
       pyannote (default без --num-speakers): torch (CUDA), pyannote.audio>=4, HF_TOKEN в env;
         чекпойнт pyannote/speaker-diarization-community-1, автодетект числа спикеров.
       sherpa-onnx (default с --num-speakers): venv-sherpa, точное N; его пороговый
-        автодетект пересегментирует (16.07.26: 242 кластера на ~7 человек) — не использовать.
+        автодетект пересегментирует (16.07.26: 242 кластера на ~7 человек) - не использовать.
 
 Файлы вывода:
     <base> - транскрипция.md       Markdown c таймкодами по сегментам (без спикеров)
@@ -172,7 +172,7 @@ def worker_diarize(args) -> int:
     _setup_cuda_dll_path()
     _load_dotenv()
     # Телеметрия pyannote 4.x падает на входах без определимой длительности
-    # (webm: NoneType < int в track_pipeline_apply) — выключаем до импорта
+    # (webm: NoneType < int в track_pipeline_apply) - выключаем до импорта
     os.environ.setdefault("PYANNOTE_METRICS_ENABLED", "false")
 
     import torch
@@ -461,16 +461,16 @@ def orchestrate(args) -> int:
     print(f"Файл: {input_path.name}", flush=True)
     print(f"Каталог: {output_dir}", flush=True)
 
-    # Выбор движка: явный --diarize-engine уважается; иначе с известным N — sherpa-onnx
-    # (быстрее), без N — pyannote community-1 (автодетект числа спикеров; пороговая
+    # Выбор движка: явный --diarize-engine уважается; иначе с известным N - sherpa-onnx
+    # (быстрее), без N - pyannote community-1 (автодетект числа спикеров; пороговая
     # кластеризация sherpa пересегментирует: 2026-07-16 дала 242 кластера на ~7 человек).
-    # "moss" — end-to-end (ASR+диаризация одной моделью), заменяет whisper-шаг целиком.
+    # "moss" - end-to-end (ASR+диаризация одной моделью), заменяет whisper-шаг целиком.
     engine = args.diarize_engine or ("sherpa-onnx" if args.num_speakers is not None else "pyannote")
 
-    # MOSS полностью заменяет whisper+diarize — отдельный путь до запуска воркеров.
+    # MOSS полностью заменяет whisper+diarize - отдельный путь до запуска воркеров.
     # MOSS всегда end-to-end (текст+спикеры вместе), поэтому engine==moss подразумевает
     # --diarize: иначе --diarize-engine moss без --diarize удивил бы полным разбором со спикерами
-    # (другие движки уважают --diarize; для MOSS он не имеет смысла — модель всегда диаризует).
+    # (другие движки уважают --diarize; для MOSS он не имеет смысла - модель всегда диаризует).
     if engine == "moss":
         if not args.diarize:
             print("--diarize-engine moss: MOSS end-to-end, диаризация включена автоматически", flush=True)
@@ -575,7 +575,7 @@ def orchestrate(args) -> int:
         print(f"  Spk:   {speakers_md}", flush=True)
 
         if engine != "sherpa-onnx":
-            # Отпечатки голоса для голосовой базы живут в eres2net-пространстве —
+            # Отпечатки голоса для голосовой базы живут в eres2net-пространстве -
             # считаем их sherpa-воркером по готовым turns (сама диаризация не повторяется).
             # Старый файл удаляем ДО пересчета: при провале этапа протухшие отпечатки
             # (метки прошлого прогона) не должны достаться analyze_video_local по exists().
@@ -612,7 +612,7 @@ def orchestrate(args) -> int:
 def orchestrate_moss(args, input_path: Path, output_dir: Path, base: str) -> int:
     """Путь MOSS: end-to-end ASR+диаризация одной моделью (без whisper-шага).
 
-    MOSS сам даёт текст + спикер-сегменты + таймстампы, поэтому whisper и отдельный
+    MOSS сам дает текст + спикер-сегменты + таймстампы, поэтому whisper и отдельный
     diarize-воркер не запускаются. Переиспользуются write_basic_md/write_speakers_md
     (тот же выходной формат, что у whisper+sherpa). Отпечатки голоса для голосовой
     базы считаются sherpa eres2net по turns из MOSS (диаризация не повторяется).
@@ -745,9 +745,9 @@ def main() -> int:
     ap.add_argument("--compute-type", default="float16")
     ap.add_argument("--diarize", action="store_true", help="Включить диаризацию (параллельно с транскрипцией)")
     ap.add_argument("--diarize-engine", default=None, choices=["sherpa-onnx", "pyannote", "moss"],
-                    help="Движок. Default: с --num-speakers — sherpa-onnx (быстрее), без — pyannote "
+                    help="Движок. Default: с --num-speakers - sherpa-onnx (быстрее), без - pyannote "
                          "community-1 (автодетект N; пороговый автодетект sherpa пересегментирует). "
-                         "moss — MOSS-Transcribe-Diarize end-to-end (ASR+диаризация одной моделью, "
+                         "moss - MOSS-Transcribe-Diarize end-to-end (ASR+диаризация одной моделью, "
                          "лучше текст на терминах, но ~2x медленнее; требует venv-moss).")
     ap.add_argument("--pyannote-model", default="pyannote/speaker-diarization-community-1",
                     help="Чекпойнт pyannote для движка pyannote")

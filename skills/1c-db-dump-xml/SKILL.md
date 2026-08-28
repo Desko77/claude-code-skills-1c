@@ -9,7 +9,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# /db-dump-xml — Выгрузка конфигурации в XML
+# /db-dump-xml - Выгрузка конфигурации в XML
 
 Выгружает конфигурацию информационной базы в XML-файлы (исходники). Поддерживает полную, инкрементальную, частичную выгрузку и обновление ConfigDumpInfo.
 
@@ -27,14 +27,14 @@ allowed-tools:
 ## Параметры подключения
 
 Прочитай `.v8-project.json` из корня проекта. Возьми `v8path` (путь к платформе) и разреши базу:
-1. Если пользователь указал параметры подключения (путь, сервер) — используй напрямую
-2. Если указал базу по имени — ищи по id / alias / name в `.v8-project.json`
-3. Если не указал — сопоставь текущую ветку Git с `databases[].branches`
-4. Если ветка не совпала — используй `default`
-Если `v8path` не задан — автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
-Если файла нет — предложи `/db-list add`.
-Если использованная база не зарегистрирована — после выполнения предложи добавить через `/db-list add`.
-Если в записи базы указан `configSrc` — используй как каталог выгрузки по умолчанию.
+1. Если пользователь указал параметры подключения (путь, сервер) - используй напрямую
+2. Если указал базу по имени - ищи по id / alias / name в `.v8-project.json`
+3. Если не указал - сопоставь текущую ветку Git с `databases[].branches`
+4. Если ветка не совпала - используй `default`
+Если `v8path` не задан - автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
+Если файла нет - предложи `/db-list add`.
+Если использованная база не зарегистрирована - после выполнения предложи добавить через `/db-list add`.
+Если в записи базы указан `configSrc` - используй как каталог выгрузки по умолчанию.
 
 ## Команда
 
@@ -60,19 +60,19 @@ powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 <�
 | `-Format <формат>` | нет | `Hierarchical` (по умолч.) / `Plain` |
 | `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
-> `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
+> `*` - нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 
 ### Режимы выгрузки
 
 | Режим | Описание |
 |-------|----------|
-| `Full` | Полная выгрузка — все объекты конфигурации |
-| `Changes` | Инкрементальная — только изменённые с последней выгрузки (использует ConfigDumpInfo.xml) |
+| `Full` | Полная выгрузка - все объекты конфигурации |
+| `Changes` | Инкрементальная - только измененные с последней выгрузки (использует ConfigDumpInfo.xml) |
 
 Инкрементальная выгрузка сверяется с файлом версий `ConfigDumpInfo.xml` рядом с исходниками.
 При первой выгрузке в пустой каталог его нет, и платформа отказывает сообщением "Не удалось
 найти файл версий", поэтому навык выполняет первую выгрузку полной и сообщает об этом.
-| `Partial` | Частичная — выбранные объекты из параметра `-Objects` |
+| `Partial` | Частичная - выбранные объекты из параметра `-Objects` |
 | `UpdateInfo` | Обновить только ConfigDumpInfo.xml без выгрузки файлов |
 
 ## Коды возврата
@@ -82,7 +82,7 @@ powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 <�
 | 0 | Успешно |
 | 1 | Ошибка (см. лог) |
 
-> Если пользователь просит выгрузить конкретные объекты — используй `-Mode Partial` с `-Objects`.
+> Если пользователь просит выгрузить конкретные объекты - используй `-Mode Partial` с `-Objects`.
 
 ## Примеры
 
@@ -100,5 +100,5 @@ powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -I
 powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -ConfigDir "C:\WS\cfsrc" -Mode Full
 
 # Выгрузка расширения
-powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\ext_src" -Mode Full -Extension "МоёРасширение"
+powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\ext_src" -Mode Full -Extension "МоеРасширение"
 ```

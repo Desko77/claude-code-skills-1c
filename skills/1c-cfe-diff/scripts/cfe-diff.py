@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-diff v1.0 — Analyze and compare 1C configuration extension (CFE)
+# cfe-diff v1.0 - Analyze and compare 1C configuration extension (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse

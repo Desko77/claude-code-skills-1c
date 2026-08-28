@@ -1,4 +1,4 @@
-# cf-edit — справочник операций
+# cf-edit - справочник операций
 
 ## modify-property
 
@@ -26,23 +26,23 @@
 | `MainClientApplicationWindowMode` | `Normal`, `Fullscreen`, `Kiosk` |
 
 ### Ref
-`DefaultLanguage` — значение вида `Language.Русский`
+`DefaultLanguage` - значение вида `Language.Русский`
 
 ### Формат batch
 `"Version=1.0.0.1 ;; Vendor=Фирма 1С ;; Synonym=Тестовая конфигурация"`
 
 ## add-childObject / remove-childObject
 
-Формат: `Type.Name` — XML-тип и имя объекта через точку.
+Формат: `Type.Name` - XML-тип и имя объекта через точку.
 
-**Важно про `add-childObject`**: операция регистрирует в `<ChildObjects>` Configuration.xml только объект, **файл которого уже существует на диске** (например `Catalogs/Товары.xml`). Если файла нет — скрипт падает с exit 1 и подсказкой. Для создания нового объекта используй профильный навык — `/meta-compile` (Catalog, Document, Enum, Report, регистры и т.д.), `/role-compile` (Role), `/subsystem-compile` (Subsystem). Они создают файл И регистрируют его в Configuration.xml за один вызов.
+**Важно про `add-childObject`**: операция регистрирует в `<ChildObjects>` Configuration.xml только объект, **файл которого уже существует на диске** (например `Catalogs/Товары.xml`). Если файла нет - скрипт падает с exit 1 и подсказкой. Для создания нового объекта используй профильный навык - `/meta-compile` (Catalog, Document, Enum, Report, регистры и т.д.), `/role-compile` (Role), `/subsystem-compile` (Subsystem). Они создают файл И регистрируют его в Configuration.xml за один вызов.
 
-Когда `add-childObject` всё-таки нужен: откатили Configuration.xml (или перезаписали из выгрузки БД), а файлы объектов остались — нужно восстановить ссылки в `<ChildObjects>`.
+Когда `add-childObject` все-таки нужен: откатили Configuration.xml (или перезаписали из выгрузки БД), а файлы объектов остались - нужно восстановить ссылки в `<ChildObjects>`.
 
 При добавлении объект вставляется в каноническую позицию:
 1. Находит последний элемент того же типа → вставляет после
 2. Если тип отсутствует → находит последний элемент предшествующего типа → вставляет после
-3. Внутри одного типа — алфавитный порядок
+3. Внутри одного типа - алфавитный порядок
 
 Batch: `"Catalog.Товары ;; Document.Заказ ;; Enum.ВидыОплат"`
 

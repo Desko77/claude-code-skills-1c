@@ -76,8 +76,8 @@
 | `Sequence` | `Sequences/` | Последовательности | [1c-configuration-spec.md § 6.9](1c-configuration-spec.md#69-sequence--последовательность-документов) |
 | `DocumentJournal` | `DocumentJournals/` | Журналы документов | [1c-config-objects-spec.md § 19](1c-config-objects-spec.md#19-журналы-документов-documentjournals) |
 | `Enum` | `Enums/` | Перечисления | [1c-config-objects-spec.md § 16](1c-config-objects-spec.md#16-перечисления-enums) |
-| `Report` | `Reports/` | Отчёты | [1c-config-objects-spec.md § 18](1c-config-objects-spec.md#18-отчёты-и-обработки) |
-| `DataProcessor` | `DataProcessors/` | Обработки | [1c-config-objects-spec.md § 18](1c-config-objects-spec.md#18-отчёты-и-обработки) |
+| `Report` | `Reports/` | Отчеты | [1c-config-objects-spec.md § 18](1c-config-objects-spec.md#18-отчеты-и-обработки) |
+| `DataProcessor` | `DataProcessors/` | Обработки | [1c-config-objects-spec.md § 18](1c-config-objects-spec.md#18-отчеты-и-обработки) |
 
 ### Регистры
 
@@ -86,7 +86,7 @@
 | `InformationRegister` | `InformationRegisters/` | Регистры сведений | [1c-config-objects-spec.md § 9.1](1c-config-objects-spec.md#91-регистры-сведений-informationregisters) |
 | `AccumulationRegister` | `AccumulationRegisters/` | Регистры накопления | [1c-config-objects-spec.md § 9.4](1c-config-objects-spec.md#94-регистры-накопления-accumulationregisters) |
 | `AccountingRegister` | `AccountingRegisters/` | Регистры бухгалтерии | [1c-config-objects-spec.md § 9.5](1c-config-objects-spec.md#95-регистры-бухгалтерии-accountingregisters) |
-| `CalculationRegister` | `CalculationRegisters/` | Регистры расчёта | [1c-config-objects-spec.md § 9.6](1c-config-objects-spec.md#96-регистры-расчёта-calculationregisters) |
+| `CalculationRegister` | `CalculationRegisters/` | Регистры расчета | [1c-config-objects-spec.md § 9.6](1c-config-objects-spec.md#96-регистры-расчета-calculationregisters) |
 
 ### Планы
 
@@ -94,7 +94,7 @@
 |-------------|---------|-----------------|--------------|
 | `ChartOfCharacteristicTypes` | `ChartsOfCharacteristicTypes/` | Планы видов характеристик | [1c-config-objects-spec.md § 11](1c-config-objects-spec.md#11-планы-видов-характеристик-chartsofcharacteristictypes) |
 | `ChartOfAccounts` | `ChartsOfAccounts/` | Планы счетов | [1c-config-objects-spec.md § 10](1c-config-objects-spec.md#10-планы-счетов-chartsofaccounts) |
-| `ChartOfCalculationTypes` | `ChartsOfCalculationTypes/` | Планы видов расчёта | [1c-config-objects-spec.md § 12](1c-config-objects-spec.md#12-планы-видов-расчёта-chartsofcalculationtypes) |
+| `ChartOfCalculationTypes` | `ChartsOfCalculationTypes/` | Планы видов расчета | [1c-config-objects-spec.md § 12](1c-config-objects-spec.md#12-планы-видов-расчета-chartsofcalculationtypes) |
 
 ### Бизнес-процессы
 
@@ -116,7 +116,7 @@
 | Табличный документ (MXL) | `Ext/Template.xml` | Печатная форма | [1c-spreadsheet-spec.md](1c-spreadsheet-spec.md#структура-документа) |
 | Роль (Rights) | `Ext/Rights.xml` | Права доступа и RLS | [1c-role-spec.md](1c-role-spec.md#файл-прав-rolesимяролиextrightsxml) |
 | Справка (Help) | `Ext/Help/` | Встроенная справка | [1c-help-spec.md § 1](1c-help-spec.md#1-структура-файлов) |
-| Предопределённые элементы | `Predefined.xml` | Предопределённые справочники/ПВХ | [1c-config-objects-spec.md § 7.2](1c-config-objects-spec.md#72-предопределённые-элементы-predefinedxml) |
+| Предопределенные элементы | `Predefined.xml` | Предопределенные справочники/ПВХ | [1c-config-objects-spec.md § 7.2](1c-config-objects-spec.md#72-предопределенные-элементы-predefinedxml) |
 | Состав плана обмена | `Content.xml` | Объекты синхронизации | [1c-config-objects-spec.md § 15.4](1c-config-objects-spec.md#154-состав-плана-обмена-contentxml) |
 | Карта маршрута | `Flowchart.xml` | Маршрут бизнес-процесса | [1c-config-objects-spec.md § 13.3](1c-config-objects-spec.md#133-карта-маршрута-flowchartxml) |
 
@@ -131,16 +131,16 @@
 | Заимствованные / собственные объекты | ObjectBelonging, ExtendedConfigurationObject | [1c-extension-spec.md § 4](1c-extension-spec.md#4-заимствованные-и-собственные-объекты) |
 | Расширение свойств (xr:PropertyState) | MultiState, ExtendedProperty | [1c-extension-spec.md § 6](1c-extension-spec.md#6-расширение-свойств-xrpropertystate-и-xrextendedproperty) |
 | Модули и декораторы перехвата | &Перед, &После, &Вместо, diff-маркеры | [1c-extension-spec.md § 7](1c-extension-spec.md#7-модули-в-расширениях) |
-| Предопределённые элементы | ExtensionState: Native | [1c-extension-spec.md § 8](1c-extension-spec.md#8-предопределённые-элементы-в-расширениях) |
+| Предопределенные элементы | ExtensionState: Native | [1c-extension-spec.md § 8](1c-extension-spec.md#8-предопределенные-элементы-в-расширениях) |
 
 ---
 
-## 5. Внешние обработки и отчёты
+## 5. Внешние обработки и отчеты
 
 | Формат | Описание | Спецификация |
 |--------|----------|--------------|
 | EPF (внешняя обработка) | ExternalDataProcessor | [1c-epf-spec.md § 1](1c-epf-spec.md#1-структура-каталогов) |
-| ERF (внешний отчёт) | ExternalReport | [1c-erf-spec.md § 1](1c-erf-spec.md#1-структура-каталогов) |
+| ERF (внешний отчет) | ExternalReport | [1c-erf-spec.md § 1](1c-erf-spec.md#1-структура-каталогов) |
 
 ---
 
@@ -151,7 +151,7 @@
 | Тема | Спецификация |
 |------|--------------|
 | Корневой элемент MetaDataObject | [1c-config-objects-spec.md § 2](1c-config-objects-spec.md#2-общий-формат-xml) |
-| Пространства имён XML | [1c-config-objects-spec.md § 2.2](1c-config-objects-spec.md#22-пространства-имён) |
+| Пространства имен XML | [1c-config-objects-spec.md § 2.2](1c-config-objects-spec.md#22-пространства-имен) |
 | InternalInfo / GeneratedType | [1c-config-objects-spec.md § 3](1c-config-objects-spec.md#3-internalinfo--внутренняя-информация) |
 | Общие свойства Properties | [1c-config-objects-spec.md § 4](1c-config-objects-spec.md#4-общие-элементы-properties) |
 | Стандартные реквизиты | [1c-config-objects-spec.md § 5](1c-config-objects-spec.md#5-стандартные-реквизиты-standardattributes) |

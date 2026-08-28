@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# meta-edit v1.6 — Edit existing 1C metadata object XML (inline mode + complex properties + TS attribute ops + modify-ts)
+# meta-edit v1.6 - Edit existing 1C metadata object XML (inline mode + complex properties + TS attribute ops + modify-ts)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -12,10 +12,10 @@ import uuid
 from lxml import etree
 
 # ============================================================
-# Support guard (Ext/ParentConfigurations.bin) — see docs/1c-support-state-spec.md
+# Support guard (Ext/ParentConfigurations.bin) - see docs/1c-support-state-spec.md
 # Blocks edits of vendor objects "на замке" / read-only configs. Trigger = bin
 # present; reaction from .v8-project.json editingAllowedCheck (deny|warn|off,
-# default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
+# default deny). Never throws (except sys.exit on deny) - errors degrade to allow.
 # ============================================================
 
 def _sg_parse(xml_path):
@@ -151,12 +151,12 @@ def assert_edit_allowed(target_path, require):
             if best is not None and best != 2:
                 blocked = True
                 code = "not-removed"
-                reason = "объект не снят с поддержки — удаление сломает обновления"
+                reason = "объект не снят с поддержки - удаление сломает обновления"
         else:
             if best is not None and best == 0:
                 blocked = True
                 code = "locked"
-                reason = "объект на замке — редактирование сломает обновления"
+                reason = "объект на замке - редактирование сломает обновления"
         if not blocked:
             return
         mode = _sg_get_edit_mode(cfg_dir)
@@ -166,28 +166,28 @@ def assert_edit_allowed(target_path, require):
             sys.stderr.write(f"[support-guard] ПРЕДУПРЕЖДЕНИЕ: {reason}. Цель: {rp}\n")
             return
         head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
         off_note = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
         if code == "capability-off":
-            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «{rp}» редактировать нельзя."
+            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '{rp}' редактировать нельзя."
             fix = (
                 "Либо снять защиту явно (навык support-edit, два шага):\n"
-                f'  1. support-edit -Path "{cfg_dir}" -Capability on — включить возможность изменения (объекты пока остаются на замке);\n'
-                f'  2. support-edit -Path "{rp}" -Set editable — открыть этот объект для редактирования.\n'
+                f'  1. support-edit -Path "{cfg_dir}" -Capability on - включить возможность изменения (объекты пока остаются на замке);\n'
+                f'  2. support-edit -Path "{rp}" -Set editable - открыть этот объект для редактирования.\n'
                 "  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
             )
         elif code == "not-removed":
-            state = f"Состояние: объект «{rp}» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+            state = f"Состояние: объект '{rp}' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
             fix = (
                 "Либо сначала снять объект с поддержки, затем удалять:\n"
-                f'  support-edit -Path "{rp}" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно.'
+                f'  support-edit -Path "{rp}" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно.'
             )
         else:
-            state = f"Состояние: объект «{rp}» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+            state = f"Состояние: объект '{rp}' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
             fix = (
                 "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):\n"
-                f'  support-edit -Path "{rp}" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
-                f'  support-edit -Path "{rp}" -Set off-support — снять с поддержки: обновления по объекту больше не приходят.'
+                f'  support-edit -Path "{rp}" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
+                f'  support-edit -Path "{rp}" -Set off-support - снять с поддержки: обновления по объекту больше не приходят.'
             )
         sys.stderr.write(head + "\n" + state + "\n" + cfe + "\n" + fix + "\n" + off_note + "\n")
         sys.exit(1)
@@ -441,16 +441,16 @@ def normalize_enum_value(prop_name, value):
     alias = lookup_ci(enum_value_aliases, value)
     if alias is not None:
         return alias
-    # 2. Case-insensitive match against valid values — silent
+    # 2. Case-insensitive match against valid values - silent
     valid = valid_enum_values.get(prop_name)
     if valid:
         for v in valid:
             if v.lower() == value.lower():
                 return v
-        # 3. Known property, unknown value — error with hint
+        # 3. Known property, unknown value - error with hint
         print(f"Invalid value '{value}' for property '{prop_name}'. Valid values: {', '.join(valid)}", file=sys.stderr)
         sys.exit(1)
-    # 4. Unknown property — pass-through (no validation data)
+    # 4. Unknown property - pass-through (no validation data)
     return value
 
 
@@ -652,7 +652,7 @@ def build_type_content_xml(indent, type_str):
         lines.append(f"{indent}<v8:TypeSet>cfg:DefinedType.{dt_name}</v8:TypeSet>")
         return "\r\n".join(lines)
 
-    # Reference types — use local xmlns declaration for 1C compatibility
+    # Reference types - use local xmlns declaration for 1C compatibility
     m = re.match(
         r"^(CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|"
         r"ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef)\.(.+)$",
@@ -2212,7 +2212,7 @@ def modify_properties(props_def):
         if isinstance(prop_value, bool):
             value_str = "true" if prop_value else "false"
 
-        # Set inner text — clear children first, set text
+        # Set inner text - clear children first, set text
         for ch in list(prop_el):
             prop_el.remove(ch)
         prop_el.text = value_str

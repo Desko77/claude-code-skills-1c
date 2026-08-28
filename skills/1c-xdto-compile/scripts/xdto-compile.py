@@ -1,4 +1,4 @@
-# xdto-compile v1.11 — Build a 1C XDTO package from an XML Schema (XSD) (Python port) (+support-guard: общая реализация вместо урезанной)
+# xdto-compile v1.11 - Build a 1C XDTO package from an XML Schema (XSD) (Python port) (+support-guard: общая реализация вместо урезанной)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 import argparse
 import json
@@ -9,7 +9,7 @@ import uuid
 
 from lxml import etree
 
-# Эти пространства имён предоставляет сама платформа — пакетов в конфигурации
+# Эти пространства имен предоставляет сама платформа - пакетов в конфигурации
 # для них нет и быть не должно (выведено по корпусу)
 PLATFORM_NS = {
     "http://v8.1c.ru/8.1/data/core",
@@ -24,7 +24,7 @@ PLATFORM_NS = {
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-# Регистронезависимый ввод — паритет с PS1: в PowerShell имена параметров и [ValidateSet]
+# Регистронезависимый ввод - паритет с PS1: в PowerShell имена параметров и [ValidateSet]
 # регистр не различают, в argparse совпадение точное.
 def ci_parse_args(parser, argv=None):
     """parse_args по правилам PS: имена параметров и значения choices регистронезависимы."""
@@ -33,7 +33,7 @@ def ci_parse_args(parser, argv=None):
     for i, tok in enumerate(argv):
         if tok.startswith('-') and tok.lower() in names:
             argv[i] = names[tok.lower()]
-    # choices — зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
+    # choices - зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
     choice_map = {}
     for a in parser._actions:
         if a.choices:
@@ -63,10 +63,10 @@ args = ci_parse_args(parser)
 
 
 def _parse_xml(source, from_string=False):
-    """Разбор с узким отступлением для не-URI пространств имён.
+    """Разбор с узким отступлением для не-URI пространств имен.
 
     Платформа допускает в targetNamespace произвольную строку (в выгрузке БП есть
-    пакет с кириллическим «ДопФайлУниверсальный»), .NET такое принимает, а libxml2
+    пакет с кириллическим "ДопФайлУниверсальный"), .NET такое принимает, а libxml2
     отвергает. Откатываемся на восстанавливающий разбор ТОЛЬКО на этой ошибке,
     иначе по-настоящему битый XML перестал бы отличаться от корректного.
     """
@@ -79,10 +79,10 @@ def _parse_xml(source, from_string=False):
         return (etree.fromstring(source, p) if from_string else etree.parse(source, p))
 
 # ============================================================
-# Support guard (Ext/ParentConfigurations.bin) — see docs/1c-support-state-spec.md
+# Support guard (Ext/ParentConfigurations.bin) - see docs/1c-support-state-spec.md
 # Blocks edits of vendor objects "на замке" / read-only configs. Trigger = bin
 # present; reaction from .v8-project.json editingAllowedCheck (deny|warn|off,
-# default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
+# default deny). Never throws (except sys.exit on deny) - errors degrade to allow.
 # ============================================================
 
 def _sg_parse(xml_path):
@@ -218,12 +218,12 @@ def assert_edit_allowed(target_path, require):
             if best is not None and best != 2:
                 blocked = True
                 code = "not-removed"
-                reason = "объект не снят с поддержки — удаление сломает обновления"
+                reason = "объект не снят с поддержки - удаление сломает обновления"
         else:
             if best is not None and best == 0:
                 blocked = True
                 code = "locked"
-                reason = "объект на замке — редактирование сломает обновления"
+                reason = "объект на замке - редактирование сломает обновления"
         if not blocked:
             return
         mode = _sg_get_edit_mode(cfg_dir)
@@ -233,28 +233,28 @@ def assert_edit_allowed(target_path, require):
             sys.stderr.write(f"[support-guard] ПРЕДУПРЕЖДЕНИЕ: {reason}. Цель: {rp}\n")
             return
         head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
         off_note = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
         if code == "capability-off":
-            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «{rp}» редактировать нельзя."
+            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '{rp}' редактировать нельзя."
             fix = (
                 "Либо снять защиту явно (навык support-edit, два шага):\n"
-                f'  1. support-edit -Path "{cfg_dir}" -Capability on — включить возможность изменения (объекты пока остаются на замке);\n'
-                f'  2. support-edit -Path "{rp}" -Set editable — открыть этот объект для редактирования.\n'
+                f'  1. support-edit -Path "{cfg_dir}" -Capability on - включить возможность изменения (объекты пока остаются на замке);\n'
+                f'  2. support-edit -Path "{rp}" -Set editable - открыть этот объект для редактирования.\n'
                 "  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
             )
         elif code == "not-removed":
-            state = f"Состояние: объект «{rp}» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+            state = f"Состояние: объект '{rp}' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
             fix = (
                 "Либо сначала снять объект с поддержки, затем удалять:\n"
-                f'  support-edit -Path "{rp}" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно.'
+                f'  support-edit -Path "{rp}" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно.'
             )
         else:
-            state = f"Состояние: объект «{rp}» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+            state = f"Состояние: объект '{rp}' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
             fix = (
                 "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):\n"
-                f'  support-edit -Path "{rp}" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
-                f'  support-edit -Path "{rp}" -Set off-support — снять с поддержки: обновления по объекту больше не приходят.'
+                f'  support-edit -Path "{rp}" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
+                f'  support-edit -Path "{rp}" -Set off-support - снять с поддержки: обновления по объекту больше не приходят.'
             )
         sys.stderr.write(head + "\n" + state + "\n" + cfe + "\n" + fix + "\n" + off_note + "\n")
         sys.exit(1)
@@ -266,7 +266,7 @@ def assert_edit_allowed(target_path, require):
 
 def detect_format_version(d):
     while d:
-        # Автономная внешняя обработка/отчёт: своего Configuration.xml у неё нет, версию несёт
+        # Автономная внешняя обработка/отчет: своего Configuration.xml у нее нет, версию несет
         # корень самой обработки. Без этого форма и макет внутри обработки 2.21 писались бы 2.17.
         ext_path = d + ".xml"
         if os.path.isfile(ext_path):
@@ -324,7 +324,7 @@ def local(el):
 
 
 if local(schema) != "schema" or etree.QName(schema).namespace != XS_NS:
-    print(f"Ожидался корневой <xs:schema> в пространстве имён {XS_NS}", file=sys.stderr)
+    print(f"Ожидался корневой <xs:schema> в пространстве имен {XS_NS}", file=sys.stderr)
     sys.exit(1)
 
 target_ns = schema.get("targetNamespace") or ""
@@ -362,7 +362,7 @@ def add_qlist_attr(node, name, pairs, clark):
     node.attrs.append({"name": name, "list": pairs, "clark": clark})
 
 
-# Канонический порядок атрибутов — топологическая сортировка по корпусу 8.3.24
+# Канонический порядок атрибутов - топологическая сортировка по корпусу 8.3.24
 # (acc + erp, 760 пакетов), см. docs/1c-xdto-spec.md.
 ATTR_ORDER = {
     "package": ["targetNamespace", "elementFormQualified", "attributeFormQualified"],
@@ -413,9 +413,9 @@ def serialize_node(node, depth, inherited):
     indent = "\t" * (depth - 1)
     attrs_sorted = sort_attrs(node)
 
-    # Объявляем здесь только те ns, которых ещё нет в области видимости:
+    # Объявляем здесь только те ns, которых еще нет в области видимости:
     # сериализатор платформы объявляет префикс на первом нуждающемся узле,
-    # а потомки переиспользуют — отсюда d2p1 у property внутри objectType.
+    # а потомки переиспользуют - отсюда d2p1 у property внутри objectType.
     local_ns = []
 
     def need_prefix(ns):
@@ -428,7 +428,7 @@ def serialize_node(node, depth, inherited):
 
     for a in attrs_sorted:
         if "list" in a:
-            # Нотация Кларка несёт ns в значении и префикса не требует
+            # Нотация Кларка несет ns в значении и префикса не требует
             if not a["clark"]:
                 for p in a["list"]:
                     need_prefix(p[0])
@@ -492,8 +492,8 @@ def serialize_node(node, depth, inherited):
 
 # ── XSD reading helpers ──────────────────────────────────────
 
-# Предупреждения о том, что XSD выражает, а модель XDTO — нет. Молча ронять
-# такие конструкции нельзя: пакет соберётся, а половина свойств исчезнет.
+# Предупреждения о том, что XSD выражает, а модель XDTO - нет. Молча ронять
+# такие конструкции нельзя: пакет соберется, а половина свойств исчезнет.
 warnings_list = []
 
 
@@ -507,7 +507,7 @@ ATTR_GROUPS = {}
 
 
 def MA(el, name):
-    # xdto: mirror attribute — литеральное значение для Package.bin.
+    # xdto: mirror attribute - литеральное значение для Package.bin.
     # Ищем по namespace, а не по строке префикса.
     return el.get(f"{{{XDTO_NS}}}{name}")
 
@@ -530,7 +530,7 @@ def split_qname(el, qname):
         ns = el.nsmap.get(parts[0])
         loc = parts[1]
     else:
-        # Прощающий ввод: голое имя типа — тип целевого пространства имён
+        # Прощающий ввод: голое имя типа - тип целевого пространства имен
         ns = el.nsmap.get(None) or target_ns
         loc = parts[0]
     return (ns, loc)
@@ -564,13 +564,13 @@ def fill_simple_type(node, st):
         mv = MA(union, "variety")
         set_attr_value(node, "variety", mv if mv is not None else "Union")
         members = split_qname_list(union, union.get("memberTypes"))
-        # По умолчанию нотация Кларка — так записано 125 из 135 memberTypes корпуса
+        # По умолчанию нотация Кларка - так записано 125 из 135 memberTypes корпуса
         use_clark = MA(union, "memberTypesForm") != "prefixed"
         if members:
             add_qlist_attr(node, "memberTypes", members, use_clark)
         node.declare_ns = MA(union, "declareNs")
         for anon in xchildren(union, "simpleType"):
-            # typeDef в контексте простого типа xsi:type не несёт (40 узлов корпуса)
+            # typeDef в контексте простого типа xsi:type не несет (40 узлов корпуса)
             td = Node("typeDef")
             fill_simple_type(td, anon)
             node.children.append(td)
@@ -582,7 +582,7 @@ def fill_simple_type(node, st):
         mv = MA(restriction, "variety")
         if mv is not None:
             add_attr(node, "variety", mv)
-        # Анонимный базовый тип внутри xs:restriction — typeDef без xsi:type
+        # Анонимный базовый тип внутри xs:restriction - typeDef без xsi:type
         anon_base = xfirst(restriction, "simpleType")
         if anon_base is not None:
             td = Node("typeDef")
@@ -676,16 +676,16 @@ def build_property(el, is_attribute):
             add_attr(p, "upperBound", "-1" if max_occ == "unbounded" else max_occ)
         add_attr(p, "nillable", el.get("nillable"))
 
-    # XSD-шный fixed="V" несёт значение, в модели это fixed="true" + default="V".
+    # XSD-шный fixed="V" несет значение, в модели это fixed="true" + default="V".
     # Прощающий ввод: модельная форма через зеркало xdto:fixed тоже принимается.
     m_fixed = MA(el, "fixed")
     if m_fixed is not None:
         add_attr(p, "fixed", m_fixed)
         add_attr(p, "default", el.get("default"))
         if m_fixed == "true" and el.get("default") is None:
-            warn('Свойство "' + str(el.get("name")) + '": xdto:fixed="true" без default — '
-                 "платформа отвергнет пакет («Отсутствует фиксированное значение»). "
-                 'Значение задаётся атрибутом default, либо пишите XSD-форму fixed="значение"')
+            warn('Свойство "' + str(el.get("name")) + '": xdto:fixed="true" без default - '
+                 "платформа отвергнет пакет ('Отсутствует фиксированное значение'). "
+                 'Значение задается атрибутом default, либо пишите XSD-форму fixed="значение"')
     elif el.get("fixed") is not None:
         add_attr(p, "fixed", "true")
         add_attr(p, "default", el.get("fixed"))
@@ -731,7 +731,7 @@ def resolve_group(el, kind):
 
 
 # Модель XDTO знает только плоский список свойств: вложенные частицы уплощаются.
-# Каждое уплощение — предупреждение, потому что меняется смысл схемы.
+# Каждое уплощение - предупреждение, потому что меняется смысл схемы.
 def collect_particle(particle, elem_list, open_flag, type_name, depth, optionalize=False):
     if depth > 20:
         return
@@ -741,22 +741,22 @@ def collect_particle(particle, elem_list, open_flag, type_name, depth, optionali
         ln = local(c)
         if ln == "element":
             prop = build_property(c, False)
-            # Ветка уплощённого xs:choice обязана стать необязательной: иначе
-            # «одно из двух» превращается в «оба сразу», и тип нельзя заполнить
+            # Ветка уплощенного xs:choice обязана стать необязательной: иначе
+            # "одно из двух" превращается в "оба сразу", и тип нельзя заполнить
             if optionalize:
                 set_attr_value(prop, "lowerBound", "0")
             elem_list.append(prop)
         elif ln == "any":
             open_flag[0] = True
         elif ln == "sequence":
-            warn(type_name + " : вложенная xs:sequence уплощена — модель XDTO хранит плоский список свойств")
+            warn(type_name + " : вложенная xs:sequence уплощена - модель XDTO хранит плоский список свойств")
             collect_particle(c, elem_list, open_flag, type_name, depth + 1, optionalize)
         elif ln == "choice":
             branches = [b.get("name") for b in c
                         if isinstance(b.tag, str) and etree.QName(b).namespace == XS_NS and b.get("name")]
             lst = (" (" + ", ".join(branches) + ")") if branches else ""
-            warn(type_name + " : вложенная xs:choice уплощена — ветки" + lst + " сделаны необязательными. "
-                 "Выбор одного из вариантов не сохранён: модель не запретит заполнить "
+            warn(type_name + " : вложенная xs:choice уплощена - ветки" + lst + " сделаны необязательными. "
+                 "Выбор одного из вариантов не сохранен: модель не запретит заполнить "
                  "сразу несколько или ни одного")
             collect_particle(c, elem_list, open_flag, type_name, depth + 1, True)
         elif ln == "all":
@@ -770,7 +770,7 @@ def collect_particle(particle, elem_list, open_flag, type_name, depth, optionali
                             and local(gc) in ("sequence", "choice", "all"):
                         collect_particle(gc, elem_list, open_flag, type_name, depth + 1, optionalize)
             else:
-                warn(type_name + " : не найдена группа " + str(c.get("ref")) + " — её свойства в пакет не попали")
+                warn(type_name + " : не найдена группа " + str(c.get("ref")) + " - ее свойства в пакет не попали")
         if ln in ("sequence", "choice", "all", "group"):
             if c.get("maxOccurs") is not None or c.get("minOccurs") is not None:
                 warn(type_name + " : кратность на вложенной частице (<xs:" + ln +
@@ -854,7 +854,7 @@ def fill_complex_type(node, ct):
         if all_ is not None:
             warn(type_name + " : xs:all трактуется как последовательность")
         if grp is not None and seq is None and cho is None and all_ is None:
-            # Корневая частица задана ссылкой на группу — раскрываем её содержимое
+            # Корневая частица задана ссылкой на группу - раскрываем ее содержимое
             g = resolve_group(grp, "group")
             if g is not None:
                 for gc in g:
@@ -862,7 +862,7 @@ def fill_complex_type(node, ct):
                             and local(gc) in ("sequence", "choice", "all"):
                         collect_particle(gc, elem_props, open_flag, type_name, 1)
             else:
-                warn(type_name + " : не найдена группа " + str(grp.get("ref")) + " — её свойства в пакет не попали")
+                warn(type_name + " : не найдена группа " + str(grp.get("ref")) + " - ее свойства в пакет не попали")
         else:
             collect_particle(particle, elem_props, open_flag, type_name, 0)
     is_open = open_flag[0]
@@ -875,7 +875,7 @@ def fill_complex_type(node, ct):
             for a in xchildren(g, "attribute"):
                 node.children.append(build_property(a, True))
         else:
-            warn("Не найдена группа атрибутов " + str(ag.get("ref")) + " — её атрибуты в пакет не попали")
+            warn("Не найдена группа атрибутов " + str(ag.get("ref")) + " - ее атрибуты в пакет не попали")
     node.children.extend(elem_props)
     if xchildren(body, "anyAttribute"):
         is_open = True
@@ -925,7 +925,7 @@ if ann is not None:
                 elif ln == "synonym":
                     meta_synonym.append({"Lang": f.get("lang") or "", "Content": f.text or ""})
 
-# Реестр глобальных групп — нужен до обхода, чтобы раскрывать ссылки
+# Реестр глобальных групп - нужен до обхода, чтобы раскрывать ссылки
 for node in schema:
     if not isinstance(node.tag, str) or etree.QName(node).namespace != XS_NS:
         continue
@@ -938,13 +938,13 @@ for node in schema:
 # Конструкции XSD, которым в модели XDTO нет соответствия
 for sg in schema.iter():
     if isinstance(sg.tag, str) and local(sg) == "element" and sg.get("substitutionGroup"):
-        warn("Подстановочные группы (substitutionGroup) не поддерживаются моделью XDTO — объявление "
+        warn("Подстановочные группы (substitutionGroup) не поддерживаются моделью XDTO - объявление "
              + str(sg.get("name")) + " сохранено как обычное")
 for idc in ("key", "keyref", "unique"):
     if any(isinstance(e.tag, str) and local(e) == idc for e in schema.iter()):
-        warn("Ограничения целостности (xs:" + idc + ") в модели XDTO не хранятся — отброшены")
+        warn("Ограничения целостности (xs:" + idc + ") в модели XDTO не хранятся - отброшены")
 if any(isinstance(e.tag, str) and local(e) == "redefine" for e in schema.iter()):
-    warn("xs:redefine не поддерживается — переопределения проигнорированы")
+    warn("xs:redefine не поддерживается - переопределения проигнорированы")
 if any(isinstance(e.tag, str) and local(e) == "include" for e in schema.iter()):
     warn("xs:include проигнорирован: модель XDTO разрешает зависимости только по namespace. "
          "Соберите включаемую схему отдельным пакетом и добавьте <xs:import>")
@@ -978,8 +978,8 @@ for node in schema:
 
 # Модель XDTO требует строгой последовательности элементов верхнего уровня:
 # import → property → valueType → objectType. Порядок объявлений в XSD произвольный,
-# поэтому пересортировываем — иначе платформа отвергает пакет с «Ошибка преобразования
-# данных XDTO». Все 760 пакетов корпуса этому порядку удовлетворяют.
+# поэтому пересортировываем - иначе платформа отвергает пакет с "Ошибка преобразования
+# данных XDTO". Все 760 пакетов корпуса этому порядку удовлетворяют.
 TOP_ORDER = ["import", "property", "valueType", "objectType"]
 pkg_node.children = (
     [c for t in TOP_ORDER for c in pkg_node.children if c.tag == t]
@@ -1005,7 +1005,7 @@ assert_edit_allowed(args.OutputDir, "editable")
 
 format_version = detect_format_version(os.path.abspath(args.OutputDir))
 
-# Объявления пространств имён — одной переменной: место эмиссии её только подставляет.
+# Объявления пространств имен - одной переменной: место эмиссии ее только подставляет.
 # Правки шапки (как xmlns:pal в формате 2.21) делаются здесь, в одном месте.
 xmlns_decl = (
     'xmlns="http://v8.1c.ru/8.3/MDClasses"'
@@ -1027,7 +1027,7 @@ xmlns_decl = (
     ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
 )
 
-# 2.21 (8.5) добавила в шапку пространство палитры — ради <Color> у значений перечисления.
+# 2.21 (8.5) добавила в шапку пространство палитры - ради <Color> у значений перечисления.
 # Вставляем НА МЕСТО (после lf, перед style): платформа держит объявления по алфавиту,
 # дописать в конец нельзя.
 if format_rank(format_version) >= 221:
@@ -1101,7 +1101,7 @@ if declared_imports and os.path.isdir(xdto_root_dir):
     for imp in declared_imports:
         if imp not in known_ns and imp not in PLATFORM_NS:
             warn(f'Импорт "{imp}" не разрешается: пакета с таким namespace в конфигурации нет. '
-                 "Платформа отвергнет пакет при обновлении — соберите зависимость первой")
+                 "Платформа отвергнет пакет при обновлении - соберите зависимость первой")
 
 config_xml = os.path.join(args.OutputDir, "Configuration.xml")
 reg_result = "no-config"
@@ -1131,10 +1131,10 @@ if os.path.exists(config_xml):
             # альтернации и возвращаются как есть.
             data = re.sub(rb'(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|(?<=\S) />',
                             lambda m: b'/>' if m.group(0) == b' />' else m.group(0), data)
-            # lxml пишет декларацию в ОДИНАРНЫХ кавычках, платформа и PS-порт — в двойных.
+            # lxml пишет декларацию в ОДИНАРНЫХ кавычках, платформа и PS-порт - в двойных.
             data = data.replace(b"<?xml version='1.0' encoding='UTF-8'?>",
                                 b'<?xml version="1.0" encoding="UTF-8"?>')
-            # Парсер XML по спецификации схлопывает CRLF в LF, поэтому tostring отдаёт
+            # Парсер XML по спецификации схлопывает CRLF в LF, поэтому tostring отдает
             # LF-документ. Возвращаем EOL исходного файла: правка существующего файла
             # сохраняет его стиль (#44/#46/#47). Правило то же, что у _detect_xml_style
             # и у $targetEol в PS-порту: есть CRLF → CRLF.
@@ -1166,7 +1166,7 @@ print(f"  Файлы: XDTOPackages/{name}.xml, XDTOPackages/{name}/Ext/Package.b
 if warnings_list:
     print("")
     print("Предупреждения (" + str(len(warnings_list)) +
-          ") — конструкции XSD без точного соответствия в модели XDTO:")
+          ") - конструкции XSD без точного соответствия в модели XDTO:")
     for w in warnings_list:
         print("  ! " + w)
     print("")
@@ -1175,4 +1175,4 @@ if reg_result == "added":
 elif reg_result == "already":
     print(f"  Configuration.xml: <XDTOPackage>{name}</XDTOPackage> уже зарегистрирован")
 else:
-    print("  Configuration.xml не найден — регистрация пропущена")
+    print("  Configuration.xml не найден - регистрация пропущена")

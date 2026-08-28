@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-init v1.1 — Create 1C configuration extension scaffold (CFE)
+# cfe-init v1.1 - Create 1C configuration extension scaffold (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Generates minimal XML source files for a 1C configuration extension."""
 import re

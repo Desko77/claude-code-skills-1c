@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-validate v1.4 — Validate 1C configuration extension XML structure (CFE)
+# cfe-validate v1.4 - Validate 1C configuration extension XML structure (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates extension Configuration.xml: root, InternalInfo, extension properties, ChildObjects, borrowed objects."""
 import sys, os, argparse, re

@@ -10,11 +10,11 @@
 2. **Built-in preset** -- файл из этой папки (`erp-standard.json` по умолчанию)
 3. **Project-level preset** -- файл `presets/skills/form/<name>.json`, поиск вверх от OutputPath
 
-Имя пресета задаётся параметром `--preset` (по умолчанию `erp-standard`).
+Имя пресета задается параметром `--preset` (по умолчанию `erp-standard`).
 
 ## Project-level пресет
 
-Чтобы переопределить стандартный пресет в своём проекте, создайте файл:
+Чтобы переопределить стандартный пресет в своем проекте, создайте файл:
 
 ```
 <project-root>/presets/skills/form/erp-standard.json
@@ -65,10 +65,10 @@
 | `header.layout` | Колонки шапки | `"1col"`, `"2col"` |
 | `header.distribute` | Распределение в 2 колонках | `"even"`, `"left"`, `"right"` |
 | `header.dateTitle` | Заголовок даты (Document) | строка, напр. `"от"` |
-| `footer.fields` | Поля в подвале | массив имён реквизитов, напр. `["Комментарий"]` |
+| `footer.fields` | Поля в подвале | массив имен реквизитов, напр. `["Комментарий"]` |
 | `footer.position` | Где размещать подвал | `"insidePage"`, `"belowPages"`, `"none"` |
 | `tabularSections.container` | Контейнер табчастей | `"pages"` -- на вкладках, `"inline"` -- в корне, `"single-no-pages"` -- одна ТЧ без страниц |
-| `tabularSections.exclude` | Исключить табчасти | массив имён, напр. `["ДополнительныеРеквизиты"]` |
+| `tabularSections.exclude` | Исключить табчасти | массив имен, напр. `["ДополнительныеРеквизиты"]` |
 | `tabularSections.lineNumber` | Колонка НомерСтроки | `true` / `false` |
 | `additional.position` | Блок доп. реквизитов | `"page"` -- отдельная вкладка, `"below"` -- под табчастями, `"none"` -- не создавать |
 | `additional.layout` | Колонки доп. блока | `"1col"`, `"2col"` |
@@ -88,7 +88,7 @@
 
 | Ключ | Описание | Допустимые значения |
 |------|----------|---------------------|
-| `columns` | Какие колонки показывать | `"all"` -- все реквизиты, или массив имён |
+| `columns` | Какие колонки показывать | `"all"` -- все реквизиты, или массив имен |
 | `columnType` | Тип элемента колонки | `"labelField"`, `"input"` |
 | `hiddenRef` | Скрытая колонка Ref | `true` / `false` |
 | `tableCommandBar` | Командная панель таблицы | `"auto"`, `"none"` |

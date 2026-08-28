@@ -1,4 +1,4 @@
-﻿# template-remove v1.1 — Remove template from 1C object
+﻿# template-remove v1.1 - Remove template from 1C object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -35,11 +35,11 @@ if (-not (Test-Path $templateMetaPath)) {
 
 if (Test-Path $templateDir) {
 	Remove-Item -Path $templateDir -Recurse -Force
-	Write-Host "[OK] Удалён каталог: $templateDir"
+	Write-Host "[OK] Удален каталог: $templateDir"
 }
 
 Remove-Item -Path $templateMetaPath -Force
-Write-Host "[OK] Удалён файл: $templateMetaPath"
+Write-Host "[OK] Удален файл: $templateMetaPath"
 
 # --- Модификация корневого XML ---
 
@@ -82,7 +82,7 @@ foreach ($node in $templateNodes) {
 $mainDCS = $xmlDoc.SelectSingleNode("//md:MainDataCompositionSchema", $nsMgr)
 if ($mainDCS -and $mainDCS.InnerText -match "Template\.$([regex]::Escape($TemplateName))$") {
 	$mainDCS.InnerText = ""
-	Write-Host "[OK] Очищён MainDataCompositionSchema"
+	Write-Host "[OK] Очищен MainDataCompositionSchema"
 }
 
 # Сохранить с BOM
@@ -107,4 +107,4 @@ $tightText = $tightText.Replace('encoding="utf-8"', 'encoding="UTF-8"')
 $tightText = [regex]::Replace($tightText, '(?s)<!\[CDATA\[.*?\]\]>|<!--.*?-->|<([A-Za-z0-9_:.\-]+)((?:\s+[A-Za-z0-9_:.\-]+="[^"]*")*)\s+/>', { param($m) if ($m.Groups[1].Success) { '<' + $m.Groups[1].Value + $m.Groups[2].Value + '/>' } else { $m.Value } })
 [System.IO.File]::WriteAllText($tightPath, $tightText, (New-Object System.Text.UTF8Encoding($true)))
 
-Write-Host "[OK] Макет $TemplateName удалён из $rootXmlPath"
+Write-Host "[OK] Макет $TemplateName удален из $rootXmlPath"

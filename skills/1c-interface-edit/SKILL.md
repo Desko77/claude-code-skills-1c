@@ -9,7 +9,7 @@ allowed-tools:
   - Glob
 ---
 
-# /interface-edit — редактирование CommandInterface.xml
+# /interface-edit - редактирование CommandInterface.xml
 
 Точечное редактирование файла командного интерфейса подсистемы 1С.
 
@@ -56,7 +56,7 @@ powershell.exe -NoProfile -File 'skills/1c-interface-edit/scripts/interface-edit
 ... -CIPath Subsystems/Продажи/Ext/CommandInterface.xml -Operation hide -Value "Catalog.Товары.StandardCommand.OpenList"
 
 # Показать команду
-... -Operation show -Value "Report.Продажи.Command.Отчёт"
+... -Operation show -Value "Report.Продажи.Command.Отчет"
 
 # Разместить в группе
 ... -Operation place -Value '{"command":"Report.X.Command.Y","group":"CommandGroup.Отчеты"}'

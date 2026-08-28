@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# epf-init v1.0 — Init 1C external data processor scaffold
+# epf-init v1.0 - Init 1C external data processor scaffold
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Generates minimal XML source files for a 1C external data processor."""
 import sys, os, re, argparse, uuid

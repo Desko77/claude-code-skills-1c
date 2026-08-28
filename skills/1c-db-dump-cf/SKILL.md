@@ -9,7 +9,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# /db-dump-cf — Выгрузка конфигурации в CF-файл
+# /db-dump-cf - Выгрузка конфигурации в CF-файл
 
 Выгружает конфигурацию информационной базы в бинарный CF-файл.
 
@@ -18,19 +18,19 @@ allowed-tools:
 ```
 /db-dump-cf [database] [output.cf]
 /db-dump-cf dev config.cf
-/db-dump-cf                          — база по умолчанию, файл config.cf
+/db-dump-cf                          - база по умолчанию, файл config.cf
 ```
 
 ## Параметры подключения
 
 Прочитай `.v8-project.json` из корня проекта. Возьми `v8path` (путь к платформе) и разреши базу:
-1. Если пользователь указал параметры подключения (путь, сервер) — используй напрямую
-2. Если указал базу по имени — ищи по id / alias / name в `.v8-project.json`
-3. Если не указал — сопоставь текущую ветку Git с `databases[].branches`
-4. Если ветка не совпала — используй `default`
-Если `v8path` не задан — автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
-Если файла нет — предложи `/db-list add`.
-Если использованная база не зарегистрирована — после выполнения предложи добавить через `/db-list add`.
+1. Если пользователь указал параметры подключения (путь, сервер) - используй напрямую
+2. Если указал базу по имени - ищи по id / alias / name в `.v8-project.json`
+3. Если не указал - сопоставь текущую ветку Git с `databases[].branches`
+4. Если ветка не совпала - используй `default`
+Если `v8path` не задан - автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
+Если файла нет - предложи `/db-list add`.
+Если использованная база не зарегистрирована - после выполнения предложи добавить через `/db-list add`.
 
 ## Команда
 
@@ -53,7 +53,7 @@ powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 <п�
 | `-AllExtensions` | нет | Выгрузить все расширения |
 | `-StrictLog` | нет | Отказ в журнале поднимает код возврата до 1, даже если платформа вернула 0 |
 
-> `*` — нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
+> `*` - нужен либо `-InfoBasePath`, либо пара `-InfoBaseServer` + `-InfoBaseRef`
 
 ## Коды возврата
 
@@ -64,7 +64,7 @@ powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 <п�
 
 ## После выполнения
 
-Прочитай лог-файл и покажи результат. Если есть ошибки — покажи содержимое лога.
+Прочитай лог-файл и покажи результат. Если есть ошибки - покажи содержимое лога.
 
 ## Примеры
 
@@ -76,5 +76,5 @@ powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -Inf
 powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -OutputFile "config.cf"
 
 # Выгрузка расширения
-powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "ext.cfe" -Extension "МоёРасширение"
+powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "ext.cfe" -Extension "МоеРасширение"
 ```

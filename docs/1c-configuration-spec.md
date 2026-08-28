@@ -1,22 +1,22 @@
 # Спецификация корневой структуры конфигурации 1С
 
 Формат: XML-выгрузка конфигурации 1С:Предприятие 8.3 (Конфигуратор → Конфигурация → Выгрузить конфигурацию в файлы).
-Версии формата: `2.17` (платформа 8.3.20–8.3.24), `2.20` (платформа 8.3.27+).
+Версии формата: `2.17` (платформа 8.3.20-8.3.24), `2.20` (платформа 8.3.27+).
 
 Источники: выгрузки Бухгалтерия предприятия (платформы 8.3.20, 8.3.24, 8.3.27), ERP 2 (8.3.24).
 
 > **Связанные спецификации:**
-> - Объекты метаданных — [1c-config-objects-spec.md](1c-config-objects-spec.md)
-> - Подсистемы и командный интерфейс — [1c-subsystem-spec.md](1c-subsystem-spec.md)
-> - Сводный индекс — [1c-specs-index.md](1c-specs-index.md)
+> - Объекты метаданных - [1c-config-objects-spec.md](1c-config-objects-spec.md)
+> - Подсистемы и командный интерфейс - [1c-subsystem-spec.md](1c-subsystem-spec.md)
+> - Сводный индекс - [1c-specs-index.md](1c-specs-index.md)
 
 ---
 
 ## 1. Общая структура выгрузки
 
 ```
-Configuration.xml                  # Корневой файл — свойства и состав конфигурации
-ConfigDumpInfo.xml                 # Служебный файл — версии объектов
+Configuration.xml                  # Корневой файл - свойства и состав конфигурации
+ConfigDumpInfo.xml                 # Служебный файл - версии объектов
 Ext/                               # Корневой каталог модулей и интерфейса
 Languages/                         # Языки конфигурации
 Subsystems/                        # Подсистемы
@@ -25,11 +25,11 @@ Documents/                         # Документы
 ...                                # Каталоги всех типов объектов (см. раздел 2.4)
 ```
 
-Полный перечень каталогов объектов и их формат — [1c-config-objects-spec.md § 1](1c-config-objects-spec.md#1-общая-структура-выгрузки).
+Полный перечень каталогов объектов и их формат - [1c-config-objects-spec.md § 1](1c-config-objects-spec.md#1-общая-структура-выгрузки).
 
 ---
 
-## 2. Configuration.xml — корневой файл конфигурации
+## 2. Configuration.xml - корневой файл конфигурации
 
 ### 2.1. Общая структура
 
@@ -54,7 +54,7 @@ Documents/                         # Документы
 
 ### 2.2. InternalInfo
 
-Содержит набор `xr:ContainedObject` — пары ClassId/ObjectId, идентифицирующие внутренние компоненты конфигурации (модули, интерфейс, справка и т.д.). Количество записей фиксировано (7 в типичной конфигурации).
+Содержит набор `xr:ContainedObject` - пары ClassId/ObjectId, идентифицирующие внутренние компоненты конфигурации (модули, интерфейс, справка и т.д.). Количество записей фиксировано (7 в типичной конфигурации).
 
 ```xml
 <InternalInfo>
@@ -62,13 +62,13 @@ Documents/                         # Документы
     <xr:ClassId>9cd510cd-abfc-11d4-9434-004095e12fc7</xr:ClassId>
     <xr:ObjectId>f0ba0954-a66b-4085-9df1-b8a4283bdbd3</xr:ObjectId>
   </xr:ContainedObject>
-  <!-- ещё 6 записей -->
+  <!-- еще 6 записей -->
 </InternalInfo>
 ```
 
-ClassId — фиксированные идентификаторы классов платформы. ObjectId — уникальные для каждой конфигурации.
+ClassId - фиксированные идентификаторы классов платформы. ObjectId - уникальные для каждой конфигурации.
 
-### 2.3. Properties — свойства конфигурации
+### 2.3. Properties - свойства конфигурации
 
 Свойства идут строго в фиксированном порядке. Пустые свойства записываются как самозакрывающийся элемент (`<Comment/>`) или с пробелом (`<Comment />`).
 
@@ -79,7 +79,7 @@ ClassId — фиксированные идентификаторы классо
 | `Name` | `xs:string` | Имя конфигурации (идентификатор) |
 | `Synonym` | `LocalString` | Отображаемое имя |
 | `Comment` | `xs:string` | Комментарий |
-| `NamePrefix` | `xs:string` | Префикс имён объектов |
+| `NamePrefix` | `xs:string` | Префикс имен объектов |
 | `Vendor` | `xs:string` | Поставщик |
 | `Version` | `xs:string` | Версия конфигурации (напр. `3.0.181.31`) |
 | `UpdateCatalogAddress` | `xs:string` | URL каталога обновлений |
@@ -115,7 +115,7 @@ ClassId — фиксированные идентификаторы классо
 | `IncludeHelpInContents` | `xs:boolean` | Включить справку в оглавление |
 | `UseManagedFormInOrdinaryApplication` | `xs:boolean` | Управл. формы в обычном приложении |
 | `UseOrdinaryFormInManagedApplication` | `xs:boolean` | Обычные формы в управл. приложении |
-| `Content` | list | Состав конфигурации (обычно пуст — используется при расширениях) |
+| `Content` | list | Состав конфигурации (обычно пуст - используется при расширениях) |
 | `StandaloneConfigurationRestrictionRoles` | list | Роли ограничения автономной конфигурации |
 
 #### Хранилища настроек
@@ -123,8 +123,8 @@ ClassId — фиксированные идентификаторы классо
 | Свойство | Тип | Описание |
 |----------|-----|----------|
 | `CommonSettingsStorage` | ref | Хранилище общих настроек |
-| `ReportsUserSettingsStorage` | ref | Хранилище пользовательских настроек отчётов |
-| `ReportsVariantsStorage` | ref | Хранилище вариантов отчётов (напр. `SettingsStorage.XXX`) |
+| `ReportsUserSettingsStorage` | ref | Хранилище пользовательских настроек отчетов |
+| `ReportsVariantsStorage` | ref | Хранилище вариантов отчетов (напр. `SettingsStorage.XXX`) |
 | `FormDataSettingsStorage` | ref | Хранилище данных форм |
 | `DynamicListsUserSettingsStorage` | ref | Хранилище настроек динамических списков |
 | `URLExternalDataStorage` | ref | Хранилище внешних данных URL |
@@ -133,10 +133,10 @@ ClassId — фиксированные идентификаторы классо
 
 | Свойство | Тип | Описание |
 |----------|-----|----------|
-| `DefaultReportForm` | ref | Форма отчёта по умолчанию (напр. `CommonForm.ФормаОтчета`) |
-| `DefaultReportVariantForm` | ref | Форма варианта отчёта |
-| `DefaultReportSettingsForm` | ref | Форма настроек отчёта |
-| `DefaultReportAppearanceTemplate` | ref | Шаблон оформления отчёта |
+| `DefaultReportForm` | ref | Форма отчета по умолчанию (напр. `CommonForm.ФормаОтчета`) |
+| `DefaultReportVariantForm` | ref | Форма варианта отчета |
+| `DefaultReportSettingsForm` | ref | Форма настроек отчета |
+| `DefaultReportAppearanceTemplate` | ref | Шаблон оформления отчета |
 | `DefaultDynamicListSettingsForm` | ref | Форма настроек динамического списка |
 | `DefaultSearchForm` | ref | Форма поиска |
 | `DefaultDataHistoryChangeHistoryForm` | ref | Форма истории изменений |
@@ -160,9 +160,9 @@ ClassId — фиксированные идентификаторы классо
 | `RequiredMobileApplicationPermissions` | list | Обязательные разрешения |
 | `UsedMobileApplicationFunctionalities` | list | Используемые функциональности (см. ниже) |
 | `MobileApplicationURLs` | list | URL мобильного приложения |
-| `AllowedIncomingShareRequestTypes` | list | Разрешённые типы входящих share-запросов |
+| `AllowedIncomingShareRequestTypes` | list | Разрешенные типы входящих share-запросов |
 
-**UsedMobileApplicationFunctionalities** — список из `app:functionality` с подэлементами `app:functionality` (имя) и `app:use` (boolean):
+**UsedMobileApplicationFunctionalities** - список из `app:functionality` с подэлементами `app:functionality` (имя) и `app:use` (boolean):
 
 ```xml
 <UsedMobileApplicationFunctionalities>
@@ -176,7 +176,7 @@ ClassId — фиксированные идентификаторы классо
 
 Известные функциональности: `Biometrics`, `Location`, `BackgroundLocation`, `BluetoothPrinters`, `WiFiPrinters`, `Contacts`, `Calendars`, `PushNotifications`, `LocalNotifications`, `InAppPurchases`, `PersonalComputerFileExchange`, `Ads`, `NumberDialing`, `CallProcessing`, `CallLog`, `AutoSendSMS`, `ReceiveSMS`, `SMSLog`, `Camera`, `Microphone`, `MusicLibrary`, `PictureAndVideoLibraries`, `AudioPlaybackAndVibration`, `BackgroundAudioPlaybackAndVibration`, `InstallPackages`, `OSBackup`, `ApplicationUsageStatistics`, `BarcodeScanning`, `BackgroundAudioRecording`, `AllFilesAccess`, `Videoconferences`, `NFC`, `DocumentScanning`, `SpeechToText`, `Geofences`, `IncomingShareRequests`, `AllIncomingShareRequestsTypesProcessing`, `TextToSpeech` (v2.20+).
 
-### 2.4. ChildObjects — состав конфигурации
+### 2.4. ChildObjects - состав конфигурации
 
 Перечисляет все объекты метаданных, сгруппированные по типу. Имя XML-элемента = тип объекта, текстовое содержимое = имя объекта. Порядок типов фиксирован:
 
@@ -266,15 +266,15 @@ ClassId — фиксированные идентификаторы классо
 | 30 | `Sequence` | `Sequences/` | Последовательности |
 | 31 | `DocumentJournal` | `DocumentJournals/` | Журналы документов |
 | 32 | `Enum` | `Enums/` | Перечисления |
-| 33 | `Report` | `Reports/` | Отчёты |
+| 33 | `Report` | `Reports/` | Отчеты |
 | 34 | `DataProcessor` | `DataProcessors/` | Обработки |
 | 35 | `InformationRegister` | `InformationRegisters/` | Регистры сведений |
 | 36 | `AccumulationRegister` | `AccumulationRegisters/` | Регистры накопления |
 | 37 | `ChartOfCharacteristicTypes` | `ChartsOfCharacteristicTypes/` | Планы видов характеристик |
 | 38 | `ChartOfAccounts` | `ChartsOfAccounts/` | Планы счетов |
 | 39 | `AccountingRegister` | `AccountingRegisters/` | Регистры бухгалтерии |
-| 40 | `ChartOfCalculationTypes` | `ChartsOfCalculationTypes/` | Планы видов расчёта |
-| 41 | `CalculationRegister` | `CalculationRegisters/` | Регистры расчёта |
+| 40 | `ChartOfCalculationTypes` | `ChartsOfCalculationTypes/` | Планы видов расчета |
+| 41 | `CalculationRegister` | `CalculationRegisters/` | Регистры расчета |
 | 42 | `BusinessProcess` | `BusinessProcesses/` | Бизнес-процессы |
 | 43 | `Task` | `Tasks/` | Задачи |
 | 44 | `IntegrationService` | `IntegrationServices/` | Сервисы интеграции |
@@ -333,7 +333,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 ---
 
-## 3. ConfigDumpInfo.xml — служебный файл выгрузки
+## 3. ConfigDumpInfo.xml - служебный файл выгрузки
 
 Содержит информацию о версиях всех объектов конфигурации. Используется платформой для определения изменений при загрузке.
 
@@ -361,7 +361,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 | Атрибут | Описание |
 |---------|----------|
 | `format` | Формат выгрузки (`Hierarchical`) |
-| `version` | Версия формата (`2.17` / `2.20`) — совпадает с Configuration.xml |
+| `version` | Версия формата (`2.17` / `2.20`) - совпадает с Configuration.xml |
 
 ### 3.3. Структура записей Metadata
 
@@ -375,8 +375,8 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 **Правила:**
 - Корневой объект содержит вложенные `<Metadata>` для реквизитов, измерений, ресурсов (без `configVersion`, т.к. они не имеют отдельных файлов)
-- Формы, модули, справка — отдельные `<Metadata>` верхнего уровня с `configVersion`
-- Суффиксы id для модулей: `.0` — форма, `.1` — модуль набора записей, `.2` — модуль менеджера, `.5` — справка, `.6` — модуль набора записей (альт.), `.7` — модуль менеджера (альт.)
+- Формы, модули, справка - отдельные `<Metadata>` верхнего уровня с `configVersion`
+- Суффиксы id для модулей: `.0` - форма, `.1` - модуль набора записей, `.2` - модуль менеджера, `.5` - справка, `.6` - модуль набора записей (альт.), `.7` - модуль менеджера (альт.)
 
 ```xml
 <!-- Объект с вложенными реквизитами -->
@@ -385,16 +385,16 @@ HTTP- и web-сервисы, функциональные опции и их п�
   <Metadata name="AccountingRegister.Хозрасчетный.Resource.Сумма" id="3656a8da-..."/>
   <Metadata name="AccountingRegister.Хозрасчетный.Dimension.Организация" id="4d42e16e-..."/>
 </Metadata>
-<!-- Форма — отдельная запись -->
+<!-- Форма - отдельная запись -->
 <Metadata name="AccountingRegister.Хозрасчетный.Form.ФормаСписка" id="5a682c7f-..." configVersion="1362..."/>
 <Metadata name="AccountingRegister.Хозрасчетный.Form.ФормаСписка.Form" id="5a682c7f-....0" configVersion="e384..."/>
-<!-- Модули — отдельные записи -->
+<!-- Модули - отдельные записи -->
 <Metadata name="AccountingRegister.Хозрасчетный.ManagerModule" id="7b248429-....7" configVersion="0387..."/>
 ```
 
 ---
 
-## 4. Ext/ — корневой каталог конфигурации
+## 4. Ext/ - корневой каталог конфигурации
 
 Каталог `Ext/` содержит файлы, относящиеся к конфигурации в целом (не к отдельным объектам).
 
@@ -407,7 +407,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 | `SessionModule.bsl` | Модуль сеанса |
 | `ExternalConnectionModule.bsl` | Модуль внешнего соединения |
 
-Все модули — текстовые файлы в кодировке UTF-8 с BOM, содержащие код на языке 1С (BSL).
+Все модули - текстовые файлы в кодировке UTF-8 с BOM, содержащие код на языке 1С (BSL).
 
 ### 4.2. Командный интерфейс
 
@@ -417,7 +417,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 | `MainSectionCommandInterface.xml` | Командный интерфейс главного раздела |
 | `ClientApplicationInterface.xml` | Интерфейс клиентского приложения (расположение панелей) |
 
-**CommandInterface.xml** — описывает порядок подсистем и видимость команд для главного окна:
+**CommandInterface.xml** - описывает порядок подсистем и видимость команд для главного окна:
 
 ```xml
 <CommandInterface xmlns="http://v8.1c.ru/8.3/xcf/extrnprops" ... version="2.17">
@@ -431,7 +431,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 Подробнее: [1c-subsystem-spec.md § 4](1c-subsystem-spec.md#4-формат-командного-интерфейса-commandinterfacexml).
 
-**ClientApplicationInterface.xml** — расположение панелей (top/left/bottom/right):
+**ClientApplicationInterface.xml** - расположение панелей (top/left/bottom/right):
 
 ```xml
 <ClientApplicationInterface xmlns="http://v8.1c.ru/8.2/managed-application/core" ...>
@@ -500,7 +500,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 ## 5. Языки (Languages)
 
-Языки — простейший тип объекта конфигурации. Каталог `Languages/`, один XML-файл на язык.
+Языки - простейший тип объекта конфигурации. Каталог `Languages/`, один XML-файл на язык.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -536,7 +536,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 Ниже описаны типы, не покрытые в [1c-config-objects-spec.md](1c-config-objects-spec.md). Все объекты следуют стандартной структуре `MetaDataObject / <Type> / Properties` с обязательными `Name`, `Synonym`, `Comment`.
 
-### 6.1. CommonPicture — общая картинка
+### 6.1. CommonPicture - общая картинка
 
 Каталог: `CommonPictures/`. Файлы: `<Имя>.xml` + `<Имя>/Ext/Picture/` (файлы картинок).
 
@@ -557,7 +557,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 | `AvailabilityForChoice` | `xs:boolean` | Доступность для выбора в интерфейсе |
 | `AvailabilityForAppearance` | `xs:boolean` | Доступность для оформления |
 
-### 6.2. CommonTemplate — общий макет
+### 6.2. CommonTemplate - общий макет
 
 Каталог: `CommonTemplates/`. Файлы: `<Имя>.xml` (метаданные) + `<Имя>/Ext/Template.xml` (содержимое).
 
@@ -576,7 +576,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 |----------|-----|----------|
 | `TemplateType` | enum | Тип макета: `SpreadsheetDocument`, `BinaryData`, `HTMLDocument`, `TextDocument`, `ActiveDocument`, `DataCompositionSchema`, `DataCompositionAppearanceTemplate`, `GraphicalSchema`, `AddIn` |
 
-### 6.3. CommonAttribute — общий реквизит
+### 6.3. CommonAttribute - общий реквизит
 
 Каталог: `CommonAttributes/`. Один XML-файл на объект.
 
@@ -610,7 +610,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 Специфичные свойства (помимо стандартных реквизитных): `AutoUse`, `DataSeparation`, `SeparatedDataUse`, `DataSeparationValue`, `DataSeparationUse`, `Content` (список объектов, к которым применяется).
 
-### 6.4. CommonForm — общая форма
+### 6.4. CommonForm - общая форма
 
 Каталог: `CommonForms/`. Файлы: `<Имя>.xml` (метаданные) + `<Имя>/Ext/Form.xml` + `<Имя>/Ext/Form/Module.bsl`.
 
@@ -642,7 +642,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 | `ExtendedPresentation` | `LocalString` | Расширенное представление |
 | `Explanation` | `LocalString` | Пояснение |
 
-### 6.5. CommonCommand — общая команда
+### 6.5. CommonCommand - общая команда
 
 Каталог: `CommonCommands/`. Файлы: `<Имя>.xml` + `<Имя>/Ext/CommandModule.bsl`.
 
@@ -668,7 +668,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 Подробнее: [1c-subsystem-spec.md § 6](1c-subsystem-spec.md#6-формат-общей-команды-commoncommand).
 
-### 6.6. SessionParameter — параметр сеанса
+### 6.6. SessionParameter - параметр сеанса
 
 Каталог: `SessionParameters/`. Один XML-файл на объект.
 
@@ -686,9 +686,9 @@ HTTP- и web-сервисы, функциональные опции и их п�
 </SessionParameter>
 ```
 
-Единственное специфичное свойство — `Type` (составной тип).
+Единственное специфичное свойство - `Type` (составной тип).
 
-### 6.7. FunctionalOption — функциональная опция
+### 6.7. FunctionalOption - функциональная опция
 
 Каталог: `FunctionalOptions/`. Один XML-файл на объект.
 
@@ -711,7 +711,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 | `PrivilegedGetMode` | `xs:boolean` | Привилегированный режим получения |
 | `Content` | list | Состав (объекты, зависящие от опции) |
 
-### 6.8. FunctionalOptionsParameter — параметр функциональных опций
+### 6.8. FunctionalOptionsParameter - параметр функциональных опций
 
 Каталог: `FunctionalOptionsParameters/`. Один XML-файл.
 
@@ -732,7 +732,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 |----------|-----|----------|
 | `Use` | list | Список измерений/реквизитов, используемых как параметр |
 
-### 6.9. Sequence — последовательность документов
+### 6.9. Sequence - последовательность документов
 
 Каталог: `Sequences/`. Один XML-файл.
 
@@ -766,7 +766,7 @@ HTTP- и web-сервисы, функциональные опции и их п�
 
 ChildObjects могут содержать `Dimension` (измерения последовательности).
 
-### 6.10. SettingsStorage — хранилище настроек
+### 6.10. SettingsStorage - хранилище настроек
 
 Каталог: `SettingsStorages/`. Файлы: `<Имя>.xml` + `<Имя>/` (формы, модули).
 
@@ -799,7 +799,7 @@ ChildObjects могут содержать `Dimension` (измерения по�
 
 ChildObjects: `Form` (формы), `Template` (макеты).
 
-### 6.11. FilterCriterion — критерий отбора
+### 6.11. FilterCriterion - критерий отбора
 
 Каталог: `FilterCriteria/`. Один XML-файл.
 
@@ -833,7 +833,7 @@ ChildObjects: `Form` (формы), `Template` (макеты).
 
 ChildObjects: `Form` (формы), `Command` (команды).
 
-### 6.12. DocumentNumerator — нумератор документов
+### 6.12. DocumentNumerator - нумератор документов
 
 Каталог: `DocumentNumerators/`. Один XML-файл.
 
@@ -860,7 +860,7 @@ ChildObjects: `Form` (формы), `Command` (команды).
 | `NumberPeriodicity` | enum | Периодичность: `Nonperiodical` / `Year` / `Quarter` / `Month` / `Day` |
 | `CheckUnique` | `xs:boolean` | Контроль уникальности |
 
-### 6.13. IntegrationService — сервис интеграции
+### 6.13. IntegrationService - сервис интеграции
 
 Каталог: `IntegrationServices/`. Файлы: `<Имя>.xml` + `<Имя>/Ext/Module.bsl`.
 
@@ -896,9 +896,9 @@ ChildObjects: `Form` (формы), `Command` (команды).
 |----------|-----|----------|
 | `ExternalIntegrationServiceAddress` | `xs:string` | Адрес внешнего сервиса интеграции |
 
-ChildObjects содержат `IntegrationServiceChannel` (каналы) — inline-определения с uuid, InternalInfo и Properties (Name, ExternalIntegrationServiceChannelName, MessageDirection: `Send`/`Receive`, ReceiveMessageProcessing, Transactioned).
+ChildObjects содержат `IntegrationServiceChannel` (каналы) - inline-определения с uuid, InternalInfo и Properties (Name, ExternalIntegrationServiceChannelName, MessageDirection: `Send`/`Receive`, ReceiveMessageProcessing, Transactioned).
 
-### 6.14. XDTOPackage — XDTO-пакет
+### 6.14. XDTOPackage - XDTO-пакет
 
 Каталог: `XDTOPackages/`. Файлы: `<Имя>.xml` (метаданные) + `<Имя>/Ext/Package.xdto` (схема).
 
@@ -915,9 +915,9 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 
 | Свойство | Тип | Описание |
 |----------|-----|----------|
-| `Namespace` | `xs:string` | URI пространства имён XDTO-пакета |
+| `Namespace` | `xs:string` | URI пространства имен XDTO-пакета |
 
-### 6.15. WSReference — WS-ссылка
+### 6.15. WSReference - WS-ссылка
 
 Каталог: `WSReferences/`. Файлы: `<Имя>.xml` + `<Имя>/Ext/WSDefinition.wsdl`.
 
@@ -939,7 +939,7 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 |----------|-----|----------|
 | `LocationURL` | `xs:string` | URL WSDL-описания сервиса |
 
-### 6.16. StyleItem — элемент стиля
+### 6.16. StyleItem - элемент стиля
 
 Каталог: `StyleItems/`. Один XML-файл.
 
@@ -960,7 +960,7 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 | `Type` | enum | Тип элемента стиля: `Color`, `Font`, `Border` |
 | `Value` | varies | Значение: цвет `#RRGGBB`, шрифт (`v8ui:FontInfo`), рамка (`v8ui:BorderInfo`) |
 
-### 6.17. Style — стиль (устаревший)
+### 6.17. Style - стиль (устаревший)
 
 Каталог: `Styles/`. Файлы: `<Имя>.xml` + `<Имя>/Ext/Style.xml`.
 
@@ -994,7 +994,7 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 | 8.3.27 | `2.20` | да |
 | 8.5.1 | `2.21` | да |
 
-Столбец «замерено» отличает ступени, сверенные с выгрузкой живой платформы, от тех, что навыки
+Столбец "замерено" отличает ступени, сверенные с выгрузкой живой платформы, от тех, что навыки
 поддерживают по описанию возможностей. Замер делается так: пустая файловая база, выгрузка
 конфигурации в XML, чтение атрибута `version` корневого элемента.
 
@@ -1017,7 +1017,7 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 <MetaDataObject ... version="2.20">
 ```
 
-### 7.2. Configuration.xml — Properties
+### 7.2. Configuration.xml - Properties
 
 Набор свойств Properties **идентичен** в обеих версиях. Отличия только в значениях:
 
@@ -1027,7 +1027,7 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) — inl
 | `ConfigurationExtensionCompatibilityMode` | аналогично |
 | `UsedMobileApplicationFunctionalities` | В v2.20 добавлена функциональность `TextToSpeech` |
 
-### 7.3. Configuration.xml — ChildObjects
+### 7.3. Configuration.xml - ChildObjects
 
 Набор типов объектов в ChildObjects **идентичен** между версиями 2.17 и 2.20.
 
@@ -1073,7 +1073,7 @@ xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"
 
 ---
 
-## 8. Пространства имён XML
+## 8. Пространства имен XML
 
 Полный набор namespace, используемых в Configuration.xml:
 
@@ -1092,7 +1092,7 @@ xmlns:pal="http://v8.1c.ru/8.1/data/ui/colors/palette"
 | `web` | `http://v8.1c.ru/8.1/data/ui/colors/web` | Web-цвета |
 | `win` | `http://v8.1c.ru/8.1/data/ui/colors/windows` | Windows-цвета |
 | `xen` | `http://v8.1c.ru/8.3/xcf/enums` | Перечисления формата |
-| `xpr` | `http://v8.1c.ru/8.3/xcf/predef` | Предопределённые элементы |
+| `xpr` | `http://v8.1c.ru/8.3/xcf/predef` | Предопределенные элементы |
 | `ent` | `http://v8.1c.ru/8.1/data/enterprise` | Предприятие |
 | `cmi` | `http://v8.1c.ru/8.2/managed-application/cmi` | Командный интерфейс |
 | `lf` | `http://v8.1c.ru/8.2/managed-application/logform` | Логические формы |

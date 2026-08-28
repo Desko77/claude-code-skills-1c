@@ -179,7 +179,7 @@ Period options: `СЕКУНДА`, `МИНУТА`, `ЧАС`, `ДЕНЬ`, `МЕС�
 
 ## Trigonometric Functions
 
-Standard math functions — same semantics as in most languages.
+Standard math functions - same semantics as in most languages.
 
 | Function | Description |
 |----------|-------------|
@@ -209,7 +209,7 @@ Standard math functions — same semantics as in most languages.
 
 ## Arithmetic Operators
 
-`+`, `-`, `*`, `/` — standard arithmetic. Precision: at least 8 decimal places.
+`+`, `-`, `*`, `/` - standard arithmetic. Precision: at least 8 decimal places.
 
 **In WHERE:** Only use in additional conditions (prevents index use in main condition).
 
@@ -229,4 +229,4 @@ Standard math functions — same semantics as in most languages.
 | Enum/predefined | `ЗНАЧЕНИЕ(...)` | `ЗНАЧЕНИЕ(Перечисление.Типы.Оптовая)` |
 | Empty reference | `ЗНАЧЕНИЕ(Справочник.X.ПустаяСсылка)` | |
 
-**Parameters:** `&Name` — external values passed to query. Always prefer parameters over string concatenation.
+**Parameters:** `&Name` - external values passed to query. Always prefer parameters over string concatenation.

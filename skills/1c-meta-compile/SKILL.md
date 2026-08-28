@@ -1,6 +1,6 @@
 ---
 name: 1c-meta-compile
-description: Создать объект метаданных 1С. Используй когда пользователь просит создать или добавить справочник, документ, регистр, перечисление, константу, общий модуль, обработку, отчёт и др.
+description: Создать объект метаданных 1С. Используй когда пользователь просит создать или добавить справочник, документ, регистр, перечисление, константу, общий модуль, обработку, отчет и др.
 argument-hint: <JsonPath> <OutputDir>
 allowed-tools:
   - Bash
@@ -9,7 +9,7 @@ allowed-tools:
   - Glob
 ---
 
-# /meta-compile — генерация объектов метаданных из JSON DSL
+# /meta-compile - генерация объектов метаданных из JSON DSL
 
 Принимает JSON-определение объекта метаданных → генерирует XML + модули в структуре выгрузки конфигурации + регистрирует в Configuration.xml.
 
@@ -17,8 +17,8 @@ allowed-tools:
 
 1. Составь JSON по синтаксису и примерам ниже → запиши во временный файл
 2. Запусти скрипт meta-compile
-3. Если нужно изменить созданный объект — `/meta-edit`
-4. Если нужно проверить — `/meta-validate`
+3. Если нужно изменить созданный объект - `/meta-edit`
+4. Если нужно проверить - `/meta-validate`
 
 ## Команда
 
@@ -39,7 +39,7 @@ powershell.exe -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 
 { "type": "Catalog", "name": "Номенклатура", ...свойства типа... }
 ```
 
-`type` и `name` — обязательные. `synonym` генерируется из `name` автоматически (CamelCase → слова через пробел). Можно задать явно: `"synonym": "Мой синоним"`.
+`type` и `name` - обязательные. `synonym` генерируется из `name` автоматически (CamelCase → слова через пробел). Можно задать явно: `"synonym": "Мой синоним"`.
 
 ### Shorthand реквизитов
 
@@ -59,15 +59,15 @@ powershell.exe -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 
 
 ### Свойства по типам
 
-Примеров и shorthand-синтаксиса выше достаточно для типовых задач. Если нужны свойства типа, не показанные в примерах, и их допустимые значения — см. reference-файл:
+Примеров и shorthand-синтаксиса выше достаточно для типовых задач. Если нужны свойства типа, не показанные в примерах, и их допустимые значения - см. reference-файл:
 
-- `reference/types-basic.md` — Catalog, Document, Enum, Constant, DefinedType, Report, DataProcessor
-- `reference/types-registers.md` — InformationRegister, AccumulationRegister, AccountingRegister, CalculationRegister, ChartOfAccounts, ChartOfCharacteristicTypes, ChartOfCalculationTypes
-- `reference/types-process.md` — BusinessProcess, Task, ExchangePlan, CommonModule, ScheduledJob, EventSubscription, DocumentJournal
-- `reference/types-web.md` — HTTPService, WebService
-- `reference/types-config.md` — CommonAttribute, CommonCommand, CommandGroup, CommonForm, CommonTemplate, CommonPicture, FilterCriterion, Sequence, DocumentNumerator, SessionParameter, SettingsStorage, FunctionalOption, FunctionalOptionsParameter, WSReference
+- `reference/types-basic.md` - Catalog, Document, Enum, Constant, DefinedType, Report, DataProcessor
+- `reference/types-registers.md` - InformationRegister, AccumulationRegister, AccountingRegister, CalculationRegister, ChartOfAccounts, ChartOfCharacteristicTypes, ChartOfCalculationTypes
+- `reference/types-process.md` - BusinessProcess, Task, ExchangePlan, CommonModule, ScheduledJob, EventSubscription, DocumentJournal
+- `reference/types-web.md` - HTTPService, WebService
+- `reference/types-config.md` - CommonAttribute, CommonCommand, CommandGroup, CommonForm, CommonTemplate, CommonPicture, FilterCriterion, Sequence, DocumentNumerator, SessionParameter, SettingsStorage, FunctionalOption, FunctionalOptionsParameter, WSReference
 
-Эта инструкция и reference-файлы — полная документация для генерации. Не ищи примеры XML в выгрузках конфигураций.
+Эта инструкция и reference-файлы - полная документация для генерации. Не ищи примеры XML в выгрузках конфигураций.
 
 ## Примеры паттернов DSL
 
@@ -119,7 +119,7 @@ powershell.exe -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 
 }
 ```
 
-### Batch — несколько объектов в одном файле
+### Batch - несколько объектов в одном файле
 
 ```json
 [

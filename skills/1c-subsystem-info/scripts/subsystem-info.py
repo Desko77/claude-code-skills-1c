@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# subsystem-info v1.0 — Compact summary of 1C subsystem structure
+# subsystem-info v1.0 - Compact summary of 1C subsystem structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse

@@ -1,4 +1,4 @@
-﻿# xdto-info v1.1 — Analyze 1C XDTO package structure
+﻿# xdto-info v1.1 - Analyze 1C XDTO package structure
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 param(
 	[Parameter(Mandatory=$true)]
@@ -29,7 +29,7 @@ $sb = New-Object System.Text.StringBuilder
 function O([string]$line = "") { [void]$sb.AppendLine($line) }
 
 function Fail([string]$msg) {
-	# Отрицательный результат поиска — не исключение: печатаем сообщение
+	# Отрицательный результат поиска - не исключение: печатаем сообщение
 	# и выходим с кодом 1, без стектрейса PowerShell
 	Write-Host $msg
 	exit 1
@@ -80,7 +80,7 @@ if (Test-Path (Join-Path $PackagePath "Configuration.xml")) {
 }
 if (-not $configRoot -and -not $directPkgDir) { Fail "Не удалось определить пакет или конфигурацию по пути: $PackagePath" }
 
-# Sort-Object в PowerShell сортирует по культуре, sorted() в Python — по кодам.
+# Sort-Object в PowerShell сортирует по культуре, sorted() в Python - по кодам.
 # Для паритета портов сортируем ординально в обоих.
 function Sort-Ordinal($items) {
 	$arr = [string[]]@($items)
@@ -247,7 +247,7 @@ function Resolve-Scalar([System.Xml.XmlElement]$t, $pkg, [int]$guard = 0) {
 		return $acc
 	}
 
-	# база — именованный тип значения: разворачиваем дальше
+	# база - именованный тип значения: разворачиваем дальше
 	$target = Find-Type $baseQ $pkg
 	if ($target -and $target.Element.get_LocalName() -eq "valueType") {
 		$inner = Resolve-Scalar $target.Element $target.Package ($guard + 1)
@@ -299,7 +299,7 @@ function Format-Notes($res) {
 	if ($res.Alias) { $notes += "← $($res.Alias)" }
 	if ($res.Facets.ContainsKey("pattern")) {
 		$p = $res.Facets["pattern"]
-		if ($p.Length -gt 40) { $p = $p.Substring(0, 40) + "…" }
+		if ($p.Length -gt 40) { $p = $p.Substring(0, 40) + "..." }
 		$notes += "шаблон $p"
 	}
 	foreach ($k in @("minInclusive", "maxInclusive", "minExclusive", "maxExclusive")) {
@@ -333,8 +333,8 @@ function Get-PropRows([System.Xml.XmlElement]$type, $pkg, [int]$depth, [int]$ind
 		$typeText = ""
 		$children = $null
 		$childPkg = $pkg
-		# Именованный вложенный тип берётся так же, как корневой; окольный путь
-		# через свойство владельца нужен только анонимному — имени у него нет
+		# Именованный вложенный тип берется так же, как корневой; окольный путь
+		# через свойство владельца нужен только анонимному - имени у него нет
 		$objName = $null
 		$objNs = $null
 
@@ -405,7 +405,7 @@ function Get-PropRows([System.Xml.XmlElement]$type, $pkg, [int]$depth, [int]$ind
 	return ,$rows
 }
 
-# Оставить только обязательные свойства. Ребёнок необязательного объекта тоже
+# Оставить только обязательные свойства. Ребенок необязательного объекта тоже
 # уходит: он лежит под необязательной веткой и заполнять его не обязательно.
 function Select-Required($rows) {
 	$res = New-Object System.Collections.ArrayList
@@ -440,7 +440,7 @@ function Write-Rows($rows) {
 		O $line.TrimEnd()
 	}
 	if ($rows.Count -gt $shown.Count) {
-		O "  … показано $($shown.Count) из $($rows.Count); листать через -Offset/-Limit"
+		O "  ... показано $($shown.Count) из $($rows.Count); листать через -Offset/-Limit"
 	}
 }
 
@@ -462,11 +462,11 @@ function Show-PackageList {
 	}
 	if ($packages.Count -gt $shown.Count) {
 		O ""
-		O "  … показано $($shown.Count) из $($packages.Count); листать через -Offset/-Limit"
+		O "  ... показано $($shown.Count) из $($packages.Count); листать через -Offset/-Limit"
 	}
 	O ""
 	O "Колонки: имя пакета, число типов, namespace."
-	O "Следующий шаг: -Package <имя> или -Namespace <URI> — состав пакета; -Name <Тип> — поиск типа по всем пакетам"
+	O "Следующий шаг: -Package <имя> или -Namespace <URI> - состав пакета; -Name <Тип> - поиск типа по всем пакетам"
 }
 
 function Show-PackageOverview($pkg) {
@@ -482,10 +482,10 @@ function Show-PackageOverview($pkg) {
 	}
 	if ($pkg.GlobalProps.Count -eq 0) {
 		O ""
-		O "Точки входа: нет — пакет не объявляет корневых элементов документа"
+		O "Точки входа: нет - пакет не объявляет корневых элементов документа"
 	} else {
 		O ""
-		O "Точки входа ($($pkg.GlobalProps.Count)) — корневые элементы документа:"
+		O "Точки входа ($($pkg.GlobalProps.Count)) - корневые элементы документа:"
 		foreach ($gp in $pkg.GlobalProps) {
 			$q = Split-Ref $gp $gp.GetAttribute("type")
 			$tn = $(if ($q) { Format-RefName $q $pkg } else { "произвольный" })
@@ -521,20 +521,20 @@ function Show-PackageOverview($pkg) {
 		}
 	}
 	O ""
-	O "Следующий шаг: -Name <Тип> — структура типа для заполнения"
+	O "Следующий шаг: -Name <Тип> - структура типа для заполнения"
 }
 
-# Легенда едет вместе с выводом, а не живёт в инструкции: показываем только те
+# Легенда едет вместе с выводом, а не живет в инструкции: показываем только те
 # обозначения, которые реально встретились, иначе она сама становится шумом.
 function Write-Legend($rows) {
 	$text = ($rows | ForEach-Object { $_.Type + " " + ($_.Flags -join ",") + " " + ($_.Notes -join ",") }) -join " "
 	$items = @()
-	if ($text -match "объект ")            { $items += "объект X — присвоить вложенный объект XDTO, состав раскрывает -Depth" }
-	if ($text -match "←")                  { $items += "← Имя — исходный тип из схемы, слева от стрелки развёрнутое значение" }
-	if ($text -match "список")             { $items += "список — коллекция, заполняется через .Добавить()" }
-	if ($text -match "до \d")              { $items += "до N — коллекция с ограничением сверху" }
-	if ($text -match "значение элемента")  { $items += "значение элемента — собственное значение узла XML" }
-	if ($text -match "·")                  { $items += "· Пакет — тип объявлен в другом пакете" }
+	if ($text -match "объект ")            { $items += "объект X - присвоить вложенный объект XDTO, состав раскрывает -Depth" }
+	if ($text -match "←")                  { $items += "← Имя - исходный тип из схемы, слева от стрелки развернутое значение" }
+	if ($text -match "список")             { $items += "список - коллекция, заполняется через .Добавить()" }
+	if ($text -match "до \d")              { $items += "до N - коллекция с ограничением сверху" }
+	if ($text -match "значение элемента")  { $items += "значение элемента - собственное значение узла XML" }
+	if ($text -match "·")                  { $items += "· Пакет - тип объявлен в другом пакете" }
 	if ($items.Count -eq 0) { return }
 	O ""
 	O "Обозначения:"
@@ -558,7 +558,7 @@ function Show-Type($pkg, [string]$typeName) {
 		}
 		O ""
 		O "Создание:"
-		# Создать(<Тип>, <Значение>) принимает именно ТипЗначенияXDTO —
+		# Создать(<Тип>, <Значение>) принимает именно ТипЗначенияXDTO -
 		# для объектного типа эта форма неприменима
 		O "  Значение = ФабрикаXDTO.Создать(ФабрикаXDTO.Тип(`"$($pkg.Namespace)`", `"$typeName`"), Значение);"
 		return
@@ -570,8 +570,8 @@ function Show-Type($pkg, [string]$typeName) {
 	O "Пакет: $($pkg.Name) · $($pkg.Namespace)"
 	$base = Split-Ref $el $el.GetAttribute("base")
 	if ($base) { O "Наследует: $($base.Local)" }
-	if ($el.GetAttribute("abstract") -eq "true") { O "Абстрактный — создаётся только тип-наследник" }
-	if ($el.GetAttribute("open") -eq "true") { O "Открытый — допускает произвольные элементы и атрибуты" }
+	if ($el.GetAttribute("abstract") -eq "true") { O "Абстрактный - создается только тип-наследник" }
+	if ($el.GetAttribute("open") -eq "true") { O "Открытый - допускает произвольные элементы и атрибуты" }
 	O ""
 
 	$seen = New-Object System.Collections.Generic.HashSet[string]
@@ -594,15 +594,15 @@ function Show-Type($pkg, [string]$typeName) {
 	O "  Тип = ФабрикаXDTO.Тип(`"$($pkg.Namespace)`", `"$typeName`");"
 	O "  Объект = ФабрикаXDTO.Создать(Тип);"
 	# Рецепты для вложенных и анонимных типов: имени у анонимного нет, через
-	# ФабрикаXDTO.Тип(ns, имя) его не получить — только от свойства владельца
+	# ФабрикаXDTO.Тип(ns, имя) его не получить - только от свойства владельца
 	$named = @($rows | Where-Object { $_.ObjName -and $_.ObjName -ne "(анонимный)" } | Select-Object -First 1)
 	if ($named.Count -gt 0) {
-		O "  // вложенный именованный тип — так же, как корневой:"
+		O "  // вложенный именованный тип - так же, как корневой:"
 		O "  $($named[0].Name) = ФабрикаXDTO.Создать(ФабрикаXDTO.Тип(`"$($named[0].ObjNs)`", `"$($named[0].ObjName)`"));"
 	}
 	$anonRow = @($rows | Where-Object { $_.ObjName -eq "(анонимный)" } | Select-Object -First 1)
 	if ($anonRow.Count -gt 0) {
-		O "  // у анонимного типа нет имени — только через свойство владельца:"
+		O "  // у анонимного типа нет имени - только через свойство владельца:"
 		O "  $($anonRow[0].Name) = ФабрикаXDTO.Создать(Тип.Свойства.Получить(`"$($anonRow[0].Name)`").Тип);"
 	}
 	$textRow = @($rows | Where-Object { $_.Flags -contains "значение элемента" } | Select-Object -First 1)
@@ -668,7 +668,7 @@ if ($Mode -eq "used-by") {
 
 if ($Name) {
 	if (-not $selected) {
-		# Тип известен, пакет — нет: ищем по всей конфигурации
+		# Тип известен, пакет - нет: ищем по всей конфигурации
 		$found = @($packages | Where-Object { $_.Types.ContainsKey($Name) })
 		if ($found.Count -eq 0) { Fail "Тип `"$Name`" не найден ни в одном пакете конфигурации" }
 		if ($found.Count -gt 1) {

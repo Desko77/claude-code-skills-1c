@@ -22,7 +22,7 @@
 ```
 
 **Умолчания:**
-- `dataSources` опущен → авто-создаётся `{ "name": "ИсточникДанных1", "type": "Local" }`
+- `dataSources` опущен → авто-создается `{ "name": "ИсточникДанных1", "type": "Local" }`
 - `source` в наборе опущен → первый dataSource
 - `name` набора опущен → "НаборДанных1", "НаборДанных2"...
 - `settingsVariants` опущен → один вариант "Основной" с детальной группировкой и `selection: ["Auto"]`
@@ -39,7 +39,7 @@
 
 | Поле | Обязат. | Умолчание | XML-маппинг |
 |------|---------|-----------|-------------|
-| `name` | да | — | `<name>` |
+| `name` | да | - | `<name>` |
 | `type` | нет | `"Local"` | `<dataSourceType>` |
 
 Значения `type`: `"Local"`, `"External"`.
@@ -85,11 +85,11 @@
 |------|---------|----------|
 | `name` | нет | Авто: "НаборДанных1"... |
 | `source` | нет | Имя dataSource (авто: первый) |
-| `query` | да* | Текст запроса (DataSetQuery). Поддерживает `@file` — см. ниже |
+| `query` | да* | Текст запроса (DataSetQuery). Поддерживает `@file` - см. ниже |
 | `objectName` | да* | Имя объекта (DataSetObject) |
 | `items` | да* | Вложенные наборы (DataSetUnion) |
 | `fields` | нет | Массив полей |
-| `autoFillFields` | нет | `false` — отключить автозаполнение (по умолчанию не выводится = true) |
+| `autoFillFields` | нет | `false` - отключить автозаполнение (по умолчанию не выводится = true) |
 
 ### Ссылка на внешний файл запроса (@file)
 
@@ -100,14 +100,14 @@
 ```
 
 Порядок разрешения пути:
-1. Абсолютный путь — используется как есть
+1. Абсолютный путь - используется как есть
 2. Относительно директории JSON-файла определения
 3. Относительно текущей рабочей директории (CWD)
-4. Если файл не найден — ошибка компиляции
+4. Если файл не найден - ошибка компиляции
 
 ---
 
-## 4. Поля — shorthand и объектная форма
+## 4. Поля - shorthand и объектная форма
 
 ### Shorthand-строка
 
@@ -123,7 +123,7 @@
   "Количество: decimal(15,2)",
   "Организация: CatalogRef.Организации @dimension",
   "Служебное: string #noFilter #noOrder",
-  "Счёт: CatalogRef.Хозрасчетный @account",
+  "Счет: CatalogRef.Хозрасчетный @account",
   "Сумма: decimal(15,2) @balance"
 ]
 ```
@@ -172,8 +172,8 @@
 ### Парсинг shorthand
 
 1. Разделить по пробелам; найти `@`-роли и `#`-ограничения
-2. Остаток до первого `:` — `dataPath` (и `field` по умолчанию)
-3. После `:` до `@`/`#` — тип
+2. Остаток до первого `:` - `dataPath` (и `field` по умолчанию)
+3. После `:` до `@`/`#` - тип
 
 ### Типы
 
@@ -186,14 +186,14 @@
 | `decimal(D,F,nonneg)` | `xs:decimal` | Digits=D, FractionDigits=F, AllowedSign=Nonnegative |
 | `decimal(D)` | `xs:decimal` | Digits=D, FractionDigits=0, AllowedSign=Any |
 | `decimal(D,nonneg)` | `xs:decimal` | Digits=D, FractionDigits=0, AllowedSign=Nonnegative |
-| `boolean` | `xs:boolean` | — |
+| `boolean` | `xs:boolean` | - |
 | `date` | `xs:dateTime` | DateFractions=Date |
 | `dateTime` | `xs:dateTime` | DateFractions=DateTime |
 | `CatalogRef.XXX` | `d5p1:CatalogRef.XXX` | inline xmlns:d5p1 |
 | `DocumentRef.XXX` | `d5p1:DocumentRef.XXX` | inline xmlns:d5p1 |
 | `EnumRef.XXX` | `d5p1:EnumRef.XXX` | inline xmlns:d5p1 |
 | `ChartOfAccountsRef.XXX` | `d5p1:ChartOfAccountsRef.XXX` | inline xmlns:d5p1 |
-| `StandardPeriod` | `v8:StandardPeriod` | — |
+| `StandardPeriod` | `v8:StandardPeriod` | - |
 | `["CatalogRef.A", "CatalogRef.B"]` | по элементу `v8:Type` на тип | составной тип |
 
 > **Ссылочные типы** (`CatalogRef.XXX`, `DocumentRef.XXX` и др.) эмитируются с inline namespace declaration: `<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.XXX</v8:Type>`. Использование префикса `cfg:` вместо `d5p1:` с объявлением namespace приводит к ошибке XDTO. Сборка EPF со ссылочными типами требует базу с соответствующей конфигурацией (не пустую).
@@ -239,7 +239,7 @@
 ```json
 "role": {
   "account": true,
-  "accountTypeExpression": "Счёт.ВидСчёта",
+  "accountTypeExpression": "Счет.ВидСчета",
   "balanceGroup": "/Остатки"
 }
 ```
@@ -317,7 +317,7 @@
 
 ### Привязка к группировкам (group)
 
-В объектной форме поле `group` может быть строкой или массивом строк. Каждая строка задаёт имя группировки, для которой вычисляется итог:
+В объектной форме поле `group` может быть строкой или массивом строк. Каждая строка задает имя группировки, для которой вычисляется итог:
 
 ```json
 "totalFields": [
@@ -325,7 +325,7 @@
 ]
 ```
 
-XML-маппинг — по `<group>` на каждый элемент:
+XML-маппинг - по `<group>` на каждый элемент:
 ```xml
 <totalField>
   <dataPath>Кол</dataPath>
@@ -380,7 +380,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 ### @valueList
 
-Флаг `@valueList` генерирует `<valueListAllowed>true</valueListAllowed>` — разрешает передавать список значений в параметр:
+Флаг `@valueList` генерирует `<valueListAllowed>true</valueListAllowed>` - разрешает передавать список значений в параметр:
 
 ```json
 "parameters": ["Организации: CatalogRef.Организации @valueList"]
@@ -388,7 +388,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 ### @hidden
 
-Флаг `@hidden` — скрытый параметр. Автоматически ставит `availableAsField=false` и исключает параметр из автогенерируемых `dataParameters` при `"dataParameters": "auto"`:
+Флаг `@hidden` - скрытый параметр. Автоматически ставит `availableAsField=false` и исключает параметр из автогенерируемых `dataParameters` при `"dataParameters": "auto"`:
 
 ```json
 "parameters": [
@@ -419,13 +419,13 @@ XML-маппинг — по `<group>` на каждый элемент:
 | `type` | Тип (см. таблицу типов) |
 | `value` | Значение по умолчанию |
 | `expression` | Выражение для вычисления |
-| `availableAsField` | `false` — скрыть из полей |
-| `valueListAllowed` | `true` — разрешить список значений |
-| `hidden` | `true` — скрытый параметр (авто `availableAsField=false`, исключение из `dataParameters: auto`) |
-| `useRestriction` | `true` — скрыть от пользователя |
+| `availableAsField` | `false` - скрыть из полей |
+| `valueListAllowed` | `true` - разрешить список значений |
+| `hidden` | `true` - скрытый параметр (авто `availableAsField=false`, исключение из `dataParameters: auto`) |
+| `useRestriction` | `true` - скрыть от пользователя |
 | `use` | `"Always"`, `"Auto"` |
-| `denyIncompleteValues` | `true` — запретить произвольные значения (только из availableValues) |
-| `availableValues` | Массив `[{value, presentation}]` — допустимые значения с представлениями |
+| `denyIncompleteValues` | `true` - запретить произвольные значения (только из availableValues) |
+| `availableValues` | Массив `[{value, presentation}]` - допустимые значения с представлениями |
 
 ### availableValues
 
@@ -487,7 +487,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 }
 ```
 
-Ключ `field` — алиас для `dataPath` (используется если `dataPath` не указан).
+Ключ `field` - алиас для `dataPath` (используется если `dataPath` не указан).
 
 ---
 
@@ -548,7 +548,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 - Строка → `SelectedItemField`
 - `"Auto"` → `SelectedItemAuto` (только на уровне группировок; на верхнем уровне settings игнорируется)
 - Объект с `field`/`title` → `SelectedItemField` с `lwsTitle`
-- Объект с `folder`/`items` → `SelectedItemFolder` — группа полей с заголовком и `placement=Auto`:
+- Объект с `folder`/`items` → `SelectedItemFolder` - группа полей с заголовком и `placement=Auto`:
 
 ```json
 "selection": [
@@ -574,14 +574,14 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 Формат: `"<Поле> <оператор> [<значение>] [@off] [@user] [@quickAccess] [@normal] [@inaccessible]"`.
 
-- Значение `_` — пустое (placeholder, не выводится в XML)
+- Значение `_` - пустое (placeholder, не выводится в XML)
 - `@off` → `use=false`
 - `@user` → `userSettingID=auto` (генерировать GUID)
 - `@quickAccess` → `viewMode=QuickAccess`
 - `@normal` → `viewMode=Normal`
 - `@inaccessible` → `viewMode=Inaccessible`
 - Типы значений автоопределяются: `true`/`false` → boolean, `2024-01-01T00:00:00` → dateTime, числа → decimal, `Перечисление.*`/`Справочник.*`/`ПланСчетов.*`/`Документ.*` → DesignTimeValue, прочее → string
-- OrGroup: `{"group": "Or", "items": ["условие1", "условие2"]}` — объединяет условия через ИЛИ
+- OrGroup: `{"group": "Or", "items": ["условие1", "условие2"]}` - объединяет условия через ИЛИ
 
 #### Объектная форма
 
@@ -602,7 +602,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 | `op` | Оператор (см. таблицу) |
 | `value` | Правая часть (опц.) |
 | `valueType` | xsi:type для значения (опц.) |
-| `use` | Включён (`true` по умолчанию) |
+| `use` | Включен (`true` по умолчанию) |
 | `presentation` | Текст подсказки |
 | `viewMode` | `"Normal"`, `"QuickAccess"`, `"Inaccessible"` |
 | `userSettingID` | `"auto"` → генерировать GUID |
@@ -642,7 +642,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 ### conditionalAppearance
 
-Условное оформление — массив правил, каждое задаёт набор полей (selection), условия (filter), параметры оформления (appearance) и мета-атрибуты.
+Условное оформление - массив правил, каждое задает набор полей (selection), условия (filter), параметры оформления (appearance) и мета-атрибуты.
 
 ```json
 "conditionalAppearance": [
@@ -689,7 +689,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 ```json
 "outputParameters": {
-  "Заголовок": "Мой отчёт",
+  "Заголовок": "Мой отчет",
   "ВыводитьЗаголовок": "Output",
   "МакетОформления": "ОформлениеОтчетовЧерноБелый"
 }
@@ -734,7 +734,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 ```json
 "dataParameters": [
   { "parameter": "Период", "value": { "variant": "LastMonth" }, "userSettingID": "auto" },
-  { "parameter": "Организация", "use": false, "viewMode": "Normal", "userSettingID": "auto", "userSettingPresentation": "Организация отчёта" }
+  { "parameter": "Организация", "use": false, "viewMode": "Normal", "userSettingID": "auto", "userSettingPresentation": "Организация отчета" }
 ]
 ```
 
@@ -742,7 +742,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 |------|----------|
 | `parameter` | Имя параметра |
 | `value` | Значение (объект `{ "variant": "LastMonth" }` для StandardPeriod, или скаляр) |
-| `use` | Включён (`true` по умолчанию) |
+| `use` | Включен (`true` по умолчанию) |
 | `viewMode` | `"Normal"`, `"QuickAccess"`, `"Inaccessible"` |
 | `userSettingID` | `"auto"` → генерировать GUID |
 | `userSettingPresentation` | Отображаемое имя настройки (LocalStringType) |
@@ -757,7 +757,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 "structure": "Период > Организация > Номенклатура > details"
 ```
 
-`>` разделяет уровни вложенности. Каждый сегмент — группировка по указанному полю. `details` (или `детали`) — детальные записи (пустой `groupBy`). Для каждого уровня `selection` и `order` автоматически `["Auto"]`.
+`>` разделяет уровни вложенности. Каждый сегмент - группировка по указанному полю. `details` (или `детали`) - детальные записи (пустой `groupBy`). Для каждого уровня `selection` и `order` автоматически `["Auto"]`.
 
 #### Массив объектов
 
@@ -821,9 +821,9 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 ## 10. Макеты и привязки (templates, groupTemplates)
 
-### templates — компактный DSL (рекомендуемый)
+### templates - компактный DSL (рекомендуемый)
 
-Табличное описание шаблона вывода. Содержимое задаётся через `rows`, оформление — через именованный пресет `style`.
+Табличное описание шаблона вывода. Содержимое задается через `rows`, оформление - через именованный пресет `style`.
 
 ```json
 "templates": [
@@ -865,18 +865,18 @@ XML-маппинг — по `<group>` на каждый элемент:
 | Свойство | Описание |
 |----------|----------|
 | `name` | Имя макета (ссылаются groupTemplate) |
-| `rows` | Массив строк; каждая строка — массив ячеек |
+| `rows` | Массив строк; каждая строка - массив ячеек |
 | `style` | Именованный пресет оформления (по умолчанию `"data"`) |
 | `widths` | Массив ширин колонок (применяется ко всем строкам) |
 | `minHeight` | Минимальная высота первой строки (для шапок) |
-| `parameters` | Параметры макета — выражения для подстановки (поддерживают `drilldown`) |
+| `parameters` | Параметры макета - выражения для подстановки (поддерживают `drilldown`) |
 
 #### Синтаксис ячеек
 
 | Значение | Описание |
 |----------|----------|
 | `"текст"` | Статический текст (`v8:LocalStringType`) |
-| `"{Имя}"` | Параметр шаблона (`dcscor:Parameter`), задаётся через `parameters` |
+| `"{Имя}"` | Параметр шаблона (`dcscor:Parameter`), задается через `parameters` |
 | `"\|"` | Вертикальное объединение с ячейкой выше (`ОбъединятьПоВертикали`) |
 | `">"` | Горизонтальное объединение с ячейкой слева (`ОбъединятьПоГоризонтали`) |
 | `null` | Пустая ячейка (без содержимого) |
@@ -887,10 +887,10 @@ XML-маппинг — по `<group>` на каждый элемент:
 | Пресет | Фон | Шрифт | Выравнивание | Перенос | Рамки |
 |--------|-----|-------|-------------|---------|-------|
 | `header` | ReportHeaderBackColor | Arial 10 | Center | да | Solid 1px |
-| `data` | ReportGroup1BackColor | Arial 10 | — | нет | Solid 1px |
-| `subheader` | — | Arial 10 | Center | да | Solid 1px |
-| `total` | — | Arial 10 | — | нет | Solid 1px |
-| `none` | — | — | — | нет | — |
+| `data` | ReportGroup1BackColor | Arial 10 | - | нет | Solid 1px |
+| `subheader` | - | Arial 10 | Center | да | Solid 1px |
+| `total` | - | Arial 10 | - | нет | Solid 1px |
+| `none` | - | - | - | нет | - |
 
 #### Пользовательские пресеты (skd-styles.json)
 
@@ -914,9 +914,9 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 Формат цветов: `"style:ИмяСтиля"` (ссылка на стиль платформы) или `"#RRGGBB"` (прямой цвет).
 
-### templates — raw XML (fallback)
+### templates - raw XML (fallback)
 
-Для нестандартных случаев — raw XML вставляется как есть:
+Для нестандартных случаев - raw XML вставляется как есть:
 
 ```json
 "templates": [
@@ -930,7 +930,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 ]
 ```
 
-Детект: если есть `rows` — используется компактный DSL, иначе — raw XML из `template`.
+Детект: если есть `rows` - используется компактный DSL, иначе - raw XML из `template`.
 
 #### Расшифровка (drilldown) в параметрах шаблона
 
@@ -963,7 +963,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 
 ---
 
-## 11. Полный пример — минимальный
+## 11. Полный пример - минимальный
 
 ```json
 {
@@ -988,7 +988,7 @@ XML-маппинг — по `<group>` на каждый элемент:
 }
 ```
 
-## 12. Полный пример — средний (с shorthand v2)
+## 12. Полный пример - средний (с shorthand v2)
 
 ```json
 {

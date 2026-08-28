@@ -1,8 +1,8 @@
-﻿# epf-build v1.0 — Build external data processor or report (EPF/ERF) from XML sources
+﻿# epf-build v1.0 - Build external data processor or report (EPF/ERF) from XML sources
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
-    Сборка внешней обработки/отчёта 1С из XML-исходников
+    Сборка внешней обработки/отчета 1С из XML-исходников
 
 .DESCRIPTION
     Собирает EPF/ERF-файл из XML-исходников с помощью платформы 1С.
@@ -36,7 +36,7 @@
     .\epf-build.ps1 -InfoBasePath "C:\Bases\MyDB" -SourceFile "src\МояОбработка.xml" -OutputFile "build\МояОбработка.epf"
 
 .EXAMPLE
-    .\epf-build.ps1 -InfoBasePath "C:\Bases\MyDB" -SourceFile "src\МойОтчёт.xml" -OutputFile "build\МойОтчёт.erf"
+    .\epf-build.ps1 -InfoBasePath "C:\Bases\MyDB" -SourceFile "src\МойОтчет.xml" -OutputFile "build\МойОтчет.erf"
 #>
 
 [CmdletBinding()]

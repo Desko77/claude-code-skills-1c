@@ -19,7 +19,7 @@ Queries are executed via the `execute_query` tool/endpoint.
 
 ## CRITICAL: Verify Metadata Before Querying
 
-**NEVER guess or invent metadata object names, attribute names, or tabular section names.** 1C configurations vary greatly — object and field names are unique to each database.
+**NEVER guess or invent metadata object names, attribute names, or tabular section names.** 1C configurations vary greatly - object and field names are unique to each database.
 
 Before composing a query, if you are not certain about the exact names, **use `get_metadata` or any other available tool to retrieve 1C configuration metadata** to discover:
 - Available metadata objects (catalogs, documents, registers, etc.)
@@ -47,7 +47,7 @@ A query with a wrong object or field name will fail with a runtime error. Spendi
 Если сервер AI-EDT подключен (инструменты `ai-edt` доступны), **обязательно проверяй запрос** перед выполнением через `validate_query`:
 - Проверяет синтаксис и семантику в контексте реального проекта
 - Для запросов СКД: `dcsMode=true`
-- Ловит ошибки имён таблиц, полей, типов до выполнения
+- Ловит ошибки имен таблиц, полей, типов до выполнения
 
 **Formatting:** Always write the entire query text in a **single line**. Do not use line breaks or multiline formatting.
 
@@ -77,18 +77,18 @@ Canonical order of clauses (required section marked, rest optional):
 
 | Keyword | Meaning |
 |---------|---------|
-| `ВЫБРАТЬ` | SELECT — mandatory, starts the query |
+| `ВЫБРАТЬ` | SELECT - mandatory, starts the query |
 | `РАЗРЕШЕННЫЕ` | Respect row-level security (RLS). Use by default for safety |
-| `РАЗЛИЧНЫЕ` | DISTINCT — remove duplicate rows |
-| `ПЕРВЫЕ N` | Return only first N rows (1C has no LIMIT keyword — this is the only way) |
-| `ИЗ` | FROM — data sources |
-| `ГДЕ` | WHERE — row filter |
+| `РАЗЛИЧНЫЕ` | DISTINCT - remove duplicate rows |
+| `ПЕРВЫЕ N` | Return only first N rows (1C has no LIMIT keyword - this is the only way) |
+| `ИЗ` | FROM - data sources |
+| `ГДЕ` | WHERE - row filter |
 | `СГРУППИРОВАТЬ ПО` | GROUP BY |
-| `ИМЕЮЩИЕ` | HAVING — group filter |
+| `ИМЕЮЩИЕ` | HAVING - group filter |
 | `ОБЪЕДИНИТЬ [ВСЕ]` | UNION [ALL] |
 | `УПОРЯДОЧИТЬ ПО` | ORDER BY. `ВОЗР` = ASC, `УБЫВ` = DESC |
 | `АВТОУПОРЯДОЧИВАНИЕ` | Auto-order by presentation (rarely used) |
-| `ИТОГИ` | TOTALS — compute aggregate subtotals |
+| `ИТОГИ` | TOTALS - compute aggregate subtotals |
 
 Comments: `// single-line only`.
 
@@ -135,7 +135,7 @@ Every 1C metadata object has a fixed query-name pattern. Use exact names from `g
 
 ### Virtual tables
 
-Virtual tables are computed on-the-fly from real register data. **Always pass filter conditions as virtual table parameters, NOT in WHERE** — this is critical for performance.
+Virtual tables are computed on-the-fly from real register data. **Always pass filter conditions as virtual table parameters, NOT in WHERE** - this is critical for performance.
 
 **Accumulation register (Регистр накопления):**
 
@@ -196,17 +196,17 @@ Virtual table parameters (positional order):
 | `.ОборотыДтКт()` | НачалоПериода, КонецПериода, Периодичность, УсловиеСчетаДт, СубконтоДт, УсловиеСчетаКт, СубконтоКт, Условие |
 | `.ДвиженияССубконто()` | НачалоПериода, КонецПериода, Условие, Порядок, Первые |
 
-Note: справка платформы (синтакс-помощник) для регистра бухгалтерии часто опускает `УсловиеСчета`/`УсловиеКорСчета`/`УсловиеСчетаДт`/`УсловиеСчетаКт`. Эти параметры реально существуют и работают (см. ИТС pubqlang) — без них смещается весь позиционный список и `Счет = ...` попадает в позицию `Субконто` (тип не совпадет, отбор не сработает).
+Note: справка платформы (синтакс-помощник) для регистра бухгалтерии часто опускает `УсловиеСчета`/`УсловиеКорСчета`/`УсловиеСчетаДт`/`УсловиеСчетаКт`. Эти параметры реально существуют и работают (см. ИТС pubqlang) - без них смещается весь позиционный список и `Счет = ...` попадает в позицию `Субконто` (тип не совпадет, отбор не сработает).
 
 **Key differences from accumulation register:**
 
 - **Субконто parameter** accepts виды субконто (plan of characteristic types references), NOT values. Filter by subconto values in `Условие`: `Субконто1 = &Контрагент`
-- **Счет/КорСчет** filtering — отдельные параметры `УсловиеСчета`/`УсловиеКорСчета` (не в `Условие`): `Счет = &Счет`, `Счет В ИЕРАРХИИ(&Счет)`. Для `ОборотыДтКт` — `УсловиеСчетаДт`/`УсловиеСчетаКт`
+- **Счет/КорСчет** filtering - отдельные параметры `УсловиеСчета`/`УсловиеКорСчета` (не в `Условие`): `Счет = &Счет`, `Счет В ИЕРАРХИИ(&Счет)`. Для `ОборотыДтКт` - `УсловиеСчетаДт`/`УсловиеСчетаКт`
 - **Периодичность** values: Авто, Период, Год, Полугодие, Квартал, Месяц, Декада, Неделя, День, Регистратор, Запись
 - **МетодДополненияПериодов** (ОстаткиИОбороты only): `Движения` or `ДвиженияИГраницыПериода` (default)
 - Resources have Дт/Кт (Debit/Credit) suffixes - see table below
 
-Parameter syntax inside virtual tables: `Dimension = Value` joined by commas. Keep it simple — no subqueries or joins inside parameters.
+Parameter syntax inside virtual tables: `Dimension = Value` joined by commas. Keep it simple - no subqueries or joins inside parameters.
 
 **Accumulation register resource suffixes:**
 
@@ -223,7 +223,7 @@ When using virtual tables, resource fields get automatic suffixes:
 | `.ОстаткиИОбороты()` | `<Resource>КонечныйОстаток` | `КоличествоКонечныйОстаток` |
 
 ```
-// Example — turnovers with all suffixes:
+// Example - turnovers with all suffixes:
 ВЫБРАТЬ
     Об.Номенклатура,
     Об.КоличествоПриход,
@@ -275,7 +275,7 @@ Suffixes without Дт/Кт (e.g. `СуммаОстаток`, `СуммаОбор
 Справочник.Номенклатура КАК Товары
 ```
 
-Always assign **informative** aliases — they must be understandable without context:
+Always assign **informative** aliases - they must be understandable without context:
 
 - **No** single-letter (`Р`, `Т`, `С`) or cryptic abbreviations (`ВТДок`, `ДокГР`)
 - For long table names, shorten meaningfully: `РасчетыНДФЛ`, `РезидентствоФЛ`, `ВедомостиЗП`
@@ -302,7 +302,7 @@ Aliases are required when self-joining or using the same table twice.
 Catalogs with hierarchy support nested groups:
 
 ```
-// Direct children (one level) — preferred:
+// Direct children (one level) - preferred:
 ВЫБРАТЬ Наименование
 ИЗ Справочник.Номенклатура
 ГДЕ Родитель = &Родитель
@@ -312,7 +312,7 @@ Catalogs with hierarchy support nested groups:
 // Or by name:
 ГДЕ Родитель.Наименование = "Бытовая техника"
 
-// All items in group and subgroups — preferred:
+// All items in group and subgroups - preferred:
 ВЫБРАТЬ Наименование
 ИЗ Справочник.Номенклатура
 ГДЕ Ссылка В ИЕРАРХИИ (&Группа)
@@ -333,15 +333,15 @@ Catalogs with hierarchy support nested groups:
 ```
 
 **Rules:**
-- `Родитель = &Родитель` — direct children only (one level)
-- `Ссылка В ИЕРАРХИИ (&Группа)` — all nested levels
-- `ЭтоГруппа` — `ИСТИНА` = groups only, `ЛОЖЬ` = leaf items only
-- **AVOID:** `В ИЕРАРХИИ (ПустаяСсылка)` — very slow
+- `Родитель = &Родитель` - direct children only (one level)
+- `Ссылка В ИЕРАРХИИ (&Группа)` - all nested levels
+- `ЭтоГруппа` - `ИСТИНА` = groups only, `ЛОЖЬ` = leaf items only
+- **AVOID:** `В ИЕРАРХИИ (ПустаяСсылка)` - very slow
 
 ## Field Selection
 
 - `*` selects all real fields (virtual fields are NOT included)
-- Aliases: `<expression> КАК <Alias>` — aliases must be unique within the query
+- Aliases: `<expression> КАК <Alias>` - aliases must be unique within the query
 - Access nested fields with dot notation: `Товары.Номенклатура.Наименование`
 
 ### CRITICAL: Compound-type field dereferencing
@@ -351,10 +351,10 @@ When a field can reference multiple table types (compound/composite type), acces
 **Always narrow the type with ВЫРАЗИТЬ:**
 
 ```
-// BAD — joins to every possible Регистратор table:
+// BAD - joins to every possible Регистратор table:
 ВЫБРАТЬ Регистратор.Номер ИЗ РегистрНакопления.ОстаткиТоваров
 
-// GOOD — single join:
+// GOOD - single join:
 ВЫБРАТЬ ВЫРАЗИТЬ(Регистратор КАК Документ.РеализацияТоваровУслуг).Номер
 ИЗ РегистрНакопления.ОстаткиТоваров
 ГДЕ Регистратор ССЫЛКА Документ.РеализацияТоваровУслуг
@@ -382,7 +382,7 @@ When unioning queries with different nested table structures:
 | Not equals | `<>` | |
 | Comparison | `<`, `>`, `<=`, `>=` | |
 | AND | `И` | |
-| OR | `ИЛИ` | Avoid in WHERE — see caveats |
+| OR | `ИЛИ` | Avoid in WHERE - see caveats |
 | NOT | `НЕ` | |
 | Range | `МЕЖДУ X И Y` | Inclusive both ends |
 | In list | `В (val1, val2, ...)` | |
@@ -475,7 +475,7 @@ Use temporary tables to break complex queries into steps, avoid nested subquerie
 **Rules:**
 - Separate queries in a batch with `;`
 - `ПОМЕСТИТЬ <Name>` creates the temp table (place right after SELECT fields, before ИЗ)
-- `ИНДЕКСИРОВАТЬ ПО <field>` — add after the query for temp tables with >1000 rows used in joins or `В` subqueries
+- `ИНДЕКСИРОВАТЬ ПО <field>` - add after the query for temp tables with >1000 rows used in joins or `В` subqueries
 - Minimize data volume and field count in temp tables
 - **NEVER** create/drop temp tables in a loop
 - Prefer temp tables over nested subqueries in JOIN conditions
@@ -491,7 +491,7 @@ Parameters are external values passed into the query. Syntax: `&ParameterName`.
 Passed via `execute_query` params: `{"Маска": "%Рога%"}`.
 
 **Rules:**
-- Always use parameters for external values — never concatenate strings into query text
+- Always use parameters for external values - never concatenate strings into query text
 - Enum values: use `ЗНАЧЕНИЕ()` in query text, not as parameter: `ГДЕ Тип = ЗНАЧЕНИЕ(Перечисление.ТипыЦен.Оптовая)`
 - Date format in params: ISO 8601 (`"2024-01-15"` or `"2024-01-15T10:30:00"`)
 - Boolean: `ИСТИНА` / `ЛОЖЬ` in query text, or pass `true`/`false` as parameter
@@ -501,17 +501,17 @@ Passed via `execute_query` params: `{"Маска": "%Рога%"}`.
 When comparing reference fields (link-type attributes), **pass the reference as a parameter**:
 
 ```
-// GOOD — reference passed as parameter from previous query result:
+// GOOD - reference passed as parameter from previous query result:
 ВЫБРАТЬ * ИЗ Документ.ПродажаТоваров
 ГДЕ Контрагент = &Контрагент
 // params: {"Контрагент": {"_objectRef": true, "УникальныйИдентификатор": "...",
 //                           "ТипОбъекта": "СправочникСсылка.Контрагенты", "Представление": "..."}}
 
-// ALSO GOOD — compare via primitive attribute:
+// ALSO GOOD - compare via primitive attribute:
 ГДЕ Контрагент.Наименование = "ООО Ромашка"
 ГДЕ Контрагент.Код = "000001"
 
-// AVOID — direct comparison with another table's reference:
+// AVOID - direct comparison with another table's reference:
 ГДЕ Документ.Контрагент = Справочник.Контрагенты.Ссылка
 ```
 
@@ -572,6 +572,6 @@ When comparing reference fields (link-type attributes), **pass the reference as 
 
 ## References
 
-- [Query syntax reference](references/query-syntax-reference.md) — ВЫБОР (CASE), ОБЪЕДИНИТЬ, УПОРЯДОЧИТЬ ПО, ИТОГИ, ПОДОБНО patterns, ССЫЛКА, subqueries
-- [Optimization and caveats](references/optimization-and-pitfalls.md) — index strategy, ИЛИ alternatives, compound types, virtual table rules, RLS impact
-- [Functions and expressions](references/functions-and-expressions.md) — aggregate, date, string, type, math functions and type casting with ВЫРАЗИТЬ
+- [Query syntax reference](references/query-syntax-reference.md) - ВЫБОР (CASE), ОБЪЕДИНИТЬ, УПОРЯДОЧИТЬ ПО, ИТОГИ, ПОДОБНО patterns, ССЫЛКА, subqueries
+- [Optimization and caveats](references/optimization-and-pitfalls.md) - index strategy, ИЛИ alternatives, compound types, virtual table rules, RLS impact
+- [Functions and expressions](references/functions-and-expressions.md) - aggregate, date, string, type, math functions and type casting with ВЫРАЗИТЬ

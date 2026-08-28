@@ -1,4 +1,4 @@
-﻿# db-update v1.0 — Update 1C database configuration
+﻿# db-update v1.0 - Update 1C database configuration
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
@@ -45,7 +45,7 @@
     .\db-update.ps1 -InfoBasePath "C:\Bases\MyDB"
 
 .EXAMPLE
-    .\db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -Dynamic "+" -Extension "МоёРасширение"
+    .\db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -Dynamic "+" -Extension "МоеРасширение"
 #>
 
 [CmdletBinding()]

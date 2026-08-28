@@ -1,4 +1,4 @@
-# xdto-decompile v1.1 — Convert 1C XDTO package to XML Schema (XSD) (Python port)
+# xdto-decompile v1.1 - Convert 1C XDTO package to XML Schema (XSD) (Python port)
 # Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 import argparse
 import os
@@ -7,11 +7,11 @@ import sys
 
 from lxml import etree
 
-# newline="" — иначе Windows транслирует \n и CRLF схемы удваивается в \r\r\n
+# newline="" - иначе Windows транслирует \n и CRLF схемы удваивается в \r\r\n
 sys.stdout.reconfigure(encoding="utf-8", newline="")
 sys.stderr.reconfigure(encoding="utf-8")
 
-# Регистронезависимый ввод — паритет с PS1: в PowerShell имена параметров и [ValidateSet]
+# Регистронезависимый ввод - паритет с PS1: в PowerShell имена параметров и [ValidateSet]
 # регистр не различают, в argparse совпадение точное.
 def ci_parse_args(parser, argv=None):
     """parse_args по правилам PS: имена параметров и значения choices регистронезависимы."""
@@ -20,7 +20,7 @@ def ci_parse_args(parser, argv=None):
     for i, tok in enumerate(argv):
         if tok.startswith('-') and tok.lower() in names:
             argv[i] = names[tok.lower()]
-    # choices — зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
+    # choices - зеркало [ValidateSet]; канонизируем ДО разбора, иначе argparse отвергнет регистр
     choice_map = {}
     for a in parser._actions:
         if a.choices:
@@ -46,10 +46,10 @@ args = ci_parse_args(parser)
 
 
 def _parse_xml(source, from_string=False):
-    """Разбор с узким отступлением для не-URI пространств имён.
+    """Разбор с узким отступлением для не-URI пространств имен.
 
     Платформа допускает в targetNamespace произвольную строку (в выгрузке БП есть
-    пакет с кириллическим «ДопФайлУниверсальный»), .NET такое принимает, а libxml2
+    пакет с кириллическим "ДопФайлУниверсальный"), .NET такое принимает, а libxml2
     отвергает. Откатываемся на восстанавливающий разбор ТОЛЬКО на этой ошибке,
     иначе по-настоящему битый XML перестал бы отличаться от корректного.
     """
@@ -152,7 +152,7 @@ def esc_text(s):
 def convert_qname(el, qname):
     if not qname:
         return None
-    # Нотация Кларка {ns}local — так записаны почти все memberTypes
+    # Нотация Кларка {ns}local - так записаны почти все memberTypes
     if qname.startswith("{"):
         close = qname.find("}")
         if close > 0:
@@ -217,8 +217,8 @@ def ns_decls_of(el):
 
 
 def mirror_prefix(el):
-    # Обычно префиксы генерируются схемой dNpM, но изредка узел несёт осмысленный
-    # префикс (например dcsset) — его надо сохранить, иначе round-trip не сойдётся.
+    # Обычно префиксы генерируются схемой dNpM, но изредка узел несет осмысленный
+    # префикс (например dcsset) - его надо сохранить, иначе round-trip не сойдется.
     for px, _uri in ns_decls_of(el):
         if DNPM.match(px):
             continue
@@ -267,7 +267,7 @@ def emit_simple_type_body(el, indent):
     raw_members = el.get("memberTypes")
     if raw_members is not None and not raw_members.startswith("{"):
         mv += mirror("memberTypesForm", "prefixed")
-    # При нотации Кларка объявление xmlns:dNpM иногда присутствует, иногда нет —
+    # При нотации Кларка объявление xmlns:dNpM иногда присутствует, иногда нет -
     # из значения это не выводится (зависит от состояния сериализатора), зеркалим факт
     if raw_members is not None and raw_members.startswith("{"):
         for px, uri in ns_decls_of(el):
@@ -330,8 +330,8 @@ def emit_property(p, indent):
     nill = p.get("nillable")
     default = p.get("default")
     fixed = p.get("fixed")
-    # В модели fixed — булев флаг, значение лежит в default; в XSD наоборот:
-    # fixed="V" несёт само значение. Переводим, а не копируем.
+    # В модели fixed - булев флаг, значение лежит в default; в XSD наоборот:
+    # fixed="V" несет само значение. Переводим, а не копируем.
     def_out, fix_out, fix_mirror = default, None, ""
     if fixed == "true" and default is not None:
         fix_out, def_out = default, None
@@ -480,7 +480,7 @@ def complex_type_attrs(el):
         out += mirror("mixed", mixed)
 
     # XSD требует объявлять атрибуты после частицы, поэтому исходный порядок свойств
-    # восстановим как «сначала form=Attribute, потом остальные» — верно для 96.5% типов
+    # восстановим как "сначала form=Attribute, потом остальные" - верно для 96.5% типов
     order, kinds = [], []
     for c in el:
         if not isinstance(c.tag, str) or local(c) != "property":
@@ -528,7 +528,7 @@ if md_path and os.path.exists(md_path):
 
 # ── emit ─────────────────────────────────────────────────────
 # Тело первым: при его генерации регистрируются все использованные пространства
-# имён, поэтому корневой элемент может объявить полную карту префиксов.
+# имен, поэтому корневой элемент может объявить полную карту префиксов.
 
 for node in pkg:
     if not isinstance(node.tag, str):

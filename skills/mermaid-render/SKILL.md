@@ -10,12 +10,12 @@ allowed-tools:
 
 # /mermaid-render - Рендер mermaid-диаграмм в изображения
 
-Тонкая обёртка над `mmdc` (mermaid-cli). Внутри Puppeteer + Chrome headless + mermaid.js, как в peng-shawn/mermaid-mcp-server, но без MCP-сервера и без Docker.
+Тонкая обертка над `mmdc` (mermaid-cli). Внутри Puppeteer + Chrome headless + mermaid.js, как в peng-shawn/mermaid-mcp-server, но без MCP-сервера и без Docker.
 
 ## Зависимости
 
 - `mmdc` (`@mermaid-js/mermaid-cli`) - проверь: `mmdc --version`. Если нет - `npm install -g @mermaid-js/mermaid-cli`.
-- Python 3 в PATH (для скрипта-обёртки).
+- Python 3 в PATH (для скрипта-обертки).
 
 ## Использование
 
@@ -49,7 +49,7 @@ python ~/.claude/skills/mermaid-render/scripts/render.py <вход> [опции]
 # Простой PNG рядом с входом, дефолтная тема, scale=2
 python ~/.claude/skills/mermaid-render/scripts/render.py ./diagram.mmd
 
-# Тёмная тема, прозрачный фон, SVG
+# Темная тема, прозрачный фон, SVG
 python ~/.claude/skills/mermaid-render/scripts/render.py ./diagram.mmd -t dark -b transparent -f svg
 
 # Все блоки mermaid из markdown в PNG-файлы

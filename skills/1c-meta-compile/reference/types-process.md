@@ -34,7 +34,7 @@
 | `tabularSections` | `{}` | → TabularSection |
 | `addressingAttributes` | `[]` | → AddressingAttribute (shorthand или объект) |
 
-AddressingAttribute — shorthand `"Имя: Тип"` или объект `{ "name", "type", "addressingDimension" }`.
+AddressingAttribute - shorthand `"Имя: Тип"` или объект `{ "name", "type", "addressingDimension" }`.
 
 ```json
 {
@@ -63,7 +63,7 @@ AddressingAttribute — shorthand `"Имя: Тип"` или объект `{ "nam
 
 | Поле JSON | Умолчание | XML элемент |
 |-----------|----------|-------------|
-| `context` | — | Шорткат (см. ниже) |
+| `context` | - | Шорткат (см. ниже) |
 | `global` | `false` | Global |
 | `server` | `false` | Server |
 | `serverCall` | `false` | ServerCall |
@@ -89,7 +89,7 @@ AddressingAttribute — shorthand `"Имя: Тип"` или объект `{ "nam
 | `restartCountOnFailure` | `3` | RestartCountOnFailure |
 | `restartIntervalOnFailure` | `10` | RestartIntervalOnFailure |
 
-Формат `methodName`: `"МодульСервер.Процедура"` — авто-дополняется до `CommonModule.МодульСервер.Процедура`.
+Формат `methodName`: `"МодульСервер.Процедура"` - авто-дополняется до `CommonModule.МодульСервер.Процедура`.
 
 ```json
 { "type": "ScheduledJob", "name": "ОбменДанными", "methodName": "ОбменДаннымиСервер.Выполнить" }
@@ -103,7 +103,7 @@ AddressingAttribute — shorthand `"Имя: Тип"` или объект `{ "nam
 | `event` | `BeforeWrite` | Event |
 | `handler` | `""` | Handler |
 
-Формат `handler`: `"МодульСервер.Процедура"` — авто-дополняется до `CommonModule.МодульСервер.Процедура`.
+Формат `handler`: `"МодульСервер.Процедура"` - авто-дополняется до `CommonModule.МодульСервер.Процедура`.
 
 Значения `event`: `BeforeWrite`, `OnWrite`, `BeforeDelete`, `OnReadAtServer`, `FillCheckProcessing`.
 
@@ -120,7 +120,7 @@ AddressingAttribute — shorthand `"Имя: Тип"` или объект `{ "nam
 | `registeredDocuments` | `[]` | RegisteredDocuments (массив `"Document.Xxx"`) |
 | `columns` | `[]` | → Column |
 
-Колонки — строка `"Имя"` или объект `{ "name", "synonym", "indexing": "Index"/"DontIndex", "references": ["Document.Xxx.Attribute.Yyy"] }`.
+Колонки - строка `"Имя"` или объект `{ "name", "synonym", "indexing": "Index"/"DontIndex", "references": ["Document.Xxx.Attribute.Yyy"] }`.
 
 ```json
 {
@@ -132,5 +132,5 @@ AddressingAttribute — shorthand `"Имя: Тип"` или объект `{ "nam
 
 ## Зависимости
 
-- **ScheduledJob/EventSubscription** — процедура-обработчик должна существовать в модуле (экспортная)
+- **ScheduledJob/EventSubscription** - процедура-обработчик должна существовать в модуле (экспортная)
 - **BusinessProcess** → `Task` (задача должна существовать)

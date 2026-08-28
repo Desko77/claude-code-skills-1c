@@ -1,11 +1,11 @@
-﻿# db-create v1.0 — Create 1C information base
+﻿# db-create v1.0 - Create 1C information base
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
     Создание информационной базы 1С
 
 .DESCRIPTION
-    Создаёт новую информационную базу 1С (файловую или серверную).
+    Создает новую информационную базу 1С (файловую или серверную).
     Поддерживает создание из шаблона и добавление в список баз.
 
 .PARAMETER V8Path

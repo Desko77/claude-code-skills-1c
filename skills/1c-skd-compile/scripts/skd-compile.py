@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# skd-compile v1.18 — Compile 1C DCS from JSON
+# skd-compile v1.18 - Compile 1C DCS from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import json
@@ -9,10 +9,10 @@ import sys
 import uuid
 
 # ============================================================
-# Support guard (Ext/ParentConfigurations.bin) — see docs/1c-support-state-spec.md
+# Support guard (Ext/ParentConfigurations.bin) - see docs/1c-support-state-spec.md
 # Blocks edits of vendor objects "на замке" / read-only configs. Trigger = bin
 # present; reaction from .v8-project.json editingAllowedCheck (deny|warn|off,
-# default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
+# default deny). Never throws (except sys.exit on deny) - errors degrade to allow.
 # ============================================================
 
 def _sg_parse(xml_path):
@@ -148,12 +148,12 @@ def assert_edit_allowed(target_path, require):
             if best is not None and best != 2:
                 blocked = True
                 code = "not-removed"
-                reason = "объект не снят с поддержки — удаление сломает обновления"
+                reason = "объект не снят с поддержки - удаление сломает обновления"
         else:
             if best is not None and best == 0:
                 blocked = True
                 code = "locked"
-                reason = "объект на замке — редактирование сломает обновления"
+                reason = "объект на замке - редактирование сломает обновления"
         if not blocked:
             return
         mode = _sg_get_edit_mode(cfg_dir)
@@ -163,28 +163,28 @@ def assert_edit_allowed(target_path, require):
             sys.stderr.write(f"[support-guard] ПРЕДУПРЕЖДЕНИЕ: {reason}. Цель: {rp}\n")
             return
         head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
         off_note = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
         if code == "capability-off":
-            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «{rp}» редактировать нельзя."
+            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '{rp}' редактировать нельзя."
             fix = (
                 "Либо снять защиту явно (навык support-edit, два шага):\n"
-                f'  1. support-edit -Path "{cfg_dir}" -Capability on — включить возможность изменения (объекты пока остаются на замке);\n'
-                f'  2. support-edit -Path "{rp}" -Set editable — открыть этот объект для редактирования.\n'
+                f'  1. support-edit -Path "{cfg_dir}" -Capability on - включить возможность изменения (объекты пока остаются на замке);\n'
+                f'  2. support-edit -Path "{rp}" -Set editable - открыть этот объект для редактирования.\n'
                 "  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
             )
         elif code == "not-removed":
-            state = f"Состояние: объект «{rp}» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+            state = f"Состояние: объект '{rp}' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
             fix = (
                 "Либо сначала снять объект с поддержки, затем удалять:\n"
-                f'  support-edit -Path "{rp}" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно.'
+                f'  support-edit -Path "{rp}" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно.'
             )
         else:
-            state = f"Состояние: объект «{rp}» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+            state = f"Состояние: объект '{rp}' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
             fix = (
                 "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):\n"
-                f'  support-edit -Path "{rp}" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
-                f'  support-edit -Path "{rp}" -Set off-support — снять с поддержки: обновления по объекту больше не приходят.'
+                f'  support-edit -Path "{rp}" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
+                f'  support-edit -Path "{rp}" -Set off-support - снять с поддержки: обновления по объекту больше не приходят.'
             )
         sys.stderr.write(head + "\n" + state + "\n" + cfe + "\n" + fix + "\n" + off_note + "\n")
         sys.exit(1)
@@ -546,7 +546,7 @@ def parse_total_shorthand(s):
     elif func_part in _agg_funcs:
         return {'dataPath': data_path, 'expression': f'{func_part}({data_path})'}
     else:
-        # Identity or custom expression — use as-is
+        # Identity or custom expression - use as-is
         return {'dataPath': data_path, 'expression': func_part}
 
 
@@ -595,7 +595,7 @@ def parse_calc_shorthand(s):
     # Pattern: "Name [Title]: type = Expression #noField #noFilter ...".
     # - `[Title]` is extracted only from the LHS of '=' so that `[...]` inside
     #   an expression (e.g. index access) isn't interpreted as a title.
-    # - `#restrict` flags use a known-names pattern and are extracted globally —
+    # - `#restrict` flags use a known-names pattern and are extracted globally -
     #   the docs put them after `=`, and the closed flag set avoids matching
     #   `#word` that happens to appear inside a string literal.
     restrict_pattern = r'#(noField|noFilter|noCondition|noGroup|noOrder)\b'
@@ -1189,7 +1189,7 @@ def emit_single_param(lines, p, parsed):
     lines.append(f'\t\t<name>{esc_xml(parsed["name"])}</name>')
 
     # Title (from parsed first, then from object form; accept `presentation` as
-    # a synonym — 1C UI labels a parameter's caption "Представление").
+    # a synonym - 1C UI labels a parameter's caption "Представление").
     title = ''
     if parsed.get('title'):
         title = parsed['title']
@@ -1246,7 +1246,7 @@ def emit_single_param(lines, p, parsed):
                 av_type = 'dcscor:DesignTimeValue'
             lines.append('\t\t<availableValue>')
             lines.append(f'\t\t\t<value xsi:type="{av_type}">{esc_xml(av_val)}</value>')
-            # `title` accepted as synonym of `presentation` — both map to the same UI label.
+            # `title` accepted as synonym of `presentation` - both map to the same UI label.
             av_pres = str(av.get('presentation') or av.get('title') or '')
             if av_pres:
                 lines.append('\t\t\t<presentation xsi:type="v8:LocalStringType">')

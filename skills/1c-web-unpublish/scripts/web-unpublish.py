@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-# web-unpublish v1.0 — Remove 1C web publication
+# web-unpublish v1.0 - Remove 1C web publication
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 """
 Удаление веб-публикации 1С из Apache.
 Удаляет маркерный блок из httpd.conf и каталог публикации.
-Если Apache запущен — перезапускает для применения.
+Если Apache запущен - перезапускает для применения.
 С флагом -All удаляет все публикации и останавливает Apache.
 """
 
@@ -92,7 +92,7 @@ def main():
         if re.search(re.escape(pub_marker_start), conf_content):
             pattern = r'\r?\n?' + re.escape(pub_marker_start) + r'[\s\S]*?' + re.escape(pub_marker_end) + r'\r?\n?'
             conf_content = re.sub(pattern, '\n', conf_content)
-            print(f"httpd.conf: блок публикации '{name}' удалён")
+            print(f"httpd.conf: блок публикации '{name}' удален")
         else:
             print(f"Публикация '{name}' не найдена в httpd.conf")
 
@@ -104,7 +104,7 @@ def main():
         if re.search(re.escape(global_marker_start), conf_content):
             global_pattern = r'\r?\n?' + re.escape(global_marker_start) + r'[\s\S]*?' + re.escape(global_marker_end) + r'\r?\n?'
             conf_content = re.sub(global_pattern, '\n', conf_content)
-            print('httpd.conf: глобальный блок 1C удалён (нет публикаций)')
+            print('httpd.conf: глобальный блок 1C удален (нет публикаций)')
 
     with open(conf_file, 'w', encoding='utf-8') as f:
         f.write(conf_content)
@@ -114,7 +114,7 @@ def main():
         publish_dir = os.path.join(apache_path, 'publish', name)
         if os.path.exists(publish_dir):
             shutil.rmtree(publish_dir, ignore_errors=True)
-            print(f'Каталог удалён: {publish_dir}')
+            print(f'Каталог удален: {publish_dir}')
         else:
             print(f'Каталог не найден: {publish_dir}')
 
@@ -142,7 +142,7 @@ def main():
                 print('Error: Apache не удалось перезапустить', file=sys.stderr)
                 sys.exit(1)
         else:
-            print('Публикаций не осталось — останавливаю Apache...')
+            print('Публикаций не осталось - останавливаю Apache...')
             for p in httpd_proc:
                 try:
                     p.kill()

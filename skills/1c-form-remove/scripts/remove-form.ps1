@@ -1,4 +1,4 @@
-﻿# form-remove v1.1 — Remove form from 1C object
+﻿# form-remove v1.1 - Remove form from 1C object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -35,11 +35,11 @@ if (-not (Test-Path $formMetaPath)) {
 
 if (Test-Path $formDir) {
 	Remove-Item -Path $formDir -Recurse -Force
-	Write-Host "[OK] Удалён каталог: $formDir"
+	Write-Host "[OK] Удален каталог: $formDir"
 }
 
 Remove-Item -Path $formMetaPath -Force
-Write-Host "[OK] Удалён файл: $formMetaPath"
+Write-Host "[OK] Удален файл: $formMetaPath"
 
 # --- Модификация корневого XML ---
 

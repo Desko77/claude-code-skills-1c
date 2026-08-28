@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# stub-db-create v1.0 — Create temp 1C infobase with metadata stubs for EPF/ERF build
+# stub-db-create v1.0 - Create temp 1C infobase with metadata stubs for EPF/ERF build
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -403,7 +403,7 @@ def build_internal_info(meta_type, obj_name):
     return '\n'.join(lines)
 
 
-# Properties templates per type — returns the Properties content (without <Properties> tags)
+# Properties templates per type - returns the Properties content (without <Properties> tags)
 PROPS = {}
 
 PROPS['Catalog'] = lambda n, sa: f"""\t\t\t<Name>{n}</Name>
@@ -1117,7 +1117,7 @@ def main():
                 else:
                     props_xml = f'\t\t\t<Name>{obj_name}</Name>\n\t\t\t<Synonym/>\n\t\t\t<Comment/>'
 
-                # ChildObjects — varies by type
+                # ChildObjects - varies by type
                 if meta_type == 'DefinedType':
                     child_obj_xml = ''
                 elif meta_type == 'InformationRegister':

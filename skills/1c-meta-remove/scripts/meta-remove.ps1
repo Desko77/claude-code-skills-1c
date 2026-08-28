@@ -1,4 +1,4 @@
-﻿# meta-remove v1.1 — Remove metadata object from 1C configuration dump
+﻿# meta-remove v1.1 - Remove metadata object from 1C configuration dump
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
 # .v8-project.json editingAllowedCheck (deny|warn|off, default deny). Never
-# throws — guard errors degrade to allow.
+# throws - guard errors degrade to allow.
 function Get-RootUuid([string]$xmlPath) {
 	if (-not (Test-Path $xmlPath)) { return $null }
 	try {
@@ -119,29 +119,29 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 		$blocked = $false; $code = ""; $reason = ""
 		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
 		elseif ($require -eq 'removed') {
-			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки - удаление сломает обновления" }
 		}
 		else {
-			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке - редактирование сломает обновления" }
 		}
 		if (-not $blocked) { return }
 		$mode = Get-EditMode $cfgDir
 		if ($mode -eq 'off') { return }
-		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# Use Console.Error (not Write-Error) - under ErrorActionPreference=Stop the
 		# latter throws and would be swallowed by this function's own catch.
 		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
 		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
 		$offNote = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
 		if ($code -eq "capability-off") {
-			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
-			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '$rp' редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on - включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable - открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
 		} elseif ($code -eq "not-removed") {
-			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
-			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+			$state = "Состояние: объект '$rp' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно."
 		} else {
-			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
-			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+			$state = "Состояние: объект '$rp' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support - снять с поддержки: обновления по объекту больше не приходят."
 		}
 		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
 		exit 1
@@ -412,7 +412,7 @@ foreach ($ext in $searchExtensions) {
 	}
 }
 
-# Also check for Type.Name references (subsystem content, doc journal, etc.) — but NOT in own files
+# Also check for Type.Name references (subsystem content, doc journal, etc.) - but NOT in own files
 $typeNameRef = "${objType}.${objName}"
 $files = @(Get-ChildItem $ConfigDir -Filter "*.xml" -Recurse -File -ErrorAction SilentlyContinue)
 foreach ($file in $files) {
@@ -424,7 +424,7 @@ foreach ($file in $files) {
 		}
 		if ($skip) { continue }
 	}
-	# Skip Configuration.xml and Subsystems — they will be cleaned automatically
+	# Skip Configuration.xml and Subsystems - they will be cleaned automatically
 	$relPath = $file.FullName.Substring($ConfigDir.Length + 1)
 	if ($relPath -eq "Configuration.xml") { continue }
 	if ($relPath -eq "ConfigDumpInfo.xml") { continue }

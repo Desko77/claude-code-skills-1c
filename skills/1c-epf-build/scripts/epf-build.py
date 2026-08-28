@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# epf-build v1.0 — Build external data processor or report (EPF/ERF) from XML sources
+# epf-build v1.0 - Build external data processor or report (EPF/ERF) from XML sources
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse

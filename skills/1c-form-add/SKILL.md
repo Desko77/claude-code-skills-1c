@@ -11,9 +11,9 @@ allowed-tools:
   - Grep
 ---
 
-# /form-add — Добавление формы к объекту конфигурации
+# /form-add - Добавление формы к объекту конфигурации
 
-Создаёт управляемую форму (metadata XML + Form.xml + Module.bsl) и регистрирует её в корневом XML объекта конфигурации (Document, Catalog, InformationRegister и др.).
+Создает управляемую форму (metadata XML + Form.xml + Module.bsl) и регистрирует ее в корневом XML объекта конфигурации (Document, Catalog, InformationRegister и др.).
 
 ## Usage
 
@@ -23,8 +23,8 @@ allowed-tools:
 
 | Параметр    | Обязательный | По умолчанию | Описание                                     |
 |-------------|:------------:|--------------|----------------------------------------------|
-| ObjectPath  | да           | —            | Путь к XML-файлу объекта (Documents/Док.xml)  |
-| FormName    | да           | —            | Имя формы (ФормаДокумента)                    |
+| ObjectPath  | да           | -            | Путь к XML-файлу объекта (Documents/Док.xml)  |
+| FormName    | да           | -            | Имя формы (ФормаДокумента)                    |
 | Purpose     | нет          | Object       | Назначение: Object, List, Choice, Record      |
 | Synonym     | нет          | = FormName   | Синоним формы                                 |
 | --set-default | нет        | авто         | Установить как форму по умолчанию             |
@@ -35,7 +35,7 @@ allowed-tools:
 powershell.exe -NoProfile -File skills/1c-form-add/scripts/form-add.ps1 -ObjectPath "<ObjectPath>" -FormName "<FormName>" [-Purpose "<Purpose>"] [-Synonym "<Synonym>"] [-SetDefault]
 ```
 
-## Purpose — назначение формы
+## Purpose - назначение формы
 
 | Purpose | Допустимые типы объектов | Основной реквизит | DefaultForm-свойство |
 |---------|-------------------------|-------------------|---------------------|
@@ -65,7 +65,7 @@ powershell.exe -NoProfile -File skills/1c-form-add/scripts/form-add.ps1 -ObjectP
 
 ## Workflow
 
-1. `/form-add` — создать каркас формы
-2. `/form-compile` или `/form-edit` — наполнить Form.xml элементами
-3. `/form-validate` — проверить корректность
-4. `/form-info` — проанализировать результат
+1. `/form-add` - создать каркас формы
+2. `/form-compile` или `/form-edit` - наполнить Form.xml элементами
+3. `/form-validate` - проверить корректность
+4. `/form-info` - проанализировать результат

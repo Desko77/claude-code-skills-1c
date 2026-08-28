@@ -1,4 +1,4 @@
-﻿# skd-compile v1.18 — Compile 1C DCS from JSON
+﻿# skd-compile v1.18 - Compile 1C DCS from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[string]$DefinitionFile,
@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
 # .v8-project.json editingAllowedCheck (deny|warn|off, default deny). Never
-# throws — guard errors degrade to allow.
+# throws - guard errors degrade to allow.
 function Get-RootUuid([string]$xmlPath) {
 	if (-not (Test-Path $xmlPath)) { return $null }
 	try {
@@ -112,29 +112,29 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 		$blocked = $false; $code = ""; $reason = ""
 		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
 		elseif ($require -eq 'removed') {
-			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки - удаление сломает обновления" }
 		}
 		else {
-			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке - редактирование сломает обновления" }
 		}
 		if (-not $blocked) { return }
 		$mode = Get-EditMode $cfgDir
 		if ($mode -eq 'off') { return }
-		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# Use Console.Error (not Write-Error) - under ErrorActionPreference=Stop the
 		# latter throws and would be swallowed by this function's own catch.
 		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
 		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
 		$offNote = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
 		if ($code -eq "capability-off") {
-			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
-			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '$rp' редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on - включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable - открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
 		} elseif ($code -eq "not-removed") {
-			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
-			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+			$state = "Состояние: объект '$rp' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно."
 		} else {
-			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
-			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+			$state = "Состояние: объект '$rp' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support - снять с поддержки: обновления по объекту больше не приходят."
 		}
 		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
 		exit 1
@@ -271,10 +271,10 @@ foreach ($ds in $def.dataSets) {
 
 # --- 4. Type system ---
 
-# Type synonyms — normalize Russian/common names to canonical DSL types
+# Type synonyms - normalize Russian/common names to canonical DSL types
 # Use case-sensitive hashtable to avoid PS 5.1 DuplicateKeyInHashLiteral
 $script:typeSynonyms = New-Object System.Collections.Hashtable
-# Russian names (case doesn't matter — we'll also do case-insensitive lookup)
+# Russian names (case doesn't matter - we'll also do case-insensitive lookup)
 $script:typeSynonyms["число"] = "decimal"
 $script:typeSynonyms["строка"] = "string"
 $script:typeSynonyms["булево"] = "boolean"
@@ -422,7 +422,7 @@ function Emit-ValueType {
 		return
 	}
 
-	# Fallback — assume dot-qualified types are also config references
+	# Fallback - assume dot-qualified types are also config references
 	if ($typeStr.Contains('.')) {
 		X "$indent<v8:Type xmlns:d5p1=`"http://v8.1c.ru/8.1/data/enterprise/current-config`">d5p1:$(Esc-Xml $typeStr)</v8:Type>"
 		return
@@ -499,7 +499,7 @@ function Parse-TotalShorthand {
 		# Short: Func → Func(DataPath)
 		return @{ dataPath = $dataPath; expression = "$funcPart($dataPath)" }
 	} else {
-		# Identity or custom expression — use as-is
+		# Identity or custom expression - use as-is
 		return @{ dataPath = $dataPath; expression = $funcPart }
 	}
 }
@@ -557,7 +557,7 @@ function Parse-CalcShorthand {
 	# Pattern: "Name [Title]: type = Expression #noField #noFilter ...".
 	# - `[Title]` is extracted only from the LHS of '=' so that `[...]` inside
 	#   an expression (e.g. index access) isn't interpreted as a title.
-	# - `#restrict` flags use a known-names pattern and are extracted globally —
+	# - `#restrict` flags use a known-names pattern and are extracted globally -
 	#   the docs put them after `=`, and the closed flag set avoids matching
 	#   `#word` that happens to appear inside a string literal.
 	$restrictPattern = '#(noField|noFilter|noCondition|noGroup|noOrder)\b'
@@ -727,7 +727,7 @@ function Parse-FilterShorthand {
 			}
 		}
 	} else {
-		# No operator found — just a field name
+		# No operator found - just a field name
 		$result.field = $s
 	}
 
@@ -794,7 +794,7 @@ function Emit-Field {
 			if ($fieldDef.role -is [string]) {
 				$f.roles = @($fieldDef.role)
 			} else {
-				# Object form — collect truthy keys
+				# Object form - collect truthy keys
 				$roleObj = $fieldDef.role
 				foreach ($prop in $roleObj.PSObject.Properties) {
 					if ($prop.Value -eq $true) { $f.roles += $prop.Name }
@@ -1195,7 +1195,7 @@ function Emit-SingleParam {
 	X "`t`t<name>$(Esc-Xml $parsed.name)</name>"
 
 	# Title (from parsed first, then from object form; accept `presentation` as
-	# a synonym — 1C UI labels a parameter's caption "Представление").
+	# a synonym - 1C UI labels a parameter's caption "Представление").
 	$title = ""
 	if ($parsed.title) {
 		$title = $parsed.title
@@ -1260,7 +1260,7 @@ function Emit-SingleParam {
 			}
 			X "`t`t<availableValue>"
 			X "`t`t`t<value xsi:type=`"$avType`">$(Esc-Xml $avVal)</value>"
-			# `title` accepted as synonym of `presentation` — both map to the same UI label.
+			# `title` accepted as synonym of `presentation` - both map to the same UI label.
 			$avPres = if ($av.presentation) { "$($av.presentation)" } elseif ($av.title) { "$($av.title)" } else { "" }
 			if ($avPres) {
 				X "`t`t`t<presentation xsi:type=`"v8:LocalStringType`">"
@@ -1281,7 +1281,7 @@ function Emit-SingleParam {
 		X "`t`t<denyIncompleteValues>true</denyIncompleteValues>"
 	}
 
-	# Use — object form wins, else parsed (set by @autoDates default)
+	# Use - object form wins, else parsed (set by @autoDates default)
 	$useVal = $null
 	if ($null -ne $p -and $p -isnot [string] -and $p.use) { $useVal = "$($p.use)" }
 	elseif ($parsed.use) { $useVal = "$($parsed.use)" }

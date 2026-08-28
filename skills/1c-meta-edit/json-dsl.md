@@ -1,4 +1,4 @@
-# JSON DSL — режим определений
+# JSON DSL - режим определений
 
 Для сложных и комбинированных операций используйте JSON-файл вместо inline-режима.
 
@@ -6,7 +6,7 @@
 powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -DefinitionFile "<json>" -ObjectPath "<path>"
 ```
 
-## add — добавить элементы
+## add - добавить элементы
 
 ```json
 {
@@ -30,7 +30,7 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 
 Реквизиты можно задавать shorthand-строками: `"Сумма: Число(15,2) | req, index"`.
 
-## remove — удалить элементы
+## remove - удалить элементы
 
 ```json
 {
@@ -41,7 +41,7 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 }
 ```
 
-## modify — изменить существующие
+## modify - изменить существующие
 
 ```json
 {
@@ -61,7 +61,7 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 }
 ```
 
-## modify — реквизиты внутри ТЧ
+## modify - реквизиты внутри ТЧ
 
 ```json
 {
@@ -122,13 +122,13 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 
 ## Составные типы
 
-Для полей с несколькими допустимыми типами — массив в `type`:
+Для полей с несколькими допустимыми типами - массив в `type`:
 
 ```json
 { "name": "Значение", "type": ["Строка", "Число(15,2)", "Дата", "CatalogRef.Контрагенты"] }
 ```
 
-В inline-формате — через `+`:
+В inline-формате - через `+`:
 ```
 "Значение: Строка + Число(15,2) + Дата + CatalogRef.Контрагенты"
 ```

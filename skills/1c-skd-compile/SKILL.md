@@ -9,7 +9,7 @@ allowed-tools:
   - Glob
 ---
 
-# /skd-compile — генерация СКД из JSON DSL
+# /skd-compile - генерация СКД из JSON DSL
 
 Принимает JSON-определение схемы компоновки данных → генерирует Template.xml (DataCompositionSchema).
 
@@ -29,7 +29,7 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -D
 powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -Value '<json-string>' -OutputPath "<Template.xml>"
 ```
 
-## JSON DSL — краткий справочник
+## JSON DSL - краткий справочник
 
 Справочник ниже. Все примеры компилируемы как есть.
 
@@ -58,22 +58,22 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 { "name": "Продажи", "query": "ВЫБРАТЬ ...", "fields": [...] }
 ```
 
-Запрос поддерживает `@file` — ссылку на внешний .sql файл вместо inline-текста: `"query": "@queries/sales.sql"`. Путь разрешается относительно JSON-файла, затем CWD.
+Запрос поддерживает `@file` - ссылку на внешний .sql файл вместо inline-текста: `"query": "@queries/sales.sql"`. Путь разрешается относительно JSON-файла, затем CWD.
 
-### Поля — shorthand и объектная форма
+### Поля - shorthand и объектная форма
 
 ```
-"Наименование"                              — просто имя
-"Количество: decimal(15,2)"                  — имя + тип
-"Организация: CatalogRef.Организации @dimension"  — + роль
-"Служебное: string #noFilter #noOrder"       — + ограничения
+"Наименование"                              - просто имя
+"Количество: decimal(15,2)"                  - имя + тип
+"Организация: CatalogRef.Организации @dimension"  - + роль
+"Служебное: string #noFilter #noOrder"       - + ограничения
 ```
 
-Объектная форма — когда нужен title или другие свойства:
+Объектная форма - когда нужен title или другие свойства:
 ```json
 { "field": "ОстатокНаНачалоПериода", "title": "Остаток на начало периода" }
 ```
-`dataPath` автоматически берётся из `field`, если не указан явно.
+`dataPath` автоматически берется из `field`, если не указан явно.
 
 Типы: `string`, `string(N)`, `decimal(D,F)`, `boolean`, `date`, `dateTime`, `CatalogRef.X`, `DocumentRef.X`, `EnumRef.X`, `StandardPeriod`. Ссылочные типы эмитируются с inline namespace `d5p1:` (`http://v8.1c.ru/8.1/data/enterprise/current-config`). Сборка EPF со ссылочными типами требует базу с соответствующей конфигурацией.
 
@@ -87,7 +87,7 @@ powershell.exe -NoProfile -File skills/1c-skd-compile/scripts/skd-compile.ps1 -V
 
 ### Вычисляемые поля (calculatedFields)
 
-Shorthand: `"Имя [Заголовок]: тип = Выражение #noField #noFilter #noGroup #noOrder"` — все части кроме имени опциональны.
+Shorthand: `"Имя [Заголовок]: тип = Выражение #noField #noFilter #noGroup #noOrder"` - все части кроме имени опциональны.
 
 ```json
 "calculatedFields": [
@@ -97,7 +97,7 @@ Shorthand: `"Имя [Заголовок]: тип = Выражение #noField #
 ]
 ```
 
-Объектная форма — когда нужна `appearance`:
+Объектная форма - когда нужна `appearance`:
 ```json
 { "name": "Маржа", "title": "Маржа", "expression": "Цена - Закупка", "type": "decimal(15,2)", "useRestriction": "#noField #noFilter" }
 ```
@@ -116,12 +116,12 @@ Shorthand: `"Имя [Заголовок]: тип = Выражение #noField #
 ]
 ```
 
-Shorthand: `"Имя [Заголовок]: тип = значение @флаги"`. `[Заголовок]` опциональный — добавляет `<title>` (LocalStringType).
+Shorthand: `"Имя [Заголовок]: тип = значение @флаги"`. `[Заголовок]` опциональный - добавляет `<title>` (LocalStringType).
 
 Флаги shorthand:
-- `@autoDates` — добавляет к параметру StandardPeriod пару дат `НачалоПериода`/`КонецПериода`, вычисляемых из него. Используй их в тексте запроса как `&НачалоПериода`/`&КонецПериода`; пользователь выбирает только сам период. По умолчанию сам параметр получает `use=Always` и `denyIncompleteValues=true` (чтобы производные даты всегда были заполнены); в объектной форме можно явно переопределить.
-- `@valueList` — `<valueListAllowed>true</valueListAllowed>` — разрешает передавать список значений
-- `@hidden` — скрытый параметр: `availableAsField=false` + исключается из `"dataParameters": "auto"`
+- `@autoDates` - добавляет к параметру StandardPeriod пару дат `НачалоПериода`/`КонецПериода`, вычисляемых из него. Используй их в тексте запроса как `&НачалоПериода`/`&КонецПериода`; пользователь выбирает только сам период. По умолчанию сам параметр получает `use=Always` и `denyIncompleteValues=true` (чтобы производные даты всегда были заполнены); в объектной форме можно явно переопределить.
+- `@valueList` - `<valueListAllowed>true</valueListAllowed>` - разрешает передавать список значений
+- `@hidden` - скрытый параметр: `availableAsField=false` + исключается из `"dataParameters": "auto"`
 
 Объектная форма: `title`, `hidden: true`, `valueListAllowed: true`, `availableAsField: false`, `denyIncompleteValues: true`, `use: "Always"`.
 
@@ -144,7 +144,7 @@ Shorthand: `"Имя [Заголовок]: тип = значение @флаги"
 
 В варианте настроек `"dataParameters": "auto"` выводит все не-hidden параметры с `userSettingID`. Значения по умолчанию наследуются и остаются активными; параметры без значения по умолчанию отключаются (пользователь включит их в настройках).
 
-### Фильтры — shorthand
+### Фильтры - shorthand
 
 ```json
 "filter": [
@@ -169,7 +169,7 @@ Shorthand: `"Имя [Заголовок]: тип = значение @флаги"
 ]}
 ```
 
-### Параметры данных — shorthand
+### Параметры данных - shorthand
 
 ```json
 "dataParameters": [
@@ -180,7 +180,7 @@ Shorthand: `"Имя [Заголовок]: тип = значение @флаги"
 
 Формат: `"Имя [= значение] @флаги"`. Для StandardPeriod варианты (LastMonth, ThisYear и т.д.) распознаются автоматически.
 
-### Структура — string shorthand
+### Структура - string shorthand
 
 ```json
 "structure": "Организация > details"
@@ -189,7 +189,7 @@ Shorthand: `"Имя [Заголовок]: тип = значение @флаги"
 
 `>` разделяет уровни группировки. `details` (или `детали`) = детальные записи. `selection` и `order` по умолчанию `["Auto"]` на каждом уровне.
 
-Объектная форма — для сложных случаев (именованные группировки, selection/filter на уровне группировки, таблицы, диаграммы):
+Объектная форма - для сложных случаев (именованные группировки, selection/filter на уровне группировки, таблицы, диаграммы):
 
 ```json
 "structure": [
@@ -202,7 +202,7 @@ Shorthand: `"Имя [Заголовок]: тип = значение @флаги"
 ]
 ```
 
-`type` по умолчанию `"group"` (можно не указывать). `groupFields` — алиас для `groupBy`. Поддержка `name`, `selection`, `order`, `filter`, `outputParameters`, рекурсивных `children`.
+`type` по умолчанию `"group"` (можно не указывать). `groupFields` - алиас для `groupBy`. Поддержка `name`, `selection`, `order`, `filter`, `outputParameters`, рекурсивных `children`.
 
 ### Варианты настроек
 
@@ -223,7 +223,7 @@ Shorthand: `"Имя [Заголовок]: тип = значение @флаги"
         "userSettingID": "auto"
       }
     ],
-    "outputParameters": { "Заголовок": "Мой отчёт" },
+    "outputParameters": { "Заголовок": "Мой отчет" },
     "dataParameters": ["Период = LastMonth @user"],
     "structure": "Организация > details"
   }
@@ -261,9 +261,9 @@ Folder в selection: `{"folder": "Поступление", "items": ["ПолеА
 ]
 ```
 
-### Шаблоны вывода — компактный DSL
+### Шаблоны вывода - компактный DSL
 
-Вместо raw XML (`template`) — табличное описание через `rows` + именованный стиль `style`:
+Вместо raw XML (`template`) - табличное описание через `rows` + именованный стиль `style`:
 
 ```json
 "templates": [
@@ -291,7 +291,7 @@ Folder в selection: `{"folder": "Поступление", "items": ["ПолеА
 ]
 ```
 
-Синтаксис ячеек: `"текст"` — статика, `"{Имя}"` — параметр, `"|"` — объединение с ячейкой выше, `">"` — объединение с ячейкой слева, `null` — пустая.
+Синтаксис ячеек: `"текст"` - статика, `"{Имя}"` - параметр, `"|"` - объединение с ячейкой выше, `">"` - объединение с ячейкой слева, `null` - пустая.
 
 Двухуровневая шапка с горизонтальным объединением:
 ```json
@@ -302,11 +302,11 @@ Folder в selection: `{"folder": "Поступление", "items": ["ПолеА
 ]
 ```
 
-Встроенные стили: `header` (фон, центр, перенос), `data` (фон группы), `subheader` (без фона, центр), `total` (без фона). Все — Arial 10, рамки Solid 1px, цвета через стили платформы.
+Встроенные стили: `header` (фон, центр, перенос), `data` (фон группы), `subheader` (без фона, центр), `total` (без фона). Все - Arial 10, рамки Solid 1px, цвета через стили платформы.
 
-Пользовательские стили: файл `skd-styles.json` рядом с JSON-определением, в текущей директории, или в `presets/skills/skd/skd-styles.json` (поиск вверх от OutputPath). Первый найденный файл побеждает. Все допустимые ключи и формат цветов — в `examples/skd-styles.json`.
+Пользовательские стили: файл `skd-styles.json` рядом с JSON-определением, в текущей директории, или в `presets/skills/skd/skd-styles.json` (поиск вверх от OutputPath). Первый найденный файл побеждает. Все допустимые ключи и формат цветов - в `examples/skd-styles.json`.
 
-Raw XML (`"template": "<...>"`) остаётся как fallback. Детект: если есть `rows` — DSL, иначе — raw.
+Raw XML (`"template": "<...>"`) остается как fallback. Детект: если есть `rows` - DSL, иначе - raw.
 
 ### Расшифровка (drilldown) в параметрах шаблона
 
@@ -330,7 +330,7 @@ Raw XML (`"template": "<...>"`) остаётся как fallback. Детект: 
 ]
 ```
 
-`groupField` — привязка к полю группировки, `groupName` — к именованной группировке в структуре варианта.
+`groupField` - привязка к полю группировки, `groupName` - к именованной группировке в структуре варианта.
 
 `templateType`: `Header` (строки данных) → `<groupTemplate>`, `OverallHeader` (итоги) → `<groupTemplate>`, `GroupHeader` (шапка) → `<groupHeaderTemplate>`.
 
@@ -383,7 +383,7 @@ Raw XML (`"template": "<...>"`) остаётся как fallback. Детект: 
 ## Верификация
 
 ```
-/skd-validate <OutputPath>                  — валидация структуры XML
-/skd-info <OutputPath>                      — визуальная сводка
-/skd-info <OutputPath> -Mode variant -Name 1 — проверка варианта настроек
+/skd-validate <OutputPath>                  - валидация структуры XML
+/skd-info <OutputPath>                      - визуальная сводка
+/skd-info <OutputPath> -Mode variant -Name 1 - проверка варианта настроек
 ```

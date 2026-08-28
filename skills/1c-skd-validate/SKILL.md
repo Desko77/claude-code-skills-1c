@@ -8,24 +8,24 @@ allowed-tools:
   - Glob
 ---
 
-# /skd-validate — валидация СКД (DataCompositionSchema)
+# /skd-validate - валидация СКД (DataCompositionSchema)
 
-Проверяет структурную корректность Template.xml схемы компоновки данных. Выявляет ошибки формата, битые ссылки, дубликаты имён.
+Проверяет структурную корректность Template.xml схемы компоновки данных. Выявляет ошибки формата, битые ссылки, дубликаты имен.
 
 ## Параметры
 
 | Параметр     | Обяз. | Умолч. | Описание                                              |
 |--------------|:-----:|---------|---------------------------------------------------------|
-| TemplatePath | да    | —       | Путь к Template.xml или каталогу макета                 |
-| Detailed     | нет   | —       | Подробный вывод (все проверки, включая успешные)         |
+| TemplatePath | да    | -       | Путь к Template.xml или каталогу макета                 |
+| Detailed     | нет   | -       | Подробный вывод (все проверки, включая успешные)         |
 | MaxErrors    | нет   | 20      | Остановиться после N ошибок                             |
-| OutFile      | нет   | —       | Записать результат в файл                               |
+| OutFile      | нет   | -       | Записать результат в файл                               |
 | IndexPath    | нет   | -      | Индекс от `1c-config-index`: включает сверку наборов данных с конфигурацией |
 
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-skd-validate/scripts/skd-validate.ps1 -TemplatePath "src/МойОтчёт/Templates/ОсновнаяСхема"
+powershell.exe -NoProfile -File skills/1c-skd-validate/scripts/skd-validate.ps1 -TemplatePath "src/МойОтчет/Templates/ОсновнаяСхема"
 powershell.exe -NoProfile -File skills/1c-skd-validate/scripts/skd-validate.ps1 -TemplatePath "Catalogs/Номенклатура/Templates/СКД/Ext/Template.xml"
 ```
 

@@ -9,13 +9,13 @@ allowed-tools:
   - Glob
 ---
 
-# /form-compile — Генерация Form.xml
+# /form-compile - Генерация Form.xml
 
 Два режима:
-1. **JSON DSL** — из JSON-определения формы
-2. **From object** (`-FromObject`) — автоматически из метаданных объекта 1С по пресету ERP
+1. **JSON DSL** - из JSON-определения формы
+2. **From object** (`-FromObject`) - автоматически из метаданных объекта 1С по пресету ERP
 
-> **При проектировании формы с нуля (5+ элементов или нечёткие требования)** — вызовите `/form-patterns` для загрузки справочника. Для простых форм (1–3 поля) — не нужно.
+> **При проектировании формы с нуля (5+ элементов или нечеткие требования)** - вызовите `/form-patterns` для загрузки справочника. Для простых форм (1-3 поля) - не нужно.
 
 ## Параметры
 
@@ -23,7 +23,7 @@ allowed-tools:
 |------------|:------------:|---------------------------------|
 | JsonPath   | режим 1      | Путь к JSON-определению формы   |
 | OutputPath | да           | Путь к выходному Form.xml       |
-| FromObject | режим 2      | Флаг (без значения) — генерация по метаданным объекта |
+| FromObject | режим 2      | Флаг (без значения) - генерация по метаданным объекта |
 
 ## Команда
 
@@ -35,7 +35,7 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -FromObject -OutputPath "<.../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml>"
 ```
 
-## JSON DSL — справка
+## JSON DSL - справка
 
 ### Структура верхнего уровня
 
@@ -52,10 +52,10 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 }
 ```
 
-- `title` — заголовок формы (multilingual). Можно указать и в `properties`, но лучше на верхнем уровне
-- `properties` — свойства формы: `autoTitle`, `windowOpeningMode`, `commandBarLocation`, `saveDataInSettings`, `width`, `height` и др.
-- `events` — обработчики событий формы (ключ: имя события 1С, значение: имя процедуры)
-- `excludedCommands` — исключённые стандартные команды
+- `title` - заголовок формы (multilingual). Можно указать и в `properties`, но лучше на верхнем уровне
+- `properties` - свойства формы: `autoTitle`, `windowOpeningMode`, `commandBarLocation`, `saveDataInSettings`, `width`, `height` и др.
+- `events` - обработчики событий формы (ключ: имя события 1С, значение: имя процедуры)
+- `excludedCommands` - исключенные стандартные команды
 
 ### Элементы (ключ определяет тип)
 
@@ -64,7 +64,7 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 | `"group"`    | UsualGroup        | `"horizontal"` / `"vertical"` / `"alwaysHorizontal"` / `"alwaysVertical"` / `"collapsible"` |
 | `"input"`    | InputField        | имя элемента                                      |
 | `"check"`    | CheckBoxField     | имя                                               |
-| `"label"`    | LabelDecoration   | имя (текст задаётся через `title`)                |
+| `"label"`    | LabelDecoration   | имя (текст задается через `title`)                |
 | `"labelField"` | LabelField      | имя                                               |
 | `"table"`    | Table             | имя                                               |
 | `"pages"`    | Pages             | имя                                               |
@@ -86,11 +86,11 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 | `enabled: false` | Сделать недоступным (синоним: `disabled: true`) |
 | `readOnly: true` | Только чтение |
 | `on: [...]` | События с автоименованием обработчиков |
-| `handlers: {...}` | Явное задание имён обработчиков: `{"OnChange": "МоёИмя"}` |
+| `handlers: {...}` | Явное задание имен обработчиков: `{"OnChange": "МоеИмя"}` |
 
 ### Допустимые имена событий (`on`)
 
-Компилятор предупреждает о неизвестных событиях. Имена регистрозависимы — используйте точно как указано.
+Компилятор предупреждает о неизвестных событиях. Имена регистрозависимы - используйте точно как указано.
 
 **Форма** (`events`): `OnCreateAtServer`, `OnOpen`, `BeforeClose`, `OnClose`, `NotificationProcessing`, `ChoiceProcessing`, `OnReadAtServer`, `BeforeWriteAtServer`, `OnWriteAtServer`, `AfterWriteAtServer`, `BeforeWrite`, `AfterWrite`, `FillCheckProcessingAtServer`, `BeforeLoadDataFromSettingsAtServer`, `OnLoadDataFromSettingsAtServer`, `ExternalEvent`, `Opening`
 
@@ -112,10 +112,10 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 
 | Ключ | Описание | Пример |
 |------|----------|--------|
-| `path` | DataPath — привязка к данным | `"Объект.Организация"` |
+| `path` | DataPath - привязка к данным | `"Объект.Организация"` |
 | `titleLocation` | Размещение заголовка | `"none"`, `"left"`, `"top"` |
 | `multiLine: true` | Многострочное поле | текстовое поле, комментарий |
-| `passwordMode: true` | Режим пароля (звёздочки) | поле ввода пароля |
+| `passwordMode: true` | Режим пароля (звездочки) | поле ввода пароля |
 | `choiceButton: true` | Кнопка выбора ("...") | ссылочное поле |
 | `clearButton: true` | Кнопка очистки ("X") | |
 | `spinButton: true` | Кнопка прокрутки | числовые поля |
@@ -144,7 +144,7 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 
 ### Группа (group)
 
-Значение ключа задаёт ориентацию: `"horizontal"`, `"vertical"`, `"alwaysHorizontal"`, `"alwaysVertical"`, `"collapsible"`.
+Значение ключа задает ориентацию: `"horizontal"`, `"vertical"`, `"alwaysHorizontal"`, `"alwaysVertical"`, `"collapsible"`.
 
 | Ключ | Описание |
 |------|----------|
@@ -160,7 +160,7 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 | Ключ | Описание |
 |------|----------|
 | `path` | DataPath (привязка к реквизиту-таблице) |
-| `columns: [...]` | Колонки — массив элементов (обычно `input`) |
+| `columns: [...]` | Колонки - массив элементов (обычно `input`) |
 | `changeRowSet: true` | Разрешить добавление/удаление строк |
 | `changeRowOrder: true` | Разрешить перемещение строк |
 | `height` | Высота в строках таблицы |
@@ -238,7 +238,7 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 ]}
 ```
 
-- `savedData: true` — сохраняемые данные
+- `savedData: true` - сохраняемые данные
 - `useAlways: ["Поле"]` - поля, читаемые с сервера всегда. Имя без точки достраивается
   именем реквизита, знак `~` остается впереди. Колонка с `useAlways: true` попадает в тот же
   список.
@@ -252,8 +252,8 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 { "name": "Загрузить", "action": "ЗагрузитьОбработка", "shortcut": "Ctrl+Enter" }
 ```
 
-- `title` — заголовок (если отличается от name)
-- `picture` — картинка команды
+- `title` - заголовок (если отличается от name)
+- `picture` - картинка команды
 
 ### Система типов
 
@@ -274,7 +274,7 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 | `"CatalogRef.XXX"` / `"CatalogObject.XXX"` | Справочник |
 | `"DocumentRef.XXX"` / `"DocumentObject.XXX"` | Документ |
 | `"EnumRef.XXX"` | Перечисление |
-| `"DataProcessorObject.XXX"` / `"ReportObject.XXX"` | Обработка / Отчёт |
+| `"DataProcessorObject.XXX"` / `"ReportObject.XXX"` | Обработка / Отчет |
 | `"InformationRegisterRecordSet.XXX"` | Набор записей регистра сведений |
 | `"AccumulationRegisterRecordSet.XXX"` | Набор записей регистра накопления |
 | `"DynamicList"` | Динамический список |
@@ -297,13 +297,13 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 
 **Недопустимые типы (XDTO-ошибка при загрузке):**
 
-> `FormDataStructure`, `FormDataCollection`, `FormDataTree` — runtime-типы 1С, не существуют в XML-схеме. Вместо них используйте `CatalogObject.XXX`, `DocumentObject.XXX`, `DataProcessorObject.XXX`, `ValueTable`, `ValueTree`.
+> `FormDataStructure`, `FormDataCollection`, `FormDataTree` - runtime-типы 1С, не существуют в XML-схеме. Вместо них используйте `CatalogObject.XXX`, `DocumentObject.XXX`, `DataProcessorObject.XXX`, `ValueTable`, `ValueTree`.
 
 ## Связки: элемент + реквизит
 
 Таблица и некоторые поля требуют связанный реквизит. Элемент ссылается на реквизит через `path`.
 
-**Таблица** — элемент `table` + реквизит `ValueTable`:
+**Таблица** - элемент `table` + реквизит `ValueTable`:
 ```json
 {
   "elements": [
@@ -443,14 +443,14 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 ## Workflow
 
 1. **Компиляция**: `/form-compile` генерирует `Form.xml` и автоматически регистрирует `<Form>` в `ChildObjects` родительского объекта (если OutputPath следует конвенции `.../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml`).
-2. **Метаданные формы** (`ФормаСписка.xml`) и `Module.bsl` создаёт `/form-add`. Если `/form-add` ещё не вызывался — вызови после `/form-compile`. Он не перезаписывает существующий Form.xml.
+2. **Метаданные формы** (`ФормаСписка.xml`) и `Module.bsl` создает `/form-add`. Если `/form-add` еще не вызывался - вызови после `/form-compile`. Он не перезаписывает существующий Form.xml.
 3. **Проверка**: `/form-validate`, `/form-info`.
 
 ## Верификация
 
 ```
-/form-validate <OutputPath>    — проверка корректности XML
-/form-info <OutputPath>        — визуальная сводка структуры
+/form-validate <OutputPath>    - проверка корректности XML
+/form-info <OutputPath>        - визуальная сводка структуры
 ```
 
 ## Особенности для EDT-проектов
@@ -513,5 +513,5 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 ## Особенности для внешних обработок (EPF)
 
 - **Тип главного реквизита**: `ExternalDataProcessorObject.ИмяОбработки` (не `DataProcessorObject`)
-- **DataPath**: используйте реквизиты формы (`ИмяРеквизита`), а не `Объект.ИмяРеквизита` — у внешних обработок нет реквизитов объекта в метаданных
+- **DataPath**: используйте реквизиты формы (`ИмяРеквизита`), а не `Объект.ИмяРеквизита` - у внешних обработок нет реквизитов объекта в метаданных
 - **Ссылочные типы**: `CatalogRef.XXX`, `DocumentRef.XXX` допустимы в XML, но для сборки EPF потребуется база с целевой конфигурацией (см. `/epf-build`)

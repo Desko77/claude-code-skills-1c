@@ -1,7 +1,7 @@
 # Спецификация XML-формата схемы компоновки данных 1С (DCS)
 
-Спецификация формата `DataCompositionSchema` — макетов типа «Схема компоновки данных» в конфигурации 1С:Предприятие 8.3.
-Составлена на основе анализа 930 схем конфигурации «Бухгалтерия предприятия 3.0.180» (платформа 8.3.24).
+Спецификация формата `DataCompositionSchema` - макетов типа "Схема компоновки данных" в конфигурации 1С:Предприятие 8.3.
+Составлена на основе анализа 930 схем конфигурации "Бухгалтерия предприятия 3.0.180" (платформа 8.3.24).
 
 ---
 
@@ -19,7 +19,7 @@
 
 Типичные имена макетов: `ОсновнаяСхемаКомпоновкиДанных`, `СхемаКомпоновкиДанных`, произвольные.
 
-### Метаданные макета — шаблон
+### Метаданные макета - шаблон
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -50,8 +50,8 @@
 
 | Тип объекта метаданных | Частота | Примечание |
 |---|---|---|
-| Reports (Отчёты) | ~420 | Основное место — каждый отчёт СКД |
-| DataProcessors (Обработки) | ~11 | Обработки с отчётными функциями |
+| Reports (Отчеты) | ~420 | Основное место - каждый отчет СКД |
+| DataProcessors (Обработки) | ~11 | Обработки с отчетными функциями |
 | Enums (Перечисления) | ~20 | Дополнительные ссылки |
 | Catalogs (Справочники) | ~5 | Запросы к справочным данным |
 | DocumentJournals | ~4 | Журналы документов |
@@ -61,9 +61,9 @@
 
 ---
 
-## 1. Пространства имён
+## 1. Пространства имен
 
-Корневой элемент — `<DataCompositionSchema>`.
+Корневой элемент - `<DataCompositionSchema>`.
 
 ```xml
 <DataCompositionSchema
@@ -88,14 +88,14 @@
 | `xs` | `.../XMLSchema` | Стандартные XSD-типы (string, dateTime, boolean, decimal, ...) |
 | `xsi` | `.../XMLSchema-instance` | Атрибуты экземпляра (xsi:type, xsi:nil) |
 
-Дополнительные пространства имён (появляются в `settingsVariant`):
+Дополнительные пространства имен (появляются в `settingsVariant`):
 
 | Префикс | URI | Где |
 |---|---|---|
-| `style` | `http://v8.1c.ru/8.1/data/ui/style` | В settings — стили оформления |
-| `sys` | `http://v8.1c.ru/8.1/data/ui/fonts/system` | В settings — системные шрифты |
-| `web` | `http://v8.1c.ru/8.1/data/ui/colors/web` | В settings — веб-цвета |
-| `win` | `http://v8.1c.ru/8.1/data/ui/colors/windows` | В settings — цвета Windows |
+| `style` | `http://v8.1c.ru/8.1/data/ui/style` | В settings - стили оформления |
+| `sys` | `http://v8.1c.ru/8.1/data/ui/fonts/system` | В settings - системные шрифты |
+| `web` | `http://v8.1c.ru/8.1/data/ui/colors/web` | В settings - веб-цвета |
+| `win` | `http://v8.1c.ru/8.1/data/ui/colors/windows` | В settings - цвета Windows |
 
 ---
 
@@ -105,18 +105,18 @@
 
 ```
 DataCompositionSchema
-├── dataSource*              — источники данных (раздел 3)
-├── dataSet*                 — наборы данных (раздел 4)
-├── dataSetLink*             — связи между наборами (раздел 5)
-├── calculatedField*         — вычисляемые поля (раздел 6)
-├── totalField*              — итоговые поля (раздел 7)
-├── parameter*               — параметры схемы (раздел 8)
-├── template*                — макеты областей (раздел 9)
-├── groupTemplate*           — привязки макетов группировок (раздел 10)
-├── settingsVariant*         — варианты настроек (раздел 11)
+├── dataSource*              - источники данных (раздел 3)
+├── dataSet*                 - наборы данных (раздел 4)
+├── dataSetLink*             - связи между наборами (раздел 5)
+├── calculatedField*         - вычисляемые поля (раздел 6)
+├── totalField*              - итоговые поля (раздел 7)
+├── parameter*               - параметры схемы (раздел 8)
+├── template*                - макеты областей (раздел 9)
+├── groupTemplate*           - привязки макетов группировок (раздел 10)
+├── settingsVariant*         - варианты настроек (раздел 11)
 ```
 
-`*` — 0..N элементов.
+`*` - 0..N элементов.
 
 Минимальная DCS содержит: 1 dataSource + 1 dataSet + 1 settingsVariant.
 
@@ -136,7 +136,7 @@ DataCompositionSchema
 | `name` | да | Уникальное имя, на которое ссылаются наборы данных |
 | `dataSourceType` | да | Тип: `Local` (текущая информационная база) или `External` (внешний) |
 
-В подавляющем большинстве случаев — один источник `Local`. Имя произвольное: `ИсточникДанных1`, `ИнформационнаяБаза` и т.п.
+В подавляющем большинстве случаев - один источник `Local`. Имя произвольное: `ИсточникДанных1`, `ИнформационнаяБаза` и т.п.
 
 ---
 
@@ -144,9 +144,9 @@ DataCompositionSchema
 
 Тип набора определяется атрибутом `xsi:type`. Три типа:
 
-### 4.1. DataSetQuery — запрос
+### 4.1. DataSetQuery - запрос
 
-Самый распространённый тип. Содержит SQL-подобный запрос на языке 1С.
+Самый распространенный тип. Содержит SQL-подобный запрос на языке 1С.
 
 ```xml
 <dataSet xsi:type="DataSetQuery">
@@ -164,16 +164,16 @@ DataCompositionSchema
 | `field` | нет | Описания полей (раздел 4.4) |
 | `dataSource` | да | Ссылка на имя dataSource |
 | `query` | да | Текст запроса на языке 1С (XML-экранирование: `&amp;` для `&`, `&gt;` для `>`) |
-| `autoFillFields` | нет | `false` — отключить автозаполнение полей из запроса (по умолчанию `true`) |
+| `autoFillFields` | нет | `false` - отключить автозаполнение полей из запроса (по умолчанию `true`) |
 
 #### Особенности запросов в DCS
 
 - Параметры: `&ИмяПараметра` (в XML: `&amp;ИмяПараметра`)
-- Авторазметка полей в фигурных скобках: `{ВЫБРАТЬ ...}`, `{ГДЕ ...}`, `{ЛЕВОЕ СОЕДИНЕНИЕ ...}` — позволяют СКД автоматически модифицировать запрос
+- Авторазметка полей в фигурных скобках: `{ВЫБРАТЬ ...}`, `{ГДЕ ...}`, `{ЛЕВОЕ СОЕДИНЕНИЕ ...}` - позволяют СКД автоматически модифицировать запрос
 - Пакетные запросы: несколько запросов через `; ////////////////`
 - Временные таблицы: `ПОМЕСТИТЬ ИмяВТ`, `ИНДЕКСИРОВАТЬ ПО`
 
-### 4.2. DataSetObject — объект
+### 4.2. DataSetObject - объект
 
 Данные берутся из программно заполненной таблицы значений.
 
@@ -190,9 +190,9 @@ DataCompositionSchema
 |---|---|---|
 | `objectName` | да | Имя объекта (таблицы значений), передаваемого программно |
 
-### 4.3. DataSetUnion — объединение
+### 4.3. DataSetUnion - объединение
 
-Объединяет поля из нескольких наборов. Сам не содержит запросов — объединяет подчинённые наборы.
+Объединяет поля из нескольких наборов. Сам не содержит запросов - объединяет подчиненные наборы.
 
 ```xml
 <dataSet xsi:type="DataSetUnion">
@@ -216,7 +216,7 @@ DataCompositionSchema
 
 ### 4.4. Поля набора данных (field)
 
-Каждое поле — элемент `<field xsi:type="DataSetFieldField">`:
+Каждое поле - элемент `<field xsi:type="DataSetFieldField">`:
 
 ```xml
 <field xsi:type="DataSetFieldField">
@@ -256,14 +256,14 @@ DataCompositionSchema
 
 | Элемент | Обязат. | Описание |
 |---|---|---|
-| `dataPath` | да | Путь к данным (имя поля в результате СКД). Через точку — реквизиты: `Номенклатура.Артикул` |
+| `dataPath` | да | Путь к данным (имя поля в результате СКД). Через точку - реквизиты: `Номенклатура.Артикул` |
 | `field` | да | Имя поля в запросе (может отличаться от dataPath) |
 | `title` | нет | Локализованный заголовок (`v8:LocalStringType`) |
 | `useRestriction` | нет | Ограничения использования поля (раздел 4.5) |
 | `attributeUseRestriction` | нет | Ограничения использования реквизитов поля (раздел 4.5) |
 | `role` | нет | Роль поля в СКД (раздел 4.6) |
 | `valueType` | нет | Тип значения поля (раздел 4.7) |
-| `appearance` | нет | Оформление — список параметров `dcscor:item` (раздел 4.8) |
+| `appearance` | нет | Оформление - список параметров `dcscor:item` (раздел 4.8) |
 | `inputParameters` | нет | Параметры ввода / связи параметров выбора (раздел 4.9) |
 | `presentationExpression` | нет | Выражение для формирования представления (на языке 1С) |
 
@@ -278,25 +278,25 @@ DataCompositionSchema
 </useRestriction>
 ```
 
-Каждый подэлемент — `true`/`false` (по умолчанию `false` = разрешено). Можно указывать подмножество.
+Каждый подэлемент - `true`/`false` (по умолчанию `false` = разрешено). Можно указывать подмножество.
 
-`attributeUseRestriction` — аналогичная структура, применяется к реквизитам (дочерним полям) поля.
+`attributeUseRestriction` - аналогичная структура, применяется к реквизитам (дочерним полям) поля.
 
 ### 4.6. Роли полей (role)
 
 ```xml
 <role>
-  <dcscom:dimension>true</dcscom:dimension>          <!-- поле — измерение -->
-  <dcscom:account>true</dcscom:account>               <!-- поле — счёт -->
-  <dcscom:accountTypeExpression>Счет.Вид</dcscom:accountTypeExpression>  <!-- выражение типа счёта -->
+  <dcscom:dimension>true</dcscom:dimension>          <!-- поле - измерение -->
+  <dcscom:account>true</dcscom:account>               <!-- поле - счет -->
+  <dcscom:accountTypeExpression>Счет.Вид</dcscom:accountTypeExpression>  <!-- выражение типа счета -->
 </role>
 ```
 
 | Подэлемент | Описание |
 |---|---|
 | `dcscom:dimension` | Поле является измерением (`true`/`false`) |
-| `dcscom:account` | Поле является счётом |
-| `dcscom:accountTypeExpression` | Выражение для определения типа счёта |
+| `dcscom:account` | Поле является счетом |
+| `dcscom:accountTypeExpression` | Выражение для определения типа счета |
 | `dcscom:balance` | Поле является остатком |
 | `dcscom:balanceGroup` | Группа остатка |
 | `dcscom:periodNumber` | Номер периода (обычно `1`) |
@@ -322,7 +322,7 @@ DataCompositionSchema
 <v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Номенклатура</v8:Type>
 ```
 
-Префикс (`d5p1`, `d4p1` и т.д.) — автогенерируемый, суть в URI `http://v8.1c.ru/8.1/data/enterprise/current-config`. Поддерживаются: `CatalogRef`, `DocumentRef`, `EnumRef`, `ChartOfAccountsRef`, `ChartOfCharacteristicTypesRef` и др.
+Префикс (`d5p1`, `d4p1` и т.д.) - автогенерируемый, суть в URI `http://v8.1c.ru/8.1/data/enterprise/current-config`. Поддерживаются: `CatalogRef`, `DocumentRef`, `EnumRef`, `ChartOfAccountsRef`, `ChartOfCharacteristicTypesRef` и др.
 
 Квалификаторы:
 - `v8:StringQualifiers` → `v8:Length`, `v8:AllowedLength` (Fixed/Variable)
@@ -455,20 +455,20 @@ DataCompositionSchema
 |---|---|---|
 | `dataPath` | да | Путь к полю |
 | `expression` | да | Агрегатная функция: `Сумма(...)`, `Количество(...)`, `Максимум(...)`, `Минимум(...)`, `Среднее(...)` |
-| `group` | нет | Имя группировки, для которой считать итоги. Без `group` — для всех группировок |
+| `group` | нет | Имя группировки, для которой считать итоги. Без `group` - для всех группировок |
 
 ### Разные формулы для разных группировок
 
 Одно поле может иметь несколько записей `totalField` с разными формулами для разных группировок:
 
 ```xml
-<!-- Для группировки "ОбъектМетаданных" — агрегация самого поля -->
+<!-- Для группировки "ОбъектМетаданных" - агрегация самого поля -->
 <totalField>
   <dataPath>ПравоИнтерактивное</dataPath>
   <expression>Максимум(ПравоИнтерактивное)</expression>
   <group>ОбъектМетаданных</group>
 </totalField>
-<!-- Для группировки "Отчет" — агрегация другого поля -->
+<!-- Для группировки "Отчет" - агрегация другого поля -->
 <totalField>
   <dataPath>ПравоИнтерактивное</dataPath>
   <expression>Максимум(ПравоОтчета)</expression>
@@ -512,9 +512,9 @@ DataCompositionSchema
 | `title` | нет | Локализованный заголовок |
 | `valueType` | нет | Тип значения (раздел 4.7) |
 | `value` | нет | Значение по умолчанию |
-| `useRestriction` | нет | `true` — параметр скрыт от пользователя, `false` — доступен |
+| `useRestriction` | нет | `true` - параметр скрыт от пользователя, `false` - доступен |
 | `expression` | нет | Выражение для автоматического вычисления (например, `&Период.ДатаНачала`) |
-| `availableAsField` | нет | `false` — параметр недоступен как поле в отчёте |
+| `availableAsField` | нет | `false` - параметр недоступен как поле в отчете |
 | `use` | нет | Режим: `Always` (всегда), `Auto` (автоматически) |
 
 ### Типы значений параметров
@@ -525,7 +525,7 @@ DataCompositionSchema
 | Строка | `xs:string` | `Т13` |
 | Стандартный период | `v8:StandardPeriod` | `<v8:variant>LastMonth</v8:variant>` |
 | Ссылка | `d5p1:CatalogRef.ИмяСправочника` (с `xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config"`) | `xsi:nil="true"` |
-| null | — | `xsi:nil="true"` |
+| null | - | `xsi:nil="true"` |
 
 Стандартные варианты периодов (`v8:StandardPeriodVariant`): `Custom`, `Today`, `ThisWeek`, `ThisMonth`, `ThisQuarter`, `ThisYear`, `LastMonth`, `LastQuarter`, `LastYear` и др.
 
@@ -556,13 +556,13 @@ DataCompositionSchema
 </template>
 ```
 
-Пространство имён `dcsat`: `http://v8.1c.ru/8.1/data-composition-system/area-template`.
+Пространство имен `dcsat`: `http://v8.1c.ru/8.1/data-composition-system/area-template`.
 
 | Элемент | Описание |
 |---|---|
 | `name` | Имя макета (ссылаются groupTemplate) |
 | `template` (вложенный) | Описание строк/ячеек (`dcsat:AreaTemplate`) |
-| `parameter` | Параметры макета (`dcsat:ExpressionAreaTemplateParameter`) — выражения для подстановки |
+| `parameter` | Параметры макета (`dcsat:ExpressionAreaTemplateParameter`) - выражения для подстановки |
 
 ---
 
@@ -588,7 +588,7 @@ DataCompositionSchema
 
 ## 11. Варианты настроек (settingsVariant)
 
-Каждый вариант — именованная конфигурация отчёта. Отчёт может иметь несколько вариантов.
+Каждый вариант - именованная конфигурация отчета. Отчет может иметь несколько вариантов.
 
 ```xml
 <settingsVariant>
@@ -596,7 +596,7 @@ DataCompositionSchema
   <dcsset:presentation xsi:type="v8:LocalStringType">
     <v8:item>
       <v8:lang>ru</v8:lang>
-      <v8:content>Основной вариант отчёта</v8:content>
+      <v8:content>Основной вариант отчета</v8:content>
     </v8:item>
   </dcsset:presentation>
   <dcsset:settings xmlns:style="..." xmlns:sys="..." xmlns:web="..." xmlns:win="...">
@@ -609,13 +609,13 @@ DataCompositionSchema
 
 ```
 dcsset:settings
-├── dcsset:selection              — выбранные поля (раздел 11.2)
-├── dcsset:filter                 — отборы (раздел 11.3)
-├── dcsset:order                  — сортировка (раздел 11.4)
-├── dcsset:conditionalAppearance  — условное оформление (раздел 11.5)
-├── dcsset:outputParameters       — параметры вывода (раздел 11.6)
-├── dcsset:dataParameters         — значения параметров данных (раздел 11.7)
-├── dcsset:item*                  — элементы структуры (раздел 11.8)
+├── dcsset:selection              - выбранные поля (раздел 11.2)
+├── dcsset:filter                 - отборы (раздел 11.3)
+├── dcsset:order                  - сортировка (раздел 11.4)
+├── dcsset:conditionalAppearance  - условное оформление (раздел 11.5)
+├── dcsset:outputParameters       - параметры вывода (раздел 11.6)
+├── dcsset:dataParameters         - значения параметров данных (раздел 11.7)
+├── dcsset:item*                  - элементы структуры (раздел 11.8)
 ```
 
 ### 11.2. Выборка полей (selection)
@@ -636,15 +636,15 @@ dcsset:settings
 ```
 
 Типы элементов выборки:
-- `dcsset:SelectedItemField` — конкретное поле (элемент `dcsset:field`)
-- `dcsset:SelectedItemAuto` — автоматический подбор полей
+- `dcsset:SelectedItemField` - конкретное поле (элемент `dcsset:field`)
+- `dcsset:SelectedItemAuto` - автоматический подбор полей
 
 ### 11.3. Отборы (filter)
 
 ```xml
 <dcsset:filter>
   <dcsset:item xsi:type="dcsset:FilterItemComparison">
-    <dcsset:use>false</dcsset:use>                    <!-- включён/выключен -->
+    <dcsset:use>false</dcsset:use>                    <!-- включен/выключен -->
     <dcsset:left xsi:type="dcscor:Field">Организация</dcsset:left>
     <dcsset:comparisonType>Equal</dcsset:comparisonType>
     <dcsset:right xsi:type="xs:boolean">false</dcsset:right>
@@ -661,8 +661,8 @@ dcsset:settings
 ```
 
 Типы элементов фильтра:
-- `dcsset:FilterItemComparison` — сравнение поля с значением
-- `dcsset:FilterItemGroup` — группа условий (И/ИЛИ)
+- `dcsset:FilterItemComparison` - сравнение поля с значением
+- `dcsset:FilterItemGroup` - группа условий (И/ИЛИ)
 
 Типы сравнения (`comparisonType`):
 
@@ -685,7 +685,7 @@ dcsset:settings
 | `Filled` | Заполнено |
 | `NotFilled` | Не заполнено |
 
-Значение правой части (`right`) — может содержать списки:
+Значение правой части (`right`) - может содержать списки:
 ```xml
 <dcsset:right xsi:type="v8:ValueListType">
   <v8:valueType/>
@@ -706,8 +706,8 @@ dcsset:settings
 ```
 
 Типы элементов сортировки:
-- `dcsset:OrderItemField` — по полю (`dcsset:field` + `dcsset:orderType`: `Asc`/`Desc`)
-- `dcsset:OrderItemAuto` — автоматическая сортировка
+- `dcsset:OrderItemField` - по полю (`dcsset:field` + `dcsset:orderType`: `Asc`/`Desc`)
+- `dcsset:OrderItemAuto` - автоматическая сортировка
 
 ### 11.5. Условное оформление (conditionalAppearance)
 
@@ -757,7 +757,7 @@ dcsset:settings
 
 | Параметр | Тип значения | Описание |
 |---|---|---|
-| `Заголовок` | `v8:LocalStringType` | Заголовок отчёта |
+| `Заголовок` | `v8:LocalStringType` | Заголовок отчета |
 | `МакетОформления` | `xs:string` | Имя макета оформления: `ОформлениеОтчетовЧерноБелый`, `Зеленый` и др. |
 | `РасположениеПолейГруппировки` | `dcsset:DataCompositionGroupFieldsPlacement` | `Together`, `Separately`, `SeparatelyAndInGroups` |
 | `РасположениеРеквизитов` | `dcsset:DataCompositionAttributesPlacement` | `Together`, `Separately`, `SeparatelyAndInGroups` |
@@ -787,7 +787,7 @@ dcsset:settings
 
 | Элемент | Описание |
 |---|---|
-| `dcscor:use` | `true`/`false` — использовать значение или нет |
+| `dcscor:use` | `true`/`false` - использовать значение или нет |
 | `dcscor:parameter` | Имя параметра из раздела 8 |
 | `dcscor:value` | Значение параметра |
 | `dcsset:viewMode` | Режим отображения: `Normal`, `QuickAccess`, `Inaccessible` |
@@ -795,9 +795,9 @@ dcsset:settings
 
 ### 11.8. Элементы структуры (structure items)
 
-Структура отчёта — иерархия группировок, таблиц, диаграмм.
+Структура отчета - иерархия группировок, таблиц, диаграмм.
 
-#### StructureItemGroup — группировка
+#### StructureItemGroup - группировка
 
 ```xml
 <dcsset:item xsi:type="dcsset:StructureItemGroup">
@@ -830,7 +830,7 @@ dcsset:settings
 
 Пустая группировка (без `groupItems`) = детальные записи.
 
-#### StructureItemTable — таблица (кросс-таблица)
+#### StructureItemTable - таблица (кросс-таблица)
 
 ```xml
 <dcsset:item xsi:type="dcsset:StructureItemTable">
@@ -849,7 +849,7 @@ dcsset:settings
 </dcsset:item>
 ```
 
-#### StructureItemChart — диаграмма
+#### StructureItemChart - диаграмма
 
 ```xml
 <dcsset:item xsi:type="dcsset:StructureItemChart">
@@ -873,9 +873,9 @@ dcsset:settings
 
 ---
 
-## 12. Типы данных — сводка
+## 12. Типы данных - сводка
 
-### v8:LocalStringType — локализованная строка
+### v8:LocalStringType - локализованная строка
 
 ```xml
 <title xsi:type="v8:LocalStringType">
@@ -888,7 +888,7 @@ dcsset:settings
 
 Также можно задать как простую строку: `xsi:type="xs:string"`.
 
-### dcscor:SettingsParameterValue — параметр настройки
+### dcscor:SettingsParameterValue - параметр настройки
 
 ```xml
 <dcscor:item xsi:type="dcsset:SettingsParameterValue">
@@ -898,7 +898,7 @@ dcsset:settings
 </dcscor:item>
 ```
 
-### dcscor:Field — ссылка на поле
+### dcscor:Field - ссылка на поле
 
 ```xml
 <dcsset:left xsi:type="dcscor:Field">ИмяПоля</dcsset:left>

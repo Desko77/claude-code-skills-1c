@@ -7,8 +7,8 @@
   "params": { "packagePath": "pkg-anytype/XDTOPackages/anytype" },
   "expect": {
     "stdoutContains": [
-      "Тип не разрешён",
-      "признак неразрешённой зависимости"
+      "Тип не разрешен",
+      "признак неразрешенной зависимости"
     ]
   },
   "noSnapshot": "навык только читает — сравнивать нечего, проверка через stdoutContains"

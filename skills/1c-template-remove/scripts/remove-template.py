@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# remove-template v1.0 — Remove template from 1C object
+# remove-template v1.0 - Remove template from 1C object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -72,10 +72,10 @@ def main():
 
     if os.path.isdir(template_dir):
         shutil.rmtree(template_dir)
-        print(f"[OK] Удалён каталог: {template_dir}")
+        print(f"[OK] Удален каталог: {template_dir}")
 
     os.remove(template_meta_path)
-    print(f"[OK] Удалён файл: {template_meta_path}")
+    print(f"[OK] Удален файл: {template_meta_path}")
 
     # --- Modify root XML ---
 
@@ -94,7 +94,7 @@ def main():
                 if prev.tail and prev.tail.strip() == "":
                     prev.tail = ""
             else:
-                # First child — whitespace is in parent.text
+                # First child - whitespace is in parent.text
                 if parent.text and parent.text.strip() == "":
                     parent.text = ""
             parent.remove(node)
@@ -109,12 +109,12 @@ def main():
     if main_dcs is not None and main_dcs.text:
         if re.search(rf"Template\.{re.escape(template_name)}$", main_dcs.text):
             main_dcs.text = ""
-            print("[OK] Очищён MainDataCompositionSchema")
+            print("[OK] Очищен MainDataCompositionSchema")
 
     # Save with BOM
     save_xml_with_bom(tree, root_xml_full)
 
-    print(f"[OK] Макет {template_name} удалён из {root_xml_path}")
+    print(f"[OK] Макет {template_name} удален из {root_xml_path}")
 
 
 if __name__ == "__main__":

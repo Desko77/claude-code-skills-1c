@@ -1,4 +1,4 @@
-﻿# subsystem-validate v1.2 — Validate 1C subsystem XML structure
+﻿# subsystem-validate v1.2 - Validate 1C subsystem XML structure
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)][string]$SubsystemPath,
@@ -26,7 +26,7 @@ if (Test-Path $SubsystemPath -PathType Container) {
 		exit 1
 	}
 }
-# File not found — check Dir/Name/Name.xml → Dir/Name.xml
+# File not found - check Dir/Name/Name.xml → Dir/Name.xml
 if (-not (Test-Path $SubsystemPath)) {
 	$fn = [System.IO.Path]::GetFileNameWithoutExtension($SubsystemPath)
 	$pd = Split-Path $SubsystemPath

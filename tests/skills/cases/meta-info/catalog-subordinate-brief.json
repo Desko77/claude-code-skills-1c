@@ -20,7 +20,7 @@
   "params": { "objectPath": "Catalogs/БанковскиеСчета" },
   "args_extra": ["-Mode", "brief"],
   "expect": {
-    "stdoutContains": ["Подчинён: Контрагенты"],
+    "stdoutContains": ["Подчинен: Контрагенты"],
     "stdoutNotContains": ["Стандартные реквизиты:", "обязательный"]
   }
 }

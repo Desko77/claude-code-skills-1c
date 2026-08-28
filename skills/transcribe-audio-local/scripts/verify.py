@@ -2,15 +2,15 @@
 Smoke-тест после установки скила transcribe-audio-local.
 
 Что проверяет:
-1. venv-whisper существует и в нём установлен faster-whisper
-2. venv-sherpa существует и в нём установлены sherpa_onnx + onnxruntime
+1. venv-whisper существует и в нем установлен faster-whisper
+2. venv-sherpa существует и в нем установлены sherpa_onnx + onnxruntime
 3. Модели sherpa-onnx и 3D-Speaker лежат в models/
 4. ffmpeg доступен
 5. (опционально) тестовый прогон на коротком сгенерированном WAV
 
 Запуск:
     python scripts/verify.py             # все проверки кроме прогона
-    python scripts/verify.py --full      # + тестовый прогон (создаёт 3-сек тон и транскрибирует)
+    python scripts/verify.py --full      # + тестовый прогон (создает 3-сек тон и транскрибирует)
 
 Выход: 0 если все проверки прошли, 1 если есть FAIL.
 """

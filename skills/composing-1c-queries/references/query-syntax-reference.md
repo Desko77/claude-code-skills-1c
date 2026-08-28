@@ -19,7 +19,7 @@ Detailed syntax for clauses covered briefly in the main SKILL.md.
 
 ## ВЫБОР (CASE)
 
-Conditional expression — equivalent to SQL CASE.
+Conditional expression - equivalent to SQL CASE.
 
 ```
 ВЫБОР
@@ -56,8 +56,8 @@ Merges results of two or more SELECT queries into one result set.
 ```
 
 **Rules:**
-- `ОБЪЕДИНИТЬ` — removes duplicates (like UNION)
-- `ОБЪЕДИНИТЬ ВСЕ` — keeps duplicates (like UNION ALL, faster)
+- `ОБЪЕДИНИТЬ` - removes duplicates (like UNION)
+- `ОБЪЕДИНИТЬ ВСЕ` - keeps duplicates (like UNION ALL, faster)
 - Column count must match across all queries
 - Column names and types are taken from the **first** query
 - If nested table structures differ, use `ПУСТАЯТАБЛИЦА` in the query that lacks the nested table
@@ -70,8 +70,8 @@ Merges results of two or more SELECT queries into one result set.
 УПОРЯДОЧИТЬ ПО <field_or_alias> [ВОЗР | УБЫВ] [, ...]
 ```
 
-- `ВОЗР` — ascending (default)
-- `УБЫВ` — descending
+- `ВОЗР` - ascending (default)
+- `УБЫВ` - descending
 - Can reference field aliases from SELECT
 - Can use aggregate function results when grouping
 - **Do NOT use aggregate functions directly** for comparison in ORDER BY
@@ -96,7 +96,7 @@ Adds automatic ordering by "presentation" (human-readable name) of reference fie
 АВТОУПОРЯДОЧИВАНИЕ
 ```
 
-Rarely needed — explicit `УПОРЯДОЧИТЬ ПО` is preferred for predictable results.
+Rarely needed - explicit `УПОРЯДОЧИТЬ ПО` is preferred for predictable results.
 
 ---
 
@@ -113,9 +113,9 @@ Computes aggregate subtotal rows and interleaves them with detail rows.
 ```
 
 **Components:**
-- `ОБЩИЕ` — grand total across entire result
-- Control points — fields to group subtotals by. Can be hierarchical
-- `ПЕРИОДАМИ(<Period>, <StartDate>, <EndDate>)` — for date-type fields; `<Period>` is one of: `СЕКУНДА`, `МИНУТА`, `ЧАС`, `ДЕНЬ`, `НЕДЕЛЯ`, `МЕСЯЦ`, `КВАРТАЛ`, `ГОД`, `ДЕКАДА`, `ПОЛУГОДИЕ`
+- `ОБЩИЕ` - grand total across entire result
+- Control points - fields to group subtotals by. Can be hierarchical
+- `ПЕРИОДАМИ(<Period>, <StartDate>, <EndDate>)` - for date-type fields; `<Period>` is one of: `СЕКУНДА`, `МИНУТА`, `ЧАС`, `ДЕНЬ`, `НЕДЕЛЯ`, `МЕСЯЦ`, `КВАРТАЛ`, `ГОД`, `ДЕКАДА`, `ПОЛУГОДИЕ`
 
 Example:
 ```
@@ -170,11 +170,11 @@ String pattern matching operator.
 
 | Character | Meaning | Example |
 |-----------|---------|---------|
-| `%` | Any string (0+ chars) | `"%молоко%"` — contains "молоко" |
-| `_` | Exactly one character | `"__-__"` — matches "12-34" |
-| `[abc]` | One char from set | `"[АБВ]%"` — starts with А, Б, or В |
-| `[^abc]` | One char NOT in set | `"[^0-9]%"` — starts with non-digit |
-| `[a-z]` | One char in range | `"[А-Я]%"` — starts with capital Cyrillic |
+| `%` | Any string (0+ chars) | `"%молоко%"` - contains "молоко" |
+| `_` | Exactly one character | `"__-__"` - matches "12-34" |
+| `[abc]` | One char from set | `"[АБВ]%"` - starts with А, Б, or В |
+| `[^abc]` | One char NOT in set | `"[^0-9]%"` - starts with non-digit |
+| `[a-z]` | One char in range | `"[А-Я]%"` - starts with capital Cyrillic |
 
 **Escape character:** Use `СПЕЦСИМВОЛ` to escape wildcards:
 ```
@@ -182,7 +182,7 @@ String pattern matching operator.
 // matches literal underscore in Код
 ```
 
-**Performance:** Pattern must NOT start with `%` or `_` if used in indexed (main) condition — such patterns prevent index usage.
+**Performance:** Pattern must NOT start with `%` or `_` if used in indexed (main) condition - such patterns prevent index usage.
 
 ---
 
@@ -236,7 +236,7 @@ Used in UNION when one query has a nested table (tabular section) that the other
 
 ОБЪЕДИНИТЬ ВСЕ
 
-// Query 2 lacks it — provide matching empty table
+// Query 2 lacks it - provide matching empty table
 ВЫБРАТЬ Ссылка, ПУСТАЯТАБЛИЦА.(Номенклатура, Количество)
 ИЗ Документ.ВозвратТоваров
 ```

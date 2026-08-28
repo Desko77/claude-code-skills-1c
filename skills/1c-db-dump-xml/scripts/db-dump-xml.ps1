@@ -1,13 +1,13 @@
-﻿# db-dump-xml v1.0 — Dump 1C configuration to XML files
+﻿# db-dump-xml v1.0 - Dump 1C configuration to XML files
 # Source: https://github.com/Desko77/claude-code-skills-1c
 <#
 .SYNOPSIS
     Выгрузка конфигурации 1С в XML-файлы
 
 .DESCRIPTION
-    Выполняет выгрузку конфигурации 1С в файлы в четырёх режимах:
+    Выполняет выгрузку конфигурации 1С в файлы в четырех режимах:
     - Full: полная выгрузка всей конфигурации
-    - Changes: инкрементальная выгрузка изменённых объектов
+    - Changes: инкрементальная выгрузка измененных объектов
     - Partial: выгрузка конкретных объектов из списка
     - UpdateInfo: обновление только ConfigDumpInfo.xml
 

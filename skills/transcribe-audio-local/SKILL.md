@@ -26,9 +26,9 @@ python scripts/setup.py
 
 **Workflow первого использования:**
 
-1. **Проверь, установлен ли скил** — есть ли файл `~/.claude/skills/transcribe-audio-local/venv-whisper/Scripts/python.exe` (на Linux: `venv-whisper/bin/python`). Если есть - переходи к шагу 4.
+1. **Проверь, установлен ли скил** - есть ли файл `~/.claude/skills/transcribe-audio-local/venv-whisper/Scripts/python.exe` (на Linux: `venv-whisper/bin/python`). Если есть - переходи к шагу 4.
 
-2. **Если не установлен — запусти setup**. Установка занимает 10-20 минут (faster-whisper + ctranslate2-CUDA + sherpa-onnx + скачивание моделей). Дефолтный Bash-таймаут 2 минуты не подходит:
+2. **Если не установлен - запусти setup**. Установка занимает 10-20 минут (faster-whisper + ctranslate2-CUDA + sherpa-onnx + скачивание моделей). Дефолтный Bash-таймаут 2 минуты не подходит:
 
    - В Claude Code Bash tool используй `run_in_background: true` или `timeout: 1500000` (25 мин).
    - В других runtime - аналогичный длинный таймаут.
@@ -39,7 +39,7 @@ python scripts/setup.py
 
    Что setup сделает сам:
    - Создаст venv-whisper и venv-sherpa
-   - Если `ffmpeg` нет в PATH — поставит `static-ffmpeg` (pip-пакет с бинарниками) в venv-whisper. Без прав админа.
+   - Если `ffmpeg` нет в PATH - поставит `static-ffmpeg` (pip-пакет с бинарниками) в venv-whisper. Без прав админа.
    - Скачает модели диаризации
    - Проверит версию драйверов NVIDIA и предупредит, если они старее 525.x
 
@@ -47,7 +47,7 @@ python scripts/setup.py
    - Установить системные драйверы NVIDIA / CUDA Toolkit (нужны админ-права)
    - Поставить NVIDIA GPU в машину 😉
 
-   Если у машины нет GPU - setup упадёт с FAIL. Уточни у пользователя, согласен ли на CPU-режим (в 10+ раз медленнее), и перезапусти с `--allow-cpu`.
+   Если у машины нет GPU - setup упадет с FAIL. Уточни у пользователя, согласен ли на CPU-режим (в 10+ раз медленнее), и перезапусти с `--allow-cpu`.
 
 3. **Проверь установку** smoke-тестом (1-2 минуты, с реальной транскрипцией):
 
@@ -57,7 +57,7 @@ python scripts/setup.py
 
    Без `--full` (5 сек) - только проверка наличия venv'ов и моделей, без реального прогона.
 
-4. **Транскрибируй файл** (см. секцию «Инструкция» ниже). На CPU добавляй `--device cpu --compute-type int8`.
+4. **Транскрибируй файл** (см. секцию "Инструкция" ниже). На CPU добавляй `--device cpu --compute-type int8`.
 
 ## Режимы
 
@@ -127,4 +127,4 @@ PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8 \
 
 ## Установка диагностика
 
-Если транскрипция или диаризация падает - см. `README.md` секция «Troubleshooting».
+Если транскрипция или диаризация падает - см. `README.md` секция "Troubleshooting".

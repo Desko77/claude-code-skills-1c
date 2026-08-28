@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# mxl-validate v1.1 — Validate 1C spreadsheet document Template.xml
+# mxl-validate v1.1 - Validate 1C spreadsheet document Template.xml
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Validates spreadsheet Template.xml: height, palette refs, column/row indices, areas, merges."""
 import sys, os, argparse
@@ -201,7 +201,7 @@ def main():
             r.error(f'Font index {max_font_ref} exceeds palette size ({font_count})')
     elif max_font_ref > 0:
         r.error(f'Font index {max_font_ref} referenced but no fonts defined')
-    # No font references — no check needed
+    # No font references - no check needed
 
     # --- Check 11: line/border indices in formats ---
     if line_count > 0:
@@ -211,7 +211,7 @@ def main():
             r.error(f'Line index {max_line_ref} exceeds palette size ({line_count})')
     elif max_line_ref > 0:
         r.error(f'Line index {max_line_ref} referenced but no lines defined')
-    # No line/border references — no check needed
+    # No line/border references - no check needed
 
     # --- Check 3, 4, 5, 6: row/cell checks ---
     max_cell_format_ref = 0

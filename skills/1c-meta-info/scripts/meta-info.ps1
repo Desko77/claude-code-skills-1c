@@ -1,4 +1,4 @@
-﻿# meta-info v1.1 — Compact summary of 1C metadata object
+﻿# meta-info v1.1 - Compact summary of 1C metadata object
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory=$true)][string]$ObjectPath,
@@ -42,7 +42,7 @@ if (Test-Path $ObjectPath -PathType Container) {
 	}
 }
 
-# File not found — check Dir/Name/Name.xml → Dir/Name.xml (common LLM mistake)
+# File not found - check Dir/Name/Name.xml → Dir/Name.xml (common LLM mistake)
 if (-not (Test-Path $ObjectPath)) {
 	$fileName = [System.IO.Path]::GetFileNameWithoutExtension($ObjectPath)
 	$parentDir = Split-Path $ObjectPath
@@ -95,11 +95,11 @@ $typeNameMap = @{
 	"Catalog"="Справочник"; "Document"="Документ"; "Enum"="Перечисление"
 	"Constant"="Константа"; "InformationRegister"="Регистр сведений"
 	"AccumulationRegister"="Регистр накопления"; "AccountingRegister"="Регистр бухгалтерии"
-	"CalculationRegister"="Регистр расчёта"; "ChartOfAccounts"="План счетов"
+	"CalculationRegister"="Регистр расчета"; "ChartOfAccounts"="План счетов"
 	"ChartOfCharacteristicTypes"="План видов характеристик"
-	"ChartOfCalculationTypes"="План видов расчёта"; "BusinessProcess"="Бизнес-процесс"
+	"ChartOfCalculationTypes"="План видов расчета"; "BusinessProcess"="Бизнес-процесс"
 	"Task"="Задача"; "ExchangePlan"="План обмена"; "DocumentJournal"="Журнал документов"
-	"Report"="Отчёт"; "DataProcessor"="Обработка"
+	"Report"="Отчет"; "DataProcessor"="Обработка"
 	"DefinedType"="Определяемый тип"; "CommonModule"="Общий модуль"
 	"ScheduledJob"="Регламентное задание"; "EventSubscription"="Подписка на событие"
 	"HTTPService"="HTTP-сервис"; "WebService"="Веб-сервис"
@@ -523,7 +523,7 @@ if ($Name -and -not $drillDone -and $childObjs) {
 					elseif ($fvText -eq "true") { $fvText = "Истина" }
 					Out "  Значение заполнения: $fvText"
 				} else {
-					Out "  Значение заполнения: —"
+					Out "  Значение заполнения: -"
 				}
 				if ($tag -eq "Dimension") {
 					$master = $ap.SelectSingleNode("md:Master", $ns)
@@ -643,7 +643,7 @@ if (-not $drillDone) {
 
 	# --- Build header ---
 	$header = "=== $ruTypeName`: $objName"
-	if ($synonym -and $synonym -ne $objName) { $header += " — `"$synonym`"" }
+	if ($synonym -and $synonym -ne $objName) { $header += " - `"$synonym`"" }
 	$header += " ==="
 	Out $header
 
@@ -751,7 +751,7 @@ if (-not $drillDone) {
 				}
 			}
 		}
-		if ($briefOwners.Count -gt 0) { Out "Подчинён: $($briefOwners -join ', ')" }
+		if ($briefOwners.Count -gt 0) { Out "Подчинен: $($briefOwners -join ', ')" }
 
 		# Attributes
 		$attrs = @()
@@ -813,7 +813,7 @@ if (-not $drillDone) {
 			}
 		}
 
-		# CommonModule brief (same as overview — already compact)
+		# CommonModule brief (same as overview - already compact)
 		if ($mdType -eq "CommonModule") {
 			$flags = @()
 			if ($props.SelectSingleNode("md:Global", $ns).InnerText -eq "true") { $flags += "Глобальный" }
@@ -831,7 +831,7 @@ if (-not $drillDone) {
 			if ($flags.Count -gt 0) { Out ($flags -join " | ") }
 		}
 
-		# ScheduledJob brief (same as overview — already compact)
+		# ScheduledJob brief (same as overview - already compact)
 		if ($mdType -eq "ScheduledJob") {
 			$method = $props.SelectSingleNode("md:MethodName", $ns)
 			if ($method -and $method.InnerText) {
@@ -843,7 +843,7 @@ if (-not $drillDone) {
 			$use = $props.SelectSingleNode("md:Use", $ns)
 			$sjParts += "Использование: $(if ($use -and $use.InnerText -eq 'true') { 'да' } else { 'нет' })"
 			$predef = $props.SelectSingleNode("md:Predefined", $ns)
-			$sjParts += "Предопределённое: $(if ($predef -and $predef.InnerText -eq 'true') { 'да' } else { 'нет' })"
+			$sjParts += "Предопределенное: $(if ($predef -and $predef.InnerText -eq 'true') { 'да' } else { 'нет' })"
 			$restartCnt = $props.SelectSingleNode("md:RestartCountOnFailure", $ns)
 			$restartInt = $props.SelectSingleNode("md:RestartIntervalOnFailure", $ns)
 			if ($restartCnt -and [int]$restartCnt.InnerText -gt 0) {
@@ -890,7 +890,7 @@ if (-not $drillDone) {
 		# WebService brief
 		if ($mdType -eq "WebService") {
 			$nsUrl = $props.SelectSingleNode("md:Namespace", $ns)
-			if ($nsUrl -and $nsUrl.InnerText) { Out "Пространство имён: $($nsUrl.InnerText)" }
+			if ($nsUrl -and $nsUrl.InnerText) { Out "Пространство имен: $($nsUrl.InnerText)" }
 			if ($childObjs) {
 				$ops = @(Get-WSOperations $childObjs)
 				if ($ops.Count -gt 0) { Out "Операции: $($ops.Count)" }
@@ -940,7 +940,7 @@ if (-not $drillDone) {
 			}
 			if ($owners.Count -gt 0) {
 				$ownerNames = @($owners | ForEach-Object { ($_ -split '\.')[-1] })
-				$parts += "Подчинён: $($ownerNames -join ', ')"
+				$parts += "Подчинен: $($ownerNames -join ', ')"
 			}
 			if ($parts.Count -gt 0) { Out ($parts -join " | ") }
 		}
@@ -1038,7 +1038,7 @@ if (-not $drillDone) {
 			$use = $props.SelectSingleNode("md:Use", $ns)
 			$sjParts += "Использование: $(if ($use -and $use.InnerText -eq 'true') { 'да' } else { 'нет' })"
 			$predef = $props.SelectSingleNode("md:Predefined", $ns)
-			$sjParts += "Предопределённое: $(if ($predef -and $predef.InnerText -eq 'true') { 'да' } else { 'нет' })"
+			$sjParts += "Предопределенное: $(if ($predef -and $predef.InnerText -eq 'true') { 'да' } else { 'нет' })"
 			$restartCnt = $props.SelectSingleNode("md:RestartCountOnFailure", $ns)
 			$restartInt = $props.SelectSingleNode("md:RestartIntervalOnFailure", $ns)
 			if ($restartCnt -and [int]$restartCnt.InnerText -gt 0) {
@@ -1099,7 +1099,7 @@ if (-not $drillDone) {
 		# WebService: show namespace and operations
 		if ($mdType -eq "WebService") {
 			$nsUrl = $props.SelectSingleNode("md:Namespace", $ns)
-			if ($nsUrl -and $nsUrl.InnerText) { Out "Пространство имён: $($nsUrl.InnerText)" }
+			if ($nsUrl -and $nsUrl.InnerText) { Out "Пространство имен: $($nsUrl.InnerText)" }
 			if ($childObjs) {
 				$ops = @(Get-WSOperations $childObjs)
 				if ($ops.Count -gt 0) {
@@ -1182,7 +1182,7 @@ if (-not $drillDone) {
 						}
 					}
 				} else {
-					# overview — just names with column counts
+					# overview - just names with column counts
 					Out ""
 					$tsParts = $tss | ForEach-Object { "$($_.Name)($($_.ColCount))" }
 					Out "ТЧ ($($tss.Count)): $($tsParts -join ', ')"

@@ -13,7 +13,7 @@ This skill provides:
 ## Compatibility Rules (Read First)
 - Prefer `graph LR`/`graph TB` for flowcharts; some renderers fail on `flowchart` keyword.
 - Quote labels containing spaces/special characters: `A["Text (x|y) |"]`.
-- **Do not use literal `\n` inside labels** — Mermaid does not interpret such line breaks. Use `<br/>` for line breaks.
+- **Do not use literal `\n` inside labels** - Mermaid does not interpret such line breaks. Use `<br/>` for line breaks.
 - Advanced types like `quadrantChart`, `sankey-beta`, `requirementDiagram`, `gitGraph` may not be available. Use provided flowchart fallbacks.
 - Code fences must start at column 0 with language `mermaid`.
 
@@ -169,7 +169,7 @@ pie
   "Ads"     : 20
 ```
 
-### Quadrant — flowchart fallback
+### Quadrant - flowchart fallback
 ```mermaid
 graph TB
   Q1["Quick Wins<br/>High Impact - Low Effort<br/><br/>- Improve UX"]
@@ -183,7 +183,7 @@ graph TB
   Q3 --> Q4
 ```
 
-### Requirement — flowchart fallback
+### Requirement - flowchart fallback
 ```mermaid
 graph LR
   R1["Requirement: PCI-DSS compliant"]
@@ -194,7 +194,7 @@ graph LR
   T1  -- verifies  --> R1
 ```
 
-### Sankey — flowchart fallback (weights on edges)
+### Sankey - flowchart fallback (weights on edges)
 ```mermaid
 graph LR
   Checkout["Checkout"] -->|100| PSP["PSP"]
@@ -202,7 +202,7 @@ graph LR
   PSP -->|40|  Declined["Declined"]
 ```
 
-### Git graph — flowchart fallback (simple DAG)
+### Git graph - flowchart fallback (simple DAG)
 ```mermaid
 graph LR
   A["init"] --> B["feat-A"]

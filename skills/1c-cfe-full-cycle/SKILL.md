@@ -1,6 +1,6 @@
 ---
 name: 1c-cfe-full-cycle
-description: "Полный цикл создания расширения конфигурации 1С (CFE) — от scaffold до валидации. Workflow: cfe-init → borrow → patch → form → validate."
+description: "Полный цикл создания расширения конфигурации 1С (CFE) - от scaffold до валидации. Workflow: cfe-init → borrow → patch → form → validate."
 argument-hint: "<ExtensionName> для конфигурации <ConfigPath>"
 allowed-tools:
   - Bash
@@ -12,7 +12,7 @@ allowed-tools:
   - Skill
 ---
 
-# /cfe-full-cycle — Полный цикл создания расширения
+# /cfe-full-cycle - Полный цикл создания расширения
 
 Workflow-скил: оркестрирует цепочку навыков для создания расширения конфигурации от scaffold до валидации.
 
@@ -56,7 +56,7 @@ Workflow-скил: оркестрирует цепочку навыков для
 
 ## Важно
 
-- Всегда начинать с `/cf-info` — CompatibilityMode расширения должен совпадать с конфигурацией
+- Всегда начинать с `/cf-info` - CompatibilityMode расширения должен совпадать с конфигурацией
 - Purpose выбирать по задаче: `Patch` для багфиксов, `Customization` для доработок, `AddOn` для нового функционала
 - Собственные объекты расширения должны иметь префикс (`NamePrefix`)
 - Завершать `/cfe-validate` для проверки корректности

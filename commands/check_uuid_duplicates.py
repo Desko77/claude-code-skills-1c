@@ -4,7 +4,7 @@
 Проверка и исправление уникальности UUID в MDO-файлах конфигурации 1С.
 
 Сканирует .mdo файлы, извлекает UUID из атрибутов uuid, typeId, valueTypeId
-и находит дубликаты — межфайловые (коллизии между объектами) и опционально
+и находит дубликаты - межфайловые (коллизии между объектами) и опционально
 внутрифайловые.
 
 Использование:
@@ -14,11 +14,11 @@
     --fix            Исправить найденные дубликаты (заменить на новые UUID).
                      Первое вхождение сохраняется, остальные заменяются.
     --include-intra  Показывать/исправлять также внутрифайловые дубликаты
-                     (по умолчанию скрыты — в 1С uuid объекта часто
+                     (по умолчанию скрыты - в 1С uuid объекта часто
                      совпадает с typeId в producedTypes того же файла)
 
 Принимает файлы и папки. Папки сканируются рекурсивно (*.mdo).
-Код выхода: 0 — дубликатов нет (или все исправлены), 1 — есть дубликаты.
+Код выхода: 0 - дубликатов нет (или все исправлены), 1 - есть дубликаты.
 """
 
 import re
@@ -45,7 +45,7 @@ def collect_mdo_files(paths):
         elif path.is_dir():
             mdo_files.extend(path.rglob("*.mdo"))
         else:
-            print(f"ПРЕДУПРЕЖДЕНИЕ: пропущен '{p}' — не файл и не папка", file=sys.stderr)
+            print(f"ПРЕДУПРЕЖДЕНИЕ: пропущен '{p}' - не файл и не папка", file=sys.stderr)
     return sorted(set(mdo_files))
 
 
@@ -144,7 +144,7 @@ def fix_duplicates(duplicates, base_dir=None):
                 old_frag = f'{attr}="{old_uuid}"'
                 new_frag = f'{attr}="{new_uuid}"'
                 if old_frag.lower() in lines[idx].lower():
-                    # Замена с учётом регистра в файле
+                    # Замена с учетом регистра в файле
                     pattern = re.compile(
                         re.escape(f'{attr}="') + re.escape(old_uuid) + re.escape('"'),
                         re.IGNORECASE,
@@ -178,9 +178,9 @@ def format_path(filepath, base_dir=None):
 
 
 def print_report(duplicates, file_count, base_dir=None):
-    """Вывести отчёт о дубликатах."""
+    """Вывести отчет о дубликатах."""
     if not duplicates:
-        print(f"OK — дубликатов не найдено (проверено файлов: {file_count})")
+        print(f"OK - дубликатов не найдено (проверено файлов: {file_count})")
         return
 
     cross_file = {k: v for k, v in duplicates.items() if v["type"] == "МЕЖФАЙЛОВЫЙ"}
@@ -251,7 +251,7 @@ def main():
         print("\n--- Повторная проверка ---\n")
         duplicates2, file_count2 = find_duplicates(paths, include_intra)
         if not duplicates2:
-            print(f"OK — дубликатов не найдено (проверено файлов: {file_count2})")
+            print(f"OK - дубликатов не найдено (проверено файлов: {file_count2})")
             sys.exit(0)
         else:
             print(f"ВНИМАНИЕ: осталось дубликатов: {len(duplicates2)}")

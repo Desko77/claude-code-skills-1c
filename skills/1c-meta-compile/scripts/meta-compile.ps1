@@ -1,4 +1,4 @@
-﻿# meta-compile v1.10 — Compile 1C metadata object from JSON
+﻿# meta-compile v1.10 - Compile 1C metadata object from JSON
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
 # .v8-project.json editingAllowedCheck (deny|warn|off, default deny). Never
-# throws — guard errors degrade to allow.
+# throws - guard errors degrade to allow.
 function Get-RootUuid([string]$xmlPath) {
 	if (-not (Test-Path $xmlPath)) { return $null }
 	try {
@@ -113,29 +113,29 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 		$blocked = $false; $code = ""; $reason = ""
 		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
 		elseif ($require -eq 'removed') {
-			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки - удаление сломает обновления" }
 		}
 		else {
-			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке - редактирование сломает обновления" }
 		}
 		if (-not $blocked) { return }
 		$mode = Get-EditMode $cfgDir
 		if ($mode -eq 'off') { return }
-		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# Use Console.Error (not Write-Error) - under ErrorActionPreference=Stop the
 		# latter throws and would be swallowed by this function's own catch.
 		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
 		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
 		$offNote = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
 		if ($code -eq "capability-off") {
-			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
-			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '$rp' редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on - включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable - открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
 		} elseif ($code -eq "not-removed") {
-			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
-			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+			$state = "Состояние: объект '$rp' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно."
 		} else {
-			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
-			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+			$state = "Состояние: объект '$rp' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support - снять с поддержки: обновления по объекту больше не приходят."
 		}
 		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
 		exit 1
@@ -231,7 +231,7 @@ $script:objectTypeSynonyms = @{
 	"WSСсылка"                = "WSReference"
 }
 
-# Enum property value synonyms — model often gets these slightly wrong
+# Enum property value synonyms - model often gets these slightly wrong
 $script:enumValueAliases = @{
 	# RegisterType (AccumulationRegister)
 	"Balances"  = "Balance";  "Остатки" = "Balance";  "Обороты" = "Turnovers"
@@ -295,21 +295,21 @@ $script:validEnumValues = @{
 
 function Normalize-EnumValue {
 	param([string]$propName, [string]$value)
-	# 1. Check alias dictionary — silent auto-correct
+	# 1. Check alias dictionary - silent auto-correct
 	if ($script:enumValueAliases.ContainsKey($value)) {
 		return $script:enumValueAliases[$value]
 	}
-	# 2. Case-insensitive match against valid values — silent
+	# 2. Case-insensitive match against valid values - silent
 	$valid = $script:validEnumValues[$propName]
 	if ($valid) {
 		foreach ($v in $valid) {
 			if ($v -ieq $value) { return $v }
 		}
-		# 3. Known property, unknown value — error with hint
+		# 3. Known property, unknown value - error with hint
 		Write-Error "Invalid value '$value' for property '$propName'. Valid values: $($valid -join ', ')"
 		exit 1
 	}
-	# 4. Unknown property — pass-through (no validation data)
+	# 4. Unknown property - pass-through (no validation data)
 	return $value
 }
 
@@ -654,7 +654,7 @@ function Emit-TypeContent {
 		return
 	}
 
-	# Reference types — use local xmlns declaration for 1C compatibility
+	# Reference types - use local xmlns declaration for 1C compatibility
 	if ($typeStr -match '^(CatalogRef|DocumentRef|EnumRef|ChartOfAccountsRef|ChartOfCharacteristicTypesRef|ChartOfCalculationTypesRef|ExchangePlanRef|BusinessProcessRef|TaskRef)\.(.+)$') {
 		if ($CfgPrefix) {
 			X "$indent<v8:Type>cfg:$typeStr</v8:Type>"
@@ -671,7 +671,7 @@ function Emit-TypeContent {
 		return
 	}
 
-	# Fallback — emit as-is
+	# Fallback - emit as-is
 	X "$indent<v8:Type>$typeStr</v8:Type>"
 }
 
@@ -1157,7 +1157,7 @@ function Emit-Attribute {
 		X "$indent`t`t<FillFromFillingValue>false</FillFromFillingValue>"
 	}
 
-	# FillValue — same restriction
+	# FillValue - same restriction
 	if ($context -notin @("tabular", "processor", "register-other")) {
 		Emit-FillValue "$indent`t`t" $typeStr
 	}
@@ -1177,12 +1177,12 @@ function Emit-Attribute {
 	X "$indent`t`t<LinkByType/>"
 	X "$indent`t`t<ChoiceHistoryOnInput>Auto</ChoiceHistoryOnInput>"
 
-	# Use — only for catalog top-level attributes
+	# Use - only for catalog top-level attributes
 	if ($context -eq "catalog") {
 		X "$indent`t`t<Use>ForItem</Use>"
 	}
 
-	# Indexing/FullTextSearch/DataHistory — not for non-stored objects (processor, processor-tabular)
+	# Indexing/FullTextSearch/DataHistory - not for non-stored objects (processor, processor-tabular)
 	if ($context -notin @("processor", "processor-tabular")) {
 		$indexing = "DontIndex"
 		if ($parsed.flags -contains "index") { $indexing = "Index" }
@@ -1191,7 +1191,7 @@ function Emit-Attribute {
 		X "$indent`t`t<Indexing>$indexing</Indexing>"
 
 		X "$indent`t`t<FullTextSearch>Use</FullTextSearch>"
-		# DataHistory — not for Chart* types and non-InformationRegister register family
+		# DataHistory - not for Chart* types and non-InformationRegister register family
 		if ($context -ne "register-other") {
 			X "$indent`t`t<DataHistory>Use</DataHistory>"
 		}
@@ -1704,7 +1704,7 @@ function Emit-ConstantProperties {
 	# Type
 	# Build-TypeStr рассчитан на реквизиты, где `type` и есть тип данных. У определения ОБЪЕКТА
 	# `type` означает тип метаданных, поэтому общий откат тут не годится: без valueType в тип
-	# значения попадало слово Constant, и платформа отвергала загрузку с «Неизвестное имя типа».
+	# значения попадало слово Constant, и платформа отвергала загрузку с "Неизвестное имя типа".
 	$valueType = if ($def.valueType) { Build-TypeStr $def } else { "String" }
 	Emit-ValueType $i $valueType
 
@@ -1829,7 +1829,7 @@ function Emit-DefinedTypeProperties {
 	Emit-MLText $i "Synonym" $synonym
 	Emit-Comment $i
 
-	# Type — composite type with multiple v8:Type entries (accept both valueType and valueTypes)
+	# Type - composite type with multiple v8:Type entries (accept both valueType and valueTypes)
 	$valueTypes = @()
 	if ($def.valueTypes) {
 		$valueTypes = @($def.valueTypes)
@@ -1943,7 +1943,7 @@ function Emit-EventSubscriptionProperties {
 	Emit-MLText $i "Synonym" $synonym
 	Emit-Comment $i
 
-	# Source — array of v8:Type
+	# Source - array of v8:Type
 	$sources = @()
 	if ($def.source) { $sources = @($def.source) }
 	if ($sources.Count -gt 0) {
@@ -2111,7 +2111,7 @@ function Emit-ChartOfCharacteristicTypesProperties {
 	if ($charExtValues) { X "$i<CharacteristicExtValues>$charExtValues</CharacteristicExtValues>" }
 	else { X "$i<CharacteristicExtValues/>" }
 
-	# Type — composite type of allowed characteristic value types
+	# Type - composite type of allowed characteristic value types
 	$valueTypes = @()
 	if ($def.valueTypes) { $valueTypes = @($def.valueTypes) }
 	elseif ($def.valueType) { $valueTypes = @($def.valueType) }
@@ -2313,7 +2313,7 @@ function Emit-ChartOfAccountsProperties {
 
 	Emit-StandardAttributes $i "ChartOfAccounts"
 
-	# StandardTabularSections — ExtDimensionTypes
+	# StandardTabularSections - ExtDimensionTypes
 
 	X "$i<Characteristics/>"
 	X "$i<StandardTabularSections>"
@@ -4335,7 +4335,7 @@ if (Test-Path $configXmlPath) {
 				$childObjects.InsertAfter($newWs, $lastElem) | Out-Null
 				$childObjects.InsertAfter($newElem, $newWs) | Out-Null
 			} else {
-				# No existing elements of this type — insert before closing whitespace
+				# No existing elements of this type - insert before closing whitespace
 				$lastChild = $childObjects.LastChild
 				if ($lastChild.NodeType -eq [System.Xml.XmlNodeType]::Whitespace) {
 					$newWs = $configDoc.CreateWhitespace("`n`t`t`t")

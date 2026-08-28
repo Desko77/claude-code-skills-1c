@@ -1,4 +1,4 @@
-﻿# cf-info v1.0 — Compact summary of 1C configuration root
+﻿# cf-info v1.0 - Compact summary of 1C configuration root
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory=$true)][string]$ConfigPath,
@@ -110,11 +110,11 @@ $typeRuNames = @{
 	"CommonCommand"="Общие команды"; "CommandGroup"="Группы команд"; "Constant"="Константы"
 	"CommonForm"="Общие формы"; "Catalog"="Справочники"; "Document"="Документы"
 	"DocumentNumerator"="Нумераторы"; "Sequence"="Последовательности"; "DocumentJournal"="Журналы документов"
-	"Enum"="Перечисления"; "Report"="Отчёты"; "DataProcessor"="Обработки"
+	"Enum"="Перечисления"; "Report"="Отчеты"; "DataProcessor"="Обработки"
 	"InformationRegister"="Регистры сведений"; "AccumulationRegister"="Регистры накопления"
 	"ChartOfCharacteristicTypes"="ПВХ"; "ChartOfAccounts"="Планы счетов"
 	"AccountingRegister"="Регистры бухгалтерии"; "ChartOfCalculationTypes"="ПВР"
-	"CalculationRegister"="Регистры расчёта"; "BusinessProcess"="Бизнес-процессы"
+	"CalculationRegister"="Регистры расчета"; "BusinessProcess"="Бизнес-процессы"
 	"Task"="Задачи"; "IntegrationService"="Сервисы интеграции"; "Bot"="Боты"
 }
 

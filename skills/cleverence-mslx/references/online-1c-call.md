@@ -85,7 +85,7 @@ position.
   кода) is **field mapping at document exchange** (Загрузка/Выгрузка/Настройка печати), binding
   document/header/line fields. It is not a live function call.
 - The **"Произвольный код"** action in an MS algorithm evaluates an expression
-  `Приёмник = Источник`; it does not call 1C.
+  `Приемник = Источник`; it does not call 1C.
 - **"Расширение API через коннектор"** is a C# plugin (`IApiExtenderPlugin`) - heavyweight, not
   needed for this pattern.
 

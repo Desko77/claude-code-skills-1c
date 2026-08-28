@@ -1,4 +1,4 @@
-﻿# cfe-init v1.1 — Create 1C configuration extension scaffold (CFE)
+﻿# cfe-init v1.1 - Create 1C configuration extension scaffold (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]

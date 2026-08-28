@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# form-compile v1.6 — Compile 1C managed form from JSON or object metadata
+# form-compile v1.6 - Compile 1C managed form from JSON or object metadata
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import copy
@@ -12,10 +12,10 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 
 # ============================================================
-# Support guard (Ext/ParentConfigurations.bin) — see docs/1c-support-state-spec.md
+# Support guard (Ext/ParentConfigurations.bin) - see docs/1c-support-state-spec.md
 # Blocks edits of vendor objects "на замке" / read-only configs. Trigger = bin
 # present; reaction from .v8-project.json editingAllowedCheck (deny|warn|off,
-# default deny). Never throws (except sys.exit on deny) — errors degrade to allow.
+# default deny). Never throws (except sys.exit on deny) - errors degrade to allow.
 # ============================================================
 
 def _sg_parse(xml_path):
@@ -151,12 +151,12 @@ def assert_edit_allowed(target_path, require):
             if best is not None and best != 2:
                 blocked = True
                 code = "not-removed"
-                reason = "объект не снят с поддержки — удаление сломает обновления"
+                reason = "объект не снят с поддержки - удаление сломает обновления"
         else:
             if best is not None and best == 0:
                 blocked = True
                 code = "locked"
-                reason = "объект на замке — редактирование сломает обновления"
+                reason = "объект на замке - редактирование сломает обновления"
         if not blocked:
             return
         mode = _sg_get_edit_mode(cfg_dir)
@@ -166,28 +166,28 @@ def assert_edit_allowed(target_path, require):
             sys.stderr.write(f"[support-guard] ПРЕДУПРЕЖДЕНИЕ: {reason}. Цель: {rp}\n")
             return
         head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+        cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
         off_note = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
         if code == "capability-off":
-            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «{rp}» редактировать нельзя."
+            state = f"Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '{rp}' редактировать нельзя."
             fix = (
                 "Либо снять защиту явно (навык support-edit, два шага):\n"
-                f'  1. support-edit -Path "{cfg_dir}" -Capability on — включить возможность изменения (объекты пока остаются на замке);\n'
-                f'  2. support-edit -Path "{rp}" -Set editable — открыть этот объект для редактирования.\n'
+                f'  1. support-edit -Path "{cfg_dir}" -Capability on - включить возможность изменения (объекты пока остаются на замке);\n'
+                f'  2. support-edit -Path "{rp}" -Set editable - открыть этот объект для редактирования.\n'
                 "  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
             )
         elif code == "not-removed":
-            state = f"Состояние: объект «{rp}» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
+            state = f"Состояние: объект '{rp}' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
             fix = (
                 "Либо сначала снять объект с поддержки, затем удалять:\n"
-                f'  support-edit -Path "{rp}" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно.'
+                f'  support-edit -Path "{rp}" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно.'
             )
         else:
-            state = f"Состояние: объект «{rp}» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+            state = f"Состояние: объект '{rp}' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
             fix = (
                 "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):\n"
-                f'  support-edit -Path "{rp}" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
-                f'  support-edit -Path "{rp}" -Set off-support — снять с поддержки: обновления по объекту больше не приходят.'
+                f'  support-edit -Path "{rp}" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);\n'
+                f'  support-edit -Path "{rp}" -Set off-support - снять с поддержки: обновления по объекту больше не приходят.'
             )
         sys.stderr.write(head + "\n" + state + "\n" + cfe + "\n" + fix + "\n" + off_note + "\n")
         sys.exit(1)
@@ -581,7 +581,7 @@ def load_preset(preset_name, script_dir, out_path_resolved):
     return defaults
 
 
-# Non-displayable types — cannot be bound to form elements
+# Non-displayable types - cannot be bound to form elements
 NON_DISPLAYABLE_TYPES = ('ValueStorage', 'v8:ValueStorage', 'ХранилищеЗначения')
 
 def is_displayable_type(type_str):
@@ -1863,7 +1863,7 @@ def emit_single_type(lines, type_str, indent):
     if '.' in type_str:
         lines.append(f'{indent}<v8:Type>cfg:{type_str}</v8:Type>')
     else:
-        print(f"WARNING: Unrecognized bare type '{type_str}' — will be emitted without namespace prefix", file=sys.stderr)
+        print(f"WARNING: Unrecognized bare type '{type_str}' - will be emitted without namespace prefix", file=sys.stderr)
         lines.append(f'{indent}<v8:Type>{type_str}</v8:Type>')
 
 
@@ -2234,7 +2234,7 @@ def emit_table(lines, el, name, eid, indent):
 
     # Companions
     emit_companion(lines, 'ContextMenu', f'{name}\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u043d\u043e\u0435\u041c\u0435\u043d\u044e', inner)
-    # AutoCommandBar — with optional Autofill control
+    # AutoCommandBar - with optional Autofill control
     if el.get('tableAutofill') is not None:
         acb_id = new_id()
         acb_name = f'{name}\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c'
@@ -2710,7 +2710,7 @@ def _normalize_elements(defn):
     """
     def convert_elements(els):
         if isinstance(els, list):
-            # Already list format — but may have nested dicts inside groups
+            # Already list format - but may have nested dicts inside groups
             result = []
             for el in els:
                 if isinstance(el, dict):
@@ -3021,7 +3021,7 @@ def main():
         if defn.get('autoTitle') is None and 'autoTitle' not in (defn.get('properties') or {}):
             lines.append('\t<AutoTitle>false</AutoTitle>')
 
-    # Properties (skip 'title' — handled above)
+    # Properties (skip 'title' - handled above)
     if defn.get('properties'):
         props_clone = {k: v for k, v in defn['properties'].items() if k != 'title'}
         emit_properties(lines, props_clone, '\t')

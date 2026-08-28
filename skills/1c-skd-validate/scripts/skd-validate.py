@@ -1,4 +1,4 @@
-# skd-validate v1.1 — Validate 1C DCS structure (Python port)
+# skd-validate v1.1 - Validate 1C DCS structure (Python port)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 import argparse
 import json
@@ -642,7 +642,7 @@ def check_settings(settings_node, variant_name):
             if field is not None and inner_text(field) and inner_text(field) != "SystemFields.Number":
                 base_path = inner_text(field).split(".")[0]
                 if inner_text(field) not in known_fields and base_path not in known_fields:
-                    pass  # Soft check — autoFillFields may add fields not listed explicitly
+                    pass  # Soft check - autoFillFields may add fields not listed explicitly
 
     # Filter
     check_filter_items(settings_node, variant_name)

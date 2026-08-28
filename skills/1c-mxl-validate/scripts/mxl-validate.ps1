@@ -1,4 +1,4 @@
-﻿# mxl-validate v1.1 — Validate 1C spreadsheet
+﻿# mxl-validate v1.1 - Validate 1C spreadsheet
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[string]$TemplatePath,

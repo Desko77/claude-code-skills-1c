@@ -9,7 +9,7 @@ allowed-tools:
   - Glob
 ---
 
-# /meta-edit — точечное редактирование метаданных 1С
+# /meta-edit - точечное редактирование метаданных 1С
 
 Атомарные операции модификации существующих XML объектов метаданных.
 
@@ -35,11 +35,11 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 | DefinitionFile | JSON-файл с операциями (альтернатива Operation) |
 | NoValidate | Не запускать meta-validate после правки |
 
-## Операции — сводная таблица
+## Операции - сводная таблица
 
-Batch через `;;` во всех операциях. Подробный синтаксис — в файлах по ссылкам.
+Batch через `;;` во всех операциях. Подробный синтаксис - в файлах по ссылкам.
 
-### Дочерние элементы — [child-operations.md](child-operations.md)
+### Дочерние элементы - [child-operations.md](child-operations.md)
 
 | Операция | Формат Value | Пример |
 |----------|-------------|--------|
@@ -51,7 +51,7 @@ Batch через `;;` во всех операциях. Подробный си�
 | `add-column` | `Имя: Тип` | `"Тип: EnumRef.ТипыДокументов"` |
 | `add-form` / `add-template` / `add-command` | `Имя` | `"ФормаЭлемента"` |
 | `add-ts-attribute` | `ТЧ.Имя: Тип` | `"Товары.Скидка: Число(15,2)"` |
-| `remove-*` | `Имя` | `"СтарыйРеквизит ;; ЕщёОдин"` |
+| `remove-*` | `Имя` | `"СтарыйРеквизит ;; ЕщеОдин"` |
 | `remove-ts-attribute` | `ТЧ.Имя` | `"Товары.УстаревшийРекв"` |
 | `modify-attribute` | `Имя: ключ=значение` | `"СтароеИмя: name=НовоеИмя, type=Строка(500)"` |
 | `modify-ts-attribute` | `ТЧ.Имя: ключ=значение` | `"Товары.Рекв: name=НовоеИмя"` |
@@ -59,7 +59,7 @@ Batch через `;;` во всех операциях. Подробный си�
 
 Позиционная вставка: `"Склад: CatalogRef.Склады >> after Организация"`.
 
-### Свойства объекта — [properties-reference.md](properties-reference.md)
+### Свойства объекта - [properties-reference.md](properties-reference.md)
 
 | Операция | Формат Value | Пример |
 |----------|-------------|--------|
@@ -71,7 +71,7 @@ Batch через `;;` во всех операциях. Подробный си�
 | `set-owners` / `set-registerRecords` / `set-basedOn` / `set-inputByString` | Замена всего списка | `"Catalog.Орг ;; Catalog.Контр"` |
 | `remove-owner` / `remove-registerRecord` / ... | Удаление из списка | `"Catalog.Контрагенты"` |
 
-### JSON DSL — [json-dsl.md](json-dsl.md)
+### JSON DSL - [json-dsl.md](json-dsl.md)
 
 Для комбинированных операций (add + remove + modify в одном файле), синонимы ключей/типов, таблица поддерживаемых объектов.
 
@@ -103,6 +103,6 @@ Batch через `;;` во всех операциях. Подробный си�
 ## Верификация
 
 ```
-/meta-validate <ObjectPath>    — валидация после редактирования
-/meta-info <ObjectPath>        — визуальная сводка
+/meta-validate <ObjectPath>    - валидация после редактирования
+/meta-info <ObjectPath>        - визуальная сводка
 ```

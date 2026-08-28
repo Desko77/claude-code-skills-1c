@@ -1,4 +1,4 @@
-﻿# role-info v1.0 — Analyze 1C role rights
+﻿# role-info v1.0 - Analyze 1C role rights
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory=$true)][string]$RightsPath,

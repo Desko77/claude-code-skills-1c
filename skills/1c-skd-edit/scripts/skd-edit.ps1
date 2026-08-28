@@ -1,4 +1,4 @@
-﻿# skd-edit v1.11 — Atomic 1C DCS editor
+﻿# skd-edit v1.11 - Atomic 1C DCS editor
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -33,7 +33,7 @@ $ErrorActionPreference = "Stop"
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
 # .v8-project.json editingAllowedCheck (deny|warn|off, default deny). Never
-# throws — guard errors degrade to allow.
+# throws - guard errors degrade to allow.
 function Get-RootUuid([string]$xmlPath) {
 	if (-not (Test-Path $xmlPath)) { return $null }
 	try {
@@ -131,29 +131,29 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 		$blocked = $false; $code = ""; $reason = ""
 		if ($G -eq 1) { $blocked = $true; $code = "capability-off"; $reason = "возможность изменения конфигурации выключена (вся конфигурация read-only)" }
 		elseif ($require -eq 'removed') {
-			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки — удаление сломает обновления" }
+			if ($null -ne $best -and $best -ne 2) { $blocked = $true; $code = "not-removed"; $reason = "объект не снят с поддержки - удаление сломает обновления" }
 		}
 		else {
-			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке — редактирование сломает обновления" }
+			if ($null -ne $best -and $best -eq 0) { $blocked = $true; $code = "locked"; $reason = "объект на замке - редактирование сломает обновления" }
 		}
 		if (-not $blocked) { return }
 		$mode = Get-EditMode $cfgDir
 		if ($mode -eq 'off') { return }
-		# Use Console.Error (not Write-Error) — under ErrorActionPreference=Stop the
+		# Use Console.Error (not Write-Error) - under ErrorActionPreference=Stop the
 		# latter throws and would be swallowed by this function's own catch.
 		if ($mode -eq 'warn') { [Console]::Error.WriteLine("[support-guard] ПРЕДУПРЕЖДЕНИЕ: $reason. Цель: $rp"); return }
 		$head = "[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, прямое редактирование молча сломает будущие обновления."
-		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — состояние поддержки менять не нужно, обновления вендора сохраняются."
+		$cfe = "Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - состояние поддержки менять не нужно, обновления вендора сохраняются."
 		$offNote = "Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json."
 		if ($code -eq "capability-off") {
-			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — поэтому объект «$rp» редактировать нельзя."
-			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on — включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable — открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
+			$state = "Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - поэтому объект '$rp' редактировать нельзя."
+			$fix = "Либо снять защиту явно (навык support-edit, два шага):`n  1. support-edit -Path ""$cfgDir"" -Capability on - включить возможность изменения (объекты пока остаются на замке);`n  2. support-edit -Path ""$rp"" -Set editable - открыть этот объект для редактирования.`n  Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора."
 		} elseif ($code -eq "not-removed") {
-			$state = "Состояние: объект «$rp» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора."
-			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support — объект уходит из-под обновлений, после этого удаление безопасно."
+			$state = "Состояние: объект '$rp' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора."
+			$fix = "Либо сначала снять объект с поддержки, затем удалять:`n  support-edit -Path ""$rp"" -Set off-support - объект уходит из-под обновлений, после этого удаление безопасно."
 		} else {
-			$state = "Состояние: объект «$rp» на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
-			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable — редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support — снять с поддержки: обновления по объекту больше не приходят."
+			$state = "Состояние: объект '$rp' на замке (возможность изменения конфигурации включена, но сам объект не редактируется)."
+			$fix = "Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`n  support-edit -Path ""$rp"" -Set editable - редактировать и дальше получать обновления вендора (возможны конфликты слияния);`n  support-edit -Path ""$rp"" -Set off-support - снять с поддержки: обновления по объекту больше не приходят."
 		}
 		[Console]::Error.WriteLine("$head`n$state`n$cfe`n$fix`n$offNote")
 		exit 1
@@ -338,7 +338,7 @@ function Read-FieldProperties($fieldEl) {
 				}
 			}
 			"valueType" {
-				# Read type info — store the raw element for now, we'll use type from parsed if overridden
+				# Read type info - store the raw element for now, we'll use type from parsed if overridden
 				$typeEl = $null
 				foreach ($gc in $ch.ChildNodes) {
 					if ($gc.NodeType -eq 'Element' -and $gc.LocalName -eq 'Type') {
@@ -394,7 +394,7 @@ function Parse-CalcShorthand {
 	# Pattern: "Name [Title]: type = Expression #noField #noFilter ...".
 	# - `[Title]` is extracted only from the LHS of '=' so that `[...]` inside
 	#   an expression (e.g. index access) isn't interpreted as a title.
-	# - `#restrict` flags use a known-names pattern and are extracted globally —
+	# - `#restrict` flags use a known-names pattern and are extracted globally -
 	#   the docs put them after `=`, and the closed flag set avoids matching
 	#   `#word` that happens to appear inside a string literal.
 	$restrictPattern = '#(noField|noFilter|noCondition|noGroup|noOrder)\b'
@@ -636,7 +636,7 @@ function Parse-DataSetShorthand {
 	param([string]$s)
 
 	$s = $s.Trim()
-	# "Name: QUERY" — split on first ": " only if prefix is a single word (no spaces)
+	# "Name: QUERY" - split on first ": " only if prefix is a single word (no spaces)
 	if ($s -match '^(\S+):\s(.+)$') {
 		return @{ name = $Matches[1]; query = $Matches[2] }
 	}
@@ -661,7 +661,7 @@ function Parse-ConditionalAppearanceShorthand {
 
 	$result = @{ param = ""; value = ""; filter = $null; fields = @() }
 
-	# Extract " when ..." — condition part
+	# Extract " when ..." - condition part
 	$whenIdx = $s.IndexOf(' when ')
 	$forIdx = $s.IndexOf(' for ')
 
@@ -2138,7 +2138,7 @@ switch ($Operation) {
 
 			# 3. Update <dcscor:parameter>OldName</dcscor:parameter> in dataParameters of all variants.
 			# Note: <settingsVariant> is in schNs, but <settings> and <dataParameters> are in setNs.
-			# IMPORTANT: don't use $variant — it collides with script parameter [string]$Variant
+			# IMPORTANT: don't use $variant - it collides with script parameter [string]$Variant
 			# (PowerShell vars are case-insensitive, and the [string] type would coerce XmlNode to "").
 			$dpUpdated = 0
 			foreach ($variantNode in $root.ChildNodes) {
@@ -2166,7 +2166,7 @@ switch ($Operation) {
 
 	"reorder-parameters" {
 		foreach ($val in $values) {
-			# Shorthand: "Name1, Name2, Name3" — partial list, listed names go first in order, rest preserve original order
+			# Shorthand: "Name1, Name2, Name3" - partial list, listed names go first in order, rest preserve original order
 			$order = @($val -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 			if ($order.Count -eq 0) {
 				Write-Host "[WARN] reorder-parameters: empty list - skipped"
@@ -2348,7 +2348,7 @@ switch ($Operation) {
 				$nsMgr.AddNamespace("xsi", $xsiNs)
 				$groupEl = $settings.SelectSingleNode(".//dcsset:item[@xsi:type='dcsset:StructureItemGroup'][dcsset:name='$groupName']", $nsMgr)
 				if (-not $groupEl) {
-					Write-Host "[WARN] StructureItemGroup `"$groupName`" not found — adding to variant level"
+					Write-Host "[WARN] StructureItemGroup `"$groupName`" not found - adding to variant level"
 					$targetEl = $settings
 				} else {
 					$targetEl = $groupEl
@@ -2508,7 +2508,7 @@ switch ($Operation) {
 		$structItems = Parse-StructureShorthand $Value
 		$settingsIndent = Get-ChildIndent $settings
 
-		# Find insertion point — before outputParameters/dataParameters/conditionalAppearance/order/filter/selection or at end
+		# Find insertion point - before outputParameters/dataParameters/conditionalAppearance/order/filter/selection or at end
 		$refNode = Find-FirstElement $settings @("outputParameters","dataParameters","conditionalAppearance","order","filter","selection","item") $setNs
 		if (-not $refNode) { $refNode = $null }
 
@@ -2612,7 +2612,7 @@ switch ($Operation) {
 		foreach ($val in $values) {
 			$parsed = Parse-VariantShorthand $val
 
-			# Duplicate check — search for settingsVariant with matching dcsset:name
+			# Duplicate check - search for settingsVariant with matching dcsset:name
 			$isDup = $false
 			foreach ($ch in $root.ChildNodes) {
 				if ($ch.NodeType -eq 'Element' -and $ch.LocalName -eq 'settingsVariant' -and $ch.NamespaceURI -eq $schNs) {
@@ -3075,7 +3075,7 @@ switch ($Operation) {
 					}
 				}
 			} catch {
-				# No variant — that's fine
+				# No variant - that's fine
 			}
 		}
 	}
@@ -3167,7 +3167,7 @@ switch ($Operation) {
 	}
 
 	"add-drilldown" {
-		# String-based manipulation — templates use dcsat namespace with inline xmlns
+		# String-based manipulation - templates use dcsat namespace with inline xmlns
 		$rawText = [System.IO.File]::ReadAllText($resolvedPath, [System.Text.Encoding]::UTF8)
 		$nl = "`r`n"
 		$dcsatNsDecl = 'xmlns:dcsat="http://v8.1c.ru/8.1/data-composition-system/area-template"'
@@ -3206,7 +3206,7 @@ switch ($Operation) {
 			Write-Host "[WARN] No named templates found in schema"
 		}
 
-		# Collect all insertions as (position, text) — apply in reverse order
+		# Collect all insertions as (position, text) - apply in reverse order
 		$insertions = [System.Collections.ArrayList]::new()
 
 		foreach ($tplBlock in $tplBlocks) {
@@ -3276,7 +3276,7 @@ switch ($Operation) {
 					$appEnd = $tplText.LastIndexOf("</dcsat:appearance>", $cellEnd)
 					if ($appEnd -lt $cellIdx) { $searchStart = $cellEnd + 1; continue }
 
-					# Detect indent for appearance items — insert after \n, before indent of </dcsat:appearance>
+					# Detect indent for appearance items - insert after \n, before indent of </dcsat:appearance>
 					$appPrevNl = $tplText.LastIndexOf("`n", $appEnd)
 					$appIndent = "`t`t`t`t`t`t"
 					if ($appPrevNl -ge 0) {
@@ -3308,7 +3308,7 @@ switch ($Operation) {
 			$rawText = $rawText.Insert($ins.pos, $ins.text)
 		}
 
-		# Write directly — skip DOM save
+		# Write directly - skip DOM save
 		$enc = New-Object System.Text.UTF8Encoding($true)
 		[System.IO.File]::WriteAllText($resolvedPath, $rawText, $enc)
 		Write-Host "[OK] Saved $resolvedPath"

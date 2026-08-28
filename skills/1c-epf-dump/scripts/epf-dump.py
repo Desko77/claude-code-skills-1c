@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# epf-dump v1.0 — Dump external data processor or report (EPF/ERF) to XML sources
+# epf-dump v1.0 - Dump external data processor or report (EPF/ERF) to XML sources
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
