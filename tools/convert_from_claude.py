@@ -271,7 +271,9 @@ def build_skill_frontmatter(fm: dict) -> str:
     if "description" in fm:
         desc = fm["description"]
         if not desc.startswith('"'):
-            desc = f'"{desc}"'
+            # Значение берется в двойные кавычки, поэтому вложенные заменяются
+            # одинарными: иначе первая же из них закрывает скаляр и YAML не читается.
+            desc = f'"{desc.replace(chr(34), chr(39))}"'
         lines.append(f"description: {desc}")
     lines.append("---")
     return "\n".join(lines)
