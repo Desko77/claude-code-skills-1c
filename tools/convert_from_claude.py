@@ -468,6 +468,17 @@ def convert_tools(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
     return results
 
 
+def convert_gitattributes(source: Path, target: Path, dry_run: bool) -> list[str]:
+    """Переносит .gitattributes: он задает EOL фикстур, а их байты - предмет проверки."""
+    src = source / '.gitattributes'
+    if not src.exists():
+        return ['  SKIP: нет .gitattributes']
+    dst = target / '.gitattributes'
+    if not dry_run:
+        dst.write_text(src.read_text(encoding='utf-8'), encoding='utf-8', newline='')
+    return [f"  {'[DRY] ' if dry_run else ''}.gitattributes"]
+
+
 def convert_workflows(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]:
     """Перенести описание сборки: без него тесты в зеркале лежат, но не запускаются."""
     results = []
@@ -586,6 +597,12 @@ def main():
     # Copy tools used by CI
     print("\n=== Tools ===")
     for msg in convert_tools(source / "tools", target / "tools", dry_run):
+        print(msg)
+
+    # Политика концов строк переносится вместе с тестами: без нее фикстуры lf-*
+    # приходят в рабочую копию с CRLF и проверки сохранения EOL падают.
+    print("\n=== EOL ===")
+    for msg in convert_gitattributes(source, target, dry_run):
         print(msg)
 
     # Copy CI workflows
