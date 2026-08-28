@@ -3,7 +3,7 @@
 Набор скилов, правил и команд для [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
 агент правит 1С по формату платформы, а не текстовым поиском по файлам.
 
-[![Лицензия MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Лицензия MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 [![Релиз](https://img.shields.io/github/v/release/Desko77/claude-code-skills-1c)](https://github.com/Desko77/claude-code-skills-1c/releases)
 [![Тесты](https://github.com/Desko77/claude-code-skills-1c/actions/workflows/tests.yml/badge.svg)](https://github.com/Desko77/claude-code-skills-1c/actions/workflows/tests.yml)
 

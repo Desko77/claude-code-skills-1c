@@ -468,6 +468,16 @@ def convert_tools(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
     return results
 
 
+def convert_license(source: Path, target: Path, dry_run: bool) -> list[str]:
+    """Переносит файл лицензии: на него ссылается README зеркала."""
+    src = source / 'LICENSE.md'
+    if not src.exists():
+        return ['  SKIP: нет LICENSE.md']
+    if not dry_run:
+        (target / 'LICENSE.md').write_text(src.read_text(encoding='utf-8'), encoding='utf-8', newline='')
+    return [f"  {'[DRY] ' if dry_run else ''}LICENSE.md"]
+
+
 def convert_gitattributes(source: Path, target: Path, dry_run: bool) -> list[str]:
     """Переносит .gitattributes: он задает EOL фикстур, а их байты - предмет проверки."""
     src = source / '.gitattributes'
@@ -603,6 +613,8 @@ def main():
     # приходят в рабочую копию с CRLF и проверки сохранения EOL падают.
     print("\n=== EOL ===")
     for msg in convert_gitattributes(source, target, dry_run):
+        print(msg)
+    for msg in convert_license(source, target, dry_run):
         print(msg)
 
     # Copy CI workflows
