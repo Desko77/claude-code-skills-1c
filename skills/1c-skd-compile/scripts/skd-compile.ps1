@@ -1216,7 +1216,7 @@ function Emit-SingleParam {
 	}
 
 	# Value
-	if ($null -eq $parsed.value) {
+	if (Test-EmptyParamValue $parsed.value) {
 		if (-not $parsed.valueListAllowed) {
 			Emit-EmptyParamValue -type $parsed.type -indent "`t`t"
 		}
@@ -1349,8 +1349,25 @@ function Emit-Parameters {
 }
 
 # Параметр без значения: ссылочный тип и тип без указания дают nil, строка - пустой элемент.
+# Формы записи пустого значения параметра. Разворачиваются в отсутствие значения, а не в
+# значение из этих букв: замер на платформе 8.3.27.2214 показал, что просочившийся маркер
+# делает схему нечитаемой - дата со значением null, булево с пустым содержимым и вариант
+# периода из подчеркивания отвергаются при разборе.
+$script:EmptyValueTokens = @('', '_', 'null')
+
+function Test-EmptyParamValue {
+	param($val)
+	if ($null -eq $val) { return $true }
+	if ($val -is [string]) { return $script:EmptyValueTokens -contains $val.Trim() }
+	return $false
+}
+
 function Emit-EmptyParamValue {
 	param([string]$type, [string]$indent)
+	# Составной тип не ссылочный и не строковый: у него несколько типов, и приписывать
+	# пустому значению строковый тип нельзя - платформа такую схему отвергает. Типы в
+	# составном разделяются ПРОБЕЛОМ; запятая стоит внутри квалификаторов одиночного типа.
+	if ($type -and $type.Trim() -match '\s') { return }
 	if (-not $type -or $type -match '^[A-Za-z]+Ref\.') {
 		X "$indent<value xsi:nil=`"true`"/>"
 	} elseif ($type -match '^string') {

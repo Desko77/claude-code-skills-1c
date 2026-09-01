@@ -30,7 +30,6 @@
 				<v8:AllowedLength>Variable</v8:AllowedLength>
 			</v8:StringQualifiers>
 		</valueType>
-		<value xsi:type="xs:string"></value>
 		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
@@ -41,7 +40,6 @@
 				<v8:DateFractions>Date</v8:DateFractions>
 			</v8:DateQualifiers>
 		</valueType>
-		<value xsi:type="xs:dateTime"></value>
 		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
@@ -49,7 +47,6 @@
 		<valueType>
 			<v8:Type>decimal</v8:Type>
 		</valueType>
-		<value xsi:type="xs:decimal"></value>
 		<useRestriction>false</useRestriction>
 	</parameter>
 	<parameter>
@@ -57,7 +54,6 @@
 		<valueType>
 			<v8:Type xmlns:d5p1="http://v8.1c.ru/8.1/data/enterprise/current-config">d5p1:CatalogRef.Номенклатура</v8:Type>
 		</valueType>
-		<value xsi:type="dcscor:DesignTimeValue"></value>
 		<useRestriction>false</useRestriction>
 	</parameter>
 	<settingsVariant>

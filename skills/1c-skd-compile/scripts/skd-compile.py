@@ -1142,8 +1142,30 @@ def emit_total_fields(lines, defn):
 REF_TYPE_RE = re.compile(r'^[A-Za-z]+Ref\.')
 
 
+# Формы записи пустого значения параметра. Разворачиваются в отсутствие значения, а не в
+# значение из этих букв: замер на платформе 8.3.27.2214 показал, что просочившийся маркер
+# делает схему нечитаемой - дата со значением null, булево с пустым содержимым и вариант
+# периода из подчеркивания отвергаются при разборе.
+EMPTY_VALUE_TOKENS = ('', '_', 'null')
+
+
+def is_empty_param_value(val):
+    """Значение параметра пустое: не задано вовсе либо задано маркером пустоты."""
+    return val is None or (isinstance(val, str) and val.strip() in EMPTY_VALUE_TOKENS)
+
+
 def emit_empty_param_value(lines, type_str, indent):
-    """Параметр без значения: ссылочный тип и тип без указания дают nil, строка - пустой элемент."""
+    """Параметр без значения: ссылочный тип и тип без указания дают nil, строка - пустой элемент.
+
+    Составной тип не относится ни к тем, ни к другим: у него несколько типов, и приписывать
+    пустому значению строковый тип нельзя - платформа такую схему отвергает. Для остальных
+    типов элемент значения не пишется вовсе.
+
+    Типы в составном разделяются ПРОБЕЛОМ. Запятая тут не признак: она стоит внутри
+    квалификаторов одиночного типа - string(10,fix), Number(5,2).
+    """
+    if type_str and ' ' in type_str.strip():
+        return
     if not type_str or REF_TYPE_RE.match(type_str):
         lines.append(f'{indent}<value xsi:nil="true"/>')
     elif type_str.startswith('string'):
@@ -1207,7 +1229,7 @@ def emit_single_param(lines, p, parsed):
         lines.append('\t\t</valueType>')
 
     # Value
-    if parsed.get('value') is None:
+    if is_empty_param_value(parsed.get('value')):
         if not parsed.get('valueListAllowed'):
             emit_empty_param_value(lines, parsed.get('type', ''), '\t\t')
     else:

@@ -29,6 +29,16 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Формы записи пустого значения параметра: не задано вовсе либо задано маркером.
+$script:EmptyValueTokens = @('', '_', 'null')
+
+function Test-EmptyParamValue {
+	param($val)
+	if ($null -eq $val) { return $true }
+	if ($val -is [string]) { return $script:EmptyValueTokens -contains $val.Trim() }
+	return $false
+}
+
 # --- Support guard (Ext/ParentConfigurations.bin) ---
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
@@ -963,7 +973,9 @@ function Build-ParamFragment {
 		$lines += "$i`t</valueType>"
 	}
 
-	if ($null -ne $parsed.value) {
+	# Маркер пустого значения не печатается значением: пустым считается и отсутствие
+	# значения, и обозначения пустоты, которые так же читает компилятор схемы.
+	if (-not (Test-EmptyParamValue $parsed.value)) {
 		$valStr = "$($parsed.value)"
 		if ($parsed.type -eq "StandardPeriod") {
 			$lines += "$i`t<value xsi:type=`"v8:StandardPeriod`">"
@@ -2010,9 +2022,28 @@ switch ($Operation) {
 				foreach ($kv in $kvPairs) {
 					$key = $kv.Groups[1].Value
 					$value = $kv.Groups[2].Value
-					# "_" и "null" - принятые в наборе обозначения пустого значения: их так же читает
-					# компилятор схемы. В узел кладется пустая строка, а не текст самого обозначения.
-					if ($key -eq "value" -and ($value -eq "_" -or $value -eq "null")) { $value = "" }
+					# "_" и "null" - принятые в наборе обозначения пустого значения: их так же
+					# читает компилятор схемы. Пустое значение означает ОТСУТСТВИЕ элемента, а не
+					# элемент с пустым текстом.
+					if ($key -eq "value" -and (Test-EmptyParamValue $value)) {
+						$existingValue = $null
+						foreach ($child in $paramEl.ChildNodes) {
+							if ($child.NodeType -eq 'Element' -and $child.LocalName -eq 'value') { $existingValue = $child; break }
+						}
+						if ($null -ne $existingValue) {
+							# Вместе с элементом снимается предшествующий отступ, иначе на его месте
+							# остается пустая строка.
+							$prev = $existingValue.PreviousSibling
+							$null = $paramEl.RemoveChild($existingValue)
+							if ($null -ne $prev -and $prev.NodeType -eq 'Whitespace') {
+								$null = $paramEl.RemoveChild($prev)
+							}
+							Write-Host "[OK] Parameter `"$paramName`": значение снято"
+						} else {
+							Write-Host "[OK] Parameter `"$paramName`": значения не было"
+						}
+						continue
+					}
 
 					# Документ лежит в пространстве имен схемы, и XPath без префикса в него не попадает:
 					# SelectSingleNode всегда возвращал null, поэтому вместо правки узла дописывался второй.

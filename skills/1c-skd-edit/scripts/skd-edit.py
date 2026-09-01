@@ -15,6 +15,15 @@ from lxml import etree
 # default deny). Never throws (except sys.exit on deny) - errors degrade to allow.
 # ============================================================
 
+
+# Формы записи пустого значения параметра: не задано вовсе либо задано маркером.
+EMPTY_VALUE_TOKENS = ('', '_', 'null')
+
+
+def is_empty_param_value(val):
+    """Значение параметра пустое: не задано вовсе либо задано маркером пустоты."""
+    return val is None or (isinstance(val, str) and val.strip() in EMPTY_VALUE_TOKENS)
+
 def _sg_parse(xml_path):
     """Разбор XML средствами стандартной библиотеки.
 
@@ -933,7 +942,10 @@ def build_param_fragment(parsed, indent):
         lines.append(build_value_type_xml(parsed["type"], f"{i}\t\t"))
         lines.append(f"{i}\t</valueType>")
 
-    if parsed["value"] is not None:
+    # Маркер пустого значения не печатается значением. Замер на платформе 8.3.27.2214:
+    # дата со значением null, булево с пустым содержимым и вариант периода из
+    # подчеркивания делают схему нечитаемой при разборе.
+    if not is_empty_param_value(parsed["value"]):
         val_str = str(parsed["value"])
         if parsed.get("type") == "StandardPeriod":
             lines.append(f'{i}\t<value xsi:type="v8:StandardPeriod">')
@@ -1809,10 +1821,19 @@ elif operation == "modify-parameter":
         if simple_rest:
             for m in re.finditer(r'(\w+)=(\S+)', simple_rest):
                 key, value = m.group(1), m.group(2)
-                # "_" и "null" - принятые в наборе обозначения пустого значения: их так же читает
-                # компилятор схемы. В узел кладется пустая строка, а не текст самого обозначения.
-                if key == 'value' and value in ('_', 'null'):
-                    value = ''
+                # "_" и "null" - принятые в наборе обозначения пустого значения: их так же
+                # читает компилятор схемы. Пустое значение означает ОТСУТСТВИЕ элемента, а не
+                # элемент с пустым текстом: замер на платформе 8.3.27.2214 показал, что
+                # типизированный элемент без содержимого делает схему нечитаемой.
+                if key == 'value' and value.strip() in ('', '_', 'null'):
+                    existing = next((ch for ch in param_el if isinstance(ch.tag, str)
+                                     and local_name(ch) == 'value'), None)
+                    if existing is not None:
+                        param_el.remove(existing)
+                        print(f'[OK] Parameter "{param_name}": значение снято')
+                    else:
+                        print(f'[OK] Parameter "{param_name}": значения не было')
+                    continue
                 existing = next((ch for ch in param_el if isinstance(ch.tag, str) and local_name(ch) == key), None)
                 if existing is not None:
                     existing.text = value
