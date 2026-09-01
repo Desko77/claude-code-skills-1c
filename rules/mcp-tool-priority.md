@@ -13,7 +13,9 @@
 | API платформы: существует ли метод, сигнатура, типы, конструкторы | **bsl-platform-help** (`search`, `info`, `get_member`, `get_members`, `get_constructors`, `get_platform_info`) | скил `1c-platform-docs` |
 | Стиль BSL и строгая типизация | **bsl-platform-help**: `get_coding_guideline` (без параметров), `get_strict_typing_info(topic)` - `topic="topics"` вернет список тем, `search_strict_typing(query)` | в скиле не описаны, параметры здесь |
 | Качество BSL, ревью стиля, стандарты ИТС, документация платформы и конфигураций | **1c-naparnik** (`ask_1c_ai`, `check_1c_code`, `review_1c_code`, `rewrite_1c_code`, `modify_1c_code`, `explain_1c_syntax`, `its_help`, `fetch_its`, `search_1c_documentation`, `onec_help`, `diff_1c_documentation_versions`, `config_help`) | скил `1c-naparnik` |
-| Функции БСП по описанию задачи | **1c-mcp_ssl_server**: единственный инструмент `ssl_search(query)`, запрос на русском | скил `1c-ssl-patterns` |
+| Как решается прикладная задача через БСП, каким механизмом | скил `1c-ssl-patterns`: 38 справочников по 70 темам документации | сам скил |
+| Существует ли вызов БСП, его сигнатура, контекст, устаревание | скил `1c-bsp-api`, офлайн: `bsp-api.py check Модуль.Метод` | сам скил |
+| Поиск по теме, когда механизма нет в справочниках | **1c-mcp_ssl_server**: единственный инструмент `ssl_search(query)`, запрос на русском; найденное подтверждать через `check` | скил `1c-ssl-patterns` |
 | Синтаксис BSL без запущенной EDT | **1c-syntax-checker-mcp**: единственный инструмент `syntaxcheck(code)`, на вход текст кода строкой, НЕ путь к файлу | - |
 | Готовый паттерн или шаблон кода | **1c-templates-mcp** (`templatesearch`, `get_template`, `list_templates`, `add_template`, `update_template`, `delete_template`) | - |
 | Конфигурация 1С 7.7: объекты, реквизиты, модули, трассировка реквизита | **1c77-metadata** (обязателен для 7.7 вместо ручного парсинга CP1251). ставится отдельно (см. github.com/ivanarama/77MCP), запускается локально на своем порту | скил `1c77-dev` |
