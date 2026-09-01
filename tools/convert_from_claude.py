@@ -342,9 +342,10 @@ def convert_skill(source_dir: Path, target_dir: Path, dry_run: bool) -> str:
     if not dry_run:
         (target_skill_dir / "SKILL.md").write_text(result, encoding="utf-8")
 
-    # Copy scripts/, references/, reference/, docs/, examples/, presets/ directories
+    # Каталоги навыка, которые переносятся целиком. data/ здесь потому, что у скила шагов
+    # Vanessa там лежит реестр, без которого его скрипты отказывают на первом же запуске.
     copied_dirs = []
-    for subdir_name in ("scripts", "references", "reference", "docs", "examples", "presets", "bin"):
+    for subdir_name in ("scripts", "references", "reference", "docs", "examples", "presets", "bin", "data"):
         subdir = source_dir / subdir_name
         if subdir.is_dir():
             target_subdir = target_skill_dir / subdir_name
