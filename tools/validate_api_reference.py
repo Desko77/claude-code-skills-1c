@@ -7,7 +7,7 @@
 внутри fenced-блоков кода (КадровыйУчет.КадровыеДанныеСотрудников(...)).
 Каждый токен сверяется с выгрузкой конфигурации:
 
-  - общий модуль CommonModules/<Модуль>/Ext/Module.bsl найден в выгрузке;
+  - общий модуль найден в выгрузке;
   - метод объявлен в модуле;
   - метод экспортный;
   - если рядом с токеном заявлена стабильность ("стабильный" / "служебный"),
@@ -25,14 +25,21 @@
 объектов на переменных (ЗапросВТ.Выполнить()) отфильтровываются.
 Токен сразу после маркера "НЕТ" (конвенция справочника для намеренно
 несуществующих методов: "НЕТ метода `X.Y()` - использовать `X.Z()`")
-не проверяется; замена на той же строке проверяется.
+не проверяется как вызов, но проверяется КАК ОТРИЦАНИЕ: если заявленный
+несуществующим модуль или метод на самом деле есть в выгрузке, это ошибка
+FALSE_NEGATION_MODULE или FALSE_NEGATION_METHOD. Ложное отрицание вреднее
+пропуска - оно уводит от работающего метода. Отрицание имени модуля целиком
+("модуля `X` не существует") разбирается отдельной формой: точечной цепочки
+там нет. Замена на той же строке проверяется как обычный вызов.
 
 Использование:
   python tools/validate_api_reference.py --refs <файл-или-папка-md> --src <выгрузка> [--json]
   python tools/validate_api_reference.py --refs <файл-или-папка-md> --list [--json]
 
-  --src   корень выгрузки конфигурации (папка с CommonModules/); поддержаны
-          выгрузка Конфигуратора (Ext/Module.bsl) и EDT-проект (Module.bsl)
+  --src   корень выгрузки конфигурации; поддержаны три раскладки - выгрузка
+          Конфигуратора (CommonModules/<Модуль>/Ext/Module.bsl), EDT-проект
+          (CommonModules/<Модуль>/Module.bsl) и распаковка v8unpack
+          (CommonModule/<Модуль>/CommonModule.obj.bsl)
   --list  без выгрузки: только извлечь и показать токены с фильтрами
           (визуальная проверка экстрактора)
   --json  машиночитаемый отчет вместо текстового
@@ -202,6 +209,15 @@ RE_NEGATION_AFTER = re.compile(r"в БСП нет|не существует|does
 # таблицы токены ПЕРВОЙ ячейки заявлены несуществующими, остальные валидируются.
 RE_NEG_TABLE_HEADER = re.compile(r"НЕ\s+СУЩЕСТВУ", re.IGNORECASE)
 
+# Отрицание имени МОДУЛЯ целиком, без метода: "модуля `РегламентныеЗадания` не
+# существует", "модуль `X` НЕ существует как общий модуль". Точечные цепочки
+# ловятся общим разбором, а одиночное имя в бэктиках им не покрывается: без
+# этой формы самая частая и полезная запись отрицательного знания не проверялась.
+RE_NEG_MODULE = re.compile(
+    r"модул[ьяе]\w*\s+`([A-ZА-ЯЁ][A-Za-zА-Яа-яЁё0-9_]*)`"
+    r"[^`\n]{0,80}?(?:не\s+существует|НЕ\s+СУЩЕСТВУ|в\s+БСП\s+нет)",
+    re.IGNORECASE)
+
 
 # ---------------------------------------------------------------------------
 # Извлечение токенов из markdown
@@ -319,6 +335,15 @@ def extract_file_tokens(md_path):
                 tm = RE_SPAN_TOKEN.match(m.group(1).strip())
                 if tm:
                     chains.append((tm.group(1), m.start()))
+        # Отрицание имени модуля целиком разбирается до цепочек: у него своя
+        # форма, в общий разбор Модуль.Метод оно не попадает.
+        for nm in RE_NEG_MODULE.finditer(raw):
+            skipped.append({
+                "file": str(md_path), "line": lineno,
+                "token": nm.group(1), "category": CAT_NEGATED,
+                "module": nm.group(1), "method": None,
+            })
+
         for chain, start_pos in chains:
             segments = chain.split(".")
             category = classify_chain(segments)
@@ -331,10 +356,18 @@ def extract_file_tokens(md_path):
                 if neg_after and neg_after.start() > start_pos:
                     category = CAT_NEGATED
             if category is not None:
-                skipped.append({
+                entry = {
                     "file": str(md_path), "line": lineno,
                     "token": chain, "category": category,
-                })
+                }
+                # Отрицательное утверждение - тоже утверждение, и оно бывает ложным.
+                # Раньше такой токен просто выпадал из проверки, поэтому запись
+                # "метода X нет" не падала, когда X существует. Разбор сохраняется,
+                # чтобы валидация могла его подтвердить.
+                if category == CAT_NEGATED and len(segments) == 2:
+                    entry["module"] = segments[0]
+                    entry["method"] = segments[1]
+                skipped.append(entry)
                 continue
             accepted.append({
                 "file": str(md_path), "line": lineno,
@@ -471,28 +504,46 @@ def parse_bsl_methods(bsl_path):
 # Индекс общих модулей выгрузки
 # ---------------------------------------------------------------------------
 
+# Каталог с общими модулями и имена файлов модуля - по раскладкам.
+# Конфигуратор и EDT кладут модули в CommonModules/, распаковка v8unpack - в
+# CommonModule/ (единственное число) и называет файл CommonModule.obj.bsl.
+LAYOUTS = (
+    ("CommonModules", ("Ext/Module.bsl", "Module.bsl")),
+    ("CommonModule", ("CommonModule.obj.bsl",)),
+)
+
+
 def resolve_src_root(src_arg):
-    """Корень с CommonModules/: сам путь либо подпапка src/ (EDT-проект)."""
+    """Корень с каталогом общих модулей: сам путь либо подпапка src/ (EDT-проект).
+
+    Возвращает пару (корень, имя каталога модулей) либо None. Имя каталога
+    возвращается вместе с корнем, потому что дальше оно нужно построению
+    индекса, а определять раскладку дважды - расходиться в трактовке.
+    """
     p = Path(src_arg)
-    if (p / "CommonModules").is_dir():
-        return p
-    if (p / "src" / "CommonModules").is_dir():
-        return p / "src"
+    for dir_name, _files in LAYOUTS:
+        if (p / dir_name).is_dir():
+            return p, dir_name
+        if (p / "src" / dir_name).is_dir():
+            return p / "src", dir_name
     return None
 
 
-def build_module_index(src_root):
-    """Индекс общих модулей: имя_в_нижнем_регистре -> (имя, путь к Module.bsl).
+def build_module_index(src_root, dir_name="CommonModules"):
+    """Индекс общих модулей: имя_в_нижнем_регистре -> (имя, путь к файлу модуля).
 
-    Поддержаны раскладки выгрузки Конфигуратора (<Модуль>/Ext/Module.bsl)
-    и EDT-проекта (<Модуль>/Module.bsl).
+    Поддержаны три раскладки: выгрузка Конфигуратора (<Модуль>/Ext/Module.bsl),
+    EDT-проект (<Модуль>/Module.bsl) и распаковка v8unpack
+    (CommonModule/<Модуль>/CommonModule.obj.bsl).
     """
     index = {}
-    cm_dir = Path(src_root) / "CommonModules"
+    candidates = dict(LAYOUTS).get(dir_name, ("Ext/Module.bsl", "Module.bsl"))
+    cm_dir = Path(src_root) / dir_name
     for entry in sorted(cm_dir.iterdir()):
         if not entry.is_dir():
             continue
-        for candidate in (entry / "Ext" / "Module.bsl", entry / "Module.bsl"):
+        for rel in candidates:
+            candidate = entry.joinpath(*rel.split("/"))
             if candidate.is_file():
                 index[entry.name.lower()] = (entry.name, candidate)
                 break
@@ -513,14 +564,67 @@ def _merge_declared(values):
     return distinct.pop() if len(distinct) == 1 else None
 
 
-def validate_tokens(accepted, module_index):
+def validate_negations(skipped, module_index, parse_cache):
+    """Проверить, что заявленные несуществующими модули и методы правда отсутствуют.
+
+    Отрицательное знание - половина ценности справочника: запись "модуля X нет,
+    механизм лежит в Y" удерживает от выдуманного вызова. Но ложное отрицание
+    вреднее пропуска: оно уводит от РАБОТАЮЩЕГО метода. Поэтому проверяется в
+    обе стороны.
+
+    Разбираются две формы: отрицание пары Модуль.Метод и отрицание имени модуля
+    целиком. Токены прочих категорий (менеджеры, типы метаданных, имена файлов)
+    пропускаются: они и не заявляют отсутствия.
+    """
+    findings = []
+    seen = set()
+    for occ in skipped:
+        if occ.get("category") != CAT_NEGATED or "module" not in occ:
+            continue
+        module, method = occ["module"], occ.get("method")
+        key = (occ["file"], module.lower(), (method or "").lower())
+        if key in seen:
+            continue
+        seen.add(key)
+
+        entry = module_index.get(module.lower())
+        if entry is None:
+            continue  # модуля правда нет, утверждение верно
+        real_module, bsl_path = entry
+
+        if method is None:
+            findings.append({
+                "file": occ["file"], "lines": [occ["line"]], "token": module,
+                "severity": "ERROR", "code": "FALSE_NEGATION_MODULE",
+                "message": "заявлен несуществующим, но общий модуль '%s' есть в выгрузке"
+                           % real_module,
+            })
+            continue
+
+        if real_module not in parse_cache:
+            parse_cache[real_module] = parse_bsl_methods(bsl_path)
+        if method.lower() in parse_cache[real_module]:
+            findings.append({
+                "file": occ["file"], "lines": [occ["line"]],
+                "token": module + "." + method,
+                "severity": "ERROR", "code": "FALSE_NEGATION_METHOD",
+                "message": "заявлен несуществующим, но метод объявлен в модуле (%s)"
+                           % bsl_path,
+            })
+    return findings
+
+
+def validate_tokens(accepted, module_index, parse_cache=None):
     """Сверить принятые токены с индексом модулей выгрузки.
 
     Возвращает список находок: {file, lines, token, severity, code, message}.
     Токены группируются по (файл, модуль, метод); модуль парсится один раз.
+    Кэш разбора модулей принимается снаружи, чтобы проверка отрицаний не
+    разбирала те же файлы повторно.
     """
     findings = []
-    parse_cache = {}
+    if parse_cache is None:
+        parse_cache = {}
 
     groups = {}
     for occ in accepted:
@@ -712,15 +816,20 @@ def main():
         print("Ошибка: нужен --src <выгрузка> (или --list для извлечения без сверки)",
               file=sys.stderr)
         sys.exit(2)
-    src_root = resolve_src_root(args.src)
-    if src_root is None:
-        print("Ошибка: в --src нет папки CommonModules/: %s" % args.src,
+    resolved = resolve_src_root(args.src)
+    if resolved is None:
+        print("Ошибка: в --src нет папки с общими модулями "
+              "(CommonModules/ либо CommonModule/): %s" % args.src,
               file=sys.stderr)
         sys.exit(2)
+    src_root, layout_dir = resolved
 
-    module_index = build_module_index(src_root)
+    module_index = build_module_index(src_root, layout_dir)
     all_accepted = [occ for acc, _ in per_file.values() for occ in acc]
-    findings = validate_tokens(all_accepted, module_index)
+    all_skipped = [occ for _, skp in per_file.values() for occ in skp]
+    parse_cache = {}
+    findings = validate_tokens(all_accepted, module_index, parse_cache)
+    findings += validate_negations(all_skipped, module_index, parse_cache)
 
     errors = sum(1 for f in findings if f["severity"] == "ERROR")
     warns = sum(1 for f in findings if f["severity"] == "WARN")
