@@ -410,7 +410,7 @@ BSL Language Server в Claude Code по протоколу LSP: диагност
 <tr><td><code>lmstudio-api</code></td><td>Справочник HTTP-API LM Studio: загрузка и выгрузка моделей, контекст, отключение reasoning, особенности протокола</td></tr>
 <tr><td><code>skill-creator</code></td><td>Создание, тестирование и оптимизация скилов (evals, grading, description loop)</td></tr>
 <tr><td><code>prompt-enhancer</code></td><td>Улучшение и структурирование коротких промптов и постановок задач в подробные ТЗ</td></tr>
-<tr><td><code>humanize-ai-text</code></td><td>Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления</td></tr>
+<tr><td><code>humanize-ai-text</code></td><td>Переписывание AI-текста (отчеты, README, доки, письма) в живой человеческий стиль: ломает ровный ритм, убирает штампы и буферные вступления. Сканер проверяет правила набора по жанру документа; для оценки читаемости русского текста вообще есть отдельный инструмент <a href="https://github.com/comol/Humanizer_RU">Humanizer_RU</a></td></tr>
 <tr><td><code>claude-env-setup</code></td><td>Установка и обновление окружения агента: опись машины -&gt; план -&gt; установка выбранного; конфиги MCP правятся слиянием, чужое не затирается</td></tr>
 <tr><td><code>claude-md-bootstrap</code></td><td>Генерация проектного CLAUDE.md - контекста проекта для AI-агента (IF-THEN правила, work-protocol, progressive disclosure)</td></tr>
 </tbody>
