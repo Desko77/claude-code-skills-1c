@@ -95,6 +95,68 @@ function runValidator(refsDir, srcDir) {
   return JSON.parse(stdout);
 }
 
+// Вторая версия библиотеки: метод СообщитьЧтоТо убран, добавлен НовыйМетод.
+// На этой паре проверяются маркеры версии в тексте справочника.
+const MODULE_BSL_NEW = [
+  '#Область ПрограммныйИнтерфейс',
+  '',
+  'Функция ЗначениеРеквизита(Ссылка, ИмяРеквизита) Экспорт',
+  '\tВозврат Неопределено;',
+  'КонецФункции',
+  '',
+  'Функция НовыйМетод() Экспорт',
+  '\tВозврат Истина;',
+  'КонецФункции',
+  '',
+  '#КонецОбласти',
+  ''
+].join('\n');
+
+const REFERENCE_VERSIONS = [
+  '# Проба версий',
+  '',
+  'Есть в обеих: `ТестовыйМодуль.ЗначениеРеквизита`.',
+  '',
+  'Только в новой: `ТестовыйМодуль.НовыйМетод` [2.0].',
+  '',
+  'Верно помечен отсутствующим в новой: `ТестовыйМодуль.СообщитьЧтоТо` [нет в 2.0].',
+  '',
+  'ЛОЖНО помечен отсутствующим в старой: `ТестовыйМодуль.ЗначениеРеквизита` [нет в 1.0].',
+  ''
+].join('\n');
+
+function checkVersions(tmp) {
+  const refsDir = join(tmp, 'refs-versions');
+  mkdirSync(refsDir, { recursive: true });
+  writeFileSync(join(refsDir, 'versions.md'), REFERENCE_VERSIONS, 'utf8');
+
+  for (const [ver, body] of [['1.0', MODULE_BSL], ['2.0', MODULE_BSL_NEW]]) {
+    const dir = join(tmp, 'src-v' + ver, 'CommonModule', 'ТестовыйМодуль');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'CommonModule.obj.bsl'), body, 'utf8');
+  }
+
+  let stdout = '';
+  try {
+    stdout = execFileSync(PY, [VALIDATOR, '--refs', refsDir,
+      '--src', '1.0=' + join(tmp, 'src-v1.0'),
+      '--src', '2.0=' + join(tmp, 'src-v2.0'), '--json'],
+      { encoding: 'utf8', stdio: 'pipe' });
+  } catch (err) {
+    stdout = err.stdout || '';
+    if (!stdout) { console.error(`[versions] линтер не отработал: ${err.message}`); return false; }
+  }
+  const report = JSON.parse(stdout);
+  const codes = (report.findings || []).map(f => f.code).sort();
+  // Ожидается ровно одна находка: ложная пометка отсутствия там, где метод есть.
+  if (codes.length !== 1 || codes[0] !== 'FALSE_VERSION_NEGATION') {
+    console.error(`[versions] ожидался ровно FALSE_VERSION_NEGATION, получено: ${codes.join(', ') || 'ничего'}`);
+    return false;
+  }
+  console.log('[versions] ok: маркеры версии учтены, ложная пометка отсутствия поймана');
+  return true;
+}
+
 let failures = 0;
 const tmp = mkdtempSync(join(tmpdir(), 'api-validator-'));
 try {
@@ -143,6 +205,8 @@ try {
     if (!ok) failures++;
     else console.log(`[${layout}] ok: модулей ${report.modules_in_src}, находки как ожидалось`);
   }
+
+  if (!checkVersions(tmp)) failures++;
 } finally {
   removeTree(tmp);
 }

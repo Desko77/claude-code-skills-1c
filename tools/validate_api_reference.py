@@ -39,7 +39,13 @@ FALSE_NEGATION_MODULE или FALSE_NEGATION_METHOD. Ложное отрицан�
   --src   корень выгрузки конфигурации; поддержаны три раскладки - выгрузка
           Конфигуратора (CommonModules/<Модуль>/Ext/Module.bsl), EDT-проект
           (CommonModules/<Модуль>/Module.bsl) и распаковка v8unpack
-          (CommonModule/<Модуль>/CommonModule.obj.bsl)
+          (CommonModule/<Модуль>/CommonModule.obj.bsl).
+          Ключ можно повторять с префиксом версии, тогда действуют маркеры версии
+          в тексте справочника:
+            --src 3.1.11=<путь> --src 3.2.1=<путь>
+          Вызов без маркера обязан найтись во ВСЕХ переданных выгрузках. Маркер
+          `Модуль.Метод` [3.2.1] сверяет только с этой версией, а [нет в 3.1.11]
+          требует отсутствия в названной версии и наличия в остальных.
   --list  без выгрузки: только извлечь и показать токены с фильтрами
           (визуальная проверка экстрактора)
   --json  машиночитаемый отчет вместо текстового
@@ -244,6 +250,22 @@ RE_CODE_CALL = re.compile(
 # Ограждение fenced-блока: ``` или ~~~ в начале строки
 RE_FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 
+# Маркер версии после упоминания вызова: `Модуль.Метод` [3.2.1] - вызов есть только
+# в этой версии; [нет в 3.1.11] - вызова в этой версии нет. Отсутствие маркера
+# утверждает, что вызов есть во ВСЕХ проверяемых версиях.
+RE_VERSION_MARK = re.compile(
+    r"\[\s*(нет\s+в\s+)?(\d+\.\d+(?:\.\d+)*)\s*\]", re.IGNORECASE)
+
+
+def version_mark(line_text, after_pos):
+    """Достать маркер версии, стоящий в строке ПРАВЕЕ упоминания вызова.
+
+    Возвращает пару (версия, отрицание) либо None. Маркер ищется только правее
+    токена: слева от него в строке может стоять чужой маркер соседнего вызова.
+    """
+    m = RE_VERSION_MARK.search(line_text, after_pos)
+    return (m.group(2), bool(m.group(1))) if m else None
+
 # Маркеры заявленной стабильности в строке с токеном. Приоритет у "служебный":
 # строка "служебный, не стабильный" трактуется как заявка на служебный.
 _UNSTABLE_SUBSTRINGS = ("служебн", "нестабильн")
@@ -374,6 +396,7 @@ def extract_file_tokens(md_path):
                 "module": segments[0], "method": segments[1],
                 "token": segments[0] + "." + segments[1],
                 "declared": declared_stability(raw, in_fence),
+                "version": version_mark(raw, start_pos + len(chain)),
             })
     return accepted, skipped
 
@@ -614,6 +637,75 @@ def validate_negations(skipped, module_index, parse_cache):
     return findings
 
 
+def validate_versioned(accepted, skipped, sources):
+    """Сверить вызовы с выгрузками по маркерам версии.
+
+    Правила, заданные форматом маркера:
+      - вызов БЕЗ маркера утверждает, что есть во всех версиях, и потому
+        проверяется по КАЖДОЙ выгрузке;
+      - вызов с маркером `[3.2.1]` проверяется только по выгрузке этой версии;
+        если такой выгрузки не передали, проверка по нему пропускается;
+      - вызов с маркером `[нет в 3.1.11]` проверяется НАОБОРОТ: он обязан
+        отсутствовать в названной версии и присутствовать в остальных.
+
+    Одна выгрузка без префикса версии сохраняет прежнее поведение: маркеры при
+    ней не действуют, потому что сверять их не с чем.
+    """
+    versions = [v for v in sources if v is not None]
+    findings = []
+
+    def check_in(version, occs):
+        src = sources.get(version) or sources.get(None)
+        if src is None:
+            return []
+        return validate_tokens(occs, src["index"], src["cache"])
+
+    # Без маркера: сверяем по всем выгрузкам, дубли находок схлопываем.
+    plain = [o for o in accepted if not o.get("version")]
+    seen = set()
+    for version in (versions or [None]):
+        for f in check_in(version, plain):
+            key = (f["file"], f["token"], f["code"])
+            if key in seen:
+                continue
+            seen.add(key)
+            if versions:
+                f["message"] += " (версия %s)" % version
+            findings.append(f)
+
+    for occ in accepted:
+        mark = occ.get("version")
+        if not mark:
+            continue
+        version, negated = mark
+        if version not in sources:
+            continue  # выгрузки этой версии не передали, сверять не с чем
+        if not negated:
+            findings += check_in(version, [occ])
+            continue
+        # "нет в <версия>": наличие вызова там - ошибка, отсутствие в остальных тоже.
+        src = sources[version]
+        entry = src["index"].get(occ["module"].lower())
+        if entry is not None:
+            real_module, bsl_path = entry
+            if real_module not in src["cache"]:
+                src["cache"][real_module] = parse_bsl_methods(bsl_path)
+            if occ["method"].lower() in src["cache"][real_module]:
+                findings.append({
+                    "file": occ["file"], "lines": [occ["line"]], "token": occ["token"],
+                    "severity": "ERROR", "code": "FALSE_VERSION_NEGATION",
+                    "message": "помечен как отсутствующий в %s, но там объявлен" % version,
+                })
+        for other in versions:
+            if other != version:
+                findings += check_in(other, [occ])
+
+    findings += validate_negations(
+        skipped, next(iter(sources.values()))["index"],
+        next(iter(sources.values()))["cache"])
+    return findings
+
+
 def validate_tokens(accepted, module_index, parse_cache=None):
     """Сверить принятые токены с индексом модулей выгрузки.
 
@@ -778,8 +870,9 @@ def main():
                     "(проверка токенов Модуль.Метод)")
     parser.add_argument("--refs", required=True,
                         help="reference-файл .md или папка с ними (рекурсивно)")
-    parser.add_argument("--src", default=None,
-                        help="корень выгрузки конфигурации (папка с CommonModules/)")
+    parser.add_argument("--src", default=None, action="append",
+                        help="корень выгрузки конфигурации; можно повторять с префиксом "
+                             "версии: --src 3.1.11=<путь> --src 3.2.1=<путь>")
     parser.add_argument("--list", action="store_true", dest="list_only",
                         help="только извлечь и показать токены (без сверки с выгрузкой)")
     parser.add_argument("--json", action="store_true",
@@ -816,20 +909,33 @@ def main():
         print("Ошибка: нужен --src <выгрузка> (или --list для извлечения без сверки)",
               file=sys.stderr)
         sys.exit(2)
-    resolved = resolve_src_root(args.src)
-    if resolved is None:
-        print("Ошибка: в --src нет папки с общими модулями "
-              "(CommonModules/ либо CommonModule/): %s" % args.src,
-              file=sys.stderr)
-        sys.exit(2)
-    src_root, layout_dir = resolved
+    # Выгрузок может быть несколько, каждая со своей версией библиотеки.
+    # Без префикса версия считается "любой" - это прежнее поведение с одним --src.
+    sources = {}
+    for raw_src in args.src:
+        version, _, path = raw_src.partition("=")
+        if not path:
+            version, path = None, raw_src
+        resolved = resolve_src_root(path)
+        if resolved is None:
+            print("Ошибка: в --src нет папки с общими модулями "
+                  "(CommonModules/ либо CommonModule/): %s" % path, file=sys.stderr)
+            sys.exit(2)
+        root, layout_dir = resolved
+        sources[version] = {
+            "root": root,
+            "index": build_module_index(root, layout_dir),
+            "cache": {},
+        }
 
-    module_index = build_module_index(src_root, layout_dir)
     all_accepted = [occ for acc, _ in per_file.values() for occ in acc]
     all_skipped = [occ for _, skp in per_file.values() for occ in skp]
-    parse_cache = {}
-    findings = validate_tokens(all_accepted, module_index, parse_cache)
-    findings += validate_negations(all_skipped, module_index, parse_cache)
+
+    findings = validate_versioned(all_accepted, all_skipped, sources)
+    # Для отчета берем первую выгрузку: счет модулей и корень нужны как ориентир,
+    # а находки уже собраны по всем версиям.
+    first = next(iter(sources.values()))
+    src_root, module_index = first["root"], first["index"]
 
     errors = sum(1 for f in findings if f["severity"] == "ERROR")
     warns = sum(1 for f in findings if f["severity"] == "WARN")
