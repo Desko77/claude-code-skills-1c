@@ -98,6 +98,8 @@ class Case:
       forbid      регулярные выражения, которых в ответе быть НЕ должно
       should_activate  ожидается ли обращение агента к файлам скила
       checks_bsl  разбирать ли блоки BSL и сверять вызовы со справочником БСП
+      bsp_version версия БСП, под которую пишется код; берется из кейса, а не
+                  угадывается из текста задачи
       note        прозаическое описание из старого формата, для человека
     """
 
@@ -107,6 +109,7 @@ class Case:
     forbid: tuple[str, ...] = ()
     should_activate: bool = True
     checks_bsl: bool = False
+    bsp_version: str = ""
     note: str = ""
 
     @property
@@ -161,6 +164,7 @@ def load_cases(skill: str) -> tuple[Path, list[Case]]:
                 forbid=forbid,
                 should_activate=bool(raw.get("should_activate", True)),
                 checks_bsl=bool(raw.get("checks_bsl", False)),
+                bsp_version=str(raw.get("bsp_version", "")),
                 note=str(raw.get("expected_output", "")),
             )
         )
@@ -203,6 +207,10 @@ class BspIndex:
 
     methods: dict[str, set[str]] = field(default_factory=dict)
     modules: set[str] = field(default_factory=set)
+    # Полные записи по ключу "модуль.метод" в нижнем регистре: контексты
+    # исполнения, версии и признак устаревания. Раньше из справочника брались
+    # только имена, и вызов серверного метода из клиентского кода проходил.
+    records: dict[str, dict] = field(default_factory=dict)
 
     @classmethod
     def load(cls, path: Path = BSP_INDEX) -> "BspIndex | None":
@@ -229,7 +237,55 @@ class BspIndex:
                     continue
                 index.modules.add(module)
                 index.methods.setdefault(module, set()).add(name)
+                index.records["%s.%s" % (module.lower(), name.lower())] = record
         return index if index.modules else None
+
+    def context_ok(self, module: str, method: str, client: bool) -> str | None:
+        """Проверить, доступен ли вызов в том контексте, где он написан.
+
+        Коды доступности в справочнике: S сервер, T тонкий клиент, F толстый
+        клиент, E внешнее соединение, C вызов сервера. Клиентский код может
+        звать только то, что доступно на тонком либо толстом клиенте.
+
+        Это самая частая ошибка после выдуманного имени: у большинства
+        механизмов БСП есть парный модуль с суффиксом Клиент, и серверный
+        вариант в клиентском коде не компилируется.
+        """
+        record = self.records.get("%s.%s" % (module.lower(), method.lower()))
+        if record is None:
+            return None
+        av = set(record.get("av") or "")
+        if not av:
+            return None
+        if client:
+            if not ({"T", "F"} & av):
+                return ("%s.%s недоступен на клиенте вовсе, контексты: %s"
+                        % (module, method, "".join(sorted(av))))
+            if "T" not in av:
+                # Замерено на справочнике: методов вовсе без клиента всего один,
+                # поэтому строгая проверка почти никогда не срабатывает. А вот
+                # классическая ошибка - серверный метод в коде ТОНКОГО клиента -
+                # маскируется доступностью на толстом. Тонкий клиент сегодня
+                # основной режим, поэтому претензия выносится по нему.
+                return ("%s.%s на тонком клиенте недоступен, только на толстом; "
+                        "для клиента брать парный модуль с суффиксом Клиент"
+                        % (module, method))
+            return None
+        if not ({"S", "F", "E"} & av):
+            return ("%s.%s недоступен на сервере, контексты: %s"
+                    % (module, method, "".join(sorted(av))))
+        return None
+
+    def version_ok(self, module: str, method: str, version: str) -> str | None:
+        """Проверить, что вызов существует в заданной версии библиотеки."""
+        record = self.records.get("%s.%s" % (module.lower(), method.lower()))
+        if record is None:
+            return None
+        versions = record.get("v") or []
+        if versions and version not in versions:
+            return ("%s.%s в версии %s не существует, есть в: %s"
+                    % (module, method, version, ", ".join(versions)))
+        return None
 
     def verdict(self, module: str, method: str) -> str | None:
         """Оценить вызов Модуль.Метод. Возвращает текст претензии либо None.
@@ -283,7 +339,38 @@ MANAGERS = (
 )
 
 
-def bsp_findings(response: str, index: BspIndex | None) -> list[str]:
+DIRECTIVE = re.compile(r"^\s*&(НаКлиенте|НаСервере|"
+                       r"НаСервереБезКонтекста|НаКлиентеНаСервереБезКонтекста|"
+                       r"НаКлиентеНаСервере)\b", re.I | re.M)
+
+
+def split_by_directive(block: str) -> list[tuple[str, bool | None]]:
+    """Разрезать блок BSL на куски по директивам компиляции.
+
+    Возвращает пары (текст, клиентский_ли). Третье значение None означает, что
+    директивы над куском нет и контекст определить нечем - такие вызовы по
+    контексту не проверяются.
+
+    Резать нужно именно по директивам: один блок примера часто содержит и
+    клиентскую процедуру, и серверную, и оценка блока целиком дала бы неверный
+    вердикт для половины вызовов.
+    """
+    marks = [(m.start(), m.group(1).lower()) for m in DIRECTIVE.finditer(block)]
+    if not marks:
+        return [(block, None)]
+    pieces: list[tuple[str, bool | None]] = []
+    if marks[0][0] > 0:
+        pieces.append((block[: marks[0][0]], None))
+    for i, (pos, name) in enumerate(marks):
+        end = marks[i + 1][0] if i + 1 < len(marks) else len(block)
+        # Смешанные директивы (клиент и сервер сразу) контекстом не ограничивают.
+        client = None if "наклиентенасервере" in name else name.startswith("наклиенте")
+        pieces.append((block[pos:end], client))
+    return pieces
+
+
+def bsp_findings(response: str, index: BspIndex | None,
+                 version: str | None = None) -> list[str]:
     """Собрать претензии к вызовам БСП во всех блоках BSL ответа.
 
     Разбираются только fenced-блоки: имя модуля, упомянутое в прозе, чаще
@@ -299,14 +386,24 @@ def bsp_findings(response: str, index: BspIndex | None) -> list[str]:
     if index is None:
         return []
     findings: list[str] = []
+
+    def add(verdict: str | None) -> None:
+        if verdict and verdict not in findings:
+            findings.append(verdict)
+
     for block in BSL_BLOCK.findall(response):
+        # Локальные имена собираются по ВСЕМУ блоку: переменная объявлена выше
+        # директивы чаще, чем внутри того же куска.
         locals_here = {name for group in LOCAL_NAME.findall(block) for name in group if name}
-        for module, method in CALL.findall(block):
-            if module in locals_here or module in MANAGERS:
-                continue
-            verdict = index.verdict(module, method)
-            if verdict and verdict not in findings:
-                findings.append(verdict)
+        for piece, client in split_by_directive(block):
+            for module, method in CALL.findall(piece):
+                if module in locals_here or module in MANAGERS:
+                    continue
+                add(index.verdict(module, method))
+                if client is not None:
+                    add(index.context_ok(module, method, client))
+                if version:
+                    add(index.version_ok(module, method, version))
     return findings
 
 
@@ -531,7 +628,8 @@ def score(case: Case, response: str, marks: list[str], index: BspIndex | None) -
     """
     missing = [p for p in case.expect if not re.search(p, response, re.I | re.S)]
     hit = [p for p in case.forbid if re.search(p, response, re.I | re.S)]
-    findings = bsp_findings(response, index) if case.checks_bsl else []
+    findings = (bsp_findings(response, index, case.bsp_version or None)
+                if case.checks_bsl else [])
     checked = case.has_machine_checks
     passed = checked and not missing and not hit and not findings
     return {
@@ -793,6 +891,76 @@ def print_report(skill: str, report: dict) -> None:
         print("  Добавь в кейс поля expect / forbid / checks_bsl, иначе прогон ничего не доказывает.")
 
 
+def selftest() -> int:
+    """Проверить чистую логику раннера без вызовов агента.
+
+    Все четыре дефекта, найденные на этом раннере ревью, жили именно в чистой
+    логике: разбор ответа, сведение повторов, сверка вызовов. Агента для их
+    проверки не нужно, а без проверки они возвращаются.
+
+    Возвращает 0, если все утверждения выполнены, иначе 1.
+    """
+    failures: list[str] = []
+
+    def want(name: str, condition: bool, detail: str = "") -> None:
+        if not condition:
+            failures.append(name + ((": " + detail) if detail else ""))
+
+    # Ответ берется из событий трейса, а не из сырого потока.
+    events = [
+        {"type": "item.completed", "item": {"type": "agent_message", "text": "ответ"}},
+        {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2}},
+    ]
+    want("ответ из трейса", final_answer(events) == "ответ")
+    want("токены суммируются", token_usage(events) == 12)
+    want("отказ агента опознан",
+         trace_error([{"type": "error", "message": "лимит"}]) == "лимит")
+
+    # Сведение повторов: большинство решает, сбойный повтор виден.
+    ok = {"case": "x", "checked": True, "passed": True, "activated": True, "tokens": 10}
+    bad = {"case": "x", "checked": True, "passed": False, "activated": True, "tokens": 10}
+    err = {"case": "x", "error": "лимит", "passed": False, "checked": False}
+    want("2 из 3 - пройден", merge_runs([ok, bad, ok])["passed"] is True)
+    want("1 из 3 - провален", merge_runs([ok, bad, bad])["passed"] is False)
+    want("сбойный повтор виден", merge_runs([err, ok, ok]).get("runs_failed") == 1)
+    want("все сбойные - ошибка", merge_runs([err]).get("error") == "лимит")
+    want("частичный сбой в сводке", summarize([merge_runs([err, ok, ok])])["partial"] == 1)
+
+    # Разбор блока BSL по директивам компиляции.
+    block = "&НаКлиенте\nПроцедура К()\nКонецПроцедуры\n&НаСервере\nФункция С()\nКонецФункции"
+    pieces = split_by_directive(block)
+    want("блок режется по директивам", [c for _, c in pieces] == [True, False],
+         str([c for _, c in pieces]))
+
+    # Сверка вызовов: локальные имена и менеджеры не считаются модулями БСП.
+    index = BspIndex.load()
+    if index is None:
+        failures.append("справочник БСП не загружен")
+    else:
+        # Имя переменной намеренно совпадает с НАСТОЯЩИМ модулем БСП: иначе
+        # утверждение прошло бы по неверной причине - порог похожести отсек бы
+        # чужое имя и без фильтра локальных. Поймано мутацией: снятие фильтра
+        # гард не уронило.
+        local = ("```bsl\nПользователи = ПолучитьСписок();\n"
+                 "Сообщить(Пользователи.Количество());\n```")
+        want("локальная переменная не модуль", bsp_findings(local, index) == [],
+             str(bsp_findings(local, index)))
+        # Менеджер тоже берется существующий в справочнике по имени модуля.
+        manager = "```bsl\nС = Справочники.Контрагенты.НайтиПоКоду(\"1\");\n```"
+        want("менеджер объектов не модуль", bsp_findings(manager, index) == [],
+             str(bsp_findings(manager, index)))
+        invented = "```bsl\nФ = ФайловаяСистемаКлиентСервер.ПолучитьФайл(П);\n```"
+        want("похожее имя опознано выдумкой", len(bsp_findings(invented, index)) == 1)
+        alien = "```bsl\nР = МойСобственныйМодуль.Метод();\n```"
+        want("чужое имя не выдумка", bsp_findings(alien, index) == [])
+
+    for name in failures:
+        print("  ПРОВАЛ: " + name, file=sys.stderr)
+    total = 16
+    print("самопроверка раннера: провалов %d из %d утверждений" % (len(failures), total))
+    return 1 if failures else 0
+
+
 def list_skills() -> int:
     """Показать скилы с файлом кейсов и признак, переведены ли они на исполняемый формат."""
     rows: list[tuple[str, int, int]] = []
@@ -833,6 +1001,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--artifacts", help="куда сложить ответы агента")
     parser.add_argument("--json", dest="json_out", help="записать отчет в файл")
     parser.add_argument("--list", action="store_true", help="показать скилы с кейсами и выйти")
+    parser.add_argument("--selftest", action="store_true",
+                        help="проверить чистую логику раннера без вызовов агента")
     parser.add_argument("--dry-run", action="store_true", help="проверить кейсы и выйти без запуска")
     return parser
 
@@ -845,6 +1015,8 @@ def main() -> int:
     """
     args = build_parser().parse_args()
 
+    if args.selftest:
+        return selftest()
     if args.list:
         return list_skills()
     if not args.skill:
