@@ -161,6 +161,7 @@ MANAGER_PREFIXES = frozenset(name.lower() for name in (
     # регламентных заданий: антипаттерн "не звать РегламентныеЗадания.НайтиРегламентныеЗадания
     # платформы напрямую" валидатор принимал за ссылку на несуществующий модуль БСП.
     "РегламентныеЗадания", "ФоновыеЗадания", "ПланыОбменаМенеджер",
+    "ПользователиИнформационнойБазы", "InfoBaseUsers",
     "ScheduledJobs", "BackgroundJobs",
     # английские формы
     "Documents", "Catalogs", "InformationRegisters", "AccumulationRegisters",
