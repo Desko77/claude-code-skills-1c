@@ -557,6 +557,7 @@ def run_case(
     index: BspIndex | None,
     artifacts: Path | None,
     phase: str,
+    attempt: int = 1,
 ) -> dict:
     """Прогнать один кейс в одной фазе и вернуть оцененный результат.
 
@@ -585,6 +586,20 @@ def run_case(
     record = score(case, response, marks, index)
     record["tokens"] = token_usage(events)
 
+    # Активация решает, о чем вообще говорит результат фазы.
+    # В GREEN кейс, помеченный should_activate, но прошедший мимо файлов скила,
+    # ничего про скил не доказывает: агент ответил из своих знаний, и засчитывать
+    # это скилу нельзя.
+    if phase == "green" and case.should_activate and not marks:
+        record["passed"] = False
+        record["no_activation"] = True
+    # В RED активация означает, что изоляция фазы протекла: скил все-таки виден,
+    # и разница между фазами перестает что-либо значить. Это сбой прогона.
+    if phase == "red" and marks:
+        record["error"] = "изоляция протекла: в фазе RED агент читал файлы скила"
+        record["passed"] = False
+        record["checked"] = False
+
     # Сбой прогона отделяется от проваленной проверки: у первого чинят среду,
     # у второй скил или кейс. Смешивать их - значит гнаться за призраком.
     failure = trace_error(events)
@@ -603,6 +618,46 @@ def run_case(
     return record
 
 
+def merge_runs(records: list[dict]) -> dict:
+    """Свести повторы одного кейса в одну запись по большинству.
+
+    Ответ модели дрейфует между запусками, поэтому один прогон отличает удачу
+    от наученного поведения плохо. Кейс считается пройденным, когда прошло
+    БОЛЬШИНСТВО повторов; то же для активации. Токены усредняются.
+
+    Записи со сбоем прогона в голосовании не участвуют: неотработавший вызов
+    это не отрицательный ответ. Если не отработал ни один повтор, возвращается
+    первая запись со своей ошибкой.
+    """
+    good = [r for r in records if not r.get("error")]
+    if not good:
+        return records[0]
+    total = len(good)
+    merged = dict(good[0])
+    merged["runs"] = total
+    merged["runs_requested"] = len(records)
+    # Сбойный повтор нельзя терять молча: критерий прогона требует НИ ОДНОГО сбоя, а
+    # запись, где остался хотя бы один успешный повтор, показывала errors = 0 и
+    # проходила сравнение фаз как полная.
+    failed = [r for r in records if r.get("error")]
+    if failed:
+        merged["runs_failed"] = len(failed)
+        merged["runs_failed_reason"] = failed[0].get("error")
+    merged["passed"] = sum(1 for r in good if r.get("passed")) * 2 > total
+    merged["activated"] = sum(1 for r in good if r.get("activated")) * 2 > total
+    merged["tokens"] = sum(int(r.get("tokens") or 0) for r in good) // total
+    if total > 1:
+        merged["passed_runs"] = f"{sum(1 for r in good if r.get('passed'))}/{total}"
+    for key in ("missing_expect", "hit_forbid", "bsp_findings"):
+        seen: list[str] = []
+        for record in good:
+            for item in record.get(key) or []:
+                if item not in seen:
+                    seen.append(item)
+        merged[key] = seen
+    return merged
+
+
 def run_phase(
     phase: str,
     codex: str,
@@ -614,35 +669,39 @@ def run_phase(
     jobs: int,
     index: BspIndex | None,
     artifacts: Path | None,
+    runs: int = 1,
 ) -> list[dict]:
     """Прогнать все кейсы одной фазы, при jobs > 1 параллельно.
 
     Кейсы независимы друг от друга, поэтому распараллеливаются без общего
     состояния. Порядок результата приводится к порядку кейсов, чтобы отчет
     не прыгал между прогонами.
+
+    При runs > 1 каждый кейс идет несколько раз, и повторы сводятся по
+    большинству через merge_runs.
     """
-    results: dict[str, dict] = {}
+    repeats = max(1, runs)
+    results: dict[str, list[dict]] = {c.ident: [] for c in cases}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
         futures = {
             pool.submit(
-                run_case, codex, case, workdir, skill, model, timeout, index, artifacts, phase
+                run_case, codex, case, workdir, skill, model, timeout, index,
+                artifacts, phase, attempt,
             ): case.ident
             for case in cases
+            for attempt in range(1, repeats + 1)
         }
         for future in concurrent.futures.as_completed(futures):
             ident = futures[future]
             try:
-                results[ident] = future.result()
+                record = future.result()
             except Exception as exc:  # noqa: BLE001 - падение одного кейса не рушит прогон
-                results[ident] = {
-                    "case": ident,
-                    "checked": False,
-                    "passed": False,
-                    "error": repr(exc),
-                }
-            status = "ok" if results[ident].get("passed") else "--"
-            print(f"  [{phase}] {status} {ident}", flush=True)
-    return [results[case.ident] for case in cases if case.ident in results]
+                record = {"case": ident, "checked": False, "passed": False, "error": repr(exc)}
+            results[ident].append(record)
+            status = "ok" if record.get("passed") else "--"
+            suffix = f" ({len(results[ident])}/{repeats})" if repeats > 1 else ""
+            print(f"  [{phase}] {status} {ident}{suffix}", flush=True)
+    return [merge_runs(results[c.ident]) for c in cases if results[c.ident]]
 
 
 # --------------------------------------------------------------------------
@@ -660,6 +719,9 @@ def summarize(records: list[dict]) -> dict:
         "activated": sum(1 for r in records if r.get("activated")),
         "bsp_findings": sum(len(r.get("bsp_findings") or []) for r in records),
         "errors": sum(1 for r in records if r.get("error")),
+        # Кейс, где упал хотя бы один повтор, тоже неполный: критерий требует
+        # ни одного сбоя, а не большинства удачных попыток.
+        "partial": sum(1 for r in records if r.get("runs_failed")),
         "tokens": sum(int(r.get("tokens") or 0) for r in records),
     }
 
@@ -698,8 +760,17 @@ def print_report(skill: str, report: dict) -> None:
                 reasons.append("найдено запрещенное: " + ", ".join(record["hit_forbid"]))
             if record.get("bsp_findings"):
                 reasons.append("; ".join(record["bsp_findings"]))
+            if record.get("no_activation"):
+                reasons.append("агент не открыл файлы скила: результат не про скил")
             if record.get("error"):
                 reasons.append(record["error"])
+            if record.get("passed_runs"):
+                reasons.append(f"повторов пройдено {record['passed_runs']}")
+            if record.get("runs_failed"):
+                reasons.append(
+                    f"повторов упало {record['runs_failed']} из "
+                    f"{record.get('runs_requested', '?')}: {record.get('runs_failed_reason')}"
+                )
             print(f"  {record['case']}: {' | '.join(reasons) or 'без деталей'}")
 
     for phase in ("red", "green"):
@@ -851,7 +922,7 @@ def main() -> int:
             with context:
                 records = run_phase(
                     phase, codex, cases, workdir, args.skill, args.model,
-                    args.timeout, args.jobs, index, artifacts,
+                    args.timeout, args.jobs, index, artifacts, args.runs,
                 )
         except EvalError as exc:
             print(f"ОШИБКА: {exc}", file=sys.stderr)
@@ -870,8 +941,30 @@ def main() -> int:
     if green and green["errors"] == green["cases"]:
         print("\nПрогон не состоялся: ни один вызов агента не отработал.", file=sys.stderr)
         return 2
+    red = report.get("red", {}).get("summary")
     if green and green["checked"]:
-        return 0 if green["passed"] == green["checked"] and not green["errors"] else 1
+        ok = green["passed"] == green["checked"] and not green["errors"]
+        # Сравнение фаз имеет смысл, только когда RED отработала целиком. Сбойная RED
+        # дает мало пройденных кейсов, и сравнение "RED прошел меньше" выполнялось бы
+        # само собой, пропуская скил, который ничего не добавил.
+        if ok and red is not None:
+            if red["errors"] or red.get("partial") or red["checked"] < green["checked"]:
+                print(
+                    f"\nФаза RED отработала не полностью: проверено {red['checked']} из "
+                    f"{green['checked']}, сбоев {red['errors']}, кейсов с упавшими "
+                    f"повторами {red.get('partial', 0)}. Сравнить фазы нельзя, "
+                    "прогнать RED заново.",
+                    file=sys.stderr,
+                )
+                return 2
+            if red["passed"] >= green["passed"]:
+                print(
+                    f"\nRED прошел {red['passed']} из {red['checked']}, GREEN "
+                    f"{green['passed']} из {green['checked']}: кейсы не различают скил.",
+                    file=sys.stderr,
+                )
+                return 1
+        return 0 if ok else 1
     return 0
 
 
