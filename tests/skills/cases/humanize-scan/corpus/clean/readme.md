@@ -216,6 +216,7 @@ cp commands/* ~/.claude/commands/
 | PowerShell 5.1+ (Windows) | Да | Скрипты скилов (.ps1) |
 | Python 3.8+ | Нет | Альтернативные скрипты (.py), `v8unpack-cf`, `check-uuid`, `img-grid-analysis` |
 | [v8unpack](https://pypi.org/project/v8unpack/) | Нет | Распаковка/сборка CF/CFE/EPF без платформы |
+| [psutil](https://pypi.org/project/psutil/) | Нет | python-порты скилов `1c-web-*`: поиск процессов веб-сервера |
 | 1C:Enterprise 8.3 | Нет | Скилы группы `db-*`, сборка EPF/ERF |
 | Node.js + npm-пакет `docx` | Нет | `md-to-docx` (конвертация Markdown в DOCX) |
 | `ffmpeg`, `ffprobe` | Нет | `transcribe`, `transcribe-audio-local` (извлечение аудио, разбивка длинных файлов) |
