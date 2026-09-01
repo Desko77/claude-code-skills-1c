@@ -230,11 +230,17 @@ def mask_link_targets(line):
     А адрес вида /game-changer или https://example.test/magic дал бы ложную
     находку регистра или стоп-фразы, хотя менять его нельзя.
     """
-    def blank(m):
-        return ' ' * len(m.group(0))
-    return LINK_TARGET_RE.sub(
-        lambda m: m.group(0)[:m.group(0).find('(') + 1] + ' ' * (len(m.group(0)) - m.group(0).find('(') - 2) + ')'
-        if '](' in m.group(0) else blank(m), line)
+    def blank_target(m):
+        # Имя не `blank`: так называется общая реализация гашения комментариев BSL
+        # в других скриптах набора, и гард переносимых блоков считает одноименную
+        # функцию ее разошедшейся копией.
+        whole = m.group(0)
+        if whole.startswith(']('):
+            # Inline-ссылка: скобки и закрывающая черта остаются, адрес гасится.
+            return '](' + ' ' * (len(whole) - 3) + ')'
+        return ' ' * len(whole)
+
+    return LINK_TARGET_RE.sub(blank_target, line)
 
 
 def quoted_example(line, pos, end):
