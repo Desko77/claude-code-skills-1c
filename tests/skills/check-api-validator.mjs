@@ -157,6 +157,48 @@ function checkVersions(tmp) {
   return true;
 }
 
+// Проход по справочнику API ловит то, чего в исходниках модуля не видно:
+// вызов существует и экспортен, но помечен устаревшим.
+function checkDeprecated(tmp) {
+  const refsDir = join(tmp, 'refs-dep');
+  mkdirSync(refsDir, { recursive: true });
+  writeFileSync(join(refsDir, 'dep.md'), [
+    '# Проба устаревания',
+    '',
+    'Актуальный вызов: `ТестовыйМодуль.ЗначениеРеквизита`.',
+    '',
+    'Устаревший вызов: `ТестовыйМодуль.СообщитьЧтоТо`.',
+    ''
+  ].join('\n'), 'utf8');
+
+  // Синтетический справочник: у одного вызова стоит признак устаревания.
+  const index = [
+    JSON.stringify({ m: 'ТестовыйМодуль', n: 'ЗначениеРеквизита', v: ['1.0'] }),
+    JSON.stringify({ m: 'ТестовыйМодуль', n: 'СообщитьЧтоТо', v: ['1.0'],
+                     dep: 'ТестовыйМодуль.ЗначениеРеквизита' }),
+  ].join('\n') + '\n';
+  const indexPath = join(tmp, 'api-index.jsonl');
+  writeFileSync(indexPath, index, 'utf8');
+
+  let stdout = '';
+  try {
+    stdout = execFileSync(PY, [VALIDATOR, '--refs', refsDir,
+      '--src', join(tmp, 'src-v8unpack'), '--index', indexPath, '--json'],
+      { encoding: 'utf8', stdio: 'pipe' });
+  } catch (err) {
+    stdout = err.stdout || '';
+    if (!stdout) { console.error(`[deprecated] линтер не отработал: ${err.message}`); return false; }
+  }
+  const report = JSON.parse(stdout);
+  const codes = (report.findings || []).map(f => f.code);
+  if (codes.length !== 1 || codes[0] !== 'DEPRECATED_CALL') {
+    console.error(`[deprecated] ожидался ровно DEPRECATED_CALL, получено: ${codes.join(', ') || 'ничего'}`);
+    return false;
+  }
+  console.log('[deprecated] ok: устаревший вызов помечен, актуальный не тронут');
+  return true;
+}
+
 let failures = 0;
 const tmp = mkdtempSync(join(tmpdir(), 'api-validator-'));
 try {
@@ -207,6 +249,7 @@ try {
   }
 
   if (!checkVersions(tmp)) failures++;
+  if (!checkDeprecated(tmp)) failures++;
 } finally {
   removeTree(tmp);
 }

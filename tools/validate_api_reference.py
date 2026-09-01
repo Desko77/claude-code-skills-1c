@@ -637,6 +637,60 @@ def validate_negations(skipped, module_index, parse_cache):
     return findings
 
 
+def load_api_index(path):
+    """Загрузить справочник API БСП: (Модуль.Метод в нижнем регистре) -> запись.
+
+    Нужен для проверок, которые по исходникам не делаются: устаревание вызова -
+    наше курируемое знание, в тексте модуля его нет. Возвращает пустой словарь,
+    если файла нет: справочник не обязателен, без него проверка просто не идет.
+    """
+    index = {}
+    p = Path(path)
+    if not p.is_file():
+        return index
+    with p.open(encoding="utf-8") as handle:
+        for raw in handle:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                record = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            module, name = record.get("m"), record.get("n")
+            if module and name and module != "?":
+                index["%s.%s" % (module.lower(), name.lower())] = record
+    return index
+
+
+def validate_against_index(accepted, api_index):
+    """Прогнать вызовы справочника через индекс API и вернуть находки.
+
+    Проверяется то, чего не видно в исходниках модуля: помечен ли вызов
+    устаревшим. Инвариант "ни один вызов не попадает в справочник без проверки"
+    без этого прохода оставался бы пожеланием - проверка шла бы поштучно и
+    вручную, а значит непредсказуемо.
+    """
+    findings = []
+    seen = set()
+    for occ in accepted:
+        key = (occ["file"], occ["token"].lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        record = api_index.get(occ["token"].lower())
+        if record is None:
+            continue  # отсутствие в индексе ловит сверка с исходниками
+        dep = record.get("dep")
+        if dep:
+            findings.append({
+                "file": occ["file"], "lines": [occ["line"]], "token": occ["token"],
+                "severity": "WARN", "code": "DEPRECATED_CALL",
+                "message": "устаревший вызов, вместо него %s" % dep,
+            })
+    return findings
+
+
 def validate_versioned(accepted, skipped, sources):
     """Сверить вызовы с выгрузками по маркерам версии.
 
@@ -875,6 +929,9 @@ def main():
                              "версии: --src 3.1.11=<путь> --src 3.2.1=<путь>")
     parser.add_argument("--list", action="store_true", dest="list_only",
                         help="только извлечь и показать токены (без сверки с выгрузкой)")
+    parser.add_argument("--index", default=None,
+                        help="справочник API БСП (bsp-api.jsonl) для проверки на "
+                             "устаревание вызовов; по умолчанию берется из набора")
     parser.add_argument("--json", action="store_true",
                         help="отчет в формате JSON")
     args = parser.parse_args()
@@ -932,6 +989,13 @@ def main():
     all_skipped = [occ for _, skp in per_file.values() for occ in skp]
 
     findings = validate_versioned(all_accepted, all_skipped, sources)
+
+    # Проход по справочнику API: ловит то, чего в исходниках модуля не видно.
+    default_index = (Path(__file__).resolve().parent.parent / "skills" / "1c-bsp-api"
+                     / "references" / "bsp-api.jsonl")
+    api_index = load_api_index(args.index or default_index)
+    if api_index:
+        findings += validate_against_index(all_accepted, api_index)
     # Для отчета берем первую выгрузку: счет модулей и корень нужны как ориентир,
     # а находки уже собраны по всем версиям.
     first = next(iter(sources.values()))
