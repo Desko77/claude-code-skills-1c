@@ -453,14 +453,19 @@ def convert_tools(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
     if not source_dir.is_dir():
         return ["  SKIP: no tools/ directory"]
 
-    skip = {"convert_from_claude.py"}
+    skip = {
+        "convert_from_claude.py": "собирает зеркало",
+        # Каталоги evals/ в зеркало не переносятся (см. список подкаталогов в
+        # convert_skill), поэтому раннеру там нечего прогонять.
+        "run_skill_evals.py": "прогоняет кейсы, которых в зеркале нет",
+    }
 
     if not dry_run:
         target_dir.mkdir(parents=True, exist_ok=True)
 
     for item in sorted(source_dir.glob("*.py")):
         if item.name in skip:
-            results.append(f"  SKIP (собирает зеркало): {item.name}")
+            results.append(f"  SKIP ({skip[item.name]}): {item.name}")
             continue
         if not dry_run:
             shutil.copy2(item, target_dir / item.name)
