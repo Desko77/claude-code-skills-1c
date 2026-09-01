@@ -1,0 +1,16 @@
+{
+  "name": "Выдуманный шаг назван в отказе",
+  "setup": "fixture:scenarios",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "{workDir}/unknown-step.feature"
+  ],
+  "expectError": true,
+  "noSnapshot": "навык читает сценарий и печатает отчет - файлов он не создает",
+  "expect": {
+    "stdoutContains": [
+      "Шаг не найден в библиотеке",
+      "Строка 7"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Отсутствие строки кодировки названо с номером строки",
+  "setup": "fixture:scenarios",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "{workDir}/no-encoding.feature"
+  ],
+  "expectError": true,
+  "noSnapshot": "навык читает сценарий и печатает отчет - файлов он не создает",
+  "expect": {
+    "stdoutContains": [
+      "Отсутствует строка с кодировкой",
+      "Строка 1"
+    ]
+  }
+}

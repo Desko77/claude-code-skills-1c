@@ -1,0 +1,5 @@
+{
+  "script": "1c-vanessa-steps/scripts/search_steps",
+  "setup": "none",
+  "args": []
+}

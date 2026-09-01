@@ -24,12 +24,6 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 from difflib import SequenceMatcher
 
-# Настройка кодировки для Windows
-if sys.platform == 'win32':
-    import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
-
 # Определяем пути
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent

@@ -1,0 +1,5 @@
+{
+  "script": "1c-vanessa-steps/scripts/indexer",
+  "setup": "fixture:library",
+  "args": []
+}

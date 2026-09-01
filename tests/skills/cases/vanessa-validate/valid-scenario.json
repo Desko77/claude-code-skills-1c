@@ -1,0 +1,12 @@
+{
+  "name": "Корректный сценарий проходит без отказов",
+  "setup": "fixture:scenarios",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "{workDir}/valid.feature"
+  ],
+  "noSnapshot": "навык читает сценарий и печатает отчет - файлов он не создает",
+  "expect": {
+    "stdoutNotContains": "телепортирую"
+  }
+}

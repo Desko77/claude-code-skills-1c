@@ -86,7 +86,7 @@ python skills/1c-vanessa-steps/scripts/validate.py "путь/к/сценарию
 | `references/scenario-templates.md` | готовые шаблоны сценариев |
 | `references/semantic-validation.md` | сопоставление шагов по смыслу, разбор параметров |
 
-Зависимостей нет - только стандартная библиотека Python 3.6+.
+Зависимостей нет - только стандартная библиотека Python 3.8+.
 
 ## Ограничения
 

@@ -1,0 +1,15 @@
+{
+  "name": "Отбор шагов по категории",
+  "setup": "none",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "--get-category",
+    "UI",
+    "--format",
+    "human"
+  ],
+  "noSnapshot": "навык только читает реестр и печатает - в рабочий каталог он ничего не пишет",
+  "expect": {
+    "stdoutContains": "UI"
+  }
+}

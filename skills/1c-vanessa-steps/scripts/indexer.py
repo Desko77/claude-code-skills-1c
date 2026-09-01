@@ -20,12 +20,6 @@ from typing import Dict, List, Set
 from datetime import datetime
 from collections import defaultdict
 
-# Настройка кодировки для Windows
-if sys.platform == 'win32':
-    import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
-
 # Определяем пути
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent

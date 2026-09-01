@@ -23,27 +23,13 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Set
 from difflib import SequenceMatcher, get_close_matches
 
-# Импортируем наши модули для семантического анализа
-try:
-    from step_parser import StepParser, ParsedStep
-    from semantic_matcher import SemanticMatcher, SemanticMatch
-    from metrics_logger import MetricsLogger
-    SEMANTIC_ANALYSIS_AVAILABLE = True
-except ImportError:
-    SEMANTIC_ANALYSIS_AVAILABLE = False
-    print("⚠️ Семантический анализ и логирование метрик недоступны. Модули не найдены.")
-
-# Настройка кодировки для Windows
-if sys.platform == 'win32':
-    import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+from step_parser import StepParser, ParsedStep
+from semantic_matcher import SemanticMatcher, SemanticMatch
 
 # Определяем путь к корню проекта
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 DEFAULT_LIBRARY = PROJECT_ROOT / 'data' / 'steps-library.json'
-METRICS_FILE = PROJECT_ROOT / 'data' / 'metrics.jsonl'
 
 
 class Colors:
@@ -66,7 +52,7 @@ class StepLibrary:
     def __init__(self, library_path: str, enable_semantic: bool = False):
         self.steps = []
         self.steps_normalized = {}  # нормализованный шаг -> оригинальный шаг
-        self.enable_semantic = enable_semantic and SEMANTIC_ANALYSIS_AVAILABLE
+        self.enable_semantic = enable_semantic
         
         # Инициализируем парсер и matcher если доступны
         if self.enable_semantic:
@@ -244,11 +230,10 @@ class ScenarioValidator:
     KEYWORDS = ['Дано', 'Когда', 'Тогда', 'И', 'Также', 'Затем', 'Но']
     REQUIRED_HEADERS = ['# encoding:', '# language:']
     
-    def __init__(self, library: StepLibrary, debug: bool = False, ai_enhanced: bool = False, logger: 'MetricsLogger' = None):
+    def __init__(self, library: StepLibrary, debug: bool = False, ai_enhanced: bool = False):
         self.library = library
         self.debug = debug
         self.ai_enhanced = ai_enhanced
-        self.logger = logger
         self.errors = []
         self.warnings = []
         self.stats = {
@@ -451,10 +436,6 @@ class ScenarioValidator:
                     pass
             
             self.errors.append(error_info)
-            
-            # Логируем событие, если логгер включен
-            if self.logger:
-                self.logger.log_event('step_not_found', error_info)
     
     def _check_variables(self, lines: List[str]):
         """Проверка правильности использования переменных"""
@@ -498,8 +479,6 @@ class ScenarioValidator:
                     'fix': 'replace_quotes'
                 }
                 self.errors.append(error_info)
-                if self.logger:
-                    self.logger.log_event('auto_fix_suggestion', error_info)
 
 
 def print_report(result: Dict, verbose: bool = False):
@@ -609,13 +588,17 @@ def print_compact_report(result: Dict):
 
 
 def print_ai_enhanced_report(result: Dict):
-    """Вывод отчета в расширенном формате YAML для AI"""
-    import yaml
+    """Вывод расширенного отчета в JSON.
+
+    Печатается только сам отчет, без преамбулы и разделителей: потребитель
+    разбирает вывод целиком. JSON взят из стандартной библиотеки и экранирует сам;
+    ручная сборка разметки ломалась бы на тексте шага с кавычками и двоеточиями.
+    """
     
     errors = result.get('errors', [])
     warnings = result.get('warnings', [])
     
-    # Убираем лишние детали для чистоты YAML
+    # В отчет идет только то, что разбирает потребитель
     clean_errors = []
     for error in errors:
         # Копируем чтобы не изменять оригинал
@@ -641,21 +624,7 @@ def print_ai_enhanced_report(result: Dict):
         }
     }
     
-    # Используем yaml для красивого вывода
-    # allow_unicode=True для поддержки кириллицы
-    # sort_keys=False для сохранения порядка
-    print("---")
-    try:
-        # Пытаемся использовать PyYAML если он установлен
-        print(yaml.dump(report, allow_unicode=True, sort_keys=False, indent=2))
-    except ImportError:
-        # Если нет - используем json.dumps с отступами
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-    except Exception as e:
-        # На случай других ошибок сериализации
-        print(json.dumps(report, ensure_ascii=False, indent=2))
-        
-    print("---")
+    print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
 def print_recommendations_for_ai(result: Dict):
@@ -729,7 +698,7 @@ def main():
     parser.add_argument(
         '--ai-enhanced',
         action='store_true',
-        help='Вывод в расширенном YAML-формате для AI с семантическим анализом'
+        help='Вывод расширенного отчета в JSON с семантическим анализом'
     )
     parser.add_argument(
         '--compact', '-c',
@@ -740,11 +709,6 @@ def main():
         '--debug',
         action='store_true',
         help='Включает режим отладки с выводом каждого успешного шага'
-    )
-    parser.add_argument(
-        '--log-metrics',
-        action='store_true',
-        help='Включает логирование метрик в data/metrics.jsonl'
     )
     
     args = parser.parse_args()
@@ -762,17 +726,11 @@ def main():
     print(f"\n{Colors.BOLD}Валидация сценария: {args.scenario}{Colors.END}")
     print(f"Библиотека шагов: {args.library}\n")
     
-    # Инициализируем логгер, если нужно
-    logger = None
-    if args.log_metrics and SEMANTIC_ANALYSIS_AVAILABLE:
-        logger = MetricsLogger(METRICS_FILE)
-        print(f"📝 Логирование метрик включено. Файл: {METRICS_FILE}")
-
     # Загружаем библиотеку с учетом семантического анализа
     library = StepLibrary(args.library, enable_semantic=args.ai_enhanced)
     
     # Валидируем сценарий
-    validator = ScenarioValidator(library, debug=args.debug, ai_enhanced=args.ai_enhanced, logger=logger)
+    validator = ScenarioValidator(library, debug=args.debug, ai_enhanced=args.ai_enhanced)
     result = validator.validate_file(args.scenario)
     
     if 'error' in result:

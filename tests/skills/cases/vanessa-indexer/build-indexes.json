@@ -1,0 +1,36 @@
+{
+  "name": "Индексы строятся по сокращенному реестру из десяти шагов",
+  "setup": "fixture:library",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "--library",
+    "{workDir}/steps-library.json",
+    "--output",
+    "{workDir}/indexes"
+  ],
+  "noSnapshot": "в index.json лежат время создания и путь к файлу, а порядок ключей в by-keywords зависит от обхода множества - эталон был бы нестабилен; проверяется содержимое",
+  "expect": {
+    "files": [
+      "indexes/index.json",
+      "indexes/by-keywords.json",
+      "indexes/by-category.json",
+      "indexes/frequency.json"
+    ],
+    "fileContains": [
+      {
+        "file": "indexes/index.json",
+        "text": [
+          "\"total_steps\": 10",
+          "\"total_categories\": 4"
+        ]
+      },
+      {
+        "file": "indexes/by-category.json",
+        "text": [
+          "Служебные",
+          "UI"
+        ]
+      }
+    ]
+  }
+}

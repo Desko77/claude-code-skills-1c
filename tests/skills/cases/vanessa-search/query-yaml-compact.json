@@ -1,0 +1,18 @@
+{
+  "name": "Поиск по смыслу, сжатый формат",
+  "setup": "none",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "--query",
+    "открыть форму документа",
+    "--top",
+    "3",
+    "--format",
+    "yaml-compact"
+  ],
+  "noSnapshot": "навык только читает реестр и печатает - в рабочий каталог он ничего не пишет",
+  "expect": {
+    "stdoutContains": "открываю",
+    "stdoutNotContains": "ПОИСК ШАГОВ"
+  }
+}

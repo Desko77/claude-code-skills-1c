@@ -1,0 +1,5 @@
+{
+  "script": "1c-vanessa-steps/scripts/validate",
+  "setup": "fixture:scenarios",
+  "args": []
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Расширенный отчет: разметка JSON и работающий семантический разбор",
+  "setup": "fixture:scenarios",
+  "runtimeOnly": "python",
+  "args_extra": [
+    "{workDir}/semantic.feature",
+    "--ai-enhanced"
+  ],
+  "expectError": true,
+  "noSnapshot": "навык читает сценарий и печатает отчет - файлов он не создает",
+  "expect": {
+    "stdoutContains": [
+      "\"report\"",
+      "\"errors\"",
+      "\"stats\"",
+      "\"semantic_match\"",
+      "\"parsed\""
+    ],
+    "stdoutNotContains": "---"
+  }
+}
