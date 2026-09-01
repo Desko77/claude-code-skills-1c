@@ -30,7 +30,9 @@ README с приветствием это справочник, а не пись
     frontmatter              проверяется только механическое
     таблица                  не проверяется стрелка (там это обозначение)
     цитата                   не проверяется регистр
-    слово в кавычках         не проверяется регистр: слово упоминается, не употребляется
+    слово в кавычках         не проверяются регистр и стоп-фраза: слово упоминается,
+                             а не употребляется. Замер по набору: из 10 срабатываний
+                             стоп-фразы все 10 обрамлены кавычками, вне кавычек ни одного
     адрес ссылки             не проверяются регистр и стоп-фраза; текст ссылки проверяется
 
 Механическое не маскируется нигде, кроме кода: запрещенный символ остается
@@ -243,6 +245,37 @@ def mask_link_targets(line):
     return LINK_TARGET_RE.sub(blank_target, line)
 
 
+QUOTE_PAIRS = (('"', '"'), ('«', '»'), ('`', '`'))
+
+
+def quoted_spans(line):
+    """Границы участков строки, взятых в кавычки или бэктики.
+
+    Возвращаются именно СПАНЫ, а не соседние символы слова: запрещенное слово
+    часто стоит внутри закавыченной ФРАЗЫ ("досыпает элементы"), и проверка по
+    соседству его пропускала - слева кавычка, а справа пробел.
+
+    Ограничение названо явно: кавычка, открытая на предыдущей строке, здесь
+    читается как открывающая, и спаны в такой строке смещаются. Абзац, где
+    цитата перенесена через строку, даст находку на упоминании. Лечится это
+    разбором всего документа вместо построчного, и цена такой переделки выше
+    пользы: перенос цитаты через строку в наборе редок.
+    """
+    spans = []
+    for opening, closing in QUOTE_PAIRS:
+        pos = 0
+        while True:
+            start = line.find(opening, pos)
+            if start < 0:
+                break
+            stop = line.find(closing, start + 1)
+            if stop < 0:
+                break
+            spans.append((start + 1, stop))
+            pos = stop + 1
+    return spans
+
+
 def quoted_example(line, pos, end):
     """Взято ли само слово в позиции pos..end в кавычки или бэктики.
 
@@ -257,10 +290,7 @@ def quoted_example(line, pos, end):
     все они упоминания, 16 не обрамлены и все они настоящий долг текстов -
     заголовки вида "Подводные камни" и оборот "известные грабли".
     """
-    left = line[pos - 1] if pos > 0 else ''
-    right = line[end] if end < len(line) else ''
-    pairs = {'"': '"', '«': '»', '`': '`', "'": "'"}
-    return pairs.get(left) == right and left != ''
+    return any(start <= pos and end <= stop for start, stop in quoted_spans(line))
 
 
 def looks_epistolary(prose_lines):
@@ -387,8 +417,16 @@ def scan(text, technical=True, force_technical=False, genre='prose'):
         low = line.lower()
         if 'стоп-фраза' not in area:
             for phrase in STOP_PHRASES_RU + STOP_PHRASES_EN:
-                if phrase in low:
-                    found.append(('стоп-фраза', line_no, '"%s"' % phrase))
+                at = low.find(phrase)
+                if at < 0:
+                    continue
+                # Стоп-фраза в кавычках тоже упоминается, а не употребляется.
+                # Замерено по набору: из 10 срабатываний в rules/ и SKILL.md все
+                # 10 обрамлены кавычками и все они примеры в тексте, который
+                # об этих штампах и рассказывает. Вне кавычек - ни одного.
+                if quoted_example(line, at, at + len(phrase)):
+                    continue
+                found.append(('стоп-фраза', line_no, '"%s"' % phrase))
         if check_register and 'регистр' not in area:
             for m in REGISTER_RE.finditer(mask_link_targets(line)):
                 if quoted_example(line, m.start(), m.end()):
