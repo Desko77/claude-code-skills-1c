@@ -7,6 +7,7 @@ Converts rules (.md → .mdc with MDC frontmatter) and skills
 """
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -426,6 +427,11 @@ def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
     # каталоги evals/ там отсутствуют, прогонять нечего. Без исключения гард уезжает
     # в зеркало и падает там на отсутствующем файле, роняя весь check-all.
     skip_names = {".last-report.json", "check-eval-runner.mjs"}
+    # Поле source связывает файл корпуса с оригиналом в исходном наборе. В зеркале
+    # оригиналов нет: правила лежат как .mdc, README свой, описание скила переписано
+    # конвертером. Сверка копий там дала бы предупреждение на каждом прогоне, поэтому
+    # поле снимается, а остальные проверки корпуса работают как есть.
+    corpus_manifest = Path("skills/cases/humanize-scan/corpus/manifest.json")
 
     if not dry_run:
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -439,7 +445,14 @@ def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
             continue
         if not dry_run:
             (target_dir / rel).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(item, target_dir / rel)
+            if rel == corpus_manifest:
+                data = json.loads(item.read_text(encoding="utf-8"))
+                for entry in data.get("files", []):
+                    entry.pop("source", None)
+                text = json.dumps(data, ensure_ascii=False, indent=2) + chr(10)
+                (target_dir / rel).write_text(text, encoding="utf-8", newline=chr(10))
+            else:
+                shutil.copy2(item, target_dir / rel)
         count += 1
     results.append(f"  {'[DRY] ' if dry_run else ''}перенесено файлов: {count}")
     return results
