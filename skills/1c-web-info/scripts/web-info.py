@@ -13,7 +13,13 @@ import os
 import re
 import sys
 
-import psutil
+# Зависимость необязательная и объявлена в таблице README. Без нее скрипт должен
+# называть пакет, а не показывать трассировку.
+try:
+    import psutil
+except ModuleNotFoundError:
+    import sys as _sys
+    _sys.exit("Навыку 1c-web-info нужен пакет psutil. Установка: pip install psutil")
 
 
 def get_httpd_by_exe(httpd_exe_norm):

@@ -15,7 +15,13 @@ import time
 import webbrowser
 from pathlib import Path
 
-import anthropic
+# Зависимость необязательная и объявлена в таблице README. Без нее скрипт должен
+# называть пакет, а не показывать трассировку.
+try:
+    import anthropic
+except ModuleNotFoundError:
+    import sys as _sys
+    _sys.exit("Навыку skill-creator нужен пакет anthropic. Установка: pip install anthropic")
 
 from scripts.generate_report import generate_html
 from scripts.improve_description import improve_description

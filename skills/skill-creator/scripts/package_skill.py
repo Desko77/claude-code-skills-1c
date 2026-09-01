@@ -14,6 +14,13 @@ import fnmatch
 import sys
 import zipfile
 from pathlib import Path
+import sys
+from pathlib import Path
+
+# Скрипт запускают напрямую, а соседи импортируются по имени пакета. Корень навыка
+# кладется в путь поиска, иначе импорт не разрешается и скрипт падает на старте.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.quick_validate import validate_skill
 
 # Patterns to exclude when packaging skills.
@@ -108,13 +115,18 @@ def package_skill(skill_path, output_dir=None):
         return None
 
 
+HELP_FLAGS = ("-h", "--help", "/?")
+
+
 def main():
-    if len(sys.argv) < 2:
+    # Запрос справки не должен читаться как имя каталога: без этого любой ключ
+    # превращался в путь и давал отказ вместо подсказки.
+    if len(sys.argv) < 2 or sys.argv[1] in HELP_FLAGS:
         print("Usage: python utils/package_skill.py <path/to/skill-folder> [output-directory]")
         print("\nExample:")
         print("  python utils/package_skill.py skills/public/my-skill")
         print("  python utils/package_skill.py skills/public/my-skill ./dist")
-        sys.exit(1)
+        sys.exit(0 if len(sys.argv) > 1 else 1)
 
     skill_path = sys.argv[1]
     output_dir = sys.argv[2] if len(sys.argv) > 2 else None

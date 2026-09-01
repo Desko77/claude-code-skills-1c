@@ -17,6 +17,13 @@ import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+import sys
+from pathlib import Path
+
+# Скрипт запускают напрямую, а соседи импортируются по имени пакета. Корень навыка
+# кладется в путь поиска, иначе импорт не разрешается и скрипт падает на старте.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.utils import parse_skill_md
 
 

@@ -17,7 +17,13 @@ import subprocess
 import sys
 import time
 
-import psutil
+# Зависимость необязательная и объявлена в таблице README. Без нее скрипт должен
+# называть пакет, а не показывать трассировку.
+try:
+    import psutil
+except ModuleNotFoundError:
+    import sys as _sys
+    _sys.exit("Навыку 1c-web-unpublish нужен пакет psutil. Установка: pip install psutil")
 
 
 def get_our_httpd(httpd_exe_norm):

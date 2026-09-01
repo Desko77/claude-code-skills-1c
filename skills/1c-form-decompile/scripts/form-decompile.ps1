@@ -166,6 +166,47 @@ function Convert-Scalar([string]$text) {
 	return $t
 }
 
+# Дополнения командной панели динамического списка: тег в XML - ключ типа в DSL.
+$script:AdditionTags = @{
+	"SearchStringAddition"  = "searchString"
+	"ViewStatusAddition"    = "viewStatus"
+	"SearchControlAddition" = "searchControl"
+}
+
+# Положение в панели: основное написание платформы в ключ DSL.
+$script:LocationBack = @{ "Left" = "left"; "Right" = "right"; "Center" = "center" }
+
+function Read-Addition {
+	param($node, [string]$tableName)
+	# Спутники не переносятся: компилятор выдает их сам по имени дополнения.
+	$kind = $script:AdditionTags[$node.LocalName]
+	$el = [ordered]@{ $kind = $node.GetAttribute("name") }
+	foreach ($ch in (Get-ElemChildren $node)) {
+		$ln = $ch.LocalName
+		if ($ln -eq "AdditionSource") {
+			$source = ""
+			foreach ($sub in (Get-ElemChildren $ch)) {
+				if ($sub.LocalName -eq "Item") { $source = Get-NodeText $sub }
+			}
+			if ($source -and $source -ne $tableName) { $el["source"] = $source }
+		} elseif ($ln -eq "Title") {
+			$title = Get-MLText $ch @() "Дополнение"
+			if ($null -ne $title) { $el["title"] = $title }
+		} elseif ($ln -eq "Width") {
+			$el["width"] = Convert-Scalar (Get-NodeText $ch)
+		} elseif ($ln -eq "HorizontalStretch") {
+			$el["horizontalStretch"] = ConvertTo-Bool (Get-NodeText $ch)
+		} elseif ($ln -eq "HorizontalLocation") {
+			$value = Get-NodeText $ch
+			if ($script:LocationBack.ContainsKey($value)) { $el["horizontalLocation"] = $script:LocationBack[$value] }
+			else { $el["horizontalLocation"] = $value }
+		} elseif ($ln -eq "Visible") {
+			$el["visible"] = ConvertTo-Bool (Get-NodeText $ch)
+		}
+	}
+	return $el
+}
+
 function Get-NodeText($node) {
 	return $node.InnerText.Trim()
 }
@@ -336,9 +377,20 @@ function Invoke-CommonChild($ch, [string]$ln, $el, [string]$name, $todos) {
 		return $true
 	}
 	if (@("ContextMenu", "ExtendedTooltip", "SearchStringAddition", "ViewStatusAddition", "SearchControlAddition") -contains $ln) {
-		if (-not (Test-EmptyNode $ch)) {
-			Add-Todo $todos ("Элемент '" + $name + "': служебный элемент " + $ln + " с содержимым не перенесен (генерируется заново)")
+		if (Test-EmptyNode $ch) { return $true }
+		# Штатное дополнение таблицы с содержимым: пустое дополнение компилятор выдает сам,
+		# поэтому переносятся только отличия от умолчания.
+		if ($script:AdditionTags.ContainsKey($ln)) {
+			$kind = $script:AdditionTags[$ln]
+			$settings = Read-Addition -node $ch -tableName $name
+			$settings.Remove($kind)
+			if ($settings.Count -gt 0) {
+				if (-not $el.Contains("additions")) { $el["additions"] = [ordered]@{} }
+				$el["additions"][$kind] = $settings
+			}
+			return $true
 		}
+		Add-Todo $todos ("Элемент '" + $name + "': служебный элемент " + $ln + " с содержимым не перенесен (генерируется заново)")
 		return $true
 	}
 	return $false
@@ -495,6 +547,18 @@ function Read-Element($node) {
 			elseif ($ln -eq "AutoCommandBar") {
 				foreach ($sub in (Get-ElemChildren $ch)) {
 					if ($sub.LocalName -eq "Autofill") { $el["tableAutofill"] = ConvertTo-Bool (Get-NodeText $sub) }
+					elseif ($sub.LocalName -eq "ChildItems") {
+						$bar = @()
+						foreach ($item in (Get-ElemChildren $sub)) {
+							if ($script:AdditionTags.ContainsKey($item.LocalName)) {
+								$bar += (Read-Addition -node $item -tableName $name)
+							} else {
+								$parsed = Read-Element $item
+								if ($null -ne $parsed) { $bar += $parsed }
+							}
+						}
+						if ($bar.Count -gt 0) { $el["commandBar"] = $bar }
+					}
 					else { Add-Todo $todos ("Элемент '" + $name + "': содержимое AutoCommandBar (" + $sub.LocalName + ") не поддержано DSL") }
 				}
 			}

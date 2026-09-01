@@ -336,10 +336,64 @@ def handle_common_child(ch, ln, el, name, todos):
         read_element_events(ch, name, el)
         return True
     if ln in ("ContextMenu", "ExtendedTooltip", "SearchStringAddition", "ViewStatusAddition", "SearchControlAddition"):
-        if not is_empty_node(ch):
-            note(todos, "Элемент '" + name + "': служебный элемент " + ln + " с содержимым не перенесен (генерируется заново)")
+        if is_empty_node(ch):
+            return True
+        # Штатное дополнение таблицы с содержимым: пустое дополнение компилятор выдает
+        # сам, поэтому переносятся только отличия от умолчания.
+        if ln in ADDITION_TAGS:
+            kind = ADDITION_TAGS[ln]
+            settings = parse_addition(ch, name)
+            settings.pop(kind, None)
+            if settings:
+                el.setdefault("additions", {})[kind] = settings
+            return True
+        note(todos, "Элемент '" + name + "': служебный элемент " + ln + " с содержимым не перенесен (генерируется заново)")
         return True
     return False
+
+
+# Дополнения командной панели динамического списка: тег в XML - ключ типа в DSL.
+ADDITION_TAGS = {
+    "SearchStringAddition": "searchString",
+    "ViewStatusAddition": "viewStatus",
+    "SearchControlAddition": "searchControl",
+}
+
+# Положение в панели: основное написание платформы в ключ DSL.
+LOCATION_BACK = {"Left": "left", "Right": "right", "Center": "center"}
+
+
+def parse_addition(node, table_name):
+    """Дополнение в объявление DSL. Источник, равный имени таблицы, опускается.
+
+    Спутники (контекстное меню, расширенная подсказка) не переносятся: компилятор
+    выдает их сам по имени дополнения.
+    """
+    kind = ADDITION_TAGS[lname(node.tag)]
+    el = {kind: node.get("name") or ""}
+    for ch in node:
+        ln = lname(ch.tag)
+        if ln == "AdditionSource":
+            source = ""
+            for sub in ch:
+                if lname(sub.tag) == "Item":
+                    source = node_text(sub)
+            if source and source != table_name:
+                el["source"] = source
+        elif ln == "Title":
+            title = ml_text(ch, [], "Дополнение")
+            if title is not None:
+                el["title"] = title
+        elif ln == "Width":
+            el["width"] = sniff_scalar(node_text(ch))
+        elif ln == "HorizontalStretch":
+            el["horizontalStretch"] = as_bool(node_text(ch))
+        elif ln == "HorizontalLocation":
+            value = node_text(ch)
+            el["horizontalLocation"] = LOCATION_BACK.get(value, value)
+        elif ln == "Visible":
+            el["visible"] = as_bool(node_text(ch))
+    return el
 
 
 def unknown_child(ch, ln, name, todos):
@@ -533,6 +587,17 @@ def parse_element(node):
                     sn = lname(sub.tag)
                     if sn == "Autofill":
                         el["tableAutofill"] = as_bool(node_text(sub))
+                    elif sn == "ChildItems":
+                        bar = []
+                        for item in sub:
+                            if lname(item.tag) in ADDITION_TAGS:
+                                bar.append(parse_addition(item, name))
+                            else:
+                                parsed = parse_element(item)
+                                if parsed is not None:
+                                    bar.append(parsed)
+                        if bar:
+                            el["commandBar"] = bar
                     else:
                         note(todos, "Элемент '" + name + "': содержимое AutoCommandBar (" + sn + ") не поддержано DSL")
             elif ln == "ChildItems":

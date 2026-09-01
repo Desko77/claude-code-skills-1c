@@ -1028,10 +1028,20 @@ def emit_popup(el, name, _id, indent):
 
 # --- Element dispatcher ---
 
-ELEMENT_KEYS = ["group", "input", "check", "label", "labelField", "table", "pages", "page", "button", "picture", "picField", "calendar", "cmdBar", "popup"]
+# Дополнения командной панели динамического списка: тег и тип источника сняты с
+# выгрузки платформы 8.3.27.2214.
+ADDITION_TYPES = {
+    "searchString": ("SearchStringAddition", "SearchStringRepresentation"),
+    "viewStatus": ("ViewStatusAddition", "ViewStatusRepresentation"),
+    "searchControl": ("SearchControlAddition", "SearchControl"),
+}
+
+ELEMENT_KEYS = ["group", "input", "check", "label", "labelField", "table", "pages", "page", "button", "picture", "picField", "calendar", "cmdBar", "popup",
+                "searchString", "viewStatus", "searchControl"]
 
 KNOWN_KEYS = {
     "group", "input", "check", "label", "labelField", "table", "pages", "page",
+    "searchString", "viewStatus", "searchControl", "source", "horizontalLocation",
     "button", "picture", "picField", "calendar", "cmdBar", "popup",
     "name", "path", "title",
     "visible", "hidden", "enabled", "disabled", "readOnly",
@@ -1083,9 +1093,49 @@ def emit_element(el, indent):
     name = get_element_name(el, type_key)
     _id = new_id()
 
+    if type_key in ADDITION_TYPES:
+        emit_addition(el, name, _id, indent, type_key)
+        return
+
     emitter = EMITTER_MAP.get(type_key)
     if emitter:
         emitter(el, name, _id, indent)
+
+
+def emit_addition(el, name, eid, indent, type_key):
+    """Дополнение командной панели: источник, свойства, спутники.
+
+    Порядок снят с выгрузки платформы. Источник обязателен: редактор дописывает элемент
+    в готовую форму и родительскую таблицу по входу не знает.
+    """
+    tag, source_type = ADDITION_TYPES[type_key]
+    X(f'{indent}<{tag} name="{name}" id="{eid}">')
+    inner = f'{indent}\t'
+    source = el.get("source") or ""
+    if not source:
+        print(f"[WARN] Дополнение '{name}': источник не задан - укажите source")
+    X(f'{inner}<AdditionSource>')
+    X(f'{inner}\t<Item>{source}</Item>')
+    X(f'{inner}\t<Type>{source_type}</Type>')
+    X(f'{inner}</AdditionSource>')
+    if el.get("title"):
+        emit_mltext("Title", el["title"], inner)
+    if el.get("visible") is False:
+        X(f'{inner}<Visible>false</Visible>')
+    if el.get("width"):
+        X(f'{inner}<Width>{el["width"]}</Width>')
+    if el.get("horizontalStretch") is not None:
+        val = "true" if el["horizontalStretch"] else "false"
+        X(f'{inner}<HorizontalStretch>{val}</HorizontalStretch>')
+    location = el.get("horizontalLocation")
+    if location:
+        mapped = {"left": "Left", "right": "Right", "center": "Center"}.get(
+            str(location).strip().lower())
+        if mapped:
+            X(f'{inner}<HorizontalLocation>{mapped}</HorizontalLocation>')
+    emit_companion("ContextMenu", f'{name}КонтекстноеМеню', inner)
+    emit_companion("ExtendedTooltip", f'{name}РасширеннаяПодсказка', inner)
+    X(f'{indent}</{tag}>')
 
 
 # ── 6. Find element by name recursively ─────────────────────

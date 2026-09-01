@@ -45,6 +45,10 @@
       "skills": 11,
       "variants": 2
     },
+    "ps1:Emit-Addition": {
+      "skills": 2,
+      "variants": 2
+    },
     "ps1:Emit-Button": {
       "skills": 2,
       "variants": 2
@@ -512,6 +516,10 @@
     "py:download_models": {
       "skills": 2,
       "variants": 1
+    },
+    "py:emit_addition": {
+      "skills": 2,
+      "variants": 2
     },
     "py:emit_button": {
       "skills": 2,

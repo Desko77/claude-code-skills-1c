@@ -15,26 +15,47 @@
 		<Table name="Список" id="1">
 			<DataPath>Список</DataPath>
 			<ContextMenu name="СписокКонтекстноеМеню" id="2"/>
-			<AutoCommandBar name="СписокКоманднаяПанель" id="3"/>
-			<SearchStringAddition name="СписокСтрокаПоиска" id="4"/>
-			<ViewStatusAddition name="СписокСостояниеПросмотра" id="5"/>
-			<SearchControlAddition name="СписокУправлениеПоиском" id="6"/>
+			<AutoCommandBar name="СписокКоманднаяПанель" id="3">
+				<ChildItems>
+					<SearchStringAddition name="ПоискСписка" id="4">
+						<AdditionSource>
+							<Item>Список</Item>
+							<Type>SearchStringRepresentation</Type>
+						</AdditionSource>
+						<Width>15</Width>
+						<HorizontalStretch>true</HorizontalStretch>
+						<ContextMenu name="ПоискСпискаКонтекстноеМеню" id="5"/>
+						<ExtendedTooltip name="ПоискСпискаРасширеннаяПодсказка" id="6"/>
+					</SearchStringAddition>
+				</ChildItems>
+			</AutoCommandBar>
+			<SearchStringAddition name="СписокСтрокаПоиска" id="7"/>
+			<ViewStatusAddition name="СписокСостояниеПросмотра" id="8">
+				<AdditionSource>
+					<Item>Список</Item>
+					<Type>ViewStatusRepresentation</Type>
+				</AdditionSource>
+				<HorizontalLocation>Left</HorizontalLocation>
+				<ContextMenu name="СписокСостояниеПросмотраКонтекстноеМеню" id="9"/>
+				<ExtendedTooltip name="СписокСостояниеПросмотраРасширеннаяПодсказка" id="10"/>
+			</ViewStatusAddition>
+			<SearchControlAddition name="СписокУправлениеПоиском" id="11"/>
 			<ChildItems>
-				<InputField name="Код" id="7">
+				<InputField name="Код" id="12">
 					<DataPath>Список.Code</DataPath>
-					<ContextMenu name="КодКонтекстноеМеню" id="8"/>
-					<ExtendedTooltip name="КодРасширеннаяПодсказка" id="9"/>
+					<ContextMenu name="КодКонтекстноеМеню" id="13"/>
+					<ExtendedTooltip name="КодРасширеннаяПодсказка" id="14"/>
 				</InputField>
-				<InputField name="Наименование" id="10">
+				<InputField name="Наименование" id="15">
 					<DataPath>Список.Description</DataPath>
-					<ContextMenu name="НаименованиеКонтекстноеМеню" id="11"/>
-					<ExtendedTooltip name="НаименованиеРасширеннаяПодсказка" id="12"/>
+					<ContextMenu name="НаименованиеКонтекстноеМеню" id="16"/>
+					<ExtendedTooltip name="НаименованиеРасширеннаяПодсказка" id="17"/>
 				</InputField>
 			</ChildItems>
 		</Table>
 	</ChildItems>
 	<Attributes>
-		<Attribute name="Список" id="13">
+		<Attribute name="Список" id="18">
 			<Title>
 				<v8:item>
 					<v8:lang>ru</v8:lang>

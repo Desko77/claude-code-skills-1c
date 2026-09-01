@@ -1623,8 +1623,22 @@ KNOWN_KEYS = {
     "rowPictureDataPath", "tableAutofill",
 }
 
+# Дополнения командной панели динамического списка. Замер на платформе 8.3.27.2214:
+# у каждого вида свое значение типа источника, элементом источника платформа ставит имя
+# родительской таблицы, а объявленное дополнение НЕ заменяет автоматическое - они
+# сосуществуют.
+ADDITION_TYPES = {
+    "searchString": ("SearchStringAddition", "SearchStringRepresentation"),
+    "viewStatus": ("ViewStatusAddition", "ViewStatusRepresentation"),
+    "searchControl": ("SearchControlAddition", "SearchControl"),
+}
+
+# Имя таблицы, внутри которой идет разбор: источник дополнения по умолчанию.
+CURRENT_TABLE = []
+
 TYPE_KEYS = ["group", "input", "check", "label", "labelField", "table", "pages", "page",
-             "button", "picture", "picField", "calendar", "cmdBar", "popup"]
+             "button", "picture", "picField", "calendar", "cmdBar", "popup",
+             "searchString", "viewStatus", "searchControl"]
 
 
 def get_handler_name(element_name, event_name):
@@ -1919,9 +1933,66 @@ def emit_element(lines, el, indent):
         'popup': emit_popup,
     }
 
+    if type_key in ADDITION_TYPES:
+        emit_addition(lines, el, name, eid, indent, type_key)
+        return
+
     emitter = emitters.get(type_key)
     if emitter:
         emitter(lines, el, name, eid, indent)
+
+
+def emit_addition(lines, el, name, eid, indent, type_key):
+    """Объявленное дополнение командной панели: свое имя, источник и свойства.
+
+    Порядок внутри снят с выгрузки платформы: источник, свойства, спутники.
+    """
+    tag, source_type = ADDITION_TYPES[type_key]
+    lines.append(f'{indent}<{tag} name="{name}" id="{eid}">')
+    inner = f'{indent}\t'
+
+    source = el.get("source") or (CURRENT_TABLE[-1] if CURRENT_TABLE else "")
+    if not source:
+        print(f"WARNING: Дополнение '{name}': источник не задан и родительской таблицы "
+              f"нет - укажите source", file=sys.stderr)
+    lines.append(f'{inner}<AdditionSource>')
+    lines.append(f'{inner}\t<Item>{source}</Item>')
+    lines.append(f'{inner}\t<Type>{source_type}</Type>')
+    lines.append(f'{inner}</AdditionSource>')
+
+    emit_title(lines, el, name, inner)
+    emit_common_flags(lines, el, inner)
+    if el.get("width"):
+        lines.append(f'{inner}<Width>{el["width"]}</Width>')
+    if el.get("horizontalStretch") is not None:
+        val = "true" if el["horizontalStretch"] else "false"
+        lines.append(f'{inner}<HorizontalStretch>{val}</HorizontalStretch>')
+    location = resolve_horizontal_location(el.get("horizontalLocation"))
+    if location:
+        lines.append(f'{inner}<HorizontalLocation>{location}</HorizontalLocation>')
+
+    emit_companion(lines, "ContextMenu", f'{name}КонтекстноеМеню', inner)
+    emit_companion(lines, "ExtendedTooltip", f'{name}РасширеннаяПодсказка', inner)
+    lines.append(f'{indent}</{tag}>')
+
+
+# Положение в панели. Умолчание платформа не пишет, поэтому его мы тоже не пишем.
+HORIZONTAL_LOCATIONS = {
+    "auto": None, "\u0430\u0432\u0442\u043e": None,
+    "left": "Left", "\u0441\u043b\u0435\u0432\u0430": "Left",
+    "right": "Right", "\u0441\u043f\u0440\u0430\u0432\u0430": "Right",
+    "center": "Center", "\u0446\u0435\u043d\u0442\u0440": "Center",
+}
+
+
+def resolve_horizontal_location(value):
+    """Синоним положения приводится к основному написанию; умолчание дает пустоту."""
+    if not value:
+        return None
+    key = str(value).strip().lower()
+    if key in HORIZONTAL_LOCATIONS:
+        return HORIZONTAL_LOCATIONS[key]
+    return str(value)
 
 
 def emit_group(lines, el, name, eid, indent):
@@ -2193,9 +2264,46 @@ def emit_label_field(lines, el, name, eid, indent):
     lines.append(f'{indent}</LabelField>')
 
 
+def emit_table_addition(lines, el, table_name, kind, addition_name, indent):
+    """Штатное дополнение таблицы: без настройки - пустой тег, с настройкой - полный.
+
+    Настройка задается ключом additions у таблицы. Пустой тег платформа принимает и
+    дополняет сама; отличия от умолчания приходится писать целиком, иначе они пропадут.
+    """
+    tag, _ = ADDITION_TYPES[kind]
+    settings = (el.get('additions') or {}).get(kind)
+    if not settings:
+        emit_companion(lines, tag, addition_name, indent)
+        return
+    declared = dict(settings)
+    declared.setdefault('source', table_name)
+    emit_addition(lines, declared, addition_name, new_id(), indent, kind)
+
+
+def emit_command_bar_children(lines, el, indent):
+    """Содержимое командной панели таблицы: элементы идут в ChildItems.
+
+    Прежде ключ commandBar у таблицы принимался и результата не давал.
+    """
+    children = el.get('commandBar')
+    # Ключ принимает и строку - имя готовой панели в наборах генерации формы. Элементами
+    # считается только список объектов.
+    if not isinstance(children, list):
+        return
+    children = [c for c in children if isinstance(c, dict)]
+    if not children:
+        return
+    lines.append(f'{indent}	<ChildItems>')
+    for child in children:
+        emit_element(lines, child, f'{indent}		')
+    lines.append(f'{indent}	</ChildItems>')
+
+
 def emit_table(lines, el, name, eid, indent):
     lines.append(f'{indent}<Table name="{name}" id="{eid}">')
     inner = f'{indent}\t'
+    # Имя таблицы нужно вложенным дополнениям: источник по умолчанию - она сама.
+    CURRENT_TABLE.append(name)
 
     if el.get('path'):
         lines.append(f'{inner}<DataPath>{el["path"]}</DataPath>')
@@ -2241,12 +2349,18 @@ def emit_table(lines, el, name, eid, indent):
         af_val = 'true' if el['tableAutofill'] else 'false'
         lines.append(f'{inner}<AutoCommandBar name="{acb_name}" id="{acb_id}">')
         lines.append(f'{inner}\t<Autofill>{af_val}</Autofill>')
+        emit_command_bar_children(lines, el, inner)
+        lines.append(f'{inner}</AutoCommandBar>')
+    elif isinstance(el.get('commandBar'), list) and any(isinstance(c, dict) for c in el['commandBar']):
+        acb_name = f'{name}КоманднаяПанель'
+        lines.append(f'{inner}<AutoCommandBar name="{acb_name}" id="{new_id()}">')
+        emit_command_bar_children(lines, el, inner)
         lines.append(f'{inner}</AutoCommandBar>')
     else:
         emit_companion(lines, 'AutoCommandBar', f'{name}\u041a\u043e\u043c\u0430\u043d\u0434\u043d\u0430\u044f\u041f\u0430\u043d\u0435\u043b\u044c', inner)
-    emit_companion(lines, 'SearchStringAddition', f'{name}\u0421\u0442\u0440\u043e\u043a\u0430\u041f\u043e\u0438\u0441\u043a\u0430', inner)
-    emit_companion(lines, 'ViewStatusAddition', f'{name}\u0421\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435\u041f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u0430', inner)
-    emit_companion(lines, 'SearchControlAddition', f'{name}\u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435\u041f\u043e\u0438\u0441\u043a\u043e\u043c', inner)
+    emit_table_addition(lines, el, name, 'searchString', f'{name}\u0421\u0442\u0440\u043e\u043a\u0430\u041f\u043e\u0438\u0441\u043a\u0430', inner)
+    emit_table_addition(lines, el, name, 'viewStatus', f'{name}\u0421\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435\u041f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u0430', inner)
+    emit_table_addition(lines, el, name, 'searchControl', f'{name}\u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435\u041f\u043e\u0438\u0441\u043a\u043e\u043c', inner)
 
     # Columns
     if el.get('columns') and len(el['columns']) > 0:
@@ -2257,6 +2371,7 @@ def emit_table(lines, el, name, eid, indent):
 
     emit_events(lines, el, name, inner, 'table')
 
+    CURRENT_TABLE.pop()
     lines.append(f'{indent}</Table>')
 
 

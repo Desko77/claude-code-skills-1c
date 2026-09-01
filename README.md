@@ -217,6 +217,7 @@ cp commands/* ~/.claude/commands/
 | Python 3.8+ | Нет | Альтернативные скрипты (.py), `v8unpack-cf`, `check-uuid`, `img-grid-analysis` |
 | [v8unpack](https://pypi.org/project/v8unpack/) | Нет | Распаковка/сборка CF/CFE/EPF без платформы |
 | [psutil](https://pypi.org/project/psutil/) | Нет | python-порты скилов `1c-web-*`: поиск процессов веб-сервера |
+| [anthropic](https://pypi.org/project/anthropic/) | Нет | `skill-creator`: прогон и улучшение описаний через API |
 | 1C:Enterprise 8.3 | Нет | Скилы группы `db-*`, сборка EPF/ERF |
 | Node.js + npm-пакет `docx` | Нет | `md-to-docx` (конвертация Markdown в DOCX) |
 | `ffmpeg`, `ffprobe` | Нет | `transcribe`, `transcribe-audio-local` (извлечение аудио, разбивка длинных файлов) |
@@ -541,8 +542,8 @@ node tests/skills/check-type-maps.mjs --list       # что с чем сверя
 дважды, без скила и со скилом, и ответы сравниваются с ожидаемыми и запрещенными строками. Прогон
 обращается к внешнему агенту и в CI не входит; формат кейса - `tools/README-evals.md`.
 
-Требуется Node.js 18+. Текущее состояние: **845 кейсов, 0 отказов**. На PowerShell проходит 768,
-77 пропущено по условиям среды; на python проходит 796, пропущено 49. Порядок работы с тестами -
+Требуется Node.js 18+. Текущее состояние: **850 кейсов, 0 отказов**. На PowerShell проходит 773,
+77 пропущено по условиям среды; на python проходит 801, пропущено 49. Порядок работы с тестами -
 `tests/skills/README.md`.
 
 ## Хуки (экспериментально, по умолчанию выключены)

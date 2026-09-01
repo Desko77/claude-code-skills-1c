@@ -808,7 +808,7 @@ function Emit-Element {
 	param($el, [string]$indent)
 
 	$typeKey = $null
-	foreach ($key in @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup")) {
+	foreach ($key in @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup","searchString","viewStatus","searchControl")) {
 		if ($el.$key -ne $null) { $typeKey = $key; break }
 	}
 	if (-not $typeKey) { Write-Warning "Unknown element type, skipping"; return }
@@ -839,7 +839,49 @@ function Emit-Element {
 	$name = Get-ElementName -el $el -typeKey $typeKey
 	$id = New-Id
 
+# Дополнения командной панели динамического списка: тег и тип источника сняты с
+# выгрузки платформы 8.3.27.2214.
+$script:AdditionTypes = @{
+	searchString  = @{ Tag = "SearchStringAddition";  Source = "SearchStringRepresentation" }
+	viewStatus    = @{ Tag = "ViewStatusAddition";    Source = "ViewStatusRepresentation" }
+	searchControl = @{ Tag = "SearchControlAddition"; Source = "SearchControl" }
+}
+
+function Emit-Addition {
+	param($el, [string]$name, $id, [string]$indent, [string]$kind)
+	# Источник обязателен: редактор дописывает элемент в готовую форму и родительскую
+	# таблицу по входу не знает.
+	$tag = $script:AdditionTypes[$kind].Tag
+	$sourceType = $script:AdditionTypes[$kind].Source
+	X "$indent<$tag name=`"$name`" id=`"$id`">"
+	$inner = "$indent`t"
+	$source = if ($el.source) { "$($el.source)" } else { "" }
+	if (-not $source) { Write-Host "[WARN] Дополнение '$name': источник не задан - укажите source" }
+	X "$inner<AdditionSource>"
+	X "$inner`t<Item>$source</Item>"
+	X "$inner`t<Type>$sourceType</Type>"
+	X "$inner</AdditionSource>"
+	if ($el.title) { Emit-MLText -tag "Title" -text $el.title -indent $inner }
+	if ($el.visible -eq $false) { X "$inner<Visible>false</Visible>" }
+	if ($el.width) { X "$inner<Width>$($el.width)</Width>" }
+	if ($null -ne $el.horizontalStretch) {
+		$hs = if ($el.horizontalStretch) { "true" } else { "false" }
+		X "$inner<HorizontalStretch>$hs</HorizontalStretch>"
+	}
+	if ($el.horizontalLocation) {
+		$map = @{ "left" = "Left"; "right" = "Right"; "center" = "Center" }
+		$key = "$($el.horizontalLocation)".Trim().ToLower()
+		if ($map.ContainsKey($key)) { X "$inner<HorizontalLocation>$($map[$key])</HorizontalLocation>" }
+	}
+	Emit-Companion -tag "ContextMenu" -name "${name}КонтекстноеМеню" -indent $inner
+	Emit-Companion -tag "ExtendedTooltip" -name "${name}РасширеннаяПодсказка" -indent $inner
+	X "$indent</$tag>"
+}
+
 	switch ($typeKey) {
+		"searchString"  { Emit-Addition -el $el -name $name -id $id -indent $indent -kind "searchString" }
+		"viewStatus"    { Emit-Addition -el $el -name $name -id $id -indent $indent -kind "viewStatus" }
+		"searchControl" { Emit-Addition -el $el -name $name -id $id -indent $indent -kind "searchControl" }
 		"group"     { Emit-Group -el $el -name $name -id $id -indent $indent }
 		"input"     { Emit-Input -el $el -name $name -id $id -indent $indent }
 		"check"     { Emit-Check -el $el -name $name -id $id -indent $indent }
@@ -1016,7 +1058,7 @@ if ($def.elements -and $def.elements.Count -gt 0) {
 	# Check for duplicate element names
 	foreach ($el in $def.elements) {
 		$typeKey = $null
-		foreach ($key in @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup")) {
+		foreach ($key in @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup","searchString","viewStatus","searchControl")) {
 			if ($el.$key -ne $null) { $typeKey = $key; break }
 		}
 		if ($typeKey) {
@@ -1048,7 +1090,7 @@ if ($def.elements -and $def.elements.Count -gt 0) {
 	# Count actual elements (non-companion) for reporting
 	foreach ($el in $def.elements) {
 		$typeKey = $null
-		foreach ($key in @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup")) {
+		foreach ($key in @("group","input","check","label","labelField","table","pages","page","button","picture","picField","calendar","cmdBar","popup","searchString","viewStatus","searchControl")) {
 			if ($el.$key -ne $null) { $typeKey = $key; break }
 		}
 		$name = Get-ElementName -el $el -typeKey $typeKey

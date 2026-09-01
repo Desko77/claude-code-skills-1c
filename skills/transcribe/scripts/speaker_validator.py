@@ -648,9 +648,11 @@ def main():
     # везде, где консоль не в UTF-8: сборочный агент, чужая локаль.
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
-    if len(sys.argv) < 2:
+    # Запрос справки не должен читаться как имя файла: без этого любой ключ превращался
+    # в путь и давал отказ вместо подсказки.
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "/?"):
         print(__doc__)
-        sys.exit(1)
+        sys.exit(0 if len(sys.argv) > 1 else 1)
     path = sys.argv[1]
     preset = {}
     for arg in sys.argv[2:]:

@@ -1,0 +1,60 @@
+{
+  "name": "Три вида дополнений в одной панели",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Позиции",
+        "attributes": [
+          "Артикул: String(20)"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/Catalogs/Позиции.xml",
+        "-FormName": "ФормаСписка",
+        "-Purpose": "List"
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "Catalogs/Позиции/Forms/ФормаСписка/Ext/Form.xml"
+  },
+  "validatePath": "Catalogs/Позиции/Forms/ФормаСписка/Ext/Form.xml",
+  "input": {
+    "title": "Позиции",
+    "attributes": [
+      {
+        "name": "Список",
+        "type": "DynamicList",
+        "settings": {
+          "mainTable": "Catalog.Позиции"
+        }
+      }
+    ],
+    "elements": [
+      {
+        "table": "Список",
+        "path": "Список",
+        "commandBar": [
+          {
+            "searchString": "ПоискТри"
+          },
+          {
+            "viewStatus": "СостояниеТри"
+          },
+          {
+            "searchControl": "УправлениеТри"
+          }
+        ]
+      }
+    ]
+  }
+}
