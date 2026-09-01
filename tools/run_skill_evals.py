@@ -943,7 +943,20 @@ def main() -> int:
         return 2
     red = report.get("red", {}).get("summary")
     if green and green["checked"]:
-        ok = green["passed"] == green["checked"] and not green["errors"]
+        # Частично сбойная фаза неполна с ОБЕИХ сторон: критерий требует ни одного сбоя.
+        # Проверка partial только для RED оставляла дыру - GREEN с одним упавшим повтором
+        # из трех показывала errors = 0 и объявлялась пройденной.
+        ok = (
+            green["passed"] == green["checked"]
+            and not green["errors"]
+            and not green.get("partial")
+        )
+        if green.get("partial") and green["passed"] == green["checked"]:
+            print(
+                f"\nВ фазе GREEN кейсов с упавшими повторами: {green['partial']}. "
+                "Прогон неполный, результат не засчитан.",
+                file=sys.stderr,
+            )
         # Сравнение фаз имеет смысл, только когда RED отработала целиком. Сбойная RED
         # дает мало пройденных кейсов, и сравнение "RED прошел меньше" выполнялось бы
         # само собой, пропуская скил, который ничего не добавил.
