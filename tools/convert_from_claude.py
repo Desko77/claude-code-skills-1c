@@ -422,7 +422,10 @@ def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
         return ["  SKIP: no tests/ directory"]
 
     skip_parts = {".cache", "__pycache__", "node_modules"}
-    skip_names = {".last-report.json"}
+    # check-eval-runner проверяет tools/run_skill_evals.py, а он в зеркало не идет:
+    # каталоги evals/ там отсутствуют, прогонять нечего. Без исключения гард уезжает
+    # в зеркало и падает там на отсутствующем файле, роняя весь check-all.
+    skip_names = {".last-report.json", "check-eval-runner.mjs"}
 
     if not dry_run:
         target_dir.mkdir(parents=True, exist_ok=True)
