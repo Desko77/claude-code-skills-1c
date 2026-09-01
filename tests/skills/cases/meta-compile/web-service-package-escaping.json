@@ -1,0 +1,22 @@
+{
+  "name": "Адрес пакета с амперсандом экранируется (проверка правильности XML, не приема платформой)",
+  "input": {
+    "type": "WebService",
+    "name": "СервисЭкранирование",
+    "namespace": "http://example.org/service",
+    "operations": {
+      "Операция": {
+        "returnType": "xs:string",
+        "procedureName": "Операция"
+      }
+    },
+    "xdtoPackages": [
+      "http://example.org/a?x=1&y=2"
+    ]
+  },
+  "expect": {
+    "files": [
+      "WebServices/СервисЭкранирование.xml"
+    ]
+  }
+}

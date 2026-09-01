@@ -1,0 +1,9 @@
+{
+  "type": "WebService",
+  "name": "СервисОбмена",
+  "namespace": "http://example.org/service",
+  "xdtoPackages": ["http://example.org/pkgone", "http://example.org/pkgtwo"],
+  "operations": {
+    "Операция": {}
+  }
+}

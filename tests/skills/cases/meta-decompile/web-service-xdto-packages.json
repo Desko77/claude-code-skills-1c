@@ -1,0 +1,43 @@
+{
+  "name": "Круговой прогон пакетов XDTO веб-сервиса: список переживает разбор",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "WebService",
+        "name": "СервисОбмена",
+        "namespace": "http://example.org/service",
+        "operations": {
+          "Операция": {
+            "returnType": "xs:string",
+            "procedureName": "Операция"
+          }
+        },
+        "xdtoPackages": [
+          "http://example.org/pkgone",
+          "http://example.org/pkgtwo"
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "WebServices/СервисОбмена.xml",
+    "outputPath": "draft.json"
+  },
+  "expect": {
+    "files": [
+      "draft.json"
+    ],
+    "fileContains": {
+      "file": "draft.json",
+      "text": [
+        "http://example.org/pkgone",
+        "http://example.org/pkgtwo"
+      ]
+    }
+  }
+}

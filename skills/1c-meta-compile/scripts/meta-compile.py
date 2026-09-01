@@ -3005,12 +3005,26 @@ def emit_web_service_properties(indent):
     emit_comment(i)
     namespace = str(defn['namespace']) if defn.get('namespace') else ''
     X(f'{i}<Namespace>{esc_xml(namespace)}</Namespace>')
-    # Массив пакетов уходит в XML одной строкой через пробел: PowerShell склеивает массив
-    # при интерполяции, python на str(list) отдал бы repr со скобками и кавычками.
+    # Пакеты уходят списком значений. Замер на платформе 8.3.27.2214: плоскую строку
+    # платформа отвергает при загрузке с ошибкой чтения свойства XDTOPackages как
+    # ValueList, а принимает элементы xr:Item. Выгрузка платформы содержит у каждого
+    # элемента Presentation, CheckState и Value.
     _xp = defn.get('xdtoPackages')
-    xdto_packages = ' '.join(str(x) for x in _xp) if isinstance(_xp, list) else (str(_xp) if _xp else '')
-    if xdto_packages:
-        X(f'{i}<XDTOPackages>{xdto_packages}</XDTOPackages>')
+    if isinstance(_xp, list):
+        packages = [str(x) for x in _xp if str(x)]
+    elif _xp:
+        packages = [x for x in str(_xp).split() if x]
+    else:
+        packages = []
+    if packages:
+        X(f'{i}<XDTOPackages>')
+        for pkg in packages:
+            X(f'{i}	<xr:Item>')
+            X(f'{i}		<xr:Presentation/>')
+            X(f'{i}		<xr:CheckState>0</xr:CheckState>')
+            X(f'{i}		<xr:Value xsi:type="xs:string">{esc_xml(pkg)}</xr:Value>')
+            X(f'{i}	</xr:Item>')
+        X(f'{i}</XDTOPackages>')
     else:
         X(f'{i}<XDTOPackages/>')
     # Имя файла описания сервиса платформа выводит из имени объекта.

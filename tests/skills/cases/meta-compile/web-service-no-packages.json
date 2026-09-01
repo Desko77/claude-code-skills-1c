@@ -1,0 +1,19 @@
+{
+  "name": "Веб-сервис без пакетов XDTO: свойство пустым тегом",
+  "input": {
+    "type": "WebService",
+    "name": "СервисБезПакетов",
+    "namespace": "http://example.org/service",
+    "operations": {
+      "Операция": {
+        "returnType": "xs:string",
+        "procedureName": "Операция"
+      }
+    }
+  },
+  "expect": {
+    "files": [
+      "WebServices/СервисБезПакетов.xml"
+    ]
+  }
+}

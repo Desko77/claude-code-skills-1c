@@ -1,0 +1,22 @@
+{
+  "name": "Веб-сервис с одним пакетом XDTO: тот же список значений",
+  "input": {
+    "type": "WebService",
+    "name": "СервисОдин",
+    "namespace": "http://example.org/service",
+    "operations": {
+      "Операция": {
+        "returnType": "xs:string",
+        "procedureName": "Операция"
+      }
+    },
+    "xdtoPackages": [
+      "http://example.org/one"
+    ]
+  },
+  "expect": {
+    "files": [
+      "WebServices/СервисОдин.xml"
+    ]
+  }
+}

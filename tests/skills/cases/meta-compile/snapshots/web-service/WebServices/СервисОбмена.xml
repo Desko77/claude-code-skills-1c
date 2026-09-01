@@ -11,7 +11,18 @@
 			</Synonym>
 			<Comment/>
 			<Namespace>http://example.com/exchange</Namespace>
-			<XDTOPackages>http://v8.1c.ru/8.3/data/ext http://example.com/exchange</XDTOPackages>
+			<XDTOPackages>
+				<xr:Item>
+					<xr:Presentation/>
+					<xr:CheckState>0</xr:CheckState>
+					<xr:Value xsi:type="xs:string">http://v8.1c.ru/8.3/data/ext</xr:Value>
+				</xr:Item>
+				<xr:Item>
+					<xr:Presentation/>
+					<xr:CheckState>0</xr:CheckState>
+					<xr:Value xsi:type="xs:string">http://example.com/exchange</xr:Value>
+				</xr:Item>
+			</XDTOPackages>
 			<DescriptorFileName>exchange.1cws</DescriptorFileName>
 			<ReuseSessions>AutoUse</ReuseSessions>
 			<SessionMaxAge>20</SessionMaxAge>

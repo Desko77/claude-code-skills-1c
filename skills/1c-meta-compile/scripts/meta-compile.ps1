@@ -2789,8 +2789,29 @@ function Emit-WebServiceProperties {
 	$namespace = if ($def.namespace) { "$($def.namespace)" } else { "" }
 	X "$i<Namespace>$(Esc-Xml $namespace)</Namespace>"
 
-	$xdtoPackages = if ($def.xdtoPackages) { "$($def.xdtoPackages)" } else { "" }
-	if ($xdtoPackages) { X "$i<XDTOPackages>$xdtoPackages</XDTOPackages>" } else { X "$i<XDTOPackages/>" }
+	# Пакеты уходят списком значений. Замер на платформе 8.3.27.2214: плоскую строку
+	# платформа отвергает при загрузке с ошибкой чтения свойства XDTOPackages как
+	# ValueList, а принимает элементы xr:Item. Выгрузка платформы содержит у каждого
+	# элемента Presentation, CheckState и Value.
+	$packages = @()
+	if ($def.xdtoPackages -is [System.Collections.IEnumerable] -and $def.xdtoPackages -isnot [string]) {
+		$packages = @($def.xdtoPackages | ForEach-Object { "$_" } | Where-Object { $_ })
+	} elseif ($def.xdtoPackages) {
+		$packages = @("$($def.xdtoPackages)".Split(" ", [StringSplitOptions]::RemoveEmptyEntries))
+	}
+	if ($packages.Count -gt 0) {
+		X "$i<XDTOPackages>"
+		foreach ($pkg in $packages) {
+			X "$i`t<xr:Item>"
+			X "$i`t`t<xr:Presentation/>"
+			X "$i`t`t<xr:CheckState>0</xr:CheckState>"
+			X "$i`t`t<xr:Value xsi:type=`"xs:string`">$(Esc-Xml $pkg)</xr:Value>"
+			X "$i`t</xr:Item>"
+		}
+		X "$i</XDTOPackages>"
+	} else {
+		X "$i<XDTOPackages/>"
+	}
 
 	# Имя файла описания сервиса платформа выводит из имени объекта.
 	$descriptor = if ($def.descriptorFileName) { "$($def.descriptorFileName)" } else { "$objName.1cws" }
