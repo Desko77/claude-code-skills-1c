@@ -1370,8 +1370,8 @@ async function discoverIntegration(filter) {
     const engines = Array.isArray(mod.engines) && mod.engines.length ? mod.engines : ['1cv8'];
     results.push({ id, name: mod.name || testName, steps: mod.steps || [], file, cache: mod.cache, setup: mod.setup || 'empty-config', requiresPlatform: !!mod.requiresPlatform, engines });
   }
-  // Тест, кладущий фикстуру в кэш, идет раньше тех, кто ее берет: имена файлов дают
-  // обратный порядок (build-cfe до build-config), и на чистом кэше потребитель падает.
+  // Тест, записывающий фикстуру в кэш, идет раньше тех, которые ее читают: имена файлов
+  // дают обратный порядок (build-cfe до build-config), и на пустом кэше чтение отказывает.
   const produced = new Set(results.map(r => r.cache).filter(Boolean));
   results.sort((a, b) => {
     const aProduces = a.cache && produced.has(a.cache) ? 0 : 1;

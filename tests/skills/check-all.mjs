@@ -24,7 +24,7 @@ const GUARDS = [
 let failed = 0;
 let skipped = 0;
 for (const [script, title] of GUARDS) {
-  console.log(`\n${'='.repeat(70)}\n${script} — ${title}\n${'='.repeat(70)}`);
+  console.log(`\n${'='.repeat(70)}\n${script} - ${title}\n${'='.repeat(70)}`);
   // Часть гардов проверяет то, что в зеркало не переносится. Пропуск делается
   // ВИДИМЫМ, а не молчаливым: иначе гард, случайно удаленный из основного набора,
   // тоже пропадал бы без следа.
@@ -40,6 +40,6 @@ for (const [script, title] of GUARDS) {
 const ran = GUARDS.length - skipped;
 console.log(`\n${'='.repeat(70)}`);
 console.log(failed === 0
-  ? `OK — все гарды прошли (${ran}${skipped ? `, пропущено ${skipped}` : ''}).`
+  ? `OK - все гарды прошли (${ran}${skipped ? `, пропущено ${skipped}` : ''}).`
   : `${failed} из ${ran} гардов упали.`);
 process.exit(failed ? 1 : 0);

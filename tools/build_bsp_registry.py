@@ -278,7 +278,7 @@ def main() -> int:
     if unknown_priority:
         lines.append("")
         lines.append("**Имена в шкале приоритета, которых нет среди тем** (приоритет назначен "
-                     "в пустоту, тема молча ушла во вторую волну): "
+                     "в пустоту): "
                      + ", ".join("`%s`" % n for n in unknown_priority))
 
     only_proto = sorted(p for p in proto if p not in matched)
