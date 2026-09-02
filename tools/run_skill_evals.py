@@ -768,6 +768,7 @@ def run_phase(
     index: BspIndex | None,
     artifacts: Path | None,
     runs: int = 1,
+    progress: Path | None = None,
 ) -> list[dict]:
     """Прогнать все кейсы одной фазы, при jobs > 1 параллельно.
 
@@ -779,6 +780,15 @@ def run_phase(
     большинству через merge_runs.
     """
     repeats = max(1, runs)
+    # Возобновление: сведенный результат кейса лежит на диске, и заход после обрыва
+    # гонит только недостающее. Сохраненное не пересчитывается: повторный прогон дал бы
+    # другой ответ агента и смешал два замера в один.
+    done = load_progress(progress) if progress else {}
+    ready = [c for c in cases if progress_key(phase, c.ident) in done]
+    for case in ready:
+        print(f"  [{phase}] .. {case.ident} (из сохраненного)", flush=True)
+    cases = [c for c in cases if progress_key(phase, c.ident) not in done]
+
     results: dict[str, list[dict]] = {c.ident: [] for c in cases}
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
         futures = {
@@ -799,7 +809,22 @@ def run_phase(
             status = "ok" if record.get("passed") else "--"
             suffix = f" ({len(results[ident])}/{repeats})" if repeats > 1 else ""
             print(f"  [{phase}] {status} {ident}{suffix}", flush=True)
-    return [merge_runs(results[c.ident]) for c in cases if results[c.ident]]
+
+    merged = {c.ident: merge_runs(results[c.ident]) for c in cases if results[c.ident]}
+    if progress:
+        for ident, record in merged.items():
+            done[progress_key(phase, ident)] = record
+        save_progress(progress, done)
+
+    order = ready + cases
+    out = []
+    for case in order:
+        saved = done.get(progress_key(phase, case.ident))
+        if saved is not None:
+            out.append(saved)
+        elif case.ident in merged:
+            out.append(merged[case.ident])
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -891,6 +916,218 @@ def print_report(skill: str, report: dict) -> None:
         print("  Добавь в кейс поля expect / forbid / checks_bsl, иначе прогон ничего не доказывает.")
 
 
+# ─── Возобновление прерванного захода ────────────────────────────────────────
+# Заход прерывается по исчерпанию квоты исполнителя, и заранее это не предсказать.
+# Результат каждого кейса ложится на диск сразу, следующий заход берет готовое и гонит
+# только недостающее.
+
+
+def progress_path(skill: str, workdir: Path) -> Path:
+    """Файл сохраненных результатов по скилу."""
+    return workdir / "progress" / f"{skill}.json"
+
+
+def load_progress(path: Path) -> dict:
+    """Прочитать сохраненное. Испорченный файл читается как пустой: заход просто
+    повторится целиком, а падать на своем же служебном файле нельзя."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def save_progress(path: Path, done: dict) -> None:
+    """Записать сохраненное. Отказ записи не роняет прогон: возобновление - удобство,
+    а не условие правильности замера."""
+    with contextlib.suppress(OSError):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(done, ensure_ascii=False, indent=2) + "\n",
+                        encoding="utf-8")
+
+
+def progress_key(phase: str, case_ident: str) -> str:
+    """Ключ сохраненного результата: фаза и кейс вместе, они меряют разное."""
+    return f"{phase}:{case_ident}"
+
+
+def pending_cases(cases: list, phase: str, done: dict) -> list:
+    """Кейсы, которых в сохраненном еще нет."""
+    return [c for c in cases if progress_key(phase, c.ident) not in done]
+
+
+# ─── Проверка маршрутизации между скилами ────────────────────────────────────
+# Прогон одного скила отвечает на вопрос "помогает ли скил". Маршрутизация отвечает на
+# другой: "выбирает ли агент ТОТ скил". Для этого раскладывается несколько скилов сразу и
+# смотрится, чьи файлы агент открыл.
+
+
+@dataclass(frozen=True)
+class RoutingCase:
+    """Запрос проверки маршрутизации.
+
+    Виды: direct - ожидается один названный скил; adjacent - любой из названных, запрос
+    стоит на границе тем; off-topic - не должен активироваться ни один.
+    """
+
+    ident: str
+    prompt: str
+    kind: str
+    expect: tuple[str, ...]
+
+
+ROUTING_KINDS = ("direct", "adjacent", "off-topic")
+
+
+def load_routing(path: Path) -> tuple[list[str], list[RoutingCase]]:
+    """Прочитать набор проверки маршрутизации: список скилов и запросы."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise EvalError(f"не читается набор маршрутизации: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise EvalError(f"набор маршрутизации не разбирается: {exc}") from exc
+
+    skills = [str(x) for x in raw.get("skills") or []]
+    if len(skills) < 2:
+        raise EvalError("в наборе меньше двух скилов: выбирать не из чего")
+
+    cases: list[RoutingCase] = []
+    for item in raw.get("cases") or []:
+        kind = str(item.get("kind") or "")
+        if kind not in ROUTING_KINDS:
+            raise EvalError(f"неизвестный вид запроса: {kind!r}")
+        expect = tuple(str(x) for x in (item.get("expect") or []))
+        if kind == "off-topic" and expect:
+            raise EvalError(f"{item.get('id')}: у запроса не по теме ожиданий быть не должно")
+        if kind != "off-topic" and not expect:
+            raise EvalError(f"{item.get('id')}: не назван ожидаемый скил")
+        unknown = [x for x in expect if x not in skills]
+        if unknown:
+            raise EvalError(f"{item.get('id')}: ожидаются скилы вне набора: {unknown}")
+        cases.append(RoutingCase(
+            ident=str(item.get("id") or f"case-{len(cases) + 1}"),
+            prompt=str(item.get("prompt") or ""),
+            kind=kind,
+            expect=expect,
+        ))
+    if not cases:
+        raise EvalError("в наборе нет запросов")
+    return skills, cases
+
+
+def routing_verdict(case: RoutingCase, activated: list[str]) -> str:
+    """Вердикт по одному запросу: что произошло с выбором скила.
+
+    Различаются четыре исхода, потому что запись "активировался такой-то" их смешивает и
+    систематически неверному выбору тоже удовлетворяет.
+    """
+    if case.kind == "off-topic":
+        return "ok" if not activated else "ложное срабатывание"
+    if not activated:
+        return "пропуск"
+    if len(activated) > 1:
+        return "несколько скилов"
+    return "ok" if activated[0] in case.expect else "не тот скил"
+
+
+def merge_routing(records: list[dict]) -> dict:
+    """Свести повторы одного запроса по большинству вердиктов.
+
+    Одиночный прогон здесь ничего не значит: выбор скила неустойчив, и вывод делается по
+    большинству, а разброс показывается отдельно.
+    """
+    good = [r for r in records if not r.get("error")]
+    if not good:
+        return {"case": records[0]["case"], "verdict": "не отработал",
+                "runs_failed": len(records), "runs": len(records), "spread": {}}
+    spread: dict[str, int] = {}
+    for record in good:
+        spread[record["verdict"]] = spread.get(record["verdict"], 0) + 1
+    winner = max(spread.items(), key=lambda kv: (kv[1], kv[0] == "ok"))[0]
+    return {
+        "case": good[0]["case"],
+        "kind": good[0]["kind"],
+        "verdict": winner,
+        "spread": spread,
+        "runs": len(records),
+        "runs_failed": len(records) - len(good),
+    }
+
+
+def run_routing_case(case: RoutingCase, skills: list[str], codex: str, workdir: Path,
+                     model: str | None, timeout: int) -> dict:
+    """Прогнать один запрос при разложенных скилах и определить, чьи файлы открыты."""
+    command = codex_command(codex, case.prompt, workdir, model)
+    try:
+        completed = subprocess.run(
+            command, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {"case": case.ident, "kind": case.kind, "error": "таймаут"}
+    except OSError as exc:
+        return {"case": case.ident, "kind": case.kind, "error": str(exc)}
+
+    events = parse_events(completed.stdout)
+    error = trace_error(events)
+    if error:
+        return {"case": case.ident, "kind": case.kind, "error": error}
+    activated = [skill for skill in skills if activation_evidence(events, skill)]
+    return {
+        "case": case.ident,
+        "kind": case.kind,
+        "activated": activated,
+        "verdict": routing_verdict(case, activated),
+        "tokens": token_usage(events),
+    }
+
+
+def run_routing(path: Path, codex: str, workdir: Path, model: str | None,
+                timeout: int, runs: int) -> int:
+    """Прогнать проверку маршрутизации целиком и напечатать сводку."""
+    skills, cases = load_routing(path)
+    print(f"Скилов в наборе: {len(skills)}, запросов: {len(cases)}, повторов: {runs}")
+
+    staged = []
+    try:
+        for skill in skills:
+            source = SKILLS_DIR / skill
+            if not source.is_dir():
+                raise EvalError(f"нет каталога скила: {source}")
+            target = workdir / ".agents" / "skills" / skill
+            if target.exists():
+                raise EvalError(f"каталог уже занят, не перетираю: {target}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source, target)
+            staged.append(target)
+
+        merged = []
+        for case in cases:
+            records = [run_routing_case(case, skills, codex, workdir, model, timeout)
+                       for _ in range(runs)]
+            merged.append(merge_routing(records))
+            last = merged[-1]
+            print(f"  [{last['verdict']}] {case.ident} ({case.kind})")
+    finally:
+        for target in staged:
+            shutil.rmtree(target, ignore_errors=True)
+
+    print()
+    print(f"{'запрос':<28}{'вид':<12}{'вердикт':<22}разброс")
+    print("-" * 78)
+    for item in merged:
+        spread = ", ".join(f"{k}:{v}" for k, v in sorted(item.get("spread", {}).items()))
+        print(f"{item['case']:<28}{item.get('kind', ''):<12}{item['verdict']:<22}{spread}")
+
+    false_positive = sum(1 for m in merged if m["verdict"] == "ложное срабатывание")
+    missed = sum(1 for m in merged if m["verdict"] == "пропуск")
+    wrong = sum(1 for m in merged if m["verdict"] == "не тот скил")
+    print()
+    print(f"Ложных срабатываний: {false_positive}, пропусков: {missed}, "
+          f"неверный выбор: {wrong}")
+    return 0 if not (false_positive or missed or wrong) else 1
+
+
 def selftest() -> int:
     """Проверить чистую логику раннера без вызовов агента.
 
@@ -954,9 +1191,46 @@ def selftest() -> int:
         alien = "```bsl\nР = МойСобственныйМодуль.Метод();\n```"
         want("чужое имя не выдумка", bsp_findings(alien, index) == [])
 
+    # Возобновление: ключ различает фазы, испорченный файл читается как пустой.
+    want("возобновление: ключ различает фазы",
+         progress_key("red", "x") != progress_key("green", "x"))
+    saved = {progress_key("green", "a"): {"passed": True}}
+    left = pending_cases([Case(ident="a", prompt="p"), Case(ident="b", prompt="p")],
+                         "green", saved)
+    want("возобновление: сделанное пропускается",
+         [c.ident for c in left] == ["b"], str([c.ident for c in left]))
+    want("возобновление: другая фаза не считается сделанной",
+         len(pending_cases([Case(ident="a", prompt="p")], "red", saved)) == 1)
+
+    # Маршрутизация: вердикт различает четыре исхода, а не два.
+    direct = RoutingCase(ident="d", prompt="p", kind="direct", expect=("a",))
+    adjacent = RoutingCase(ident="j", prompt="p", kind="adjacent", expect=("a", "b"))
+    off = RoutingCase(ident="o", prompt="p", kind="off-topic", expect=())
+    want("маршрут: верный выбор", routing_verdict(direct, ["a"]) == "ok")
+    want("маршрут: чужой скил", routing_verdict(direct, ["b"]) == "не тот скил")
+    want("маршрут: пропуск", routing_verdict(direct, []) == "пропуск")
+    want("маршрут: несколько", routing_verdict(direct, ["a", "b"]) == "несколько скилов")
+    want("маршрут: сосед принимает любой", routing_verdict(adjacent, ["b"]) == "ok")
+    want("маршрут: не по теме молчит", routing_verdict(off, []) == "ok")
+    want("маршрут: не по теме сработал",
+         routing_verdict(off, ["a"]) == "ложное срабатывание")
+
+    # Повторы сводятся по большинству, а сбойный повтор считается отдельно.
+    merged_route = merge_routing([
+        {"case": "d", "kind": "direct", "verdict": "ok"},
+        {"case": "d", "kind": "direct", "verdict": "ok"},
+        {"case": "d", "kind": "direct", "verdict": "пропуск"},
+    ])
+    want("маршрут: большинство решает", merged_route["verdict"] == "ok",
+         str(merged_route))
+    want("маршрут: разброс показан", merged_route["spread"].get("пропуск") == 1)
+    only_failed = merge_routing([{"case": "d", "error": "таймаут"}])
+    want("маршрут: сбой не выдается за вердикт",
+         only_failed["verdict"] == "не отработал" and only_failed["runs_failed"] == 1)
+
     for name in failures:
         print("  ПРОВАЛ: " + name, file=sys.stderr)
-    total = 16
+    total = 29
     print("самопроверка раннера: провалов %d из %d утверждений" % (len(failures), total))
     return 1 if failures else 0
 
@@ -1003,6 +1277,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--list", action="store_true", help="показать скилы с кейсами и выйти")
     parser.add_argument("--selftest", action="store_true",
                         help="проверить чистую логику раннера без вызовов агента")
+    parser.add_argument("--routing", help="набор проверки маршрутизации между скилами")
+    parser.add_argument("--resume", action="store_true",
+                        help="продолжить прерванный заход: сделанные кейсы пропускаются")
     parser.add_argument("--dry-run", action="store_true", help="проверить кейсы и выйти без запуска")
     return parser
 
@@ -1019,6 +1296,21 @@ def main() -> int:
         return selftest()
     if args.list:
         return list_skills()
+    if args.routing:
+        try:
+            codex = resolve_codex(args.codex)
+        except EvalError as exc:
+            print(f"ОШИБКА: {exc}", file=sys.stderr)
+            return 2
+        workdir = (Path(args.workdir).resolve() if args.workdir
+                   else REPO_ROOT / ".tmp" / "skill-evals")
+        workdir.mkdir(parents=True, exist_ok=True)
+        try:
+            return run_routing(Path(args.routing), codex, workdir,
+                               args.model, args.timeout, args.runs)
+        except EvalError as exc:
+            print(f"ОШИБКА: {exc}", file=sys.stderr)
+            return 2
     if not args.skill:
         print("Укажи --skill или --list", file=sys.stderr)
         return 2
@@ -1095,6 +1387,7 @@ def main() -> int:
                 records = run_phase(
                     phase, codex, cases, workdir, args.skill, args.model,
                     args.timeout, args.jobs, index, artifacts, args.runs,
+                    progress_path(args.skill, workdir) if args.resume else None,
                 )
         except EvalError as exc:
             print(f"ОШИБКА: {exc}", file=sys.stderr)

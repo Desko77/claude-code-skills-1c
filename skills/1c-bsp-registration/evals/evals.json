@@ -2,7 +2,7 @@
   "skill_name": "1c-bsp-registration",
   "evals": [
     {
-      "id": 1,
+      "id": "register-print-form",
       "prompt": "Зарегистрируй обработку ФормированиеНакладных как форму печати для Документ.РеализацияТоваровУслуг. Исходники в src/.",
       "expected_output": "В src/ФормированиеНакладных/Ext/ObjectModule.bsl в регионе PublicInterface добавлена функция ExternalDataProcessorInfo() с видом PrintForm и назначением Document.РеализацияТоваровУслуг, а также процедура Print.",
       "expectations": [
@@ -11,10 +11,19 @@
         "Функция ExternalDataProcessorInfo содержит RegistrationParameters.Purpose.Add(\"Document.РеализацияТоваровУслуг\")",
         "Поле NewCommand.Modifier = \"PrintMXL\" присутствует в функции",
         "Добавлена процедура Print(ObjectsArray, PrintFormsCollection, PrintObjects, OutputParameters) Export"
-      ]
+      ],
+      "expect": [
+        "ExternalDataProcessorInfo",
+        "PrintForm",
+        "Document\\.РеализацияТоваровУслуг"
+      ],
+      "forbid": [
+        "AdditionalDataProcessor"
+      ],
+      "should_activate": true
     },
     {
-      "id": 2,
+      "id": "register-object-filling",
       "prompt": "Зарегистрируй обработку ЗаполнениеРеквизитов как заполнение объекта для Справочник.Контрагенты. Исходники в src/.",
       "expected_output": "В ObjectModule.bsl добавлена ExternalDataProcessorInfo() с видом ObjectFilling, назначением Catalog.Контрагенты и процедурой ExecuteCommand с параметром TargetObjects.",
       "expectations": [
@@ -22,10 +31,19 @@
         "Функция ExternalDataProcessorInfo содержит RegistrationParameters.Purpose.Add(\"Catalog.Контрагенты\")",
         "NewCommand.Use содержит CommandTypeServerMethodCall()",
         "Добавлена процедура ExecuteCommand(CommandID, TargetObjects, CommandExecutionParameters) Export"
-      ]
+      ],
+      "expect": [
+        "ExternalDataProcessorInfo",
+        "ObjectFilling",
+        "Catalog\\.Контрагенты"
+      ],
+      "forbid": [
+        "PrintForm"
+      ],
+      "should_activate": true
     },
     {
-      "id": 3,
+      "id": "register-global",
       "prompt": "Зарегистрируй обработку УниверсальнаяОбработка как дополнительную обработку (глобальная). Исходники в src/.",
       "expected_output": "В ObjectModule.bsl добавлена ExternalDataProcessorInfo() с видом AdditionalDataProcessor, без секции Purpose, с командой CommandTypeOpenForm().",
       "expectations": [
@@ -33,7 +51,16 @@
         "В функции ExternalDataProcessorInfo отсутствует вызов RegistrationParameters.Purpose.Add (глобальная обработка)",
         "NewCommand.Use содержит CommandTypeOpenForm()",
         "Поле NewCommand.Modifier отсутствует (не форма печати)"
-      ]
+      ],
+      "expect": [
+        "ExternalDataProcessorInfo",
+        "AdditionalDataProcessor"
+      ],
+      "forbid": [
+        "ObjectFilling",
+        "PrintForm"
+      ],
+      "should_activate": true
     }
   ]
 }

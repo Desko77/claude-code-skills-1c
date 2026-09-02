@@ -1,0 +1,49 @@
+{
+  "_note": "Проверка выбора скила между соседями. Виды запросов: direct - ожидается названный скил; adjacent - любой из названных, запрос стоит на границе тем; off-topic - не должен активироваться ни один. Прогон: python tools/run_skill_evals.py --routing tests/routing/config-skills.json --runs 3",
+  "skills": [
+    "1c-cf-info",
+    "1c-cf-add-object",
+    "1c-meta-compile",
+    "1c-form-compile"
+  ],
+  "cases": [
+    {
+      "id": "config-inventory",
+      "kind": "direct",
+      "expect": [
+        "1c-cf-info"
+      ],
+      "prompt": "Посмотри, какие объекты метаданных есть в конфигурации по пути src и сколько их всего. Менять ничего не нужно."
+    },
+    {
+      "id": "single-catalog",
+      "kind": "direct",
+      "expect": [
+        "1c-meta-compile"
+      ],
+      "prompt": "Собери справочник Номенклатура с реквизитом Артикул строкой двадцати символов. Форма не нужна."
+    },
+    {
+      "id": "list-form",
+      "kind": "direct",
+      "expect": [
+        "1c-form-compile"
+      ],
+      "prompt": "Собери управляемую форму списка с таблицей динамического списка и двумя колонками."
+    },
+    {
+      "id": "object-with-form",
+      "kind": "adjacent",
+      "expect": [
+        "1c-cf-add-object",
+        "1c-meta-compile"
+      ],
+      "prompt": "Добавь в конфигурацию справочник Договоры вместе с формой списка и включи его в подсистему."
+    },
+    {
+      "id": "not-about-1c",
+      "kind": "off-topic",
+      "prompt": "Объясни, чем отличается омлет от яичницы, и как выбрать сковороду."
+    }
+  ]
+}
