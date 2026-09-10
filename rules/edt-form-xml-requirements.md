@@ -202,7 +202,7 @@ id колонок должны быть уникальны в рамках вс�
 
 ### Обработчики таблицы (handlers)
 
-События таблицы (`OnActivateRow`, `BeforeRowChange`, `OnStartEdit`, `OnEndEditRow` и др.) - блок `<handlers>` **внутри `<items xsi:type="form:Table">`**, после `<userVisible>` и до `<dataPath>`:
+События таблицы (`OnActivateRow`, `BeforeRowChange`, `OnStartEdit`, `OnEditEnd` и др.) - блок `<handlers>` **внутри `<items xsi:type="form:Table">`**, после `<userVisible>` и до `<dataPath>`:
 
 ```xml
 <items xsi:type="form:Table">

@@ -1,0 +1,21 @@
+{
+  "name": "Синоним со спецсимволами XML записывается экранированным",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Товары.xml",
+    "formName": "ФормаЭлемента"
+  },
+  "args_extra": ["-Synonym", "Приход & расход <2>"],
+  "validatePath": "Catalogs/Товары/Forms/ФормаЭлемента",
+  "expect": {
+    "fileContains": [
+      { "file": "Catalogs/Товары/Forms/ФормаЭлемента.xml", "text": "<v8:content>Приход &amp; расход &lt;2&gt;</v8:content>" }
+    ]
+  }
+}

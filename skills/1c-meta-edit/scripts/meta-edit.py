@@ -1578,7 +1578,7 @@ def build_column_fragment(col_def, indent):
 
 
 def build_simple_child_fragment(tag_name, name, indent):
-    """Build XML fragment for Form, Template, Command -- just a name wrapper."""
+    """Build XML fragment for Command: Properties with Name, Synonym and defaults."""
     uid = new_uuid()
     synonym = split_camel_case(name)
     lines = []
@@ -1587,13 +1587,6 @@ def build_simple_child_fragment(tag_name, name, indent):
     lines.append(f"{indent}\t\t<Name>{esc_xml(name)}</Name>")
     lines.append(build_mltext_xml(f"{indent}\t\t", "Synonym", synonym))
     lines.append(f"{indent}\t\t<Comment/>")
-    # Forms get additional properties
-    if tag_name == "Form":
-        lines.append(f"{indent}\t\t<FormType>Ordinary</FormType>")
-        lines.append(f"{indent}\t\t<IncludeHelpInContents>false</IncludeHelpInContents>")
-        lines.append(f"{indent}\t\t<UsePurposes/>")
-    if tag_name == "Template":
-        lines.append(f"{indent}\t\t<TemplateType>SpreadsheetDocument</TemplateType>")
     if tag_name == "Command":
         lines.append(f"{indent}\t\t<Group>FormNavigationPanelGoTo</Group>")
         lines.append(f"{indent}\t\t<Representation>Auto</Representation>")
@@ -1637,23 +1630,23 @@ def get_all_child_names():
 # ============================================================
 
 valid_child_types = {
-    "Catalog": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "Document": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "ExchangePlan": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "ChartOfAccounts": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "ChartOfCharacteristicTypes": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "ChartOfCalculationTypes": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "BusinessProcess": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "Task": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "Report": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "DataProcessor": ["attributes", "tabularSections", "forms", "templates", "commands"],
-    "Enum": ["enumValues", "forms", "templates", "commands"],
-    "InformationRegister": ["dimensions", "resources", "attributes", "forms", "templates", "commands"],
-    "AccumulationRegister": ["dimensions", "resources", "attributes", "forms", "templates", "commands"],
-    "AccountingRegister": ["dimensions", "resources", "attributes", "forms", "templates", "commands"],
-    "CalculationRegister": ["dimensions", "resources", "attributes", "forms", "templates", "commands"],
-    "DocumentJournal": ["columns", "forms", "templates", "commands"],
-    "Constant": ["forms"],
+    "Catalog": ["attributes", "tabularSections", "commands"],
+    "Document": ["attributes", "tabularSections", "commands"],
+    "ExchangePlan": ["attributes", "tabularSections", "commands"],
+    "ChartOfAccounts": ["attributes", "tabularSections", "commands"],
+    "ChartOfCharacteristicTypes": ["attributes", "tabularSections", "commands"],
+    "ChartOfCalculationTypes": ["attributes", "tabularSections", "commands"],
+    "BusinessProcess": ["attributes", "tabularSections", "commands"],
+    "Task": ["attributes", "tabularSections", "commands"],
+    "Report": ["attributes", "tabularSections", "commands"],
+    "DataProcessor": ["attributes", "tabularSections", "commands"],
+    "Enum": ["enumValues", "commands"],
+    "InformationRegister": ["dimensions", "resources", "attributes", "commands"],
+    "AccumulationRegister": ["dimensions", "resources", "attributes", "commands"],
+    "AccountingRegister": ["dimensions", "resources", "attributes", "commands"],
+    "CalculationRegister": ["dimensions", "resources", "attributes", "commands"],
+    "DocumentJournal": ["columns", "commands"],
+    "Constant": [],
 }
 
 # Canonical child order in ChildObjects
@@ -1959,6 +1952,28 @@ def find_insertion_point(xml_tag, parsed):
     return None  # append at end
 
 
+# Формы и макеты регистрируются в ChildObjects именем, а их описатели лежат в отдельных
+# файлах (Forms/<Имя>.xml, Templates/<Имя>.xml). Блок с Properties внутри ChildObjects
+# платформа не принимает, а скалярную запись поиск по Properties/Name не видит, поэтому
+# отказ идет до первой записи и по всему определению сразу.
+REDIRECTED_CHILD_TYPES = {
+    ("add", "forms"): "form-add", ("add", "templates"): "template-add",
+    ("remove", "forms"): "form-remove", ("remove", "templates"): "template-remove",
+}
+
+
+def refuse_redirected_children(definition):
+    for prop_name, prop_value in definition.items():
+        op_key = resolve_operation_key(prop_name) if prop_name != "_complex" else None
+        if op_key not in ("add", "remove") or not isinstance(prop_value, dict):
+            continue
+        for raw_key in prop_value:
+            skill = REDIRECTED_CHILD_TYPES.get((op_key, resolve_child_type_key(raw_key)))
+            if skill:
+                die(f"{op_key}.{resolve_child_type_key(raw_key)} is not supported: use {skill} "
+                    f"(registration is a name plus a descriptor file)")
+
+
 def process_add(add_def):
     global add_count
 
@@ -1971,7 +1986,8 @@ def process_add(add_def):
 
         # Validate allowed
         allowed = valid_child_types.get(obj_type)
-        if allowed and child_type not in allowed:
+        # Пустой список означает "ничего не добавить", None - тип без правил.
+        if allowed is not None and child_type not in allowed:
             warn(f"{child_type} not allowed for {obj_type}, skipping")
             continue
 
@@ -2084,9 +2100,8 @@ def process_add(add_def):
                 add_count += 1
                 existing_names[col_name] = "Column"
 
-        elif child_type in ("forms", "templates", "commands"):
-            tag_map = {"forms": "Form", "templates": "Template", "commands": "Command"}
-            tag = tag_map[child_type]
+        elif child_type == "commands":
+            tag = "Command"
             for item in items:
                 if isinstance(item, str):
                     item_name = item
@@ -2813,6 +2828,8 @@ def main():
 
     if definition is None:
         die("No definition loaded")
+
+    refuse_redirected_children(definition)
 
     # --- Process complex property operations ---
     if "_complex" in definition and definition["_complex"]:

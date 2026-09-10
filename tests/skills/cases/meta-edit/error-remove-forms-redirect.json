@@ -1,0 +1,23 @@
+{
+  "name": "remove-form отклоняется до записи: регистрацию вместе с файлами удаляет form-remove",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Catalogs/Товары.xml", "-FormName": "ФормаЭлемента" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Товары" },
+  "input": { "remove": { "forms": ["ФормаЭлемента"] } },
+  "expectError": "remove.forms is not supported: use form-remove",
+  "expect": {
+    "fileContains": [
+      { "file": "Catalogs/Товары.xml", "text": "<Form>ФормаЭлемента</Form>" }
+    ]
+  }
+}

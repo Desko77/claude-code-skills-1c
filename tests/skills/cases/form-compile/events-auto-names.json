@@ -1,0 +1,108 @@
+{
+  "name": "Автоименование обработчиков: события таблицы, поля ввода и календаря получают русский суффикс",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "ПодборТоваров"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/DataProcessors/ПодборТоваров.xml",
+        "-FormName": "Форма"
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "DataProcessors/ПодборТоваров/Forms/Форма/Ext/Form.xml"
+  },
+  "validatePath": "DataProcessors/ПодборТоваров/Forms/Форма/Ext/Form.xml",
+  "input": {
+    "title": "Подбор товаров",
+    "elements": [
+      {
+        "input": "Комментарий",
+        "path": "Комментарий",
+        "on": [
+          "EditTextChange",
+          "Creating",
+          "Opening"
+        ]
+      },
+      {
+        "calendar": "Дата",
+        "path": "Дата",
+        "on": [
+          "OnActivate"
+        ]
+      },
+      {
+        "table": "Товары",
+        "path": "Товары",
+        "on": [
+          "OnEditEnd",
+          "BeforeEditEnd",
+          "ValueChoice",
+          "OnActivateCell",
+          "OnActivateField",
+          "DragEnd"
+        ],
+        "columns": [
+          {
+            "input": "ТоварыНоменклатура",
+            "path": "Товары.Номенклатура"
+          }
+        ]
+      }
+    ],
+    "attributes": [
+      {
+        "name": "Комментарий",
+        "type": "string"
+      },
+      {
+        "name": "Дата",
+        "type": "date"
+      },
+      {
+        "name": "Товары",
+        "type": "ValueTable",
+        "columns": [
+          {
+            "name": "Номенклатура",
+            "type": "string"
+          }
+        ]
+      }
+    ]
+  },
+  "expect": {
+    "fileContains": [
+      {
+        "file": "DataProcessors/ПодборТоваров/Forms/Форма/Ext/Form.xml",
+        "text": [
+          "КомментарийИзменениеТекстаРедактирования",
+          "КомментарийСоздание",
+          "КомментарийОткрытие",
+          "ДатаПриАктивизации",
+          "ТоварыПриОкончанииРедактирования",
+          "ТоварыПередОкончаниемРедактирования",
+          "ТоварыВыборЗначения",
+          "ТоварыПриАктивизацииЯчейки",
+          "ТоварыПриАктивизацииПоля",
+          "ТоварыОкончаниеПеретаскивания"
+        ]
+      }
+    ],
+    "stdoutNotContains": [
+      "[WARN] Unknown event"
+    ]
+  }
+}

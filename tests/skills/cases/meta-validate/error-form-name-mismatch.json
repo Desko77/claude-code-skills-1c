@@ -1,0 +1,7 @@
+{
+  "name": "Валидатор находит ошибку: имя в описателе формы не совпадает с зарегистрированным",
+  "setup": "fixture:catalog-form-mismatch",
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "expectError": true,
+  "expect": { "stdoutContains": ["6d. ChildObjects/Form 'ФормаЭлемента': Forms/ФормаЭлемента.xml declares Name 'ФормаСписка'"] }
+}

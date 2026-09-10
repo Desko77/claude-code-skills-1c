@@ -189,6 +189,13 @@ if (-not (Test-Path $ObjectPath)) {
 	exit 1
 }
 
+# Идентификатор 1С: буквы, цифры, подчеркивание; первый символ не цифра.
+if ($FormName -notmatch '^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё0-9_]*$') {
+	# Console.Error, not Write-Error: the latter is wrapped and prefixed by the host.
+	[Console]::Error.WriteLine("FormName '$FormName' не является идентификатором 1С: допустимы буквы, цифры и подчеркивание, первый символ не цифра")
+	exit 1
+}
+
 $objectXmlFull = Resolve-Path $ObjectPath
 Assert-EditAllowed $objectXmlFull "editable"
 # У автономной внешней обработки или отчета конфигурации нет, и версию формата задает
@@ -356,7 +363,7 @@ $formMetaXml = @"
 			<Synonym>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>$Synonym</v8:content>
+					<v8:content>$($Synonym.Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;'))</v8:content>
 				</v8:item>
 			</Synonym>
 			<Comment/>

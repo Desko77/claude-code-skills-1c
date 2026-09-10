@@ -1,0 +1,21 @@
+{
+  "name": "Имя формы с недопустимыми символами отклоняется до записи на диск",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Товары.xml",
+    "formName": "Форма & список"
+  },
+  "expectError": "не является идентификатором 1С",
+  "expect": {
+    "filesAbsent": ["Catalogs/Товары/Forms"],
+    "fileNotContains": [
+      { "file": "Catalogs/Товары.xml", "text": "<Form>" }
+    ]
+  }
+}

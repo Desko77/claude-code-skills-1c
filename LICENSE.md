@@ -1,6 +1,7 @@
 MIT License
 
 Copyright (c) 2026 Desko77
+Copyright (c) 2025-2026 Nick Shirokov (https://github.com/Nikolay-Shirokov/cc-1c-skills)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

@@ -22,11 +22,15 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
         { "name": "Количество", "type": "Число(15,3)" }
       ]
     }],
-    "forms": ["ФормаЭлемента"],
-    "templates": ["ПечатнаяФорма"]
+    "commands": ["Печать"]
   }
 }
 ```
+
+Формы и макеты этим скилом не добавляются и не удаляются: регистрация в `ChildObjects` это имя,
+а описатель лежит в отдельном файле. Добавление - `form-add` и `template-add`, удаление -
+`form-remove` и `template-remove`; определение с `forms` или `templates` в `add` или `remove`
+отклоняется до первой записи.
 
 Реквизиты можно задавать shorthand-строками: `"Сумма: Число(15,2) | req, index"`.
 
@@ -115,8 +119,6 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 | resources | ресурсы, res |
 | enumValues | значения, values |
 | columns | графы, колонки |
-| forms | формы |
-| templates | макеты |
 | commands | команды |
 | properties | свойства |
 
@@ -141,8 +143,8 @@ powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -Defin
 
 | Тип объекта | Допустимые add-типы |
 |-------------|-------------------|
-| Catalog, Document, ExchangePlan, ChartOf*, BP, Task, Report, DP | attributes, tabularSections, forms, templates, commands |
-| Enum | enumValues, forms, templates, commands |
-| *Register (4 типа) | dimensions, resources, attributes, forms, templates, commands |
-| DocumentJournal | columns, forms, templates, commands |
-| Constant | forms |
+| Catalog, Document, ExchangePlan, ChartOf*, BP, Task, Report, DP | attributes, tabularSections, commands |
+| Enum | enumValues, commands |
+| *Register (4 типа) | dimensions, resources, attributes, commands |
+| DocumentJournal | columns, commands |
+| Constant | нет (формы - `form-add`) |

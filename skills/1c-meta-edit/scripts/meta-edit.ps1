@@ -1614,7 +1614,7 @@ function Build-ColumnFragment {
 
 function Build-SimpleChildFragment {
 	param([string]$tagName, [string]$name, [string]$indent)
-	# For Form, Template, Command - just a name wrapper
+	# Command - a name wrapper with Properties
 	$uuid = New-Guid-String
 	$synonym = Split-CamelCase $name
 	$sb = New-Object System.Text.StringBuilder
@@ -1623,15 +1623,6 @@ function Build-SimpleChildFragment {
 	$sb.AppendLine("$indent`t`t<Name>$(Esc-Xml $name)</Name>") | Out-Null
 	$sb.AppendLine($(Build-MLTextXml "$indent`t`t" "Synonym" $synonym)) | Out-Null
 	$sb.AppendLine("$indent`t`t<Comment/>") | Out-Null
-	# Forms get additional properties
-	if ($tagName -eq "Form") {
-		$sb.AppendLine("$indent`t`t<FormType>Ordinary</FormType>") | Out-Null
-		$sb.AppendLine("$indent`t`t<IncludeHelpInContents>false</IncludeHelpInContents>") | Out-Null
-		$sb.AppendLine("$indent`t`t<UsePurposes/>") | Out-Null
-	}
-	if ($tagName -eq "Template") {
-		$sb.AppendLine("$indent`t`t<TemplateType>SpreadsheetDocument</TemplateType>") | Out-Null
-	}
 	if ($tagName -eq "Command") {
 		$sb.AppendLine("$indent`t`t<Group>FormNavigationPanelGoTo</Group>") | Out-Null
 		$sb.AppendLine("$indent`t`t<Representation>Auto</Representation>") | Out-Null
@@ -1700,23 +1691,23 @@ function Get-AllChildNames {
 # ============================================================
 
 $script:validChildTypes = @{
-	"Catalog"                    = @("attributes","tabularSections","forms","templates","commands")
-	"Document"                   = @("attributes","tabularSections","forms","templates","commands")
-	"ExchangePlan"               = @("attributes","tabularSections","forms","templates","commands")
-	"ChartOfAccounts"            = @("attributes","tabularSections","forms","templates","commands")
-	"ChartOfCharacteristicTypes" = @("attributes","tabularSections","forms","templates","commands")
-	"ChartOfCalculationTypes"    = @("attributes","tabularSections","forms","templates","commands")
-	"BusinessProcess"            = @("attributes","tabularSections","forms","templates","commands")
-	"Task"                       = @("attributes","tabularSections","forms","templates","commands")
-	"Report"                     = @("attributes","tabularSections","forms","templates","commands")
-	"DataProcessor"              = @("attributes","tabularSections","forms","templates","commands")
-	"Enum"                       = @("enumValues","forms","templates","commands")
-	"InformationRegister"        = @("dimensions","resources","attributes","forms","templates","commands")
-	"AccumulationRegister"       = @("dimensions","resources","attributes","forms","templates","commands")
-	"AccountingRegister"         = @("dimensions","resources","attributes","forms","templates","commands")
-	"CalculationRegister"        = @("dimensions","resources","attributes","forms","templates","commands")
-	"DocumentJournal"            = @("columns","forms","templates","commands")
-	"Constant"                   = @("forms")
+	"Catalog"                    = @("attributes","tabularSections","commands")
+	"Document"                   = @("attributes","tabularSections","commands")
+	"ExchangePlan"               = @("attributes","tabularSections","commands")
+	"ChartOfAccounts"            = @("attributes","tabularSections","commands")
+	"ChartOfCharacteristicTypes" = @("attributes","tabularSections","commands")
+	"ChartOfCalculationTypes"    = @("attributes","tabularSections","commands")
+	"BusinessProcess"            = @("attributes","tabularSections","commands")
+	"Task"                       = @("attributes","tabularSections","commands")
+	"Report"                     = @("attributes","tabularSections","commands")
+	"DataProcessor"              = @("attributes","tabularSections","commands")
+	"Enum"                       = @("enumValues","commands")
+	"InformationRegister"        = @("dimensions","resources","attributes","commands")
+	"AccumulationRegister"       = @("dimensions","resources","attributes","commands")
+	"AccountingRegister"         = @("dimensions","resources","attributes","commands")
+	"CalculationRegister"        = @("dimensions","resources","attributes","commands")
+	"DocumentJournal"            = @("columns","commands")
+	"Constant"                   = @()
 }
 
 # Canonical child order in ChildObjects
@@ -2069,7 +2060,8 @@ function Process-Add($addDef) {
 
 		# Validate allowed
 		$allowed = $script:validChildTypes[$script:objType]
-		if ($allowed -and $childType -notin $allowed) {
+		# Пустой массив означает "ничего не добавить", $null - тип без правил.
+		if ($null -ne $allowed -and $childType -notin $allowed) {
 			Warn "$childType not allowed for $($script:objType), skipping"
 			return
 		}
@@ -2196,9 +2188,8 @@ function Process-Add($addDef) {
 					$existingNames[$colName] = "Column"
 				}
 			}
-			{ $_ -in @("forms","templates","commands") } {
-				$tagMap = @{ "forms" = "Form"; "templates" = "Template"; "commands" = "Command" }
-				$tag = $tagMap[$childType]
+			"commands" {
+				$tag = "Command"
 				foreach ($item in $items) {
 					$itemName = if ($item -is [string]) { "$item" } else { "$($item.name)" }
 					if ($existingNames.ContainsKey($itemName)) {
@@ -2839,6 +2830,30 @@ if ($Operation) {
 if (-not $def) {
 	Write-Error "No definition loaded"
 	exit 1
+}
+
+# Формы и макеты регистрируются в ChildObjects именем, а их описатели лежат в отдельных
+# файлах (Forms/<Имя>.xml, Templates/<Имя>.xml). Блок с Properties внутри ChildObjects
+# платформа не принимает, а скалярную запись поиск по Properties/Name не видит, поэтому
+# отказ идет до первой записи и по всему определению сразу.
+$script:redirectedChildTypes = @{
+	"add.forms" = "form-add"; "add.templates" = "template-add"
+	"remove.forms" = "form-remove"; "remove.templates" = "template-remove"
+}
+foreach ($defProp in $def.PSObject.Properties) {
+	if ($defProp.Name -eq "_complex") { continue }
+	$redirectOp = Resolve-OperationKey $defProp.Name
+	if ($redirectOp -ne "add" -and $redirectOp -ne "remove") { continue }
+	if ($null -eq $defProp.Value -or -not ($defProp.Value -is [System.Management.Automation.PSCustomObject])) { continue }
+	foreach ($childProp in $defProp.Value.PSObject.Properties) {
+		$childType = Resolve-ChildTypeKey $childProp.Name
+		$redirectKey = "$redirectOp.$childType"
+		if ($childType -and $script:redirectedChildTypes.ContainsKey($redirectKey)) {
+			# Console.Error, not Write-Error: the latter is wrapped and prefixed by the host.
+			[Console]::Error.WriteLine("$redirectKey is not supported: use $($script:redirectedChildTypes[$redirectKey]) (registration is a name plus a descriptor file)")
+			exit 1
+		}
+	}
 }
 
 # --- Process complex property operations ---

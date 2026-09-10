@@ -1936,7 +1936,7 @@ $script:eventSuffixMap = @{
 	"BeforeDeleteRow"      = "ПередУдалением"
 	"BeforeRowChange"      = "ПередНачаломИзменения"
 	"OnStartEdit"          = "ПриНачалеРедактирования"
-	"OnEndEdit"            = "ПриОкончанииРедактирования"
+	"OnEditEnd"            = "ПриОкончанииРедактирования"
 	"Selection"            = "ВыборСтроки"
 	"OnCurrentPageChange"  = "ПриСменеСтраницы"
 	"TextEditEnd"          = "ОкончаниеВводаТекста"
@@ -1944,7 +1944,17 @@ $script:eventSuffixMap = @{
 	"DragStart"            = "НачалоПеретаскивания"
 	"Drag"                 = "Перетаскивание"
 	"DragCheck"            = "ПроверкаПеретаскивания"
-	"Drop"                 = "Помещение"
+	"BeforeEditEnd"        = "ПередОкончаниемРедактирования"
+	"OnActivateCell"       = "ПриАктивизацииЯчейки"
+	"OnActivateField"      = "ПриАктивизацииПоля"
+	"ValueChoice"          = "ВыборЗначения"
+	"DragEnd"              = "ОкончаниеПеретаскивания"
+	"OnGetDataAtServer"    = "ПриПолученииДанныхНаСервере"
+	"BeforeLoadUserSettingsAtServer"= "ПередЗагрузкойПользовательскихНастроекНаСервере"
+	"OnUpdateUserSettingSetAtServer"= "ПриОбновленииСоставаПользовательскихНастроекНаСервере"
+	"Creating"             = "Создание"
+	"EditTextChange"       = "ИзменениеТекстаРедактирования"
+	"OnActivate"           = "ПриАктивизации"
 	"AfterDeleteRow"       = "ПослеУдаления"
 }
 
@@ -1966,7 +1976,7 @@ function Get-ElementName {
 }
 
 $script:knownEvents = @{
-	"input"     = @("OnChange","StartChoice","ChoiceProcessing","AutoComplete","TextEditEnd","Clearing","Creating","EditTextChange")
+	"input"     = @("OnChange","StartChoice","ChoiceProcessing","AutoComplete","TextEditEnd","Clearing","Creating","EditTextChange","Opening")
 	"check"     = @("OnChange")
 	"label"     = @("Click","URLProcessing")
 	"labelField"= @("OnChange","StartChoice","ChoiceProcessing","Click","URLProcessing","Clearing")

@@ -666,6 +666,51 @@ if ($childObjNode) {
 	Report-OK "6. ChildObjects: absent"
 }
 
+# --- Check 6a-6d: Form registrations resolve to descriptors on disk ---
+# Регистрация <Form>Имя</Form> без файла Forms/Имя.xml проходит разбор XML,
+# а загрузка конфигурации в базу отказывает: "Файл не обнаружен".
+
+if ($childObjNode) {
+	$objectDir = Join-Path (Split-Path $resolvedPath) ([System.IO.Path]::GetFileNameWithoutExtension($resolvedPath))
+	$formRegs = @($childObjNode.ChildNodes | Where-Object { $_.NodeType -eq 'Element' -and $_.LocalName -eq 'Form' })
+	$formsOk = $true
+	foreach ($reg in $formRegs) {
+		$regName = $reg.InnerText.Trim()
+		$nested = @($reg.ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count -gt 0
+		if ($nested -or -not $regName) {
+			Report-Error "6a. ChildObjects/Form: registration must be a form name, not a nested element"
+			$formsOk = $false
+			continue
+		}
+		$rel = "Forms/$regName.xml"
+		$descriptor = Join-Path (Join-Path $objectDir "Forms") "$regName.xml"
+		if (-not (Test-Path -LiteralPath $descriptor -PathType Leaf)) {
+			Report-Error "6b. ChildObjects/Form '$regName': descriptor not found: $rel"
+			$formsOk = $false
+			continue
+		}
+		$formDoc = New-Object System.Xml.XmlDocument
+		try {
+			$formDoc.Load($descriptor)
+		} catch {
+			Report-Error "6c. ChildObjects/Form '$regName': $rel is not well-formed XML: $($_.Exception.Message)"
+			$formsOk = $false
+			continue
+		}
+		$formNs = New-Object System.Xml.XmlNamespaceManager($formDoc.NameTable)
+		$formNs.AddNamespace("md", "http://v8.1c.ru/8.3/MDClasses")
+		$declaredNode = $formDoc.SelectSingleNode("/md:MetaDataObject/md:Form/md:Properties/md:Name", $formNs)
+		$declared = if ($declaredNode) { $declaredNode.InnerText.Trim() } else { "" }
+		if ($declared -cne $regName) {
+			Report-Error "6d. ChildObjects/Form '$regName': $rel declares Name '$declared'"
+			$formsOk = $false
+		}
+	}
+	if ($formRegs.Count -gt 0 -and $formsOk) {
+		Report-OK "6a-6d. Forms: $($formRegs.Count) registration(s) resolve to descriptors"
+	}
+}
+
 if ($script:stopped) { & $finalize; exit 1 }
 
 # --- Check 7: Attributes/Dimensions/Resources/EnumValues/Columns - UUID, Name, Type ---

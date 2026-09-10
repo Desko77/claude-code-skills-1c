@@ -84,15 +84,18 @@ Batch через `;;` - можно указать разные ТЧ: `"Това�
 
 Формат аналогичен `modify-attribute`: `ИмяТЧ: ключ=значение, ключ=значение`.
 
-## add-enumValue / add-form / add-template / add-command
+## add-enumValue / add-command
 
 Просто имена (batch через `;;`):
 ```powershell
 -Operation add-enumValue -Value "Значение1 ;; Значение2 ;; Значение3"
--Operation add-form -Value "ФормаЭлемента ;; ФормаСписка"
--Operation add-template -Value "ПечатнаяФорма"
 -Operation add-command -Value "Команда1"
 ```
+
+Формы и макеты этим скилом не добавляются и не удаляются: регистрация в `ChildObjects` это имя,
+а описатель лежит в отдельном файле. Добавление - `form-add` и `template-add`, удаление -
+`form-remove` и `template-remove`; определение с `forms` или `templates` в `add` или `remove`
+отклоняется до первой записи.
 
 ## remove-*
 

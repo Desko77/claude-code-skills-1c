@@ -550,8 +550,8 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
 
 Прогон обращается к внешнему агенту и в CI не входит; формат кейса - `tools/README-evals.md`.
 
-Требуется Node.js 18+. Текущее состояние: **850 кейсов, 0 отказов**. На PowerShell проходит 773,
-77 пропущено по условиям среды; на python проходит 801, пропущено 49. Порядок работы с тестами -
+Требуется Node.js 18+. Текущее состояние: **864 кейса, 0 отказов**. На PowerShell проходит 787,
+77 пропущено по условиям среды; на python проходит 815, пропущено 49. Порядок работы с тестами -
 `tests/skills/README.md`.
 
 ## Хуки (экспериментально, по умолчанию выключены)
@@ -573,4 +573,6 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
 
 ## Лицензия
 
-MIT
+MIT. Основа набора - [Nikolay-Shirokov/cc-1c-skills](https://github.com/Nikolay-Shirokov/cc-1c-skills)
+(MIT, Nick Shirokov): скилы работы с XML-форматами конфигуратора и командной строкой платформы получены
+оттуда и доработаны. Уведомление об авторских правах сохранено в [LICENSE.md](LICENSE.md).

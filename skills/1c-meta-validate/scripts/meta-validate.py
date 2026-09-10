@@ -653,6 +653,40 @@ elif len(allowed_children) == 0:
 else:
     report_ok("6. ChildObjects: absent")
 
+# ── Check 6a-6d: Form registrations resolve to descriptors on disk ──
+# Регистрация <Form>Имя</Form> без файла Forms/Имя.xml проходит разбор XML,
+# а загрузка конфигурации в базу отказывает: "Файл не обнаружен".
+
+if child_obj_node is not None:
+    object_dir = os.path.splitext(resolved_path)[0]
+    form_regs = [c for c in child_obj_node
+                 if isinstance(c.tag, str) and local_name(c) == "Form"]
+    forms_ok = True
+    for reg in form_regs:
+        reg_name = (reg.text or "").strip()
+        if any(isinstance(c.tag, str) for c in reg) or not reg_name:
+            report_error("6a. ChildObjects/Form: registration must be a form name, not a nested element")
+            forms_ok = False
+            continue
+        rel = f"Forms/{reg_name}.xml"
+        descriptor = os.path.join(object_dir, "Forms", f"{reg_name}.xml")
+        if not os.path.isfile(descriptor):
+            report_error(f"6b. ChildObjects/Form '{reg_name}': descriptor not found: {rel}")
+            forms_ok = False
+            continue
+        try:
+            form_root = etree.parse(descriptor, etree.XMLParser(remove_blank_text=False)).getroot()
+        except Exception as exc:
+            report_error(f"6c. ChildObjects/Form '{reg_name}': {rel} is not well-formed XML: {exc}")
+            forms_ok = False
+            continue
+        declared = inner_text(find(form_root, "md:Form/md:Properties/md:Name")).strip()
+        if declared != reg_name:
+            report_error(f"6d. ChildObjects/Form '{reg_name}': {rel} declares Name '{declared}'")
+            forms_ok = False
+    if form_regs and forms_ok:
+        report_ok(f"6a-6d. Forms: {len(form_regs)} registration(s) resolve to descriptors")
+
 if stopped:
     finalize()
     sys.exit(1)
@@ -1443,8 +1477,9 @@ if stopped:
 # существует, объекта с таким именем нет, и загрузка обрывается.
 check17_bad = 0
 XSI_TYPE = "{http://www.w3.org/2001/XMLSchema-instance}type"
+# root.iter() отдает и комментарии: у них tag не строка.
 for item in root.iter():
-    if not item.tag.endswith("}Item") and item.tag != "Item":
+    if not isinstance(item.tag, str) or (not item.tag.endswith("}Item") and item.tag != "Item"):
         continue
     xsi_type = item.get(XSI_TYPE, "")
     if not xsi_type.endswith("MDObjectRef"):
@@ -1484,7 +1519,7 @@ def _version_tuple(value):
 check18_bad = 0
 file_version = _version_tuple(version) if version else None
 if file_version:
-    present = {el.tag.split("}")[-1] for el in root.iter()}
+    present = {el.tag.split("}")[-1] for el in root.iter() if isinstance(el.tag, str)}
     for prop_name in sorted(PROPERTY_MIN_VERSION):
         min_version = _version_tuple(PROPERTY_MIN_VERSION[prop_name])
         if file_version >= min_version:
@@ -1505,7 +1540,7 @@ if stopped:
 # Диапазон задан платформой: значение вне 5..9 она отвергает при загрузке.
 check19_bad = 0
 for el in root.iter():
-    if el.tag.split("}")[-1] != "LineNumberLength":
+    if not isinstance(el.tag, str) or el.tag.split("}")[-1] != "LineNumberLength":
         continue
     raw_value = (el.text or "").strip()
     try:

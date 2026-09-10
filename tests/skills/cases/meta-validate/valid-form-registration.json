@@ -1,0 +1,21 @@
+{
+  "name": "Зарегистрированная форма с описателем на диске проходит проверки 6a-6d",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Catalogs/Товары.xml", "-FormName": "ФормаЭлемента" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "args_extra": ["-Detailed"],
+  "noSnapshot": "meta-validate только читает и печатает; проверяется stdout",
+  "expect": {
+    "stdoutContains": ["6a-6d. Forms: 1 registration(s) resolve to descriptors"]
+  }
+}

@@ -9,6 +9,7 @@ import sys
 import uuid
 
 from lxml import etree
+from xml.sax.saxutils import escape
 
 # ============================================================
 # Support guard (Ext/ParentConfigurations.bin) - see docs/1c-support-state-spec.md
@@ -275,6 +276,10 @@ PERSISTED_OBJECT_TYPES = ('Catalog', 'Document', 'ChartOfAccounts', 'ChartOfChar
                           'InformationRegister', 'AccumulationRegister')
 
 
+# Идентификатор 1С: буквы, цифры, подчеркивание; первый символ не цифра.
+FORM_NAME_RE = re.compile(r"^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё0-9_]*$")
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -287,8 +292,11 @@ def main():
     args = parser.parse_args()
 
     object_path = args.ObjectPath
-    assert_edit_allowed(object_path, "editable")
     form_name = args.FormName
+    if not FORM_NAME_RE.match(form_name):
+        print(f"FormName '{form_name}' не является идентификатором 1С: допустимы буквы, цифры и подчеркивание, первый символ не цифра", file=sys.stderr)
+        sys.exit(1)
+    assert_edit_allowed(object_path, "editable")
     synonym = args.Synonym if args.Synonym is not None else form_name
     purpose = args.Purpose
     set_default = args.SetDefault
@@ -439,7 +447,7 @@ def main():
         '\t\t\t<Synonym>\n'
         '\t\t\t\t<v8:item>\n'
         '\t\t\t\t\t<v8:lang>ru</v8:lang>\n'
-        f'\t\t\t\t\t<v8:content>{synonym}</v8:content>\n'
+        f'\t\t\t\t\t<v8:content>{escape(synonym)}</v8:content>\n'
         '\t\t\t\t</v8:item>\n'
         '\t\t\t</Synonym>\n'
         '\t\t\t<Comment/>\n'

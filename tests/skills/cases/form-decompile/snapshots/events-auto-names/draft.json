@@ -1,0 +1,5 @@
+{
+  "title": "Подбор товаров",
+  "elements": [{ "input": "Комментарий", "path": "Комментарий", "on": ["EditTextChange", "Creating", "Opening"] }, { "calendar": "Дата", "path": "Дата", "on": ["OnActivate"] }, { "table": "Товары", "path": "Товары", "columns": [{ "input": "ТоварыНоменклатура", "path": "Товары.Номенклатура" }], "on": ["OnEditEnd", "BeforeEditEnd", "ValueChoice", "OnActivateCell", "OnActivateField", "DragEnd"] }],
+  "attributes": [{ "name": "Комментарий", "type": "string", "title": "Комментарий" }, { "name": "Дата", "type": "date", "title": "Дата" }, { "name": "Товары", "type": "ValueTable", "title": "Товары", "columns": [{ "name": "Номенклатура", "type": "string" }] }]
+}

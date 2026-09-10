@@ -1,0 +1,7 @@
+{
+  "name": "Валидатор находит ошибку: регистрация формы содержит вложенный элемент вместо имени",
+  "setup": "fixture:catalog-form-nested",
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "expectError": true,
+  "expect": { "stdoutContains": ["6a. ChildObjects/Form: registration must be a form name, not a nested element"] }
+}

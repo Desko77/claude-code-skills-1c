@@ -1,0 +1,7 @@
+{
+  "name": "Валидатор находит ошибку: описатель формы не разбирается как XML",
+  "setup": "fixture:catalog-form-broken",
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "expectError": true,
+  "expect": { "stdoutContains": ["6c. ChildObjects/Form 'ФормаЭлемента': Forms/ФормаЭлемента.xml is not well-formed XML"] }
+}

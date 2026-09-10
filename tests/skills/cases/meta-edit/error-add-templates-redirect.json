@@ -1,0 +1,19 @@
+{
+  "name": "add.templates в определении отклоняется до записи: макеты регистрирует template-add",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Товары" },
+  "input": { "add": { "templates": ["Макет"] } },
+  "expectError": "add.templates is not supported: use template-add",
+  "expect": {
+    "fileNotContains": [
+      { "file": "Catalogs/Товары.xml", "text": "<Template" }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Валидатор находит ошибку: форма зарегистрирована, описателя Forms/Имя.xml нет",
+  "setup": "fixture:catalog-form-missing",
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "expectError": true,
+  "expect": { "stdoutContains": ["6b. ChildObjects/Form 'ФормаЭлемента': descriptor not found: Forms/ФормаЭлемента.xml"] }
+}

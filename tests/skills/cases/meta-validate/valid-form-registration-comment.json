@@ -1,0 +1,11 @@
+{
+  "name": "Комментарий внутри регистрации формы не считается вложенным элементом (6a)",
+  "setup": "fixture:catalog-form-comment",
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "args_extra": ["-Detailed"],
+  "noSnapshot": "meta-validate только читает и печатает; проверяется stdout",
+  "expect": {
+    "stdoutContains": ["6a-6d. Forms: 1 registration(s) resolve to descriptors"],
+    "stdoutNotContains": ["6a. ChildObjects/Form"]
+  }
+}

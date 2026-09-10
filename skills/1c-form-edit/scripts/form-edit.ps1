@@ -418,11 +418,15 @@ $script:eventSuffixMap = @{
 	"AutoComplete" = "АвтоПодбор"; "Clearing" = "Очистка"; "Opening" = "Открытие"; "Click" = "Нажатие"
 	"OnActivateRow" = "ПриАктивизацииСтроки"; "BeforeAddRow" = "ПередНачаломДобавления"
 	"BeforeDeleteRow" = "ПередУдалением"; "BeforeRowChange" = "ПередНачаломИзменения"
-	"OnStartEdit" = "ПриНачалеРедактирования"; "OnEndEdit" = "ПриОкончанииРедактирования"
+	"OnStartEdit" = "ПриНачалеРедактирования"; "OnEditEnd" = "ПриОкончанииРедактирования"
 	"Selection" = "ВыборСтроки"; "OnCurrentPageChange" = "ПриСменеСтраницы"
 	"TextEditEnd" = "ОкончаниеВводаТекста"; "URLProcessing" = "ОбработкаНавигационнойСсылки"
 	"DragStart" = "НачалоПеретаскивания"; "Drag" = "Перетаскивание"
-	"DragCheck" = "ПроверкаПеретаскивания"; "Drop" = "Помещение"; "AfterDeleteRow" = "ПослеУдаления"
+	"BeforeEditEnd" = "ПередОкончаниемРедактирования"; "OnActivateCell" = "ПриАктивизацииЯчейки"; "OnActivateField" = "ПриАктивизацииПоля"
+	"ValueChoice" = "ВыборЗначения"; "DragEnd" = "ОкончаниеПеретаскивания"; "OnGetDataAtServer" = "ПриПолученииДанныхНаСервере"
+	"BeforeLoadUserSettingsAtServer" = "ПередЗагрузкойПользовательскихНастроекНаСервере"; "OnUpdateUserSettingSetAtServer" = "ПриОбновленииСоставаПользовательскихНастроекНаСервере"; "Creating" = "Создание"
+	"EditTextChange" = "ИзменениеТекстаРедактирования"; "OnActivate" = "ПриАктивизации"
+	"DragCheck" = "ПроверкаПеретаскивания"; "AfterDeleteRow" = "ПослеУдаления"
 }
 
 function Get-HandlerName {
@@ -441,7 +445,7 @@ function Get-ElementName {
 }
 
 $script:knownEvents = @{
-	"input"     = @("OnChange","StartChoice","ChoiceProcessing","AutoComplete","TextEditEnd","Clearing","Creating","EditTextChange")
+	"input"     = @("OnChange","StartChoice","ChoiceProcessing","AutoComplete","TextEditEnd","Clearing","Creating","EditTextChange","Opening")
 	"check"     = @("OnChange")
 	"label"     = @("Click","URLProcessing")
 	"labelField"= @("OnChange","StartChoice","ChoiceProcessing","Click","URLProcessing","Clearing")

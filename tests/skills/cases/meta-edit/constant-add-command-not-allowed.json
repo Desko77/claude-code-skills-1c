@@ -1,0 +1,17 @@
+{
+  "name": "Константа: недопустимый дочерний тип отклоняется предупреждением, объект не меняется",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Constant", "name": "ОсновнаяВалюта", "valueType": "string" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Constants/ОсновнаяВалюта" },
+  "input": { "add": { "commands": ["Печать"] } },
+  "expect": {
+    "stdoutContains": ["commands not allowed for Constant"],
+    "fileNotContains": [ { "file": "Constants/ОсновнаяВалюта.xml", "text": "<Command" } ]
+  }
+}

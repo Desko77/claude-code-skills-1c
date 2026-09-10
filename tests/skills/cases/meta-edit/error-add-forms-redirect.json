@@ -1,0 +1,19 @@
+{
+  "name": "add.формы в определении отклоняется до записи: формы регистрирует form-add",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Товары" },
+  "input": { "add": { "attributes": [ { "name": "Артикул", "type": "string" } ], "формы": ["ФормаЭлемента"] } },
+  "expectError": "add.forms is not supported: use form-add",
+  "expect": {
+    "fileNotContains": [
+      { "file": "Catalogs/Товары.xml", "text": ["<Form", "Артикул"] }
+    ]
+  }
+}
