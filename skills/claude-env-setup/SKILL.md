@@ -45,7 +45,8 @@ node --version; python --version; git --version; ffmpeg -version 2>/dev/null | h
 Занятость портов (Windows):
 
 ```powershell
-foreach ($p in 8002,8003,8004,8007,8008,8009,8765,6003,1234) {
+# 12250 - порт AI-EDT по умолчанию; фактический берется из .mcp.json рабочей области, если файл есть
+foreach ($p in 8002,8003,8004,8007,8008,8009,12250,6003,1234) {
   $c = Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($c) { "{0}: занят, PID {1} ({2})" -f $p, $c.OwningProcess, (Get-Process -Id $c.OwningProcess -EA SilentlyContinue).ProcessName }
   else { "$p : свободен" }
@@ -65,7 +66,7 @@ foreach ($p in 8002,8003,8004,8007,8008,8009,8765,6003,1234) {
 | Компонент             | Сейчас                  | Предлагается            |
 |-----------------------|-------------------------|-------------------------|
 | скилы набора          | 61 из 104, 3 расходятся | доставить 43, 3 показать |
-| ai-edt                | отвечает на 8765        | не трогать              |
+| ai-edt                | отвечает на 12250       | не трогать              |
 | transcribe            | нет venv-whisper        | поставить (setup.py)    |
 | 1c-syntax-checker-mcp | порт 8002 занят чужим   | разобраться, не ставить |
 ```
