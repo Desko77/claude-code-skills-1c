@@ -12,6 +12,7 @@
 | Сигнал в ответе | Что значит | Действие |
 |-----------------|-----------|----------|
 | `Pending` + `runKey` | долгая операция (find_references на крупном объекте, yaxunit, export_object) | повторить ТОТ ЖЕ вызов с тем же `runKey` и параметрами (фильтры не менять) - заберет финал |
+| `cancelled` в ответе | обход остановлен клиентом (`notifications/cancelled`) или кнопкой оператора: `find_dead_code`, `detect_query_anti_patterns`, `sensitive_data_scan`, `find_rls_violations`, `project_metrics`, `dependency_graph`, `semantic_metadata_search`, `find_references` останавливаются на границе и отдают найденное | не читать пустой список как «находок нет» - в ответе написано, что обход остановлен. У `project_metrics` рядом стоит `partial=true` и `unscannedModules`, числа являются нижней границей, а разделы `objects`, `errors`, `forms`, шаг которых не выполнялся, отсутствуют, а не равны нулю |
 | timeout на большом конфиге | нет фильтра либо Xtext-индекс не успел | сузить `metadataType` / `fileMask`; для find_references - `skipBsl=true` либо `timeoutSeconds=60` + retry |
 | `BSL model is not available ... indexed` | семантическая модель НЕ построена ЛИБО неверный `modulePath`/FQN | сперва проверить путь: неверный дает ту же ошибку, а модель работает и на модулях 25k+ строк. Если правда не построена - `Read` (`src/.../ObjectModule.bsl`), `Grep` точечно |
 | `propertyMismatch` (+ `mismatches`) | объект уже есть, свойства не совпали | НЕ ретраить create/add; пройти `set_object_property` по каждому из `mismatches` |
@@ -21,6 +22,7 @@
 | `kindMismatch` (export_object) | outputPath не совпал с типом объекта | поправить `.epf` vs `.erf` по nature |
 | `RuntimeCoreException: Файл не обнаружен 'zip:///...'` | экспорт в ИБ: нет исходника (.cmi/.form/.mdo) | правило `edt-zip-export-pitfalls.md`: создать минимальный валидный + `clean_project` |
 | tool disabled / not found | пресет скрыл инструмент либо его нет в сборке | НЕ обходить; сказать пользователю (сменить пресет, обновить плагин) |
+| `401 Unauthorized` от `/mcp` при живом `/health` | включен флажок Require bearer token (по умолчанию выключен), а клиент не передает bearer-токен или передает не тот | токен - на странице Window > Preferences > AI-EDT, поле Bearer token; прописать в конфигурацию клиента заголовком `Authorization: Bearer <токен>`, либо снять флажок на той же странице (сервер на всех интерфейсах требует токен всегда). Без токена сервер не отвечает никому, обходить нечем. `404` с текстом про `/mcp` на `/register` или `/.well-known/...` - клиент после `401` ищет OAuth-сервер; лечится тем же токеном |
 | любой "not available" в начале сессии | сервер `ai-edt` не отвечает - причина пока неизвестна | `get_edt_version` как проба. Ошибка связи или timeout - `self_status` НЕ вызывать (он на том же сервере), диагноз "ai-edt недоступен". Сервер ответил, но операция не прошла - уточнить через `self_status`. Разбор случаев и что при этом можно продолжать - `rules/mcp-tool-priority.md`, раздел "Когда инструменты недоступны" |
 
 ## Троттлинг (анти-циклы)
