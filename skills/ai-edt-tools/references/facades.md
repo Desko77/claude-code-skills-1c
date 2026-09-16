@@ -56,6 +56,8 @@
 
 Большинство операций требует действующей конфигурации запуска EDT; операции с кадрами требуют приостановленного потока.
 
+`action=launch` открывает в запускаемом клиенте внешнюю обработку или отчет: `externalObjectName` называет объект, `externalObjectProject` - проект внешних объектов, когда это не тот проект, который запускается. Имя, которое не разрешается, останавливает запуск ДО обновления базы, и ответ несет `nothingWasLaunchedOrUpdated`.
+
 ### `diagnostics` - диагностика и валидация
 
 Операции: `get_project_errors`, `get_problem_summary`, `revalidate_objects`, `clean_project`, `validate_for_export`, `get_check_description`, `help`.
@@ -84,9 +86,14 @@
   `deleteContent=true` стирает и файлы.
 - **`restart_edt`** перезапускает или гасит саму EDT, внутри которой работает плагин. После нее
   сервер отвечает не сразу.
+- **`answer_dialog`** нажимает названную кнопку модального окна, на котором стоит EDT: такое
+  окно держит workbench, и снаружи это неотличимо от зависания. Читать окно - `self_status`
+  либо поля `blockedByDialog` и `dialogs` в ответе долгой операции со `status=Pending`;
+  нажимать - назвав кнопку в `button`. Само по себе не нажимается ничего, а имя, не совпавшее
+  ни с одной кнопкой или совпавшее с несколькими, отвергается.
 
 
-Операции: `list_projects`, `list_configurations`, `get_configuration_properties`, `create_project`, `delete_project`, `resync_to_disk`, `restart_edt`, `list_subsystems`, `help`.
+Операции: `list_projects`, `list_configurations`, `get_configuration_properties`, `create_project`, `delete_project`, `resync_to_disk`, `restart_edt`, `answer_dialog`, `list_subsystems`, `help`.
 
 Часть операций изменяет рабочее пространство или перезапускает EDT.
 
