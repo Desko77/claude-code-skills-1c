@@ -1,0 +1,22 @@
+{
+  "name": "Объекты с кириллическими именами попадают в список загрузки при git core.quotePath=true",
+  "setup": "empty-config",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Номенклатура" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    { "git": ["init", "-q"] },
+    { "git": ["config", "core.quotePath", "true"] },
+    { "git": ["add", "-A"] },
+    { "git": ["commit", "-q", "-m", "init"] },
+    { "writeFile": { "path": "Catalogs/Номенклатура/Ext/ObjectModule.bsl", "content": "// правка\r\n" } }
+  ],
+  "args_extra": ["-ConfigDir", "{workDir}", "-Source", "All", "-DryRun"],
+  "noSnapshot": "в рабочем каталоге лежит .git, эталон снимал бы объекты репозитория; проверяется stdout",
+  "expect": {
+    "stdoutContains": ["Files for loading: 2", "Catalogs/Номенклатура.xml", "Catalogs/Номенклатура/Ext/ObjectModule.bsl"],
+    "stdoutNotContains": ["No configuration files found"]
+  }
+}

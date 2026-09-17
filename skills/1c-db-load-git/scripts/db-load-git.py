@@ -159,9 +159,14 @@ def get_object_xml_from_subfile(relative_path):
 
 
 def run_git(config_dir, git_args):
-    """Run a git command in config_dir and return output lines on success."""
+    """Run a git command in config_dir and return output lines on success.
+
+    core.quotePath=false: with the git default a path with non-ASCII characters
+    comes back quoted and octal-escaped, os.path.exists() does not find it and the
+    object silently drops out of the load list.
+    """
     result = subprocess.run(
-        ["git"] + git_args,
+        ["git", "-c", "core.quotePath=false"] + git_args,
         capture_output=True,
         text=True,
         encoding="utf-8",

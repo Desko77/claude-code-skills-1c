@@ -802,6 +802,18 @@ async function runCaseAsync(testCase, opts) {
           if (step.writeFile.executable) chmodSync(wfPath, 0o755);
           continue;
         }
+        // git step - команда git в workDir: кейсы навыков, читающих изменения из репозитория,
+        // без него не воспроизвести. Личность коммитера задается здесь, чтобы прогон не зависел
+        // от глобальной настройки машины.
+        if (step.git) {
+          try {
+            execFileSync('git', ['-c', 'user.name=runner', '-c', 'user.email=runner@localhost', ...step.git],
+              { cwd: workDir, stdio: ['ignore', 'pipe', 'pipe'] });
+          } catch (e) {
+            throw new Error(`preRun git ${step.git.join(' ')} failed: ${e.stderr || e.message}`);
+          }
+          continue;
+        }
         const preScript = resolveScript(step.script, opts.runtime);
         const preArgs = [];
         for (const [flag, value] of Object.entries(step.args || {})) {

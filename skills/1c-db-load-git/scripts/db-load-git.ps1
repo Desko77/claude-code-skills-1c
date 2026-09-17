@@ -290,34 +290,43 @@ $changedFiles = @()
 $ConfigDir = (Resolve-Path $ConfigDir).Path.TrimEnd('\')
 $configDirNormalized = $ConfigDir.Replace('\', '/')
 
+# core.quotePath=false: with the git default a path with non-ASCII characters comes back
+# quoted and octal-escaped, Test-Path does not find it and the object silently drops out
+# of the load list. Output is read as UTF-8 regardless of the console code page.
+function Invoke-GitLines {
+    param([string[]]$GitArgs)
+    $prevEncoding = [Console]::OutputEncoding
+    try {
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $out = git -c core.quotePath=false @GitArgs 2>&1
+    } finally {
+        [Console]::OutputEncoding = $prevEncoding
+    }
+    if ($LASTEXITCODE -eq 0) { return @($out | ForEach-Object { "$_" }) }
+    return @()
+}
+
 Push-Location $ConfigDir
 try {
     switch ($Source) {
         "Staged" {
             Write-Host "Getting staged changes..."
-            $raw = git diff --cached --name-only --relative 2>&1
-            if ($LASTEXITCODE -eq 0) { $changedFiles += $raw }
+            $changedFiles += Invoke-GitLines @("diff", "--cached", "--name-only", "--relative")
         }
         "Unstaged" {
             Write-Host "Getting unstaged changes..."
-            $raw = git diff --name-only --relative 2>&1
-            if ($LASTEXITCODE -eq 0) { $changedFiles += $raw }
-            $raw = git ls-files --others --exclude-standard 2>&1
-            if ($LASTEXITCODE -eq 0) { $changedFiles += $raw }
+            $changedFiles += Invoke-GitLines @("diff", "--name-only", "--relative")
+            $changedFiles += Invoke-GitLines @("ls-files", "--others", "--exclude-standard")
         }
         "Commit" {
             Write-Host "Getting changes from $CommitRange..."
-            $raw = git diff --name-only --relative $CommitRange 2>&1
-            if ($LASTEXITCODE -eq 0) { $changedFiles += $raw }
+            $changedFiles += Invoke-GitLines @("diff", "--name-only", "--relative", $CommitRange)
         }
         "All" {
             Write-Host "Getting all uncommitted changes..."
-            $raw = git diff --cached --name-only --relative 2>&1
-            if ($LASTEXITCODE -eq 0) { $changedFiles += $raw }
-            $raw = git diff --name-only --relative 2>&1
-            if ($LASTEXITCODE -eq 0) { $changedFiles += $raw }
-            $raw = git ls-files --others --exclude-standard 2>&1
-            if ($LASTEXITCODE -eq 0) { $changedFiles += $raw }
+            $changedFiles += Invoke-GitLines @("diff", "--cached", "--name-only", "--relative")
+            $changedFiles += Invoke-GitLines @("diff", "--name-only", "--relative")
+            $changedFiles += Invoke-GitLines @("ls-files", "--others", "--exclude-standard")
         }
     }
 } finally {
