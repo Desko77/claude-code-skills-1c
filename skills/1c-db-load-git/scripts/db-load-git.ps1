@@ -392,8 +392,14 @@ foreach ($file in $changedFiles) {
                 if ($parts.Count -ge 2) {
                     $extDir = Join-Path (Join-Path $ConfigDir $parts[0]) "$($parts[1])\Ext"
                     if (Test-Path $extDir) {
+                        # The relative path is rebuilt from the object parts and the part inside Ext:
+                        # FullName is canonical (long form), while $ConfigDir keeps the spelling it was
+                        # given, for example a short 8.3 name of the temp folder, so prefix replacement
+                        # does not strip it and the absolute path would stay in the list.
+                        $extDirFull = (Get-Item -LiteralPath $extDir).FullName
                         Get-ChildItem -Path $extDir -Recurse -File | ForEach-Object {
-                            $extRelPath = $_.FullName.Replace("$ConfigDir\", '').Replace('\', '/')
+                            $inside = $_.FullName.Substring($extDirFull.Length).TrimStart('\', '/').Replace('\', '/')
+                            $extRelPath = "$($parts[0])/$($parts[1])/Ext/$inside"
                             if ($configFiles -notcontains $extRelPath) {
                                 $configFiles += $extRelPath
                             }
