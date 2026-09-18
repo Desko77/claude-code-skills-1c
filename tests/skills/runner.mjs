@@ -880,11 +880,16 @@ async function runCaseAsync(testCase, opts) {
     // stdout checks apply to negative cases too — a case that says what the failure must
     // print was silently checking nothing when they lived in the positive branch only.
     {
+      // Провал утверждения по тексту без самого текста не разобрать издалека (CI): к первой
+      // ошибке кейса прикладывается начало stdout и stderr.
+      const excerpt = () => `
+      stdout: ${stdout.substring(0, 600)}
+      stderr: ${stderr.substring(0, 400)}`;
       if (caseData.expect?.stdoutContains) {
         const needles = Array.isArray(caseData.expect.stdoutContains)
           ? caseData.expect.stdoutContains : [caseData.expect.stdoutContains];
         for (const needle of needles) {
-          if (!stdout.includes(needle)) errors.push(`stdout does not contain "${needle}"`);
+          if (!stdout.includes(needle)) errors.push(`stdout does not contain "${needle}"${errors.length ? '' : excerpt()}`);
         }
       }
       if (caseData.expect?.stdoutNotContains) {
@@ -1115,11 +1120,16 @@ function runCase(testCase, opts) {
     // cases too: a case that says what the failure must print was silently checking
     // nothing while these lived in the positive branch only.
     {
+      // Провал утверждения по тексту без самого текста не разобрать издалека (CI): к первой
+      // ошибке кейса прикладывается начало stdout и stderr.
+      const excerpt = () => `
+      stdout: ${stdout.substring(0, 600)}
+      stderr: ${stderr.substring(0, 400)}`;
       if (caseData.expect?.stdoutContains) {
         const needles = Array.isArray(caseData.expect.stdoutContains)
           ? caseData.expect.stdoutContains : [caseData.expect.stdoutContains];
         for (const needle of needles) {
-          if (!stdout.includes(needle)) errors.push(`stdout does not contain "${needle}"`);
+          if (!stdout.includes(needle)) errors.push(`stdout does not contain "${needle}"${errors.length ? '' : excerpt()}`);
         }
       }
       if (caseData.expect?.stdoutNotContains) {
