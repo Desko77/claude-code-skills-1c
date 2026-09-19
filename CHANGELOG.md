@@ -1,5 +1,15 @@
 # История версий
 
+## Плагин AI-EDT 0.2.50 (без номера набора) - 2026-09-19
+
+Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее (дифф d461b995).
+
+- `debug_launch` / `debug` / `start_client`: довод `startupOption` - строка `/C` в копию конфигурации запуска; `waitForEndpoint` с `endpointTimeoutSeconds` - отчет готовности открытого адреса (GET, итоговый статус ниже 500), клиент при неответе не останавливается.
+- `update_database statusOnly=true`: чтение отслеживаемых обновлений (`updates[]`, `runKey`, состояние, прогресс), без запуска прогона.
+- `compare_configurations`: переименования спариваются до классификации - равное наполнение (имя, uuid, синоним, typeId вне доказательства) читается как `renamed`; вложения сравниваются по содержимому (`level=attribute`).
+- `dcs_workshop`: набор Object требует `dataObjectName` (оба маршрута), `add_total` пишет `dataPath` из выражения, `add_appearance` строит фильтр из `field`+`conditionValue`, частичное условие и JSON в `appearance` отвергаются.
+- `create_object_command commandParameterType` пишется типом; `set_form_command_property propertyName=picture` - типизированной ссылкой `PictureRef`; `create_http_service sessionMaxAge` - узлом в файл.
+
 ## 1.10.3 - 2026-09-18
 
 ### db-load-git
