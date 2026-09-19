@@ -63,3 +63,6 @@ tests/skills/.last-report.json
 
 # Рабочий каталог поведенческого прогона скилов: staging, ответы агента, отчеты
 /.tmp/
+
+# Local agent instructions - not shipped
+CLAUDE.md
