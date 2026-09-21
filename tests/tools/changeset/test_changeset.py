@@ -10,8 +10,11 @@ skills/1c-code-review/references/changeset.md. Двойной запуск Pytho
 
 from __future__ import annotations
 
+import base64
 import hashlib
+import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -27,6 +30,36 @@ EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 def u(text: str) -> bytes:
     """Байты UTF-8 из строкового литерала (в bytes-литерале кириллица недопустима)."""
     return text.encode("utf-8")
+
+
+def py_module():
+    """Модуль tools/changeset.py, импортированный по пути: прямой вызов функций без CLI."""
+    spec = importlib.util.spec_from_file_location("changeset_py", PY_CLI)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+NODE_PAYLOAD_SCRIPT = (
+    "const {pathToFileURL} = require('node:url');"
+    "import(pathToFileURL(process.env.CHANGESET_MJS).href).then((m) => {"
+    "const files = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));"
+    "process.stdout.write(m.buildDiffPayload(files).toString('base64'));"
+    "}, (e) => {console.error(e); process.exit(1);});"
+)
+
+
+def node_payload(files: list[dict]) -> bytes:
+    """Байты buildDiffPayload Node-реализации на синтетических записях (base64 в stdout).
+
+    Путь к модулю передается переменной окружения, а не аргументом: аргумент при
+    node -e становится argv[1], и CLI-защитник _changeset.mjs запустил бы CLI.
+    """
+    env = {**os.environ, "CHANGESET_MJS": str(NODE_CLI)}
+    proc = subprocess.run(["node", "-e", NODE_PAYLOAD_SCRIPT],
+                          input=json.dumps(files).encode("utf-8"), capture_output=True, env=env)
+    assert proc.returncode == 0, proc.stderr.decode("utf-8", errors="replace")
+    return base64.b64decode(proc.stdout)
 
 
 def run_cli(executable_args: list[str], repo: Path, base: str | None = None) -> subprocess.CompletedProcess:
@@ -299,6 +332,125 @@ class ChangesetTests(unittest.TestCase):
         self.assert_scenario(repo, base=first,
                              expect={"f.txt": {"status": "modified"}},
                              sha_expect={"f.txt": u("версия два\n")})
+
+    def test_diff_hash_framing_synthetic(self):
+        """Кадрирование diffHash однозначно: проверка на синтетических записях без ФС.
+
+        Наборы воспроизводят коллизию простого табуляционного формата: конкатенация
+        строк двух записей совпадает со строкой одной записи, чей путь содержит
+        табуляцию и перевод строки. Префикс длины пути разделяет записи, payload
+        двух наборов различается; обе реализации дают одинаковые байты.
+        """
+        two_files = [
+            {"path": "a", "sha256": "h1", "status": "modified"},
+            {"path": "b", "sha256": "h2", "status": "added"},
+        ]
+        one_file = [{"path": "a\tmodified\th1\nb", "sha256": "h2", "status": "added"}]
+        old_format = "".join(
+            f"{r['path']}\t{r['status']}\t{r['sha256']}\n" for r in two_files)
+        self.assertEqual(
+            old_format, "a\tmodified\th1\nb\tadded\th2\n",
+            "сценарий потерял коллизию табуляционного формата")
+        self.assertEqual(old_format,
+                         "".join(f"{r['path']}\t{r['status']}\t{r['sha256']}\n"
+                                 for r in one_file))
+        py = py_module()
+        expected_two = b"1:a\0modified\0h1\0" + b"1:b\0added\0h2\0"
+        self.assertEqual(py.build_payload(two_files), expected_two)
+        self.assertEqual(node_payload(two_files), expected_two)
+        expected_one = b"15:a\tmodified\th1\nb\0added\0h2\0"
+        self.assertEqual(py.build_payload(one_file), expected_one)
+        self.assertEqual(node_payload(one_file), expected_one)
+        self.assertNotEqual(py.build_payload(two_files), py.build_payload(one_file))
+
+    @unittest.skipIf(sys.platform == "win32",
+                     "имя с табуляцией и переводом строки недопустимо на Windows")
+    def test_tab_newline_filename(self):
+        """Имя файла с табуляцией и переводом строки: путь читается из -z-вывода целиком."""
+        repo = make_repo(self.tmp)
+        write_file(repo, "base.txt", u("база\n"))
+        commit_all(repo)
+        rel = "группа\tфайл\nвторой.txt"
+        write_file(repo, rel, u("содержимое\n"))
+        data = self.assert_scenario(repo, expect={rel: {"status": "added"}},
+                                    sha_expect={rel: u("содержимое\n")})
+        write_file(repo, rel, u("другое содержимое\n"))
+        data_changed = self.assert_scenario(repo, expect={rel: {"status": "added"}})
+        self.assertNotEqual(data["diffHash"], data_changed["diffHash"])
+
+    def test_rm_cached_ignored(self):
+        """git rm --cached и путь в .gitignore: ls-files --others путь скрывает.
+
+        Арбитраж выполняется по записи deleted с файлом на диске: файл равен base -
+        записи нет; изменен - modified; удален с диска - deleted с null.
+        """
+        repo = make_repo(self.tmp)
+        write_file(repo, "f.txt", u("версия один\n"))
+        commit_all(repo)
+        write_file(repo, ".gitignore", b"f.txt\n")
+        git(repo, "rm", "-q", "--cached", "f.txt")
+        proc = subprocess.run(["git", "-C", str(repo), "diff", "--name-status", "HEAD"],
+                              capture_output=True)
+        self.assertIn(b"D\tf.txt", proc.stdout, "diff не видит путь как удаленный")
+        proc = subprocess.run(
+            ["git", "-C", str(repo), "ls-files", "--others", "--exclude-standard"],
+            capture_output=True)
+        self.assertNotIn(b"f.txt", proc.stdout, "untracked-список должен скрывать путь")
+        self.assert_scenario(repo, absent=["f.txt"])
+        write_file(repo, "f.txt", u("версия два\n"))
+        self.assert_scenario(repo, expect={"f.txt": {"status": "modified"}},
+                             sha_expect={"f.txt": u("версия два\n")})
+        (repo / "f.txt").unlink()
+        self.assert_scenario(repo, expect={"f.txt": {"status": "deleted"}})
+
+    def test_gitlink_excluded(self):
+        """Гитлинк (подмодуль, режим 160000) исключается при любом статусе diff.
+
+        Измененный gitlink diff дает как M, путь при этом каталог; gitlink в base,
+        удаленный из индекса, - как D. Новый gitlink (в base отсутствует) узнается
+        по индексу ls-files -s.
+        """
+        repo = make_repo(self.tmp)
+        write_file(repo, "base.txt", u("база\n"))
+        commit_all(repo, "первый")
+        sha_one = head_sha(repo)
+        write_file(repo, "more.txt", u("еще\n"))
+        commit_all(repo, "второй")
+        sha_two = head_sha(repo)
+        write_file(repo, "sub/inner.txt", u("внутри\n"))
+        git(repo, "update-index", "--add", "--cacheinfo", "160000", sha_one, "sub")
+        commit_all(repo, "gitlink")
+        git(repo, "update-index", "--cacheinfo", "160000", sha_two, "sub")
+        proc = subprocess.run(["git", "-C", str(repo), "diff", "--name-status", "-z", "HEAD"],
+                              capture_output=True)
+        self.assertIn(b"M\0sub\0", proc.stdout, "gitlink не изменен - сценарий пуст")
+        self.assert_scenario(repo, absent=["sub"])
+        git(repo, "update-index", "--add", "--cacheinfo", "160000", sha_one, "newsub")
+        self.assert_scenario(repo, absent=["sub", "newsub"])
+        git(repo, "update-index", "--force-remove", "sub")
+        proc = subprocess.run(["git", "-C", str(repo), "diff", "--name-status", "-z", "HEAD"],
+                              capture_output=True)
+        self.assertIn(b"D\0sub\0", proc.stdout, "gitlink не удален - сценарий пуст")
+        self.assert_scenario(repo, absent=["sub", "newsub"])
+
+    def test_leading_dash_path(self):
+        """Путь с ведущим дефисом: путь-операнд git отделен --, обе CLI завершаются кодом 0.
+
+        Арбитраж blob-хешами (git rm --cached) вызывает hash-object с путем-операндом
+        -foo: без -- имя читается как ключ и CLI падает с кодом 2.
+        """
+        repo = make_repo(self.tmp)
+        write_file(repo, "base.txt", u("база\n"))
+        commit_all(repo)
+        write_file(repo, "-foo", u("первая\n"))
+        self.assert_scenario(repo, expect={"-foo": {"status": "added"}},
+                             sha_expect={"-foo": u("первая\n")})
+        git(repo, "add", "--", "-foo")
+        commit_all(repo)
+        write_file(repo, "-foo", u("вторая\n"))
+        git(repo, "rm", "-q", "--cached", "--", "-foo")
+        self.assert_scenario(repo, expect={"-foo": {"status": "modified"}},
+                             sha_expect={"-foo": u("вторая\n")})
 
     def test_not_a_repository(self):
         """Каталог без .git: обе CLI завершаются кодом 2 без traceback."""

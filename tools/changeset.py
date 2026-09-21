@@ -110,16 +110,58 @@ def _differs_from_base(top: Path, base: str, fs_path: str) -> bool:
     git diff такой путь всегда видит удалением (untracked для него невидим), поэтому
     отличие решается сравнением blob-хешей - git hash-object --path применяет к
     рабочим байтам фильтры и конверсию пути (как при add), git ls-tree base дает
-    хеш блоба в базовом коммите.
+    хеш блоба в базовом коммите. Путь-операнд отделен --: имя с ведущим дефисом
+    иначе читается как ключ, значение --path передается присоединенным (--path=).
     """
     ls_line = _decode(_run_git(["ls-tree", base, "--", fs_path], top), "git ls-tree").strip()
     fields = ls_line.split()
     if len(fields) < 3:
         return True  # пути нет в base; для конфликта с D недостижимо, защита парсера
     base_blob = fields[2].split("\t")[0]
-    work_blob = _decode(_run_git(["hash-object", "--path", fs_path, fs_path], top),
+    work_blob = _decode(_run_git(["hash-object", f"--path={fs_path}", "--", fs_path], top),
                         "git hash-object").strip()
     return work_blob != base_blob
+
+
+def _gitlink_paths(top: Path, base: str) -> set[str]:
+    """Пути-гитлинки (подмодули): режим 160000 в индексе или в базовом коммите.
+
+    Gitlink - запись о коммите другого репозитория, в рабочем дереве это каталог;
+    спецификация исключает такой путь из множества целиком при любом статусе diff.
+    Источники - git ls-files -s -z (индекс: новый gitlink в base отсутствует) и
+    git ls-tree -r -z <base> (коммит: gitlink мог быть удален из индекса).
+    """
+    paths: set[str] = set()
+    outputs = (_run_git(["ls-files", "-s", "-z"], top),
+               _run_git(["ls-tree", "-r", "-z", base], top))
+    for raw in outputs:
+        for record in raw.split(b"\0"):
+            if not record:
+                continue
+            # Формат -z у обеих команд: метаданные, TAB, путь, NUL. Первый TAB
+            # отделяет метаданные от пути, TAB внутри самого пути не мешает.
+            meta, _, path_bytes = record.partition(b"\t")
+            if meta.split(b" ", 1)[0] == b"160000":
+                paths.add(unicodedata.normalize("NFC", _decode(path_bytes, "git ls-tree")))
+    return paths
+
+
+def build_payload(files: list[dict]) -> bytes:
+    """Собрать байты для diffHash из записей, уже отсортированных по байтам пути.
+
+    Запись кадрируется однозначно: длина пути в байтах UTF-8 (десятичная), ":",
+    байты пути, NUL, статус, NUL, sha256 либо литерал null, NUL. Префикс длины
+    разделяет записи - имя с табуляцией или переводом строки не может сложиться
+    в ту же последовательность байтов, что имена других файлов.
+    """
+    chunks: list[bytes] = []
+    for record in files:
+        path_bytes = record["path"].encode("utf-8")
+        sha = record["sha256"] if record["sha256"] is not None else "null"
+        chunks.append(f"{len(path_bytes)}:".encode("ascii") + path_bytes
+                      + b"\0" + record["status"].encode("ascii")
+                      + b"\0" + sha.encode("ascii") + b"\0")
+    return b"".join(chunks)
 
 
 def compute_changeset(repo_dir: Path | str, base: str = "HEAD") -> dict:
@@ -147,19 +189,27 @@ def compute_changeset(repo_dir: Path | str, base: str = "HEAD") -> dict:
             continue
         fs_path = _decode(token, "git ls-files")
         path = unicodedata.normalize("NFC", fs_path)
-        if path in entries:
-            # Файл есть в base и на диске, но не в индексе: git diff отдал его как
-            # удаленный, фактически файл существует - отличие решает git diff --quiet.
-            if _differs_from_base(top, base, fs_path):
-                entries[path] = {"status": "modified", "renamedFrom": None, "fsPath": fs_path}
-            else:
-                del entries[path]
-        else:
+        if path not in entries:
             entries[path] = {"status": "added", "renamedFrom": None, "fsPath": fs_path}
+        # Путь, совпавший с записью diff (git rm --cached без игнора), отдельной
+        # записью не становится: статус из diff - deleted, арбитраж - в финальном
+        # проходе по факту файла на диске.
 
+    gitlinks = _gitlink_paths(top, base)
     files: list[dict] = []
     for path, entry in entries.items():
-        if not (top / entry["fsPath"]).is_file():
+        if path in gitlinks:
+            continue  # подмодуль: gitlink, в рабочем дереве каталог, а не файл
+        on_disk = (top / entry["fsPath"]).is_file()
+        if entry["status"] == "deleted" and on_disk:
+            # Файл есть в base и на диске, но не в индексе (git rm --cached), причем
+            # путь игнорируемый - ls-files --others его не показывает. Отличие от
+            # base решает сравнение blob-хешей: равен - записи нет, отличается -
+            # modified.
+            if not _differs_from_base(top, base, entry["fsPath"]):
+                continue
+            entry = {"status": "modified", "renamedFrom": None, "fsPath": entry["fsPath"]}
+        if not on_disk:
             if entry["status"] in ("added", "renamed"):
                 continue  # файла нет ни в base, ни в рабочем дереве
             files.append({"path": path, "sha256": None, "status": "deleted"})
@@ -174,12 +224,9 @@ def compute_changeset(repo_dir: Path | str, base: str = "HEAD") -> dict:
         files.append(record)
 
     files.sort(key=lambda r: r["path"].encode("utf-8"))
-    payload = "".join(
-        f"{r['path']}\t{r['status']}\t{r['sha256'] if r['sha256'] is not None else 'null'}\n"
-        for r in files)
     return {
         "base": base_sha,
-        "diffHash": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+        "diffHash": hashlib.sha256(build_payload(files)).hexdigest(),
         "files": files,
     }
 
