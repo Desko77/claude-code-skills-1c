@@ -73,7 +73,7 @@
 | `bsl-pair` | `clean.bsl`, `defect.bsl` | `"type": "bsl-pair"`, `"expected": [номера строк срабатывания в defect.bsl]` |
 | `project-tree` | файлы выгрузки (`.mdo`, `.form`, XML) | `"type": "project-tree"`, `"files": [список путей относительно каталога фикстуры]` |
 | `diff` | `before.bsl`, `after.bsl` | `"type": "diff"`, `"expected": [номера строк в after.bsl]` |
-| `evidence` | файл следа проверок | `"type": "evidence"`, структурная проверка манифеста |
+| `evidence` | `evidence.json` - минимальный след: поле `kind` и описание | `"type": "evidence"`, `"files": ["evidence.json"]`; гард проверяет наличие, разбираемость JSON и поле `kind`; полный валидатор следа - спринт 5 |
 
 Модули фикстур - кириллический BSL, 10-30 строк, кодировка UTF-8.
 

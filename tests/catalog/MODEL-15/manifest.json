@@ -1,0 +1,9 @@
+{
+  "id": "MODEL-15",
+  "type": "bsl-pair",
+  "expected": [
+    3,
+    6,
+    8
+  ]
+}
