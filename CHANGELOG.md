@@ -1,5 +1,14 @@
 # История версий
 
+## Обновление плагина AI-EDT до 0.2.53 - 2026-09-22
+
+Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее.
+
+- `debug_launch` / `launch_debugger action=launch` / `start_client`: доводы `clientType` (`thin`, `thick`, `web`) и `runMode` (`ordinary`, `managed`); конфигурация с основным режимом обычного приложения стартует в толстом клиенте, `/RunModeOrdinaryApplication` кладется в параметры базы на ссылке сеанса (список баз на диске не пишется), `clientType=thin` без `runMode=managed` у нее отвергается; ответ несет `clientType`, `clientTypeSource`, `runMode`, `runModeSource`, `runModeFlagState`, `runModeFlagScope`, `infobaseAdditionalParameters`.
+- `create_launch_config` привязывает базу в текущем контексте привязки проекта (в ветке у проекта под версионным контролем).
+- `sync_control` читает хранилище сигнатур в рабочей области (EDT 2026), затем в `%APPDATA%/.1cedt`; `index.idx` версионного формата читается и переписывается.
+- Другой бандл EDT добавляет плагину инструменты и модули OSGi-сервисами (`IMcpTool` со свойством `ru.aiedt.mcp.tool.writes`, `IModuleSourceProvider`); модули без файла читаются и пишутся по адресу инструментами модулей, ответы по индексу BSL заканчиваются строкой покрытия поставщика.
+
 ## Обновление плагина AI-EDT до 0.2.52 - 2026-09-21
 
 Изменилась работа плагина (выпуски 0.2.51 и 0.2.52), набор `ai-edt-tools` обновлен под нее.
