@@ -88,14 +88,58 @@ function parseDiff(raw) {
 // конфликта "файл есть в base и на диске, но не в индексе" (git rm --cached):
 // git diff такой путь всегда видит удалением (untracked для него невидим), поэтому
 // сравниваются blob-хеши: hash-object --path (фильтры как при add) против ls-tree.
+// Путь-операнд отделен --: имя с ведущим дефисом иначе читается как ключ, значение
+// --path передается присоединенным (--path=).
 async function differsFromBase(top, base, fsPath) {
   const lsLine = decode(await runGit(['ls-tree', base, '--', fsPath], top), 'git ls-tree').trim();
   const fields = lsLine.split(/\s+/);
   if (fields.length < 3) return true; // пути нет в base; для конфликта с D недостижимо
   const baseBlob = fields[2].split('\t')[0];
   const workBlob = decode(
-    await runGit(['hash-object', '--path', fsPath, fsPath], top), 'git hash-object').trim();
+    await runGit(['hash-object', `--path=${fsPath}`, '--', fsPath], top), 'git hash-object').trim();
   return workBlob !== baseBlob;
+}
+
+// Пути-гитлинки (подмодули): режим 160000 в индексе или в базовом коммите. Gitlink -
+// запись о коммите другого репозитория, в рабочем дереве это каталог; такой путь
+// исключается из множества целиком при любом статусе diff. Источники - ls-files -s
+// (индекс: новый gitlink в base отсутствует) и ls-tree -r <base> (gitlink мог быть
+// удален из индекса). Формат -z: метаданные, TAB, путь, NUL - первый TAB отделяет
+// метаданные от пути, TAB внутри самого пути не мешает.
+async function gitlinkPaths(top, base) {
+  const paths = new Set();
+  const outputs = [await runGit(['ls-files', '-s', '-z'], top),
+                   await runGit(['ls-tree', '-r', '-z', base], top)];
+  for (const raw of outputs) {
+    for (const record of splitNul(raw)) {
+      const tabIdx = record.indexOf(9); // TAB
+      if (tabIdx === -1) continue;
+      const mode = record.subarray(0, tabIdx).toString('latin1').split(' ')[0];
+      if (mode === '160000') {
+        paths.add(decode(record.subarray(tabIdx + 1), 'git ls-tree').normalize('NFC'));
+      }
+    }
+  }
+  return paths;
+}
+
+// Собрать байты для diffHash из записей, уже отсортированных по байтам пути.
+// Запись кадрируется однозначно: длина пути в байтах UTF-8 (десятичная), ":",
+// байты пути, NUL, статус, NUL, sha256 либо литерал null, NUL. Префикс длины
+// разделяет записи - имя с табуляцией или переводом строки не может сложиться
+// в ту же последовательность байтов, что имена других файлов.
+export function buildDiffPayload(files) {
+  const chunks = [];
+  for (const r of files) {
+    const pathBytes = Buffer.from(r.path, 'utf8');
+    const sha = r.sha256 === null ? 'null' : r.sha256;
+    chunks.push(
+      Buffer.from(`${pathBytes.length}:`, 'ascii'),
+      pathBytes,
+      Buffer.from(`\0${r.status}\0${sha}\0`, 'ascii'),
+    );
+  }
+  return Buffer.concat(chunks);
 }
 
 // Вычислить каноническое множество изменений относительно base; результат по
@@ -122,26 +166,31 @@ export async function computeChangeset(repoDir, base = 'HEAD') {
   for (const token of splitNul(untrackedRaw)) {
     const fsPath = decode(token, 'git ls-files');
     const path = fsPath.normalize('NFC');
-    if (entries.has(path)) {
-      // Файл есть в base и на диске, но не в индексе: git diff отдал его как
-      // удаленный, фактически файл существует - отличие решает git diff --quiet.
-      if (await differsFromBase(top, base, fsPath)) {
-        entries.set(path, { status: 'modified', renamedFrom: null, fsPath });
-      } else {
-        entries.delete(path);
-      }
-    } else {
+    if (!entries.has(path)) {
       entries.set(path, { status: 'added', renamedFrom: null, fsPath });
     }
+    // Путь, совпавший с записью diff (git rm --cached без игнора), отдельной
+    // записью не становится: статус из diff - deleted, арбитраж - в финальном
+    // проходе по факту файла на диске.
   }
 
+  const gitlinks = await gitlinkPaths(top, base);
   const files = [];
-  for (const [path, entry] of entries) {
+  for (const [path, entryIn] of entries) {
+    let entry = entryIn;
+    if (gitlinks.has(path)) continue; // подмодуль: gitlink, в рабочем дереве каталог
     let isFile = false;
     try {
       isFile = (await stat(resolve(top, entry.fsPath))).isFile();
     } catch {
       isFile = false;
+    }
+    if (entry.status === 'deleted' && isFile) {
+      // Файл есть в base и на диске, но не в индексе (git rm --cached), причем
+      // путь игнорируемый - ls-files --others его не показывает. Отличие от base
+      // решает сравнение blob-хешей: равен - записи нет, отличается - modified.
+      if (!(await differsFromBase(top, base, entry.fsPath))) continue;
+      entry = { status: 'modified', renamedFrom: null, fsPath: entry.fsPath };
     }
     if (!isFile) {
       if (entry.status === 'added' || entry.status === 'renamed') continue; // нет ни в base, ни в дереве
@@ -159,10 +208,7 @@ export async function computeChangeset(repoDir, base = 'HEAD') {
   }
 
   files.sort((a, b) => Buffer.compare(Buffer.from(a.path, 'utf8'), Buffer.from(b.path, 'utf8')));
-  const payload = files
-    .map((r) => `${r.path}\t${r.status}\t${r.sha256 === null ? 'null' : r.sha256}\n`)
-    .join('');
-  const diffHash = createHash('sha256').update(payload, 'utf8').digest('hex');
+  const diffHash = createHash('sha256').update(buildDiffPayload(files)).digest('hex');
   return { base: baseSha, diffHash, files };
 }
 
