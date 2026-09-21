@@ -59,11 +59,28 @@ COMPONENTS: dict[str, dict[str, str]] = {
 }
 
 
+TEXT_SUFFIXES = {".md", ".json", ".txt", ".py", ".mjs", ".js", ".yml", ".yaml", ".ps1", ".bsl"}
+
+
 def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Хеш содержимого файла.
+
+    Текстовые файлы (по расширению из TEXT_SUFFIXES) хешируются с концами строк,
+    приведенными к LF: редактор, сменивший LF на CRLF, не должен давать расхождение
+    или конфликт. Бинарные файлы хешируются как есть.
+    """
+    data = path.read_bytes()
+    if path.suffix.lower() in TEXT_SUFFIXES:
+        data = data.replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def load_manifest(home: Path) -> dict:
+    """Прочитать манифест установки из home; отсутствующий манифест - пустой.
+
+    Нечитаемый или испорченный манифест (не JSON, корень не объект, секция files
+    не словарь) завершает работу кодом 2 с диагностикой в stderr.
+    """
     manifest_path = home / MANIFEST_NAME
     if not manifest_path.exists():
         return {"files": {}}
@@ -72,13 +89,14 @@ def load_manifest(home: Path) -> dict:
     except (json.JSONDecodeError, OSError) as exc:
         print(f"манифест не читается ({manifest_path}): {exc}", file=sys.stderr)
         sys.exit(2)
-    if not isinstance(data.get("files"), dict):
+    if not isinstance(data, dict) or not isinstance(data.get("files"), dict):
         print(f"манифест испорчен: секция files не словарь ({manifest_path})", file=sys.stderr)
         sys.exit(2)
     return data
 
 
 def save_manifest(home: Path, manifest: dict) -> None:
+    """Записать манифест установки в home детерминированно (сортировка ключей, LF)."""
     manifest_path = home / MANIFEST_NAME
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     # Детерминированная запись: сортировка ключей и стабильные отступы дают
@@ -108,6 +126,7 @@ def collect_files(component: str) -> list[tuple[Path, Path, str]]:
 
 
 def parse_components(arg: str | None) -> list[str]:
+    """Разобрать список компонентов из довода; пусто - все компоненты; неизвестное имя - код 2."""
     names = [name.strip() for name in (arg or "").split(",") if name.strip()] if arg else list(COMPONENTS)
     unknown = [name for name in names if name not in COMPONENTS]
     if unknown:
@@ -118,6 +137,12 @@ def parse_components(arg: str | None) -> list[str]:
 
 
 def cmd_install(home: Path, components: list[str], force: bool, dry_run: bool) -> int:
+    """Установить компоненты в home с учетом манифеста.
+
+    Файл, совпадающий с манифестом или отсутствующий, переписывается; измененный и не
+    по манифесту, и не как в репозитории - конфликт (не тронут, код 1), при force -
+    резервная копия и перепись. При dry_run ничего не пишется, включая каталоги резерва.
+    """
     manifest = load_manifest(home)
     conflicts: list[str] = []
     # Одна метка времени на прогон: несколько конфликтных файлов уходят в один каталог резерва.
@@ -135,8 +160,8 @@ def cmd_install(home: Path, components: list[str], force: bool, dry_run: bool) -
                         conflicts.append(key)
                         continue
                     backup = home / "backup" / f"install-{backup_stamp}" / dst
-                    backup.parent.mkdir(parents=True, exist_ok=True)
                     if not dry_run:
+                        backup.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(dst_path, backup)
                     print(f"РЕЗЕРВ    {dst} -> {backup}")
             action = "обновлен" if dst_path.exists() else "установлен"
@@ -155,6 +180,7 @@ def cmd_install(home: Path, components: list[str], force: bool, dry_run: bool) -
 
 
 def cmd_check(home: Path, components: list[str]) -> int:
+    """Сверить файлы компонентов в home с репозиторием без записи; расхождения - код 1."""
     drifted = 0
     for component in components:
         for src, dst, _key in collect_files(component):
@@ -175,6 +201,11 @@ def cmd_check(home: Path, components: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Точка входа CLI: install (по умолчанию) либо --check.
+
+    Коды выхода: 0 - выполнено, 1 - конфликты или расхождения, 2 - ошибка
+    (неверный довод, испорченный манифест, отказ файловой системы).
+    """
     parser = argparse.ArgumentParser(
         description="Установка компонентов набора в домашний каталог ~/.claude с манифестом и резервными копиями.")
     parser.add_argument("command", nargs="?", default="install", choices=["install"],
@@ -191,9 +222,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     components = parse_components(args.components)
-    if args.check:
-        return cmd_check(args.home, components)
-    return cmd_install(args.home, components, args.force, args.dry_run)
+    try:
+        if args.check:
+            return cmd_check(args.home, components)
+        return cmd_install(args.home, components, args.force, args.dry_run)
+    except OSError as exc:
+        # Отказ файловой системы (нет прав, диск, занятый файл) - ошибка установки,
+        # а не конфликт: код 2, чтобы вызывающий отличал ее от кода 1.
+        print(f"ошибка файловой системы: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

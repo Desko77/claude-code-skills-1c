@@ -99,6 +99,42 @@ class InstallHomeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("РАСХОЖДЕНИЕ", result.stdout)
 
+    def test_force_dry_run_writes_no_backup(self):
+        """--force --dry-run при конфликте: каталог резерва не создается, файл не тронут."""
+        self.install()
+        installed = self.home / "agents" / "1c-explore.md"
+        installed.write_text("local edit", encoding="utf-8")
+        result = self.install("--force", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((self.home / "backup").exists())
+        self.assertEqual(installed.read_text(encoding="utf-8"), "local edit")
+
+    def test_eol_only_change_is_not_drift(self):
+        """Смена концов строк LF -> CRLF в установленном файле не считается расхождением."""
+        self.install()
+        installed = self.home / "agents" / "1c-explore.md"
+        data = installed.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        installed.write_bytes(data)
+        self.assertEqual(self.check().returncode, 0)
+        result = self.install()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_manifest_non_object_root_exits_2(self):
+        """Манифест с корнем не-объектом (JSON-массив) - код 2 и диагностика, не traceback."""
+        (self.home / ".install-manifest.json").write_text("[]", encoding="utf-8")
+        result = self.install()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("манифест испорчен", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_filesystem_error_exits_2(self):
+        """Адресат недоступен для записи (на месте каталога agents лежит файл) - код 2."""
+        (self.home / "agents").write_text("not a directory", encoding="utf-8")
+        result = self.install()
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("ошибка файловой системы", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
     def test_dry_run_writes_nothing(self):
         """--dry-run: план печатается, ни файла, ни манифеста не появляется."""
         result = self.install("--dry-run")
