@@ -47,7 +47,9 @@ let fixturesChecked = 0;
 
 // Разбор карточки: заголовок первого уровня и разделы второго уровня по порядку.
 function parseCard(file) {
-  const text = readFileSync(file, 'utf8');
+  // Концы строк приводятся к LF: рабочая копия по .gitattributes может быть CRLF,
+  // а разбор заголовков и разделов идет построчно.
+  const text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
   const first = text.split('\n', 1)[0];
   const heading = first.match(/^# ([A-Z]+-\d{2})\. (.+)$/);
   if (!heading) {
@@ -132,7 +134,7 @@ function checkFixture(card) {
   if (manifest.type === 'bsl-pair' || manifest.type === 'diff') {
     // У пары - defect.bsl, у diff - after.bsl: строки expected считаются по файлу с дефектом.
     const defectFile = manifest.type === 'diff' ? 'after.bsl' : 'defect.bsl';
-    const lines = readFileSync(join(dir, defectFile), 'utf8').split('\n');
+    const lines = readFileSync(join(dir, defectFile), 'utf8').replace(/\r\n/g, '\n').split('\n');
     if (!Array.isArray(manifest.expected) || manifest.expected.length === 0) {
       problems.push(`${card.id}: у фикстуры ${manifest.type} пуст список expected`);
     } else {
