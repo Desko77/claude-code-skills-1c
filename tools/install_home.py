@@ -33,6 +33,7 @@ COMPONENTS ниже; расширяется добавлением строки)
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import shutil
@@ -52,10 +53,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_NAME = ".install-manifest.json"
 
 # Таблица компонентов: имя -> исходный каталог репозитория и адресат в <home>.
+# Необязательный ключ include - список относительных путей или glob-шаблонов
+# внутри source; без него ставятся все файлы каталога source.
 # Порядок = порядок установки. Новые компоненты добавляются строкой сюда,
 # остальная логика установщика не меняется.
-COMPONENTS: dict[str, dict[str, str]] = {
+COMPONENTS: dict[str, dict[str, object]] = {
     "agents": {"source": "agents", "target": "agents"},
+    "hooks": {"source": "hooks", "target": "hooks/1c-skills"},
+    "tools": {"source": "tools", "target": "tools/1c-skills",
+              "include": ["install_home.py"]},
 }
 
 
@@ -107,20 +113,29 @@ def save_manifest(home: Path, manifest: dict) -> None:
 
 
 def collect_files(component: str) -> list[tuple[Path, Path, str]]:
-    """Файлы компонента: (исходник репозитория, адресат в home, ключ манифеста)."""
+    """Файлы компонента: (исходник репозитория, адресат в home, ключ манифеста).
+
+    Если в описании компонента есть ключ include, берутся только файлы, чей
+    относительный путь внутри source совпадает с одним из его элементов
+    (точный путь или glob-шаблон). Пустой результат после фильтра - код 2.
+    """
     spec = COMPONENTS[component]
     source_dir = REPO_ROOT / spec["source"]
     if not source_dir.is_dir():
         print(f"исходников компонента нет: {source_dir}", file=sys.stderr)
         sys.exit(2)
+    include = spec.get("include")
     result = []
     for file in sorted(source_dir.rglob("*")):
         if file.is_file():
             rel = file.relative_to(source_dir).as_posix()
+            if include and not any(fnmatch.fnmatchcase(rel, pattern) for pattern in include):
+                continue
             key = f"{spec['target']}/{rel}"
             result.append((file, Path(spec["target"]) / rel, key))
     if not result:
-        print(f"компонент {component} пуст: файлов в {source_dir} нет", file=sys.stderr)
+        print(f"компонент {component} пуст: файлов в {source_dir} нет"
+              + (" после фильтра include" if include else ""), file=sys.stderr)
         sys.exit(2)
     return result
 
