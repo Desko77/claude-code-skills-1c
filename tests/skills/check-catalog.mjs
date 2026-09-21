@@ -152,6 +152,29 @@ function checkFixture(card) {
       }
     }
   }
+  if (manifest.type === 'evidence') {
+    // Файл следа существует, разбирается как JSON и несет kind; полная проверка
+    // формата следа - валидатор спринта 5, здесь только структура.
+    const files = manifest.files || [];
+    if (files.length === 0) {
+      problems.push(`${card.id}: у фикстуры evidence пуст список files`);
+    }
+    for (const name of files) {
+      const file = join(dir, ...name.split('/'));
+      if (!existsSync(file)) {
+        problems.push(`${card.id}: файла следа нет: ${name}`);
+        continue;
+      }
+      try {
+        const trace = JSON.parse(readFileSync(file, 'utf8'));
+        if (typeof trace.kind !== 'string' || !trace.kind) {
+          problems.push(`${card.id}: файл следа ${name} без поля kind`);
+        }
+      } catch (e) {
+        problems.push(`${card.id}: файл следа ${name} не разбирается как JSON: ${e.message}`);
+      }
+    }
+  }
   fixturesChecked++;
 }
 

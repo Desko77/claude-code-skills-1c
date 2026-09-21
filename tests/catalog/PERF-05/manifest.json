@@ -1,0 +1,9 @@
+{
+  "id": "PERF-05",
+  "type": "bsl-pair",
+  "expected": [
+    3,
+    6,
+    7
+  ]
+}
