@@ -1,0 +1,8 @@
+{
+  "id": "SEC-04",
+  "type": "bsl-pair",
+  "expected": [
+    2,
+    3
+  ]
+}
