@@ -1,0 +1,7 @@
+{
+  "id": "QUERY-09",
+  "type": "bsl-pair",
+  "expected": [
+    10
+  ]
+}

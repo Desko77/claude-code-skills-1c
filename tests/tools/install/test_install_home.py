@@ -142,6 +142,45 @@ class InstallHomeTests(unittest.TestCase):
         self.assertFalse((self.home / "agents" / "1c-explore.md").exists())
         self.assertFalse((self.home / ".install-manifest.json").exists())
 
+    def test_hooks_component_installs(self):
+        """Компонент hooks: hooks.json, support-guard.mjs и common/*.mjs лежат в hooks/1c-skills."""
+        result = self.install("--components", "hooks")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        base = self.home / "hooks" / "1c-skills"
+        self.assertTrue((base / "hooks.json").exists())
+        self.assertTrue((base / "support-guard.mjs").exists())
+        self.assertTrue((base / "skill-suggester.mjs").exists())
+        common_files = sorted((REPO_ROOT / "hooks" / "common").glob("*.mjs"))
+        self.assertTrue(common_files)
+        for src in common_files:
+            self.assertEqual((base / "common" / src.name).read_bytes(), src.read_bytes())
+
+    def test_tools_component_installs_only_installer(self):
+        """Компонент tools с include: ставится только install_home.py, ничего больше из tools/."""
+        result = self.install("--components", "tools")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        base = self.home / "tools" / "1c-skills"
+        installed = [p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_file()]
+        self.assertEqual(installed, ["install_home.py"])
+        self.assertEqual((base / "install_home.py").read_bytes(), INSTALLER.read_bytes())
+        manifest = json.loads(self.manifest_bytes())
+        self.assertEqual(list(manifest["files"]), ["tools/1c-skills/install_home.py"])
+
+    def test_three_components_together(self):
+        """--components agents,hooks,tools: файлы всех трех компонентов на месте."""
+        result = self.install("--components", "agents,hooks,tools")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.home / "agents" / "1c-explore.md").exists())
+        self.assertTrue((self.home / "hooks" / "1c-skills" / "hooks.json").exists())
+        self.assertTrue((self.home / "tools" / "1c-skills" / "install_home.py").exists())
+
+    def test_check_all_components_clean(self):
+        """--check по трем компонентам после их установки: выход 0."""
+        result = self.install("--components", "agents,hooks,tools")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = run_installer("--check", "--components", "agents,hooks,tools", home=self.home)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,8 @@
+{
+  "id": "CLIENT-01",
+  "type": "bsl-pair",
+  "expected": [
+    4,
+    5
+  ]
+}

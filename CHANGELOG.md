@@ -11,6 +11,24 @@
   запрет: `execute_query` toolkit и консоль кода - только после чистого `validate_query`
   (`1c-query-validate` в среде без EDT). `code-exploration-guide.md` ссылается на раздел.
 
+### Каталог дефектов
+
+- Скил `1c-code-review`: ревью BSL по каталогу дефектов - 39 карточек с триггером, законной
+  формой, важностью и фикстурой; отчет с идентификаторами находок и ключом
+  `<путь>::<Метод>:<строка>`; шкала важности Critical/Major/Minor с таблицей перевода из
+  прежних четырех уровней.
+- `tools/gen_catalog_index.py`: индекс каталога `INDEX.md` и секции между маркерами
+  `catalog:begin` / `catalog:end` в `anti_patterns.md` и `code-review-checklist.md`
+  генерируются из карточек; режим `--check` для сборки.
+- Содержимое правил `anti_patterns.md`, `code-review-checklist.md` (security-паттерны),
+  `query-optimization-tips.md`, `1c-transactions-and-locks.md`, `form_module_rules.md`,
+  `1c-extension-patterns.md` перенесено в карточки каталога; правила держат сгенерированные
+  секции, входящие ссылки по номерам пунктов переведены на идентификаторы карточек.
+- Гард `tests/skills/check-catalog.mjs`: карточки, реестр `ledger.json`, фикстуры
+  `tests/catalog/` и совпадение генерации; зарегистрирован в `check-all.mjs`.
+- Кейсы `skills/1c-code-review/evals/evals.json`: 14 поведенческих кейсов знания каталога,
+  по дефектному и чистому модулю на каждую группу.
+
 ### Агенты
 
 - `agents/1c-explore.md` (новый каталог): субагент-разведчик EDT-проекта, модель `sonnet`,
@@ -37,6 +55,11 @@
   с резервной копией в `backup/install-<время>/`, `--dry-run`, `--check`. Раннер
   `tests/tools/run_tests.py` (11 тестов установщика), скил `claude-env-setup` описывает установку
   агентов через установщик.
+- Установщик ставит три компонента: `agents` (весь каталог `agents/` в `~/.claude/agents/`),
+  `hooks` (весь каталог `hooks/` в `~/.claude/hooks/1c-skills/`) и `tools` (только
+  `install_home.py` в `~/.claude/tools/1c-skills/`); у компонента может быть список включаемых
+  файлов `include` (точные пути или glob-шаблоны внутри исходного каталога). Тесты установщика:
+  15.
 
 ### Тесты
 
