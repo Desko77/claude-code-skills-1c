@@ -130,13 +130,15 @@ function checkFixture(card) {
     }
   }
   if (manifest.type === 'bsl-pair' || manifest.type === 'diff') {
-    const lines = readFileSync(join(dir, 'defect.bsl'), 'utf8').split('\n');
+    // У пары - defect.bsl, у diff - after.bsl: строки expected считаются по файлу с дефектом.
+    const defectFile = manifest.type === 'diff' ? 'after.bsl' : 'defect.bsl';
+    const lines = readFileSync(join(dir, defectFile), 'utf8').split('\n');
     if (!Array.isArray(manifest.expected) || manifest.expected.length === 0) {
       problems.push(`${card.id}: у фикстуры ${manifest.type} пуст список expected`);
     } else {
       for (const n of manifest.expected) {
         if (!Number.isInteger(n) || n < 1 || n > lines.length) {
-          problems.push(`${card.id}: expected ${n} вне границ defect.bsl (${lines.length} строк)`);
+          problems.push(`${card.id}: expected ${n} вне границ ${defectFile} (${lines.length} строк)`);
         }
       }
     }
