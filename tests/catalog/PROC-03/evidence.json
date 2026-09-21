@@ -1,0 +1,6 @@
+{
+  "kind": "diff-loses-edge-checks",
+  "claim": "правка уточняет метод",
+  "removedChecks": 2,
+  "note": "в diff исчезли проверки редких случаев"
+}

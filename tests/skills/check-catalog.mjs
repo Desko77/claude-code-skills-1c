@@ -152,6 +152,27 @@ function checkFixture(card) {
       }
     }
   }
+  if (manifest.type === 'evidence') {
+    // Спецификация задает следу единственное имя evidence.json; иное имя файла или состав
+    // files - расхождение. Файл существует, разбирается как JSON и несет kind; полная
+    // проверка формата следа - валидатор спринта 5, здесь только структура.
+    const files = manifest.files || [];
+    if (files.length !== 1 || files[0] !== 'evidence.json') {
+      problems.push(`${card.id}: у фикстуры evidence files должен быть ["evidence.json"], задано ${JSON.stringify(files)}`);
+    }
+    if (!existsSync(join(dir, 'evidence.json'))) {
+      problems.push(`${card.id}: файла следа нет: evidence.json`);
+    } else {
+      try {
+        const trace = JSON.parse(readFileSync(join(dir, 'evidence.json'), 'utf8'));
+        if (typeof trace.kind !== 'string' || !trace.kind) {
+          problems.push(`${card.id}: файл следа evidence.json без поля kind`);
+        }
+      } catch (e) {
+        problems.push(`${card.id}: файл следа evidence.json не разбирается как JSON: ${e.message}`);
+      }
+    }
+  }
   fixturesChecked++;
 }
 
