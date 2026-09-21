@@ -151,7 +151,8 @@ ai-edt), а не по памяти и не по аналогии. Провере
 
 AI-EDT консолидирует инструменты в **фасады**; основные - `code_search`, `edit_metadata`, `diagnostics`,
 `launch_debugger`, `project_admin`, `infobase_admin`, `config_io`, `insights`, `security_audit`,
-`docs_lookup`, `workspace_marks`, `yaxunit_tests`, `extension_workshop`, а также мастерские `xdto_workshop`,
+`docs_lookup`, `workspace_marks`, `yaxunit_tests`, `extension_workshop`, `git` (репозиторий проекта внутри EDT:
+статус, ветки, история, коммит названных файлов, переход по веткам), а также мастерские `xdto_workshop`,
 `dcs_workshop`, `mxl_workshop`, `external_object_workshop` и `external_data_source_workshop`. Полный перечень
 с составом операций - `skills/ai-edt-tools/references/facades.md`.
 

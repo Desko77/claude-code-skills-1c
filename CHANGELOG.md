@@ -1,5 +1,14 @@
 # История версий
 
+## Обновление плагина AI-EDT до 0.2.52 - 2026-09-21
+
+Изменилась работа плагина (выпуски 0.2.51 и 0.2.52), набор `ai-edt-tools` обновлен под нее.
+
+- Новый фасад `git`: `status`, `branches`, `log`, `commit` (только названные `paths`, add-all отвергается; автор из конфигурации репозитория или `authorName`/`authorEmail`; `boundInfobase` у привязанной ветки), `checkout` (`branch`, `createBranch`; переход поверх незакоммиченных файлов отвергается с их списком). Записи гасятся пресетами как `git_commit` / `git_checkout`.
+- Отказ несет готовый следующий вызов в `helpHint` (`tool`, `arguments`): «проект не найден» - `project_admin operation=list_projects` с `suggestedProjectName`; «владелец не найден» - `insights operation=semantic_metadata_search`.
+- `tools/list` публикует `annotations` MCP (`readOnlyHint`, `idempotentHint`, `openWorldHint`) - только значения, отличные от умолчаний.
+- `content_assist` принимает пакет `positions` одним вызовом; `update_database refreshWorkspace` (по умолчанию включен) читает диск перед состоянием; `symbol_info computeTypes` отвечает `MODEL_MOVED` вместо недоотдачи типа; `GET /health` несет `projects`; Attach-запуск отвергает `waitForEndpoint`.
+
 ## Обновление плагина AI-EDT до 0.2.50 - 2026-09-19
 
 Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее (дифф d461b995).
