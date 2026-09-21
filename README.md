@@ -245,6 +245,7 @@ cp commands/* ~/.claude/commands/
 | `1c77-metadata` | Конфигурация 1С 7.7: объекты, реквизиты, модули ([установка](https://github.com/ivanarama/77MCP)) | `1c77-dev` |
 | `1c-syntax-checker-mcp` | Проверка синтаксиса BSL без запущенной EDT | правило `mcp-tool-priority.md` |
 | [`1c-templates-mcp`](https://github.com/Desko77/1c-templates-mcp) | Семантический поиск по 2200+ шаблонам кода BSL | правило `mcp-tool-priority.md` |
+| `v8std` | Тексты стандартов 1С по номеру `#stdNNN`, расшифровка диагностик ACC/BSLLS/EDT; публичный сервис `https://ai.v8std.ru/mcp`, тексты стандартов - CC0; закрытый код не передавать, локальный вариант - в Docker | правило `mcp-tool-priority.md` |
 
 Скил `ai-edt-tools` и правила написаны под **AI-EDT**: ключ сервера `ai-edt`, инструменты свернуты
 в фасады с маршрутизацией через `operation=`. Если у вас подключен другой MCP-плагин для EDT, каталог
