@@ -1,0 +1,8 @@
+{
+  "id": "TXN-07",
+  "type": "bsl-pair",
+  "expected": [
+    2,
+    6
+  ]
+}

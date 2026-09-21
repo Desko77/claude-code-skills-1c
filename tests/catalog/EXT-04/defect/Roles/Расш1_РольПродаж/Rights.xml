@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Rights xmlns="http://v8.1c.ru/xdt/1.1" version="2.17">
+    <object>
+        <name>Enum.СтатусыОбработки</name>
+        <right>
+            <name>Read</name>
+            <value>true</value>
+        </right>
+        <right>
+            <name>View</name>
+            <value>true</value>
+        </right>
+    </object>
+    <object>
+        <name>Catalog.Расш1_ДопСправочник</name>
+        <right>
+            <name>Read</name>
+            <value>true</value>
+        </right>
+    </object>
+</Rights>
