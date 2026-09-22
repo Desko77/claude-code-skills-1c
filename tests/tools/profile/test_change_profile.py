@@ -289,6 +289,64 @@ class ComputeProfileTests(unittest.TestCase):
         self.assertIn("role_validate@configurator", profile["required"])
         self.assertEqual(profile["volume"]["class"], "C2")
 
+    def test_rename_unrelated_names_zero_lines(self):
+        """Переименование без правок между несвязанными именами: 0 строк, класс C1.
+
+        numstat -z дает переименование тремя полями (числа, прежний путь, новый):
+        отображаемый синтаксис со стрелкой не разбирается, запись читается по новому
+        пути с нулевым объемом.
+        """
+        repo = make_repo(self.tmp)
+        write_file(repo, "src/CommonModules/Обмен/Module.bsl", TXN_MODULE)
+        commit_all(repo)
+        (repo / "vendor").mkdir()
+        git(repo, "mv", "src/CommonModules/Обмен/Module.bsl",
+            "vendor/ПереименованныйМодуль.bsl")
+        profile = self.compute(repo)
+        self.assertEqual(profile["volume"]["bslLines"], 0)
+        self.assertEqual(profile["volume"]["bslFiles"], 1)
+        self.assertEqual(profile["volume"]["class"], "C1")
+        self.assertIn("любой BSL", profile["archetypes"])
+
+    def test_braces_in_filename(self):
+        """Имя файла со скобками: разбор numstat не трогает скобки, объем по numstat."""
+        repo = make_repo(self.tmp)
+        braces = "src/{Каталог}/Module.bsl"
+        reverse = "src/модуль}имя{1.bsl"
+        write_file(repo, braces, "Процедура Раз()\nКонецПроцедуры\n")
+        write_file(repo, reverse, "Процедура Еще()\nКонецПроцедуры\n")
+        commit_all(repo)
+        write_file(repo, braces, "Процедура Раз()\n\tНоваяСтрока = 1;\nКонецПроцедуры\n")
+        write_file(repo, reverse, "Процедура Еще()\n\tДругаяСтрока = 2;\nКонецПроцедуры\n")
+        profile = self.compute(repo)
+        # По одному изменению в каждом файле: добавленная и удаленная строки.
+        self.assertEqual(profile["volume"]["bslLines"], 2)
+        self.assertEqual(profile["volume"]["bslFiles"], 2)
+
+    def test_rm_cached_working_file(self):
+        """git rm --cached с измененным рабочим файлом: объем и маркеры по файлу.
+
+        Канонический статус - modified (арбитраж), но numstat дает удаление, а текст
+        diff - +++ /dev/null: объем считается по рабочему файлу целиком и маркер
+        Новый Запрос берется из рабочего файла.
+        """
+        repo = make_repo(self.tmp)
+        path = "src/CommonModules/Загрузка/Module.bsl"
+        write_file(repo, path,
+                   "Процедура ЗагрузитьДанные()\n\tДанные = ПрочитатьФайл();\nКонецПроцедуры\n")
+        commit_all(repo)
+        write_file(repo, path,
+                   "Процедура ЗагрузитьДанные()\n"
+                   "\tДанные = ПрочитатьФайл();\n"
+                   "\tЗапрос = Новый Запрос;\n"
+                   "КонецПроцедуры\n")
+        git(repo, "rm", "-q", "--cached", "--", path)
+        profile = self.compute(repo)
+        self.assertEqual(profile["volume"]["bslLines"], 4)
+        self.assertIn("запрос", profile["archetypes"])
+        self.assertIn("любой BSL", profile["archetypes"])
+        self.assertEqual(profile["volume"]["class"], "C1")
+
 
 class ChangeProfileCliTests(unittest.TestCase):
     def setUp(self):

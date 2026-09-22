@@ -86,34 +86,36 @@ def _run_git(args: list[str], cwd: Path) -> bytes:
     return proc.stdout
 
 
-def _expand_braces(path: str) -> str:
-    """Развернуть форму переименования numstat dir/{old => new}.ext в новый путь."""
-    while "{" in path and "}" in path:
-        head, rest = path.split("{", 1)
-        inner, tail = rest.split("}", 1)
-        path = head + inner.split("=>")[-1].strip() + tail
-    return path
-
-
 def _numstat(top: Path, base: str) -> dict[str, int]:
-    """Суммы добавленных и удаленных строк по путям из git diff --numstat.
+    """Суммы добавленных и удаленных строк по путям из git diff --numstat -z.
 
-    Ключи - пути NFC (как в каноническом множестве), у переименований brace-форма
-    развернута в новый путь. Бинарные файлы дают прочерк и считаются нулем.
+    Ключи - новые пути NFC (как в каноническом множестве). Формат -z: поля записи
+    разделены NUL, отображаемый синтаксис переименований не разбирается. Обычная
+    запись - одно поле <добавлено><TAB><удалено><TAB><путь>; переименование - три
+    поля: числа (третий элемент после табуляции пуст), прежний путь, новый путь.
+    Бинарные файлы дают прочерк и считаются нулем.
     """
-    raw = _run_git(["-c", "core.quotepath=false", "diff", "--numstat", "-M",
+    raw = _run_git(["-c", "core.quotepath=false", "diff", "--numstat", "-z", "-M",
                     "--no-color", "--no-ext-diff", "--no-textconv", base], top)
     result: dict[str, int] = {}
-    for line in raw.decode("utf-8", errors="replace").split("\n"):
-        if not line:
-            continue
-        fields = line.split("\t")
+    tokens = raw.split(b"\0")
+    i = 0
+    while i < len(tokens) and tokens[i]:
+        fields = tokens[i].decode("utf-8", errors="replace").split("\t")
+        i += 1
         if len(fields) < 3:
             continue
-        added, deleted, path = fields[0], fields[1], "\t".join(fields[2:])
+        added, deleted, tail = fields[0], fields[1], "\t".join(fields[2:])
         added_n = 0 if added == "-" else int(added)
         deleted_n = 0 if deleted == "-" else int(deleted)
-        result[unicodedata.normalize("NFC", _expand_braces(path))] = added_n + deleted_n
+        if tail:
+            path = tail
+        elif i + 1 < len(tokens) and tokens[i] and tokens[i + 1]:
+            path = tokens[i + 1].decode("utf-8", errors="replace")  # новый путь
+            i += 2
+        else:
+            continue
+        result[unicodedata.normalize("NFC", path)] = added_n + deleted_n
     return result
 
 
@@ -276,15 +278,18 @@ def compute_profile(repo_dir: Path | str, base: str = "HEAD",
         if is_code:
             bsl_files += 1
             archetypes.add("любой BSL")
-            if path in numstat:
+            lines = None
+            if (record["status"] in ("modified", "added") and (top / path).is_file()
+                    and (path not in numstat or path not in diff_texts)):
+                # Арбитраж git rm --cached (numstat дает удаление, текст diff -
+                # +++ /dev/null) либо записи numstat нет (неотслеживаемый): объем
+                # и маркеры архетипов считаются по рабочему файлу целиком.
+                data = (top / path).read_bytes()
+                bsl_lines += _count_lines(data)
+                lines = data.decode("utf-8", errors="replace").split("\n")
+            elif path in numstat:
                 bsl_lines += numstat[path]
-            elif (top / path).is_file():
-                # Файла нет в numstat (неотслеживаемый, арбитраж git rm --cached):
-                # считается целиком - все строки добавленные.
-                bsl_lines += _count_lines((top / path).read_bytes())
-            lines = diff_texts.get(path)
-            if lines is None and path not in numstat and (top / path).is_file():
-                lines = (top / path).read_bytes().decode("utf-8", errors="replace").split("\n")
+                lines = diff_texts.get(path)
             if lines:
                 text = "\n".join(lines)
                 for archetype, markers in TEXT_MARKERS.items():

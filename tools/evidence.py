@@ -183,19 +183,22 @@ def evaluate(repo_dir: Path | str, session: str, base: str = "HEAD") -> dict:
     checks: dict[str, dict] = {}
     gaps: list[str] = []
     for check in required:
-        if check in applied_ok:
+        # Неснятый applied с critical проверяется первым: пропуск или позднее
+        # applied без critical ту же проверку не закрывают (evidence-format.md).
+        if check in applied_critical:
+            if check in released_checks or gate_released:
+                checks[check] = {"closedBy": "release", "critical": True}
+                gaps.append(check)
+            else:
+                reasons.append(f"applied с critical без снятия: {check}")
+        elif check in applied_ok:
             checks[check] = {"closedBy": "applied", "event": applied_ok[check]}
         elif check in skipped_ok:
             checks[check] = {"closedBy": "skipped", "event": skipped_ok[check]}
             gaps.append(check)
-        elif check in applied_critical and (check in released_checks or gate_released):
-            checks[check] = {"closedBy": "release", "critical": True}
-            gaps.append(check)
         elif check in released_checks or gate_released:
             checks[check] = {"closedBy": "release", "critical": False}
             gaps.append(check)
-        elif check in applied_critical:
-            reasons.append(f"applied с critical без снятия: {check}")
         else:
             reasons.append(f"обязательная проверка без события: {check}")
 
