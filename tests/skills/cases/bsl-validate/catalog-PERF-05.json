@@ -1,0 +1,25 @@
+{
+  "name": "Правило PERF-05: Чтение константы внутри цикла",
+  "setup": "external:tests/catalog/PERF-05",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "PERF-05"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[PERF-05] defect.bsl:3",
+      "[PERF-05] defect.bsl:6",
+      "[PERF-05] defect.bsl:7",
+      "Result: 3 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

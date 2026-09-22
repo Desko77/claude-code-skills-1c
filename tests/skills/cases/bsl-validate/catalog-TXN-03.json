@@ -1,0 +1,23 @@
+{
+  "name": "Правило TXN-03: Операторы после ЗафиксироватьТранзакцию() внутри Попытка",
+  "setup": "external:tests/catalog/TXN-03",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "TXN-03"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[TXN-03] defect.bsl:6",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

@@ -2,6 +2,7 @@
   "id": "QUERY-01",
   "type": "bsl-pair",
   "expected": [
-    5
+    5,
+    7
   ]
 }

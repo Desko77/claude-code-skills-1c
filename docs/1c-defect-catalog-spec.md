@@ -86,7 +86,7 @@
 | Детектор | Уровень | Что делает |
 |----------|---------|-----------|
 | `syntaxcheck` | static | пакетная проверка синтаксиса Конфигуратором |
-| `bsl_validate:<ИДкарточки>` | static | правило lint скила `1c-bsl-validate`: регулярные выражения по тексту модуля или запроса; идентификатор правила равен идентификатору карточки. Реализованные правила перечислены в реестре `skills/1c-bsl-validate/scripts/catalog-rules.json`; правило вне реестра в сводной `references/detectors.md` помечается `planned` и в покрытие не входит |
+| `bsl_validate:<ИДкарточки>` | static | правило lint скила `1c-bsl-validate`: регулярные выражения по тексту модуля или запроса; идентификатор правила равен идентификатору карточки. Реализованные правила перечислены в реестре `skills/1c-bsl-validate/scripts/catalog-rules.json` - массиве объектов `id`, `title`, `kind` (`regex` \| `query-regex` \| `structure`) с данными правила (`pattern`+`scope` либо `check`); каждое подтверждено своей парой фикстур гардом `check-lint-catalog.mjs`. Правило вне реестра в сводной `references/detectors.md` помечается `planned` и в покрытие не входит |
 | `query_validate` | static | проверка имен запроса по индексу конфигурации (`1c-query-validate`) |
 | `meta_validate` | static | структурная проверка объекта метаданных (`1c-meta-validate`) |
 | `role_validate` | static | проверка `Rights.xml` роли (`1c-role-validate`) |

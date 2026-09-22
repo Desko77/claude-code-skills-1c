@@ -1,0 +1,23 @@
+{
+  "name": "Правило QUERY-18: ПЕРВЫЕ без УПОРЯДОЧИТЬ ПО",
+  "setup": "external:tests/catalog/QUERY-18",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-18"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-18] defect.bsl:3",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

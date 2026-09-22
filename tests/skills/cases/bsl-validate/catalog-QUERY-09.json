@@ -1,0 +1,23 @@
+{
+  "name": "Правило QUERY-09: ОБЪЕДИНИТЬ без ВСЕ",
+  "setup": "external:tests/catalog/QUERY-09",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-09"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-09] defect.bsl:10",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

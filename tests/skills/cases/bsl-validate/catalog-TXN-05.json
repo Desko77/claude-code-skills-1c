@@ -1,0 +1,23 @@
+{
+  "name": "Правило TXN-05: Исключение транзакции без ВызватьИсключение",
+  "setup": "external:tests/catalog/TXN-05",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "TXN-05"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[TXN-05] defect.bsl:6",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

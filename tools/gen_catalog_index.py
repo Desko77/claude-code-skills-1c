@@ -242,8 +242,9 @@ def load_cards():
 def load_lint_registry(cards):
     """Реестр реализованных правил lint скила 1c-bsl-validate.
 
-    Файл skills/1c-bsl-validate/scripts/catalog-rules.json - массив идентификаторов
-    карточек. Идентификатор обязан называть карточку с детектором bsl_validate:<ИД>:
+    Файл skills/1c-bsl-validate/scripts/catalog-rules.json - массив объектов с полями
+    id, title, kind (regex | query-regex | structure) и данными правила (pattern+scope
+    либо check). Идентификатор обязан называть карточку с детектором bsl_validate:<ИД>:
     запись без карточки или без детектора - ошибка каталога. Детектор bsl_validate:<ИД>
     детерминирован только при наличии <ИД> в реестре; вне реестра в сводной матрице
     он помечается planned и в покрытие не входит.
@@ -254,16 +255,29 @@ def load_lint_registry(cards):
         rules = json.loads(LINT_REGISTRY.read_text(encoding="utf-8"))
     except ValueError as exc:
         raise CardError("реестр lint-правил не разбирается как JSON: %s" % exc)
-    if not isinstance(rules, list) or any(not isinstance(r, str) for r in rules):
-        raise CardError("реестр lint-правил - не массив строк")
-    if len(set(rules)) != len(rules):
+    if not isinstance(rules, list) or any(not isinstance(r, dict) for r in rules):
+        raise CardError("реестр lint-правил - не массив объектов")
+    ids = []
+    for rule in rules:
+        rid = rule.get("id")
+        kind = rule.get("kind")
+        if not isinstance(rid, str) or not rid:
+            raise CardError("реестр lint-правил: запись без id")
+        if kind not in ("regex", "query-regex", "structure"):
+            raise CardError("реестр lint-правил: %s с kind %s вне словаря" % (rid, kind))
+        if kind == "structure" and not rule.get("check"):
+            raise CardError("реестр lint-правил: %s без check" % rid)
+        if kind in ("regex", "query-regex") and not rule.get("pattern"):
+            raise CardError("реестр lint-правил: %s без pattern" % rid)
+        ids.append(rid)
+    if len(set(ids)) != len(ids):
         raise CardError("реестр lint-правил: повтор идентификатора")
     lint_ids = {c["id"] for c in cards
                 if any(d.startswith("bsl_validate:") for _e, d, _l in c["detectors"])}
-    unknown = [r for r in rules if r not in lint_ids]
+    unknown = [r for r in ids if r not in lint_ids]
     if unknown:
         raise CardError("реестр lint-правил: %s без карточки с детектором bsl_validate" % unknown)
-    return set(rules), lint_ids
+    return set(ids), lint_ids
 
 
 def is_deterministic(detector, level, lint_registry):
