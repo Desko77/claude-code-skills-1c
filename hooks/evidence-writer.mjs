@@ -31,6 +31,10 @@ export const MATCHER =
 const SCRIPT_PATH_RE =
   /^(?:skills[\\/][^\\/]+[\\/])?scripts[\\/][A-Za-z0-9._-]*(?:bsl|query|meta|role|form)-validate\.(?:ps1|py)$/i;
 
+// Скрипт кросс-ревью как целый токен команды: имя файла в любом каталоге (личный контур,
+// в набор не входит). Запуск - исполняемым токеном, как у скриптов набора.
+const REVIEW_SCRIPT_RE = /(?:^|[\\/])(?:codex-code-review\.sh|cursor-run\.ps1)$/i;
+
 // Убрать комментарии: # вне кавычек в начале слова до конца строки (bash, PowerShell).
 // Содержимое кавычек не трогается: путь скрипта передается и в кавычках.
 function stripComments(command) {
@@ -104,20 +108,34 @@ function tokenize(segment) {
 // токеном сегмента (в том числе вызов & "<путь>"). Путь в комментарии, строковом
 // литерале-аргументе прочей команды или после псевдовызова запуском не считается.
 function runsNaborScript(command) {
-  const clean = stripComments(String(command || ''));
+  return runsScriptWith(String(command || ''), (token) => SCRIPT_PATH_RE.test(token));
+}
+
+// Тот же обход для скриптов кросс-ревью: имя файла - исполняемый токен напрямую, после
+// python/python3 [-X utf8], после -File у pwsh/powershell либо аргумент bash/sh.
+function runsReviewScript(command) {
+  return runsScriptWith(String(command || ''), (token) => REVIEW_SCRIPT_RE.test(token));
+}
+
+// Обход сегментов команды с проверкой исполняемых токенов против predicate.
+function runsScriptWith(command, predicate) {
+  const clean = stripComments(command);
   for (const segment of splitSegments(clean)) {
     const tokens = tokenize(segment);
     if (!tokens.length) continue;
     const [first, ...rest] = tokens;
-    if (SCRIPT_PATH_RE.test(first)) return true;
+    if (predicate(first)) return true;
     if (first === 'python' || first === 'python3') {
-      if (SCRIPT_PATH_RE.test(rest[0] || '')) return true;
-      if (rest[0] === '-X' && rest[1] === 'utf8' && SCRIPT_PATH_RE.test(rest[2] || '')) return true;
+      if (predicate(rest[0] || '')) return true;
+      if (rest[0] === '-X' && rest[1] === 'utf8' && predicate(rest[2] || '')) return true;
     }
     if (first === 'pwsh' || first === 'powershell') {
       for (let i = 1; i < tokens.length - 1; i++) {
-        if (tokens[i].toLowerCase() === '-file' && SCRIPT_PATH_RE.test(tokens[i + 1])) return true;
+        if (tokens[i].toLowerCase() === '-file' && predicate(tokens[i + 1])) return true;
       }
+    }
+    if (first === 'bash' || first === 'sh') {
+      if (predicate(rest[0] || '')) return true;
     }
   }
   return false;
@@ -127,6 +145,34 @@ function runsNaborScript(command) {
 const EVIDENCE_LINE_RE = /(?:^|\n)[ \t]*EVIDENCE[ \t]+(\{[^\n]*\})/;
 
 const MCP_TOOL_RE = /^mcp__([A-Za-z0-9._-]+)__(.+)$/;
+
+// Маркеры вердикта кросс-ревью в выводе скрипта: строка ВЕРДИКТ: (codex-обертки),
+// шапка списка комментариев Cursor и находки - [P1] в формате codex review.
+const REVIEW_VERDICT_RE = /ВЕРДИКТ:/i;
+const REVIEW_APPROVED_RE = /ВЕРДИКТ:[ \t]*APPROVED/i;
+const REVIEW_COMMENTS_RE = /Full review comments:/i;
+const REVIEW_FINDING_RE = /-[ \t]*\[P([1-9])\]/g;
+
+// Разобрать итог кросс-ревью по маркерам вывода. Возвращает outcome либо null - запуск
+// был, но маркера вердикта нет, событие не создается. Находки приоритетнее APPROVED:
+// список - [P1] и шапка комментариев дают findings даже при строке APPROVED.
+export function crossReviewOutcome(text) {
+  const t = String(text || '');
+  const findings = [...t.matchAll(REVIEW_FINDING_RE)];
+  const hasMarker = REVIEW_VERDICT_RE.test(t) || REVIEW_COMMENTS_RE.test(t) || findings.length > 0;
+  if (!hasMarker) return null;
+  if (findings.length === 0 && !REVIEW_COMMENTS_RE.test(t) && REVIEW_APPROVED_RE.test(t)) {
+    return { status: 'pass', critical: 0, major: 0, minor: 0 };
+  }
+  const counts = { critical: 0, major: 0, minor: 0 };
+  for (const m of findings) {
+    const n = Number(m[1]);
+    if (n === 1) counts.critical += 1;
+    else if (n === 2) counts.major += 1;
+    else counts.minor += 1;
+  }
+  return { status: 'findings', ...counts };
+}
 
 // Ключи доводов для поля target (путь модуля, FQN, проект) в порядке приоритета.
 const TARGET_KEYS = ['modulePath', 'fqn', 'objectFqn', 'metadataFqn', 'filePath', 'path', 'Path',
@@ -225,6 +271,12 @@ export function resolveCheck(toolName, toolInput, responseText) {
   }
   if (toolName === 'Bash' || toolName === 'PowerShell') {
     const command = toolInput && typeof toolInput.command === 'string' ? toolInput.command : '';
+    if (runsReviewScript(command)) {
+      // Кросс-ревью: событие только при маркере вердикта в выводе скрипта.
+      if (crossReviewOutcome(responseText) === null) return null;
+      return { base: 'cross_review', check: 'cross_review@any', detector: 'cross_review',
+        level: 'llm', env: 'any' };
+    }
     if (!runsNaborScript(command)) return null;
     const line = EVIDENCE_LINE_RE.exec(responseText || '');
     if (!line) return null;
@@ -331,6 +383,9 @@ async function countCards(ids) {
 export async function outcomeFor(base, text) {
   const raw = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
   const unknown = { status: 'unknown', critical: 0, major: 0, minor: 0, raw };
+  if (base === 'cross_review') {
+    return crossReviewOutcome(text) || unknown;
+  }
   if (base === 'code_review') {
     const { counts, matched } = await countDiagnostics(text);
     if (matched > 0) return { status: 'findings', ...counts };

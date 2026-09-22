@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "PowerShell",
+  "tool_input": {
+    "command": "pwsh -NoProfile -File C:\Users\dev\.claude\skills\cursor-cli\scripts\cursor-run.ps1 -Model best-grok -TaskFile review.md"
+  },
+  "tool_response": "Анализ завершен.\nFull review comments:\n- замечание по транзакции",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_cursor_review"
+}
