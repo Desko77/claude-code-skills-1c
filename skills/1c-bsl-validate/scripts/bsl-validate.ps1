@@ -141,11 +141,15 @@ $catalogRulesPath = Join-Path $PSScriptRoot "catalog-rules.json"
 
 # Обработчики событий, внутри которых платформа уже держит транзакцию (карточка TXN-06).
 $txnEventHandlers = @("ПередЗаписью", "ПриЗаписи", "ОбработкаПроведения")
-# Маркеры побочных эффектов, которым не место внутри транзакции (карточка TXN-10).
-$txnSlowNameMarkers = @(
-	"вопрос", "предупреждение", "открытьзначение", "сообщить", "отправить", "файл",
-	"http", "почт", "соединение", "диалог", "ввод"
-)
+# Имена вызовов с побочными эффектами, которым не место внутри транзакции (карточка
+# TXN-10): диалоги с пользователем, сетевые обращения, работа с файлами. Сопоставление
+# по целому идентификатору вызова: подстрока давала ложные находки на
+# ПолучитьИмяВременногоФайла и ВводНаОсновании.
+$txnSlowCallNames = New-Object 'System.Collections.Generic.HashSet[string]'
+foreach ($n in @(
+	"вопрос", "предупреждение", "открытьзначение", "сообщить", "уведомить",
+	"отправитьзапроснаружу", "копироватьфайл", "переместитьфайл", "удалитьфайл",
+	"найтифайлы")) { [void]$txnSlowCallNames.Add($n) }
 # Слова обоснования законной блокировки без отбора: комментарий над вызовом (карточка TXN-08).
 $txn08CommentMarkers = @("отбор", "пересчет", "все записи")
 
@@ -202,6 +206,7 @@ function Get-QueryLiterals([string]$text) {
 	return ,$out
 }
 
+# Секции Попытка..(Исключение|КонецПопытки): пары (первая строка, строка конца).
 function Get-TrySections($q) {
 	$sections = @()
 	for ($i = 0; $i -lt $q.Count; $i++) {
@@ -216,6 +221,7 @@ function Get-TrySections($q) {
 	return ,$sections
 }
 
+# Секции Исключение..КонецПопытки: пары (строка Исключение, строка за концом).
 function Get-ExceptSections($q) {
 	$sections = @()
 	for ($i = 0; $i -lt $q.Count; $i++) {
@@ -229,11 +235,13 @@ function Get-ExceptSections($q) {
 	return ,$sections
 }
 
+# Первый непустой оператор в диапазоне строк либо -1.
 function Get-FirstMeaningful($q, $lo, $hi) {
 	for ($k = $lo; $k -lt $hi; $k++) { if ($q[$k].Trim()) { return $k } }
 	return -1
 }
 
+# TXN-01: НачатьТранзакцию() внутри Попытка - репорт на строке вызова.
 function Check-Txn01($ctx) {
 	$out = @()
 	$stack = New-Object System.Collections.ArrayList
@@ -251,6 +259,7 @@ function Check-Txn01($ctx) {
 	return ,$out
 }
 
+# TXN-02: операторы между НачатьТранзакцию() и Попытка - репорт на первом из них.
 function Check-Txn02($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -269,6 +278,7 @@ function Check-Txn02($ctx) {
 	return ,$out
 }
 
+# TXN-03: операторы после ЗафиксироватьТранзакцию() в Попытка - репорт на первом.
 function Check-Txn03($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -285,6 +295,7 @@ function Check-Txn03($ctx) {
 	return ,$out
 }
 
+# TXN-04: операторы в Исключении до ОтменитьТранзакцию() - репорт на первом.
 function Check-Txn04($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -298,6 +309,7 @@ function Check-Txn04($ctx) {
 	return ,$out
 }
 
+# TXN-05: Исключение с ОтменитьТранзакцию, но без ВызватьИсключение - репорт на Исключение.
 function Check-Txn05($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -309,6 +321,7 @@ function Check-Txn05($ctx) {
 	return ,$out
 }
 
+# TXN-06: НачатьТранзакцию() в ПередЗаписью/ПриЗаписи/ОбработкаПроведения.
 function Check-Txn06($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -325,6 +338,11 @@ function Check-Txn06($ctx) {
 	return ,$out
 }
 
+# TXN-08: Добавить("таблица") без отбора у БлокировкаДанных, без обоснования.
+#
+# Законные формы карточки: блокировка всей таблицы с поясняющим комментарием в двух
+# строках над вызовом и отбор по измерениям - УстановитьЗначение у элемента в
+# следующих строках. Комментарий ищется по исходным строкам, остальное - по погашенным.
 function Check-Txn08($ctx) {
 	$q = $ctx.q
 	$lockvars = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -333,6 +351,7 @@ function Check-Txn08($ctx) {
 		if ($m.Success) { [void]$lockvars.Add($m.Groups[1].Value.ToLower()) }
 	}
 	if ($lockvars.Count -eq 0) { return ,@() }
+	$setvalRe = [regex]'(?i)\.\s*УстановитьЗначение\s*\('
 	$out = @()
 	for ($i = 0; $i -lt $q.Count; $i++) {
 		$m = $catRe['lock_add'].Match($q[$i])
@@ -348,11 +367,19 @@ function Check-Txn08($ctx) {
 				if ($suppressed) { break }
 			}
 		}
+		if (-not $suppressed) {
+			$hi = [Math]::Min($i + 4, $q.Count)
+			for ($k = $i + 1; $k -lt $hi; $k++) {
+				if ($setvalRe.IsMatch($q[$k])) { $suppressed = $true; break }
+			}
+		}
 		if (-not $suppressed) { $out += $i + 1 }
 	}
 	return ,$out
 }
 
+# TXN-10: диалоги, сеть и файлы между НачатьТранзакцию() и фиксацией/отменой.
+# Вызов сопоставляется со списком имен целиком ($txnSlowCallNames), не подстрокой.
 function Check-Txn10($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -362,10 +389,7 @@ function Check-Txn10($ctx) {
 		$j = $i + 1
 		while ($j -lt $q.Count -and -not ($catRe['commit_txn'].IsMatch($q[$j]) -or $catRe['rollback_txn'].IsMatch($q[$j]))) {
 			foreach ($m in $catRe['call'].Matches($q[$j])) {
-				$name = $m.Groups[1].Value.ToLower()
-				$marked = $false
-				foreach ($mk in $txnSlowNameMarkers) { if ($name.Contains($mk)) { $marked = $true; break } }
-				if ($marked) { $out += $j + 1; break }
+				if ($txnSlowCallNames.Contains($m.Groups[1].Value.ToLower())) { $out += $j + 1; break }
 			}
 			$j++
 		}
@@ -374,6 +398,7 @@ function Check-Txn10($ctx) {
 	return ,$out
 }
 
+# TXN-11: явная транзакция вокруг Записать(РежимЗаписиДокумента.Проведение).
 function Check-Txn11($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -392,6 +417,7 @@ function Check-Txn11($ctx) {
 	return ,$out
 }
 
+# PERF-05: чтение Константы.<Имя>.Получить() внутри цикла.
 function Check-Perf05($ctx) {
 	$out = @()
 	$depth = 0
@@ -404,6 +430,7 @@ function Check-Perf05($ctx) {
 	return ,$out
 }
 
+# MODEL-14: Если-ИначеЕсли из трех и более ветвей без Иначе - репорт на КонецЕсли.
 function Check-Model14($ctx) {
 	$out = @()
 	$stack = New-Object System.Collections.ArrayList
@@ -425,6 +452,7 @@ function Check-Model14($ctx) {
 	return ,$out
 }
 
+# Пакеты запроса по ';': список сегментов @(номер строки, текст).
 function Get-QueryPacks($inner, $start) {
 	$packs = New-Object System.Collections.ArrayList
 	$cur = New-Object System.Collections.ArrayList
@@ -440,6 +468,7 @@ function Get-QueryPacks($inner, $start) {
 	return ,$packs
 }
 
+# QUERY-18: ПЕРВЫЕ без УПОРЯДОЧИТЬ ПО в пакете - репорт на строках ПЕРВЫЕ.
 function Check-Query18($ctx) {
 	$out = @()
 	foreach ($lit in $ctx.literals) {
@@ -456,11 +485,12 @@ function Check-Query18($ctx) {
 	return ,$out
 }
 
+# QUERY-08: ИЛИ по полям таблицы внутри секции ГДЕ.
 function Check-Query08($ctx) {
 	$out = @()
-	$sectionRe = [regex]'\b(?:УПОРЯДОЧИТЬ|СГРУППИРОВАТЬ|ИМЕЮЩИЕ|ОБЪЕДИНИТЬ|ИТОГИ)\b|;'
-	$whereRe = [regex]'(?:^|\|)\s*ГДЕ\b'
-	$orRe = [regex]'(?:^|\|)\s*ИЛИ\s+\w+\.'
+	$sectionRe = [regex]'(?i)\b(?:УПОРЯДОЧИТЬ|СГРУППИРОВАТЬ|ИМЕЮЩИЕ|ОБЪЕДИНИТЬ|ИТОГИ)\b|;'
+	$whereRe = [regex]'(?i)(?:^|\|)\s*ГДЕ\b'
+	$orRe = [regex]'(?i)(?:^|\|)\s*ИЛИ\s+\w+\.'
 	foreach ($lit in $ctx.literals) {
 		$inner, $start = $lit
 		$inWhere = $false
@@ -476,9 +506,13 @@ function Check-Query08($ctx) {
 	return ,$out
 }
 
+# QUERY-13: Колонки.Добавить("Имя") без типа у переменной-параметра запроса.
+#
+# Колонка ловится только когда ее имя фигурирует в тексте запроса модуля: нестроковые
+# колонки без типа соединение не ломают, и чистый признак - сама колонка в запросе.
 function Check-Query13($ctx) {
 	$paramVars = New-Object 'System.Collections.Generic.HashSet[string]'
-	$paramRe = [regex]'УстановитьПараметр\s*\(\s*"[^"]*"\s*,\s*(\w+)'
+	$paramRe = [regex]'(?i)УстановитьПараметр\s*\(\s*"[^"]*"\s*,\s*(\w+)'
 	foreach ($ln in $ctx.raw) {
 		$m = $paramRe.Match($ln)
 		if ($m.Success) { [void]$paramVars.Add($m.Groups[1].Value.ToLower()) }
@@ -488,7 +522,7 @@ function Check-Query13($ctx) {
 	foreach ($lit in $ctx.literals) {
 		foreach ($w in [regex]::Matches($lit[0], '\w+')) { [void]$words.Add($w.Value.ToLower()) }
 	}
-	$addRe = [regex]'\b(\w+)\s*\.\s*Колонки\s*\.\s*Добавить\s*\(\s*"([^"]+)"\s*\)'
+	$addRe = [regex]'(?i)\b(\w+)\s*\.\s*Колонки\s*\.\s*Добавить\s*\(\s*"([^"]+)"\s*\)'
 	$out = @()
 	for ($i = 0; $i -lt $ctx.raw.Count; $i++) {
 		foreach ($m in $addRe.Matches($ctx.raw[$i])) {
@@ -501,54 +535,90 @@ function Check-Query13($ctx) {
 	return ,$out
 }
 
-function Check-Query14($ctx) {
+# Подзапросы (ВЫБРАТЬ...) со ссылкой на псевдоним внешнего запроса: пары
+# (позиция открытия, массив позиций внешних ссылок внутри). Псевдонимы внешнего
+# запроса - КАК <Имя> вне скобок подзапроса; ссылка - <псевдоним>. внутри.
+# Некоррелированный подзапрос (законная форма QUERY-01) пары не дает.
+function Get-CorrelatedSubqueries([string]$inner) {
+	$aliasRe = [regex]'(?i)\bКАК\s+(\w+)'
+	# Подзапрос открывается скобкой, за которой до ВЫБРАТЬ возможны переводы строк и
+	# линии продолжения | - многострочный подзапрос в литерале запроса.
+	$subRe = [regex]'(?i)\(\s*(?:\|\s*)*ВЫБРАТЬ'
+	$refRe = [regex]'\b(\w+)\s*\.'
+	$aliases = @()
+	foreach ($m in $aliasRe.Matches($inner)) { $aliases += ,@($m.Groups[1].Value.ToLower(), $m.Index) }
+	$result = @()
+	foreach ($m in $subRe.Matches($inner)) {
+		$openPos = $m.Index
+		$depth = 0
+		$closePos = $inner.Length
+		for ($p = $openPos; $p -lt $inner.Length; $p++) {
+			if ($inner[$p] -eq "(") { $depth++ }
+			elseif ($inner[$p] -eq ")") {
+				$depth--
+				if ($depth -eq 0) { $closePos = $p; break }
+			}
+		}
+		$outer = New-Object 'System.Collections.Generic.HashSet[string]'
+		foreach ($a in $aliases) {
+			if ($a[1] -lt $openPos -or $a[1] -ge $closePos) { [void]$outer.Add($a[0]) }
+		}
+		if ($outer.Count -eq 0) { continue }
+		$used = @()
+		$sub = $inner.Substring($openPos + 1, $closePos - $openPos - 1)
+		foreach ($um in $refRe.Matches($sub)) {
+			if ($outer.Contains($um.Groups[1].Value.ToLower())) { $used += ($openPos + 1 + $um.Index) }
+		}
+		if ($used.Count -gt 0) { $result += ,@($openPos, $used) }
+	}
+	return ,$result
+}
+
+# Позиция первого вхождения слова вне скобок либо -1.
+function Get-TopLevelKeywordPos([string]$inner, [string]$word) {
+	foreach ($m in [regex]::Matches($inner, '(?i)\b' + $word + '\b')) {
+		$before = $inner.Substring(0, $m.Index)
+		if (($before.Split("(").Count - 1) -eq ($before.Split(")").Count - 1)) { return $m.Index }
+	}
+	return -1
+}
+
+# Строки коррелированных подзапросов: открытие и внешние ссылки. $fieldsOnly - только
+# подзапросы секции полей (до первого ИЗ верхнего уровня, карточка QUERY-01), иначе
+# все подзапросы (карточка QUERY-14).
+function Get-CorrelatedLines($ctx, [bool]$fieldsOnly) {
 	$out = @()
-	$aliasRe = [regex]'\bКАК\s+(\w+)'
-	$subRe = [regex]'\(\s*ВЫБРАТЬ'
 	foreach ($lit in $ctx.literals) {
 		$inner, $start = $lit
 		$lineStarts = @(0)
 		for ($p = 0; $p -lt $inner.Length; $p++) { if ($inner[$p] -eq "`n") { $lineStarts += $p + 1 } }
-		$posLine = {
-			param($p)
-			$lo = 0
-			for ($x = 0; $x -lt $lineStarts.Count; $x++) { if ($lineStarts[$x] -le $p) { $lo = $x } }
-			return $start + $lo
-		}
-		$aliases = @()
-		foreach ($m in $aliasRe.Matches($inner)) { $aliases += ,@($m.Groups[1].Value.ToLower(), $m.Index) }
-		foreach ($m in $subRe.Matches($inner)) {
-			$openPos = $m.Index
-			$depth = 0
-			$closePos = $inner.Length
-			for ($p = $openPos; $p -lt $inner.Length; $p++) {
-				if ($inner[$p] -eq "(") { $depth++ }
-				elseif ($inner[$p] -eq ")") {
-					$depth--
-					if ($depth -eq 0) { $closePos = $p; break }
-				}
-			}
-			$outer = New-Object 'System.Collections.Generic.HashSet[string]'
-			foreach ($a in $aliases) {
-				if ($a[1] -lt $openPos -or $a[1] -ge $closePos) { [void]$outer.Add($a[0]) }
-			}
-			if ($outer.Count -eq 0) { continue }
-			$sub = $inner.Substring($openPos + 1, $closePos - $openPos - 1)
-			$used = New-Object 'System.Collections.Generic.HashSet[int]'
-			foreach ($um in [regex]::Matches($sub, '\b(\w+)\s*\.')) {
-				if ($outer.Contains($um.Groups[1].Value.ToLower())) {
-					[void]$used.Add((& $posLine ($openPos + 1 + $um.Index)))
-				}
-			}
-			if ($used.Count -gt 0) {
-				$out += (& $posLine $openPos)
-				foreach ($u in ($used | Sort-Object)) { $out += $u }
+		$iz = Get-TopLevelKeywordPos $inner "ИЗ"
+		foreach ($pair in (Get-CorrelatedSubqueries $inner)) {
+			$openPos = $pair[0]
+			if ($fieldsOnly -and $iz -ge 0 -and $openPos -gt $iz) { continue }
+			foreach ($pos in @($openPos) + $pair[1]) {
+				$lo = 0
+				for ($x = 0; $x -lt $lineStarts.Count; $x++) { if ($lineStarts[$x] -le $pos) { $lo = $x } }
+				$out += $start + $lo
 			}
 		}
 	}
 	return ,(@($out | Sort-Object -Unique))
 }
 
+# QUERY-01: коррелированный подзапрос в списке полей - репорт на открытии и ссылках.
+# В ГДЕ коррелированный подзапрос - карточка QUERY-14, здесь он не репортится.
+function Check-Query01($ctx) {
+	return ,(Get-CorrelatedLines $ctx $true)
+}
+
+# QUERY-14: подзапрос в скобках использует псевдоним внешнего запроса.
+# Репорт на строке открытия подзапроса и на строках внешних ссылок внутри него.
+function Check-Query14($ctx) {
+	return ,(Get-CorrelatedLines $ctx $false)
+}
+
+# QUERY-15: ВТ помещена без ИНДЕКСИРОВАТЬ ПО и соединяется в следующем пакете.
 function Check-Query15($ctx) {
 	$out = @()
 	foreach ($lit in $ctx.literals) {
@@ -577,6 +647,10 @@ function Check-Query15($ctx) {
 	return ,$out
 }
 
+# SEC-01: значение конкатенацией в литерал текста запроса вместо параметра.
+# Литералы запроса многострочны, поэтому признак ищется по файлу целиком: литерал
+# с ключевым словом запроса закрывается кавычкой, за которой сразу идет + и идентификатор.
+# Репорт на строке закрытия литерала.
 function Check-Sec01($ctx) {
 	$kw = [regex]::new('\b(?:ВЫБРАТЬ|ГДЕ|ИЗ|ПОДОБНО|СОЕДИНЕНИЕ|УПОРЯДОЧИТЬ|СГРУППИРОВАТЬ|ПОМЕСТИТЬ)\b',
 		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
@@ -603,6 +677,7 @@ function Check-Sec01($ctx) {
 $structureChecks = @{
 	"model-14"  = ${function:Check-Model14}
 	"perf-05"   = ${function:Check-Perf05}
+	"query-01"  = ${function:Check-Query01}
 	"query-08"  = ${function:Check-Query08}
 	"query-13"  = ${function:Check-Query13}
 	"query-14"  = ${function:Check-Query14}
@@ -739,14 +814,15 @@ function Invoke-CatalogLint {
 				continue
 			}
 			if ($rule.kind -eq "query-regex") {
+				# Матч по тексту литерала целиком: скобка и ВЫБРАТЬ на разных строках
+				# построчному поиску не видны. Номер строки - по смещению совпадения.
 				$rx = [regex]::new($rule.pattern)
 				foreach ($lit in $literals) {
 					$inner, $start = $lit
-					$lines2 = Split-BslLines $inner
-					for ($k = 0; $k -lt $lines2.Count; $k++) {
-						if ($lines2[$k] -and $rx.IsMatch($lines2[$k])) {
-							[void]$found.Add($rid + $nul + ($start + $k))
-						}
+					foreach ($m in $rx.Matches($inner)) {
+						$nl = 0
+						for ($p = 0; $p -lt $m.Index; $p++) { if ($inner[$p] -eq "`n") { $nl++ } }
+						[void]$found.Add($rid + $nul + ($start + $nl))
 					}
 				}
 				continue
@@ -787,7 +863,9 @@ function Invoke-CatalogLint {
 		(ConvertTo-FlatJsonString $inputHash) + ',"status":"' + $status + '","findings":[' + $jsonFindings + ']}'
 
 	if ($Json) {
-		[Console]::Out.WriteLine($jsonPayload)
+		# Перевод строки - всегда "`n" (а не WriteLine с Environment.NewLine): вывод
+		# обоих портов сверяется гардом байт в байт.
+		[Console]::Out.Write($jsonPayload + "`n")
 		return $(if ($sorted.Count -gt 0) { 1 } else { 0 })
 	}
 
@@ -798,7 +876,7 @@ function Invoke-CatalogLint {
 	[void]$lines.Add("")
 	[void]$lines.Add("=== Result: $($sorted.Count) finding(s) ===")
 	[void]$lines.Add("EVIDENCE " + $jsonPayload)
-	[Console]::Out.WriteLine($lines -join "`n")
+	[Console]::Out.Write(($lines -join "`n") + "`n")
 	return $(if ($sorted.Count -gt 0) { 1 } else { 0 })
 }
 
