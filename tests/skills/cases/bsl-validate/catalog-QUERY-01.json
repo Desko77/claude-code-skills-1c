@@ -1,5 +1,5 @@
 {
-  "name": "Правило QUERY-01: Вложенный ВЫБРАТЬ в скобках в списке полей",
+  "name": "Правило QUERY-01: Коррелированный подзапрос в списке полей",
   "setup": "external:tests/catalog/QUERY-01",
   "params": {
     "modulePath": "."
@@ -14,7 +14,8 @@
   "expect": {
     "stdoutContains": [
       "[QUERY-01] defect.bsl:5",
-      "Result: 1 finding(s)"
+      "[QUERY-01] defect.bsl:7",
+      "Result: 2 finding(s)"
     ],
     "stdoutNotContains": [
       "clean.bsl"

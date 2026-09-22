@@ -129,12 +129,15 @@ CATALOG_RULES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 # Обработчики событий, внутри которых платформа уже держит транзакцию (карточка TXN-06).
 TXN_EVENT_HANDLERS = ('ПередЗаписью', 'ПриЗаписи', 'ОбработкаПроведения')
-# Маркеры побочных эффектов, которым не место внутри транзакции (карточка TXN-10):
-# диалоги с пользователем, сетевые обращения, работа с файлами.
-TXN_SLOW_NAME_MARKERS = (
-    'вопрос', 'предупреждение', 'открытьзначение', 'сообщить', 'отправить', 'файл',
-    'http', 'почт', 'соединение', 'диалог', 'ввод',
-)
+# Имена вызовов с побочными эффектами, которым не место внутри транзакции (карточка
+# TXN-10): диалоги с пользователем, сетевые обращения, работа с файлами. Сопоставление
+# по целому идентификатору вызова: подстрока давала ложные находки на
+# ПолучитьИмяВременногоФайла и ВводНаОсновании.
+TXN_SLOW_CALL_NAMES = frozenset((
+    'вопрос', 'предупреждение', 'открытьзначение', 'сообщить', 'уведомить',
+    'отправитьзапроснаружу', 'копироватьфайл', 'переместитьфайл', 'удалитьфайл',
+    'найтифайлы',
+))
 # Слова обоснования законной блокировки без отбора: комментарий над вызовом (карточка TXN-08).
 TXN08_COMMENT_MARKERS = ('отбор', 'пересчет', 'все записи')
 
@@ -322,10 +325,11 @@ def check_txn06(q):
 
 
 def check_txn08(raw, q):
-    """TXN-08: Добавить("таблица") без отбора у БлокировкаДанных, без комментария-обоснования.
+    """TXN-08: Добавить("таблица") без отбора у БлокировкаДанных, без обоснования.
 
-    Законная форма карточки - блокировка всей таблицы с поясняющим комментарием в двух
-    строках над вызовом; комментарий ищется по исходным строкам, остальное - по погашенным.
+    Законные формы карточки: блокировка всей таблицы с поясняющим комментарием в двух
+    строках над вызовом и отбор по измерениям - УстановитьЗначение у элемента в
+    следующих строках. Комментарий ищется по исходным строкам, остальное - по погашенным.
     """
     lockvars = set()
     for ln in q:
@@ -334,6 +338,7 @@ def check_txn08(raw, q):
             lockvars.add(m.group(1).lower())
     if not lockvars:
         return []
+    setval_re = re.compile(r'\.\s*УстановитьЗначение\s*\(', re.IGNORECASE)
     out = []
     for i, ln in enumerate(q):
         m = CATALOG_RE['lock_add'].search(ln)
@@ -348,12 +353,20 @@ def check_txn08(raw, q):
                 suppressed = True
                 break
         if not suppressed:
+            for k in range(i + 1, min(i + 4, len(q))):
+                if setval_re.search(q[k]):
+                    suppressed = True
+                    break
+        if not suppressed:
             out.append(i + 1)
     return out
 
 
 def check_txn10(q):
-    """TXN-10: диалоги, сеть и файлы между НачатьТранзакцию() и фиксацией/отменой."""
+    """TXN-10: диалоги, сеть и файлы между НачатьТранзакцию() и фиксацией/отменой.
+
+    Вызов сопоставляется со списком имен целиком (TXN_SLOW_CALL_NAMES), не подстрокой.
+    """
     out = []
     n = len(q)
     i = 0
@@ -365,8 +378,7 @@ def check_txn10(q):
         while j < n and not (CATALOG_RE['commit_txn'].search(q[j])
                              or CATALOG_RE['rollback_txn'].search(q[j])):
             for m in CATALOG_RE['call'].finditer(q[j]):
-                name = m.group(1).lower()
-                if any(mk in name for mk in TXN_SLOW_NAME_MARKERS):
+                if m.group(1).lower() in TXN_SLOW_CALL_NAMES:
                     out.append(j + 1)
                     break
             j += 1
@@ -488,7 +500,7 @@ def check_query13(raw, literals):
     """
     param_vars = set()
     for ln in raw:
-        m = re.search(r'УстановитьПараметр\s*\(\s*"[^"]*"\s*,\s*(\w+)', ln)
+        m = re.search(r'УстановитьПараметр\s*\(\s*"[^"]*"\s*,\s*(\w+)', ln, re.IGNORECASE)
         if m:
             param_vars.add(m.group(1).lower())
     if not param_vars:
@@ -508,6 +520,80 @@ def check_query13(raw, literals):
     return out
 
 
+def _pos_line_fn(inner, start):
+    """Функция смещение -> номер строки файла для позиций внутри литерала."""
+    line_starts = [0]
+    for k, ch in enumerate(inner):
+        if ch == '\n':
+            line_starts.append(k + 1)
+
+    def pos_line(p):
+        return start + bisect.bisect_right(line_starts, p) - 1
+
+    return pos_line
+
+
+def _correlated_subqueries(inner):
+    """Подзапросы (ВЫБРАТЬ...) со ссылкой на псевдоним внешнего запроса.
+
+    Возвращает пары (позиция открытия, позиции внешних ссылок внутри). Псевдонимы
+    внешнего запроса - КАК <Имя> вне скобок подзапроса; ссылка - <псевдоним>. внутри.
+    Некоррелированный подзапрос (законная форма QUERY-01) пары не дает.
+    """
+    aliases = [(m.group(1).lower(), m.start())
+               for m in re.finditer(r'\bКАК\s+(\w+)', inner, re.IGNORECASE)]
+    out = []
+    # Подзапрос открывается скобкой, за которой до ВЫБРАТЬ возможны переводы строк и
+    # линии продолжения | - многострочный подзапрос в литерале запроса.
+    for m in re.finditer(r'\(\s*(?:\|\s*)*ВЫБРАТЬ', inner, re.IGNORECASE):
+        open_pos = m.start()
+        depth, close_pos = 0, len(inner)
+        for p in range(open_pos, len(inner)):
+            if inner[p] == '(':
+                depth += 1
+            elif inner[p] == ')':
+                depth -= 1
+                if depth == 0:
+                    close_pos = p
+                    break
+        outer = {a for a, s in aliases if not open_pos <= s < close_pos}
+        if not outer:
+            continue
+        used = [open_pos + 1 + um.start()
+                for um in re.finditer(r'\b(\w+)\s*\.', inner[open_pos + 1:close_pos])
+                if um.group(1).lower() in outer]
+        if used:
+            out.append((open_pos, used))
+    return out
+
+
+def _top_level_keyword_pos(inner, word):
+    """Позиция первого вхождения слова вне скобок либо None."""
+    for m in re.finditer(r'\b' + word + r'\b', inner, re.IGNORECASE):
+        before = inner[:m.start()]
+        if before.count('(') == before.count(')'):
+            return m.start()
+    return None
+
+
+def check_query01(literals):
+    """QUERY-01: коррелированный подзапрос в списке полей - репорт на открытии и ссылках.
+
+    Место - секция полей: открытие подзапроса до первого ИЗ верхнего уровня. В ГДЕ
+    коррелированный подзапрос - карточка QUERY-14, здесь он не репортится.
+    """
+    out = []
+    for inner, start in literals:
+        pos_line = _pos_line_fn(inner, start)
+        iz = _top_level_keyword_pos(inner, 'ИЗ')
+        for open_pos, used in _correlated_subqueries(inner):
+            if iz is not None and open_pos > iz:
+                continue
+            out.append(pos_line(open_pos))
+            out.extend(pos_line(p) for p in used)
+    return sorted(set(out))
+
+
 def check_query14(literals):
     """QUERY-14: подзапрос в скобках использует псевдоним внешнего запроса.
 
@@ -515,37 +601,10 @@ def check_query14(literals):
     """
     out = []
     for inner, start in literals:
-        line_starts = [0]
-        for k, ch in enumerate(inner):
-            if ch == '\n':
-                line_starts.append(k + 1)
-
-        def pos_line(p):
-            return start + bisect.bisect_right(line_starts, p) - 1
-
-        aliases = [(m.group(1).lower(), m.start())
-                   for m in re.finditer(r'\bКАК\s+(\w+)', inner, re.IGNORECASE)]
-        for m in re.finditer(r'\(\s*ВЫБРАТЬ', inner, re.IGNORECASE):
-            open_pos = m.start()
-            depth, close_pos = 0, len(inner)
-            for p in range(open_pos, len(inner)):
-                if inner[p] == '(':
-                    depth += 1
-                elif inner[p] == ')':
-                    depth -= 1
-                    if depth == 0:
-                        close_pos = p
-                        break
-            outer = {a for a, s in aliases if not open_pos <= s < close_pos}
-            if not outer:
-                continue
-            used = set()
-            for um in re.finditer(r'\b(\w+)\s*\.', inner[open_pos + 1:close_pos]):
-                if um.group(1).lower() in outer:
-                    used.add(pos_line(open_pos + 1 + um.start()))
-            if used:
-                out.append(pos_line(open_pos))
-                out.extend(sorted(used))
+        pos_line = _pos_line_fn(inner, start)
+        for open_pos, used in _correlated_subqueries(inner):
+            out.append(pos_line(open_pos))
+            out.extend(pos_line(p) for p in used)
     return sorted(set(out))
 
 
@@ -596,6 +655,7 @@ def check_sec01(text):
 STRUCTURE_CHECKS = {
     'model-14': check_model14,
     'perf-05': check_perf05,
+    'query-01': check_query01,
     'query-08': check_query08,
     'query-13': check_query13,
     'query-14': check_query14,
@@ -677,11 +737,12 @@ def run_catalog_rules(raw, rule_ids, rules_by_id):
                 if ln and rx.search(ln):
                     findings.add((rid, i + 1))
         elif kind == 'query-regex':
+            # Матч по тексту литерала целиком: скобка и ВЫБРАТЬ на разных строках
+            # построчному поиску не видны. Номер строки - по смещению совпадения.
             rx = re.compile(rule['pattern'])
             for inner, start in literals:
-                for k, ln in enumerate(_rstripped(inner.split('\n'))):
-                    if ln and rx.search(ln):
-                        findings.add((rid, start + k))
+                for m in rx.finditer(inner):
+                    findings.add((rid, start + inner.count('\n', 0, m.start())))
         else:
             fn = STRUCTURE_CHECKS[rule['check']]
             # сигнатуры проверок различаются набором контекста; передаем по имени
@@ -736,9 +797,12 @@ def catalog_main(args):
             return 2
         label = rel_label(path)
         src_lines = _rstripped(raw.split('\n'))
-        for rid, line in sorted(run_catalog_rules(raw, rule_ids, rules_by_id)):
+        for rid, line in run_catalog_rules(raw, rule_ids, rules_by_id):
             fragment = src_lines[line - 1].strip()[:100] if line <= len(src_lines) else ''
             findings.append({'id': rid, 'file': label, 'line': line, 'match': fragment})
+
+    # Порядок находок един в обоих портах: файл, строка, идентификатор.
+    findings.sort(key=lambda f: (f['file'], f['line'], f['id']))
 
     sha = hashlib.sha256()
     for path in modules:
@@ -754,8 +818,10 @@ def catalog_main(args):
         'status': 'findings' if findings else 'pass',
         'findings': findings,
     }
+    # Компактные разделители: строка EVIDENCE и -Json обязаны совпадать у портов байт в байт.
+    compact = {'ensure_ascii': False, 'separators': (',', ':')}
     if args.Json:
-        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + '\n')
+        sys.stdout.write(json.dumps(payload, **compact) + '\n')
         return 1 if findings else 0
 
     lines = ['=== BSL catalog lint: %d module(s), %d rule(s) ===' % (len(modules), len(rule_ids)),
@@ -764,14 +830,15 @@ def catalog_main(args):
         lines.append('[%s] %s:%d  %s' % (f['id'], f['file'], f['line'], f['match']))
     lines.append('')
     lines.append('=== Result: %d finding(s) ===' % len(findings))
-    lines.append('EVIDENCE ' + json.dumps(payload, ensure_ascii=False))
+    lines.append('EVIDENCE ' + json.dumps(payload, **compact))
     sys.stdout.write('\n'.join(lines) + '\n')
     return 1 if findings else 0
 
 
 def main():
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+    # newline="" отключает трансляцию \n в \r\n: вывод портов сверяется гардом байт в байт.
+    sys.stdout.reconfigure(encoding="utf-8", newline="")
+    sys.stderr.reconfigure(encoding="utf-8", newline="")
     parser = argparse.ArgumentParser(
         description='Check BSL module calls against a configuration index', allow_abbrev=False)
     parser.add_argument('-ModulePath', dest='ModulePath', required=True)
