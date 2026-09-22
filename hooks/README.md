@@ -19,7 +19,7 @@
 - **След проверок** (`evidence-writer.mjs`, `session-context.mjs`, `release-writer.mjs`) - см. раздел ниже.
 - **Гейт завершения хода** (`quality-baseline.mjs`, `quality-arm.mjs`, `quality-stop.mjs`) - см. раздел ниже.
   Гейт без хука отметки не работает: `quality-baseline.mjs` регистрируется вместе с `quality-stop.mjs`.
-- **Ворота MCP-first** (`edt-gate.mjs`) - см. раздел "Ворота MCP-first". Пока проект загружен в живой AI-EDT, `Read`, `Grep`, `Glob`, `Bash` и `PowerShell` по исходникам этого проекта отклоняются с именем инструмента-замены.
+- **Ворота MCP-first** (`edt-gate.mjs`) - см. раздел "Ворота MCP-first". Пока проект загружен в живой AI-EDT, `Read`, `Grep`, `Glob`, `Bash` и `PowerShell` по исходникам этого проекта и запуск клиента `1cv8` / `1cv8c` / `1cv8s` / `start-1c.ps1` отклоняются с именем инструмента-замены.
 
 Это дополнительный слой поверх проверок, которые уже встроены в сами навыки: навыки-мутаторы и так не дадут
 испортить объект на поддержке. Хуки добавляют защиту для случаев, когда правят файлы **в обход навыков**.
@@ -69,7 +69,7 @@
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] },
-      { "matcher": "<та же строка matcher, что у evidence-writer.mjs>",
+      { "matcher": "<строка matcher из hooks/hooks.json - блок edt-gate.mjs на PostToolUseFailure>",
         "hooks": [{ "type": "command",
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/edt-gate.mjs\"" }] }
     ],
@@ -204,38 +204,62 @@
 
 Цель: у `Read` это `file_path` с расширением `.bsl`, `.os`, `.mdo`, `.form`, `.dcs`,
 `.mxlx`, `.cmi`, `.rights` или `.xdto`. У `Grep` и `Glob` это `path`, а если `path` нет -
-`cwd`; каталог внутри EDT-проекта достаточен. У `Bash` и `PowerShell` отказ только когда
-в тексте команды есть утилита `cat`, `head`, `tail`, `sed`, `grep`, `rg`, `find`, `awk`,
-`python`, `Get-Content`, `Select-String` или `type` и рядом путь с таким расширением или
-сегмент каталога `src`.
+`cwd`; каталог внутри EDT-проекта достаточен. У `Bash` и `PowerShell` отказ на чтение,
+когда в тексте команды есть утилита `cat`, `head`, `tail`, `sed`, `grep`, `rg`, `find`,
+`awk`, `python`, `Get-Content`, `Select-String` или `type` и рядом путь с таким
+расширением или сегмент каталога `src`.
 
-В причине отказа: путь, ключ сервера, инструмент-замена, раздел "Сначала индекс" правила
-`rules/mcp-tool-priority.md` и команда `/quality release gate`. Замена по виду цели:
+Отдельный класс той же пары инструментов - запуск клиента. Команда содержит исполняемый
+токен `1cv8.exe`, `1cv8c.exe`, `1cv8s.exe` (или те же имена без расширения) либо путь
+`start-1c.ps1`, и цель относится к EDT-проекту живого AI-EDT. Цель - путь файловой базы
+или проекта в команде (`/F`, `-InfoBasePath`, `-Database`); если такого пути нет, а `cwd`
+payload лежит под EDT-проектом, целью считается этот проект. Путь, который назван и не
+лежит в EDT-проекте, ворота не переносят на `cwd`.
+
+В причине отказа чтения: путь, ключ сервера, инструмент-замена, раздел "Сначала индекс"
+правила `rules/mcp-tool-priority.md` и команда `/quality release gate`. Замена по виду цели:
 `.mdo` - `get_metadata_details`; `.bsl` и `.os` - `get_module_structure` и
 `read_method_source`; `.form` - `get_form_structure`; `.dcs` - `dcs_workshop`; `Grep`,
-`Glob` и остальные расширения - `code_search operation=text_search`. Для `Bash` и
-`PowerShell` в причине есть фраза "Перебор исходников при живой EDT".
+`Glob` и остальные расширения - `code_search operation=text_search`. Для перебора
+исходников в причине есть фраза "Перебор исходников при живой EDT".
+
+В причине отказа запуска: `launch_debugger action=launch`, доводы внешней обработки
+(`externalObjectName`, `externalObjectProject`, `startupOption`, `enableExternalObjectDump`),
+`infobase_admin operation=set_infobase_credentials` и три выхода: окно после отказа
+`launch_debugger`, `debug_launch` или `start_client`; `/quality release gate`; переменная
+`AI_EDT_GATE=off`.
 
 Вызов пропускается (выход 0, пустой stdout): цель не в EDT-проекте; имя проекта не входит
 в `projects` ни одного живого AI-EDT; открыто окно-исключение; в следе сессии есть
 действующее `release` с `scope` `gate` (тот же `diffHash`, `expiresAt` еще не наступил);
-внутренняя ошибка хука. Текст внутренней ошибки пишется в stderr.
+внутренняя ошибка хука; переменная `AI_EDT_GATE` задана и ее значение не пустое и не `on`.
+Текст внутренней ошибки и строка об отключении ворот переменной пишутся в stderr.
+Значение `on` и пустая строка ворота не отключают.
 
-Окно-исключение открывает тот же `edt-gate.mjs` на `PostToolUseFailure`. Матчер совпадает
-с матчером `evidence-writer` (строка в `hooks/hooks.json`). Ключ сервера берется из имени
+Окно-исключение открывает тот же `edt-gate.mjs` на `PostToolUseFailure`. Матчер блока
+`edt-gate` в `hooks/hooks.json` включает инструменты проверки (как у `evidence-writer`) и
+имена `launch_debugger`, `debug_launch`, `start_client`. Ключ сервера берется из имени
 инструмента `mcp__<ключ>__<имя>`, затем хук запрашивает `/health`. Нет ответа, статус 401
 или 403, либо `phase` не `ready` - в след пишется `probe` со `status` `down` и `source`
 `ai-edt`, и создается `.claude/.state/quality/<session>/edt-window.json` с полями `until`
 (15 минут от записи) и `server`. Ошибка операции при `phase` `ready` пишет `probe` со
-`status` `ok` и файл окна не создает. Каждый подтвержденный отказ `/health` заново
-записывает `until`. Автоматического ослабления после серии отказов нет.
+`status` `ok` и файл окна не создает, кроме отказа запуска: `launch_debugger`,
+`debug_launch` и `start_client` открывают окно всегда, а `status` события `probe` остается
+по факту `/health` (`ok`, когда `phase` `ready`). Каждый такой отказ заново записывает
+`until`. Автоматического ослабления после серии отказов нет.
 
-Снять ворота, не дожидаясь `until` и при живом сервере, может только команда человека
-`/quality release gate <причина> [--for 30m|2h|1d]` (хук `release-writer`).
+Снять ворота, не дожидаясь `until` и при живом сервере, может команда человека
+`/quality release gate <причина> [--for 30m|2h|1d]` (хук `release-writer`). Действующее
+`release` с `scope` `gate` пропускает и чтение, и запуск. Последний рубеж, когда плагин
+сломался, а команду снятия набрать негде, - переменная `AI_EDT_GATE` со значением кроме
+пустого и `on`: хук выходит с нулем и пишет в stderr, что ворота отключены переменной.
 
 Известные пределы. `PreToolUse` не видит файлы, подключенные через `@` в промпте
 пользователя. Для `Bash` и `PowerShell` хук смотрит текст команды, а не запущенный
-процесс: обход через переменные shell, `cd` и дочерние процессы возможен.
+процесс: обход через переменные shell, `cd` и дочерние процессы возможен. Скрипт
+`db-run.ps1` исполняемый токен `1cv8` не содержит: клиент стартует уже после хука.
+Ссылка серверной базы `/S` путем проекта не считается; без пути файловой базы цель -
+`cwd`. Имя `1cv8` без расширения совпадает и с каталогом платформы.
 
 ## Что делать при отказе защиты
 
