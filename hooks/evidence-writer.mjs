@@ -147,11 +147,11 @@ const EVIDENCE_LINE_RE = /(?:^|\n)[ \t]*EVIDENCE[ \t]+(\{[^\n]*\})/;
 const MCP_TOOL_RE = /^mcp__([A-Za-z0-9._-]+)__(.+)$/;
 
 // Маркеры вердикта кросс-ревью в выводе скрипта: строка ВЕРДИКТ: (codex-обертки),
-// шапка списка комментариев Cursor и находки - [P1] в формате codex review.
+// шапка списка комментариев Cursor и находки - [P0]/[P1] в формате codex review.
 const REVIEW_VERDICT_RE = /ВЕРДИКТ:/i;
 const REVIEW_APPROVED_RE = /ВЕРДИКТ:[ \t]*APPROVED/i;
 const REVIEW_COMMENTS_RE = /Full review comments:/i;
-const REVIEW_FINDING_RE = /-[ \t]*\[P([1-9])\]/g;
+const REVIEW_FINDING_RE = /-[ \t]*\[P([0-9])\]/g;
 
 // Разобрать итог кросс-ревью по маркерам вывода. Возвращает outcome либо null - запуск
 // был, но маркера вердикта нет, событие не создается. Находки приоритетнее APPROVED:
@@ -167,7 +167,9 @@ export function crossReviewOutcome(text) {
   const counts = { critical: 0, major: 0, minor: 0 };
   for (const m of findings) {
     const n = Number(m[1]);
-    if (n === 1) counts.critical += 1;
+    // P0 и P1 - Critical: P0 у codex означает более тяжелую находку, чем P1, и пропускать
+    // ее как minor значило бы закрывать проверку с блокирующим замечанием.
+    if (n <= 1) counts.critical += 1;
     else if (n === 2) counts.major += 1;
     else counts.minor += 1;
   }

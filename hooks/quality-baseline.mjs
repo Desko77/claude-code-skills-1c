@@ -49,8 +49,10 @@ export async function processPayload(payload, log = () => {}) {
       const cs = await computeChangeset(cwd, head);
       changeset = { base: cs.base, diffHash: cs.diffHash, files: cs.files };
     } catch (err) {
-      log(`[quality-baseline] множество не вычислено, отметка с пустым множеством: ${err.message}`);
-      changeset = emptyChangeset();
+      // Отметка с валидным HEAD и пустым множеством объявила бы чистым дерево, в котором
+      // уже были правки: следующий Stop зачел бы их как правки сессии и заблокировал ход.
+      // Отметка не пишется вовсе - гейт при ее отсутствии пропускает ход с диагностикой.
+      return { stderr: `[quality-baseline] множество не вычислено (${err.message}), отметка не записана` };
     }
   }
   const event = {
