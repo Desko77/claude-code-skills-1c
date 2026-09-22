@@ -90,8 +90,12 @@ export async function processPayload(payload) {
   if (!evidencePy) {
     return { code: 0, stderr: '[quality-stop] tools/evidence.py не найден, гейт пропущен' };
   }
+  // База валидатора - HEAD отметки сессии, а не текущий HEAD: коммит по ходу сессии сдвигает
+  // HEAD, и прогон, снятый до коммита, перестал бы совпадать по diffHash (а пустое множество
+  // после коммита пропускало бы непроверенные правки).
   const run = spawnSync(pythonBin(),
-    ['-X', 'utf8', evidencePy, 'check', '--strict', '--session', session, '--repo', cwd],
+    ['-X', 'utf8', evidencePy, 'check', '--strict', '--session', session, '--repo', cwd,
+      '--base', baseline.head],
     { encoding: 'utf8', timeout: VALIDATOR_TIMEOUT_MS });
   if (run.error) {
     return { code: 0, stderr: `[quality-stop] валидатор следа не запущен (${run.error.message}), гейт пропущен` };

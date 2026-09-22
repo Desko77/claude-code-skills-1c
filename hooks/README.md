@@ -17,6 +17,8 @@
   (`1c-meta-edit`/`1c-form-edit`/`1c-skd-edit`/...). Не блокирует, подсказывает не чаще одного раза за сессию
   на группу и действие.
 - **След проверок** (`evidence-writer.mjs`, `session-context.mjs`, `release-writer.mjs`) - см. раздел ниже.
+- **Гейт завершения хода** (`quality-baseline.mjs`, `quality-arm.mjs`, `quality-stop.mjs`) - см. раздел ниже.
+  Гейт без хука отметки не работает: `quality-baseline.mjs` регистрируется вместе с `quality-stop.mjs`.
 
 Это дополнительный слой поверх проверок, которые уже встроены в сами навыки: навыки-мутаторы и так не дадут
 испортить объект на поддержке. Хуки добавляют защиту для случаев, когда правят файлы **в обход навыков**.
@@ -54,7 +56,10 @@
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/skill-suggester.mjs\"" }] },
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
-          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] }
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] },
+      { "matcher": "<строка matcher из hooks/hooks.json - блок quality-arm.mjs>",
+        "hooks": [{ "type": "command",
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-arm.mjs\"" }] }
     ],
     "PostToolUseFailure": [
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
@@ -67,7 +72,9 @@
     ],
     "SessionStart": [
       { "hooks": [{ "type": "command",
-        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-context.mjs\"" }] }
+        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-context.mjs\"" }] },
+      { "hooks": [{ "type": "command",
+        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-baseline.mjs\"" }] }
     ],
     "UserPromptSubmit": [
       { "hooks": [{ "type": "command",

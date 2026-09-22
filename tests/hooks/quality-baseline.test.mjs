@@ -3,7 +3,7 @@
 // коммита, вне git и в репозитории без коммитов - отметка с head null и пустым множеством.
 
 import { mkdtemp, rm } from 'node:fs/promises';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
@@ -133,6 +133,22 @@ test('payload без session_id: код 0 без события', async () => {
     const r = runHook('quality-baseline.mjs', payload);
     assertEq(r.status, 0);
     assertEq(r.stderr.trim(), '', 'молча');
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('множество не вычислено: отметка не пишется, диагностика в stderr', async () => {
+  const ctx = await makeTmpRepo();
+  try {
+    // Битый индекс git: HEAD разрешается, а вычисление множества падает.
+    await writeFile(join(ctx.top, '.git', 'index'), 'не индекс', 'utf8');
+    const payload = await loadFixture('session-start-startup', { cwd: ctx.top, session_id: 'base-broken-1' });
+    const r = runHook('quality-baseline.mjs', payload);
+    assertEq(r.status, 0, 'хук не роняет сессию');
+    assert(/множество не вычислено/.test(r.stderr), 'причина названа в stderr: ' + r.stderr);
+    const events = await readEvents(ctx.top, 'base-broken-1');
+    assertEq(events.length, 0, 'отметка с пустым множеством не пишется');
   } finally {
     await ctx.cleanup();
   }
