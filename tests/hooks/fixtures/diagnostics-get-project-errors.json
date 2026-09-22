@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__1c-edt__diagnostics",
+  "tool_input": {
+    "operation": "get_project_errors",
+    "filter": "CommonModules.Обмен"
+  },
+  "tool_response": "Ошибок: 2\nОшибка: не разрешена ссылка на несуществующий метод Обмен.Утратил\nПредупреждение: неиспользуемая переменная Данные",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_gpe"
+}

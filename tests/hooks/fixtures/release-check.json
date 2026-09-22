@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "/quality release check validate_query@edt EDT-сервер останавливается на регламентное окно",
+  "session_id": "FIXTURE-SESSION"
+}
