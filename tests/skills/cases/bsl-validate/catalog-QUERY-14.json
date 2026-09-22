@@ -1,0 +1,24 @@
+{
+  "name": "Правило QUERY-14: Подзапрос в ГДЕ ссылается на поле внешнего запроса",
+  "setup": "external:tests/catalog/QUERY-14",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-14"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-14] defect.bsl:9",
+      "[QUERY-14] defect.bsl:14",
+      "Result: 2 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

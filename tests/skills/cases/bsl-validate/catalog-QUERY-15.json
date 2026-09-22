@@ -1,0 +1,23 @@
+{
+  "name": "Правило QUERY-15: Временная таблица в соединении без ИНДЕКСИРОВАТЬ ПО",
+  "setup": "external:tests/catalog/QUERY-15",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-15"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-15] defect.bsl:6",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

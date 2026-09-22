@@ -1,0 +1,23 @@
+{
+  "name": "Правило SEC-01: Значение конкатенацией в текст запроса вместо параметра",
+  "setup": "external:tests/catalog/SEC-01",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "SEC-01"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[SEC-01] defect.bsl:9",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

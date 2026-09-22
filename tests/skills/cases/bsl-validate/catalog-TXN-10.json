@@ -1,0 +1,23 @@
+{
+  "name": "Правило TXN-10: Диалоги и внешние обращения внутри транзакции",
+  "setup": "external:tests/catalog/TXN-10",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "TXN-10"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[TXN-10] defect.bsl:4",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

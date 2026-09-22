@@ -10,7 +10,8 @@
     {
       "flag": "-IndexPath",
       "from": "workPath",
-      "field": "indexPath"
+      "field": "indexPath",
+      "optional": true
     }
   ],
   "snapshot": {

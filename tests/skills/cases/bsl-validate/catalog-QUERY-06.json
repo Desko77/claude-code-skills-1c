@@ -1,0 +1,23 @@
+{
+  "name": "Правило QUERY-06: СОЕДИНЕНИЕ с вложенным подзапросом в скобках",
+  "setup": "external:tests/catalog/QUERY-06",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-06"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-06] defect.bsl:8",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}
