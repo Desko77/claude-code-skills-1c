@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo 'python scripts/bsl-validate.py --path x'"
+  },
+  "tool_response": "python scripts/bsl-validate.py --path x\nEVIDENCE {\"check\":\"bsl_validate@configurator\",\"ids\":[],\"inputHash\":\"x\",\"status\":\"pass\"}",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_bash_literal"
+}
