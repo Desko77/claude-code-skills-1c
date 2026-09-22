@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "SessionStart",
+  "source": "resume",
+  "session_id": "FIXTURE-SESSION"
+}

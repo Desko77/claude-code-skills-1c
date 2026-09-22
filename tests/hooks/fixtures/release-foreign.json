@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "покажи статус проверок по последним правкам",
+  "session_id": "FIXTURE-SESSION"
+}

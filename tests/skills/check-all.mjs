@@ -23,6 +23,7 @@ const GUARDS = [
   ['check-index-first.mjs', 'блок "Сначала индекс": правило и агент 1c-explore совпадают дословно'],
   ['check-tools.mjs', 'инструменты tools/: unit-тесты установщика проходят'],
   ['check-catalog.mjs', 'каталог дефектов: карточки, реестр идентификаторов, фикстуры, генерация'],
+  ['check-hooks.mjs', 'хуки следа проверок: applied/failed/release, сквозная совместимость с evidence.py'],
 ];
 
 let failed = 0;
