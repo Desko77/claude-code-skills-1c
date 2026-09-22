@@ -58,6 +58,42 @@
   Группы `FORM-`, `META-`, `PROC-` открыты; фикстура типа `evidence` - файл следа
   `evidence.json` с полем `kind`, гард проверяет его наличие и структуру.
 
+### Хуки
+
+- `hooks/evidence-writer.mjs` (`PostToolUse` / `PostToolUseFailure`, заякоренный матчер):
+  записывает события `applied` и `failed` следа проверок по факту вызова инструмента -
+  MCP-инструменты проверки (ключ сервера с дефисами, точками и подчеркиваниями), фасады
+  по операции (`diagnostics`: `get_project_errors`, `validate_for_export`;
+  `insights`: `detect_query_anti_patterns`), `Bash`/`PowerShell` со скриптами набора
+  (`bsl-validate`, `query-validate`, `meta-validate`, `role-validate`, `form-validate`)
+  при наличии строки результата `EVIDENCE {...}` в выводе. Событие несет `toolUseId`,
+  `inputHash`, `responseHash`, `diffHash` (через `hooks/_changeset.mjs`), разобранный
+  итог (`code_review` - числа Critical/Major/Minor по кодам диагностик из
+  `assets/bsl-ls-gate.json`, `get_project_errors` - ошибки critical и предупреждения
+  minor, `syntaxcheck` - pass/error); неразобранный итог пишется `status: "unknown"` с
+  фрагментом ответа. Итог не выдумывается.
+- `hooks/session-context.mjs` (`SessionStart`, все источники startup/resume/clear/
+  compact/fork): сообщает модели идентификатор сессии и путь каталога событий через
+  `additionalContext`, вычищает каталоги сессий старше 7 дней.
+- `hooks/release-writer.mjs` (`UserPromptSubmit`): команда
+  `/quality release gate|check <область> <причина> [--for 30m|2h|1d]` (срок по
+  умолчанию 4 часа) записывает событие `release` с `diffHash`, `expiresAt` и
+  источником `user_prompt`; прочие промпты игнорируются.
+- Общий модуль `hooks/common/quality-events.mjs`: запись событий хуками по схеме
+  `tools/quality_events.py` - номер последовательности lock-файлом, имя
+  `<время>-<номер>-hook-<id>.json` с локальным временем, тело JSON с сортировкой
+  ключей, запись временным файлом с переименованием; конкурентные записи хуков дают
+  отдельные файлы.
+- `hooks/hooks.json`: регистрация трех хуков; `hooks/README.md`: раздел "След
+  проверок". Установщик `tools/install_home.py` ставит каталог `hooks/` целиком,
+  новые файлы входят в компонент без правки.
+- Тесты `tests/hooks/`: 38 проверок в 4 файлах (матчер на реальных именах инструментов,
+  разбор итогов, запись applied/failed, параллельная запись, строка EVIDENCE и защита
+  от echo-подделки, три источника SessionStart, очистка устаревших сессий, команды
+  снятия) и сквозной тест с `python tools/change_profile.py`, `tools/evidence.py add`
+  и `evidence.py check --strict` (события хука закрывают обязательные проверки,
+  вердикт clean). Гард `tests/skills/check-hooks.mjs` зарегистрирован в `check-all.mjs`.
+
 ### Агенты
 
 - `agents/1c-explore.md` (новый каталог): субагент-разведчик EDT-проекта, модель `sonnet`,
