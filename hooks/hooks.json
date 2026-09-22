@@ -2,6 +2,15 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "^(Read|Grep|Glob|Bash|PowerShell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/edt-gate.mjs\""
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
@@ -38,6 +47,15 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|get_project_errors|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)|Bash|PowerShell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/edt-gate.mjs\""
           }
         ]
       }

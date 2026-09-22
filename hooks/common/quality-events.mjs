@@ -5,7 +5,7 @@
 // тело - JSON с сортировкой ключей, отступом 2 и завершающим переводом строки; файл
 // события создается открытием с 'wx' и наполняется напрямую - занятое имя дает EEXIST
 // и перегенерацию id, существующий файл не перезаписывается. Экспорт предназначен
-// hooks/evidence-writer.mjs и hooks/release-writer.mjs.
+// hooks/evidence-writer.mjs, hooks/release-writer.mjs и hooks/edt-gate.mjs.
 
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, rm, readdir, stat } from 'node:fs/promises';
