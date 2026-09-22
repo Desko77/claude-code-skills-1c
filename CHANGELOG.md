@@ -9,7 +9,12 @@
   инструменте `Grep`/`Glob` и чтение модулей целиком запрещены, `Read` - только по строкам из ответа
   инструмента; недоступен после двух проверок - отчет первой строкой и только потом перебор. Второй
   запрет: `execute_query` toolkit и консоль кода - только после чистого `validate_query`
-  (`1c-query-validate` в среде без EDT). `code-exploration-guide.md` ссылается на раздел.
+  (`1c-query-validate` в среде без EDT). Третий запрет: запуск клиента 1С для EDT-проекта -
+  `launch_debugger action=launch` (внешняя обработка - `externalObjectName`,
+  `externalObjectProject`, `startupOption`, `enableExternalObjectDump`), реквизиты один раз -
+  `infobase_admin operation=set_infobase_credentials`; своя строка `1cv8` / `1cv8c` / `1cv8s`
+  с `/N` и `/P`, `db-run.ps1` и личный `start-1c.ps1` - только без EDT или после отказа типового
+  маршрута. `code-exploration-guide.md` ссылается на раздел.
 - `sdd-workflow.md`: артефакт этапа включает след проверок по формату
   `evidence-format.md` скила 1c-code-review. `agent-verification-patterns.md`: сверка покрытия
   фиксируется следом проверок того же формата.
@@ -126,13 +131,25 @@
   сервера, инструмент-замену и команду `/quality release gate`. Для `Bash` и `PowerShell` отказ
   только если в команде есть утилита чтения и путь исходника или сегмент `src`. Ответ `/health`
   кэшируется 60 секунд. Внутренняя ошибка не блокирует вызов.
-- Окно-исключение на `PostToolUseFailure` (матчер `evidence-writer`): нет ответа `/health`,
+- Окно-исключение на `PostToolUseFailure` (матчер `edt-gate` в `hooks/hooks.json`: инструменты
+  проверки и `launch_debugger`, `debug_launch`, `start_client`): нет ответа `/health`,
   отказ авторизации или `phase` не `ready` - событие `probe` со `status` `down` и файл
   `.claude/.state/quality/<session>/edt-window.json` на 15 минут (`until`, `server`). Ошибка
-  операции при `phase` `ready` пишет `probe` со `status` `ok`, окно не открывается. Снятие -
-  `/quality release gate`.
+  операции при `phase` `ready` пишет `probe` со `status` `ok` и окно не открывает. Отказ
+  `launch_debugger`, `debug_launch` или `start_client` открывает окно всегда; `status` события
+  `probe` остается по факту `/health`. Снятие - `/quality release gate` (пропускает и чтение,
+  и запуск). Переменная `AI_EDT_GATE` со значением кроме пустого и `on` отключает ворота:
+  выход 0 и строка в stderr. Класс запуска `Bash`/`PowerShell`: токен `1cv8.exe`, `1cv8c.exe`,
+  `1cv8s.exe` (или без расширения) либо `start-1c.ps1`, цель - путь базы или проекта в команде,
+  иначе `cwd`, если он под EDT-проектом.
 - Тесты `tests/hooks/edt-gate.test.mjs`: временный EDT-проект, подмена `HOME`/`USERPROFILE`,
-  заглушка `/health`.
+  заглушка `/health`, класс запуска и три выхода (окно после операционного отказа, `release gate`,
+  `AI_EDT_GATE`).
+
+### Скилы
+
+- `skills/1c-db-run/SKILL.md`: раздел "Когда EDT доступна" - EDT-проект запускается через
+  `launch_debugger action=launch`; скрипт `db-run.ps1` остается для случая без EDT и для отказа плагина.
 
 ### Агенты
 

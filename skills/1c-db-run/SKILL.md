@@ -13,6 +13,19 @@ allowed-tools:
 
 Запускает информационную базу в режиме 1С:Предприятие (пользовательский режим).
 
+## Когда EDT доступна
+
+EDT-проект, загруженный в живой AI-EDT, запускается через `launch_debugger action=launch`, а не
+этим скриптом. Внешняя обработка или отчет - `externalObjectName` и при необходимости
+`externalObjectProject`, параметры - `startupOption`, пустой клиент проекта внешних объектов -
+`enableExternalObjectDump=true`. Реквизиты подключения кладутся один раз через
+`infobase_admin operation=set_infobase_credentials`.
+
+Скрипт `db-run.ps1` остается для случая без EDT (формат Конфигуратора, 7.7, headless-прогоны) и
+для отказа плагина. После отказа `launch_debugger`, `debug_launch` или `start_client` ворота
+`edt-gate` открывают окно на 15 минут; снятие - `/quality release gate`; переменная
+`AI_EDT_GATE=off` (любое значение кроме пустого и `on`) отключает ворота целиком.
+
 ## Usage
 
 ```
