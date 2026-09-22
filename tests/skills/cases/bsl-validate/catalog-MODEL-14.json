@@ -1,0 +1,23 @@
+{
+  "name": "Правило MODEL-14: Цепочка Если-ИначеЕсли без ветки Иначе",
+  "setup": "external:tests/catalog/MODEL-14",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "MODEL-14"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[MODEL-14] defect.bsl:8",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

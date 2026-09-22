@@ -1,0 +1,23 @@
+{
+  "name": "Правило QUERY-07: СОЕДИНЕНИЕ с виртуальной таблицей регистра",
+  "setup": "external:tests/catalog/QUERY-07",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-07"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-07] defect.bsl:8",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}
