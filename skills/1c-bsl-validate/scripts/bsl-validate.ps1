@@ -773,15 +773,17 @@ function Invoke-CatalogLint {
 	$sha.TransformFinalBlock([byte[]]::new(0), 0, 0)
 	$hex = ($sha.Hash | ForEach-Object { $_.ToString("x2") }) -join ""
 	$sha.Dispose()
-	$inputHash = $hex.Substring(0, 16)
-	$status = if ($sorted.Count -gt 0) { "fail" } else { "pass" }
+	$inputHash = $hex
+	$status = if ($sorted.Count -gt 0) { "findings" } else { "pass" }
 
-	$jsonIds = ($ruleIds | ForEach-Object { ConvertTo-FlatJsonString $_ }) -join ","
+	# ids - карточки-находки (не проверенные правила): на чистом файле список пуст.
+	$foundIds = @($sorted | ForEach-Object { $_.id } | Sort-Object -Unique)
+	$jsonIds = ($foundIds | ForEach-Object { ConvertTo-FlatJsonString $_ }) -join ","
 	$jsonFindings = ($sorted | ForEach-Object {
 		'{' + '"id":' + (ConvertTo-FlatJsonString $_.id) + ',"file":' + (ConvertTo-FlatJsonString $_.file) +
 		',"line":' + $_.line + ',"match":' + (ConvertTo-FlatJsonString $_.match) + '}'
 	}) -join ","
-	$jsonPayload = '{"check":"bsl-validate-catalog","ids":[' + $jsonIds + '],"inputHash":' +
+	$jsonPayload = '{"check":"bsl_validate@configurator","ids":[' + $jsonIds + '],"inputHash":' +
 		(ConvertTo-FlatJsonString $inputHash) + ',"status":"' + $status + '","findings":[' + $jsonFindings + ']}'
 
 	if ($Json) {

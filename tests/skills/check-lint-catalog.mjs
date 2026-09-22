@@ -119,7 +119,7 @@ for (const rule of registry) {
 
   if (defectPy && defectPy.payload) {
     const got = findingsOf(defectPy.payload);
-    if (defectPy.payload.status !== 'fail') {
+    if (defectPy.payload.status !== 'findings') {
       problems.push(`правило ${rid}: defect.bsl не дал находок (python)`);
     } else if (JSON.stringify(got) !== JSON.stringify(expected)) {
       problems.push(
@@ -134,7 +134,7 @@ for (const rule of registry) {
     console.log(`  правило ${rid}: powershell.exe недоступен, проверен только python-порт`);
   } else if (defectPs && defectPs.payload && cleanPs && cleanPs.payload) {
     const got = findingsOf(defectPs.payload);
-    if (defectPs.payload.status !== 'fail') {
+    if (defectPs.payload.status !== 'findings') {
       problems.push(`правило ${rid}: defect.bsl не дал находок (powershell)`);
     } else if (JSON.stringify(got) !== JSON.stringify(expected)) {
       problems.push(

@@ -748,10 +748,10 @@ def catalog_main(args):
             sha.update(fh.read())
         sha.update(b'\0')
     payload = {
-        'check': 'bsl-validate-catalog',
-        'ids': rule_ids,
-        'inputHash': sha.hexdigest()[:16],
-        'status': 'fail' if findings else 'pass',
+        'check': 'bsl_validate@configurator',
+        'ids': sorted({f['id'] for f in findings}),
+        'inputHash': sha.hexdigest(),
+        'status': 'findings' if findings else 'pass',
         'findings': findings,
     }
     if args.Json:

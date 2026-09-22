@@ -106,8 +106,12 @@ python skills/1c-bsl-validate/scripts/bsl-validate.py -ModulePath src -Catalog -
 | Json      | нет   | Печатать только JSON вместо таблицы                  |
 
 Выход: таблица находок `[<ИД>] <файл>:<строка>  <фрагмент>` и итог; последняя строка
-`EVIDENCE {...}` - JSON одной строкой с полями `check`, `ids`, `inputHash`, `status`,
-`findings` (находки с `id`, `file`, `line`, `match`) для писателя следа. Коды выхода:
+`EVIDENCE {...}` - JSON одной строкой с полями `check` (всегда `bsl_validate@configurator`),
+`ids`, `inputHash` (полный sha256 входа, 64 hex), `status` (`pass` - находок нет,
+`findings` - находки есть), `findings` (находки с `id`, `file`, `line`, `match`) для
+писателя следа. Пример:
+`EVIDENCE {"check":"bsl_validate@configurator","ids":["TXN-01"],"inputHash":"<64 hex>","status":"findings","findings":[...]}`.
+Коды выхода:
 0 - находок нет, 1 - есть находки, 2 - ошибка вызова (нет пути, битый реестр).
 
 Ограничения: только текстовые признаки без семантики - типов выражений, областей видимости
