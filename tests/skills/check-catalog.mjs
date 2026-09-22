@@ -302,16 +302,25 @@ const lintCardIds = new Set(lintCards.map((c) => c.id));
 let lintRegistry = null;
 try {
   const parsed = JSON.parse(readFileSync(LINT_REGISTRY, 'utf8'));
-  if (!Array.isArray(parsed) || parsed.some((r) => typeof r !== 'string')) {
-    problems.push('реестр lint-правил: ожидался массив строк - идентификаторов карточек');
+  if (!Array.isArray(parsed) || parsed.length === 0 || parsed.some((r) => typeof r !== 'object' || !r.id || !r.kind)) {
+    problems.push('реестр lint-правил: ожидался массив объектов с полями id и kind');
   } else {
-    lintRegistry = new Set(parsed);
+    lintRegistry = new Set(parsed.map((r) => r.id));
     if (lintRegistry.size !== parsed.length) {
       problems.push('реестр lint-правил: повтор идентификатора');
     }
-    for (const id of lintRegistry) {
-      if (!lintCardIds.has(id)) {
-        problems.push(`реестр lint-правил: ${id} без карточки с детектором bsl_validate`);
+    for (const rule of parsed) {
+      if (!['regex', 'query-regex', 'structure'].includes(rule.kind)) {
+        problems.push(`реестр lint-правил: ${rule.id} с kind ${rule.kind} вне словаря`);
+      }
+      if (rule.kind === 'structure' && !rule.check) {
+        problems.push(`реестр lint-правил: ${rule.id} без check`);
+      }
+      if (rule.kind !== 'structure' && !rule.pattern) {
+        problems.push(`реестр lint-правил: ${rule.id} без pattern`);
+      }
+      if (!lintCardIds.has(rule.id)) {
+        problems.push(`реестр lint-правил: ${rule.id} без карточки с детектором bsl_validate`);
       }
     }
   }

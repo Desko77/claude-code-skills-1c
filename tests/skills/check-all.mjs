@@ -23,6 +23,7 @@ const GUARDS = [
   ['check-index-first.mjs', 'блок "Сначала индекс": правило и агент 1c-explore совпадают дословно'],
   ['check-tools.mjs', 'инструменты tools/: unit-тесты установщика проходят'],
   ['check-catalog.mjs', 'каталог дефектов: карточки, реестр идентификаторов, фикстуры, генерация'],
+  ['check-lint-catalog.mjs', 'реестр lint-правил: пара фикстур на правило, паритет портов bsl-validate'],
 ];
 
 let failed = 0;
