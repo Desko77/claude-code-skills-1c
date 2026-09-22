@@ -584,7 +584,7 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
 
 ## Хуки (экспериментально, по умолчанию выключены)
 
-В каталоге `hooks/` пять хуков Claude Code, дополняющих проверки, встроенные в сами скилы:
+В каталоге `hooks/` шесть хуков Claude Code, дополняющих проверки, встроенные в сами скилы:
 
 - **support-guard** - блокирует прямую правку через `Edit`/`Write` объекта типовой конфигурации,
   стоящего на поддержке поставщика, и в отказе говорит, что делать вместо этого.
@@ -598,6 +598,10 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
   `--session` у CLI-инструментов) и вычищает каталоги сессий старше 7 дней.
 - **release-writer** - команда `/quality release gate|check ...`, набранная человеком, записывает
   снятие проверки или гейта со сроком действия в след проверок.
+- **edt-gate** - пока проект загружен в живой AI-EDT (`phase` `ready`, имя в `projects` ответа
+  `/health`), отклоняет `Read`, `Grep`, `Glob`, `Bash` и `PowerShell` по исходникам этого проекта
+  и называет инструмент-замену. Окно на 15 минут открывается, если после отказа инструмента
+  `/health` не в `phase` `ready`. Снятие - `/quality release gate`.
 
 Формат следа - `skills/1c-code-review/references/evidence-format.md`, валидатор -
 `tools/evidence.py`. Требуется Node.js 18+. Автоматически не подключаются: порядок ручного
