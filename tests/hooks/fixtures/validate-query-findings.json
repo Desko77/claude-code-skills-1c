@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__ai-edt-3_1_38_92__validate_query",
+  "tool_input": {
+    "queryText": "ВЫБРАТЬ Спр.Ссылка ИЗ Справочник.Номенклатура КАК Спр ГДЕ Спр.Родитель = ЗНАЧЕНИЕ(Справочник.Номенклатура.ПустаяСсылка)",
+    "dcsMode": false
+  },
+  "tool_response": "Ошибка 1: поле Родитель не входит в таблицу\nОшибка 2: неверные параметры ВЫБРАТЬ",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_validate_findings"
+}

@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "proj/src/CommonModules/Обмен/Module.bsl",
+    "old_string": "Сообщить(\"старое\")",
+    "new_string": "Сообщить(\"новое\")"
+  },
+  "tool_response": "The file has been edited.",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_edit"
+}
