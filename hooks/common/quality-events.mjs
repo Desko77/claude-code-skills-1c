@@ -2,19 +2,19 @@
 // Спецификация - skills/1c-code-review/references/evidence-format.md; Python-реализация
 // того же каталога - tools/quality_events.py (ее читает tools/evidence.py). Схема записи
 // совпадает: номер последовательности резервируется lock-файлом (открытие с 'wx'),
-// тело - JSON с сортировкой ключей, отступом 2 и завершающим переводом строки, запись
-// временным файлом с переименованием. Экспорт предназначен hooks/evidence-writer.mjs и
-// hooks/release-writer.mjs.
+// тело - JSON с сортировкой ключей, отступом 2 и завершающим переводом строки; файл
+// события создается открытием с 'wx' и наполняется напрямую - занятое имя дает EEXIST
+// и перегенерацию id, существующий файл не перезаписывается. Экспорт предназначен
+// hooks/evidence-writer.mjs и hooks/release-writer.mjs.
 
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, open, rm, writeFile, readdir, stat } from 'node:fs/promises';
+import { mkdir, open, rm, readdir, stat } from 'node:fs/promises';
 import { execFile as execFileCb } from 'node:child_process';
-import { rename, constants } from 'node:fs';
+import { constants } from 'node:fs';
 import { promisify } from 'node:util';
 import { dirname, join } from 'node:path';
 
 const execFile = promisify(execFileCb);
-const renameP = promisify(rename);
 
 // Идентификатор сессии: буква-цифра-подчеркивание-точка-дефис, без разделителей пути.
 export const SESSION_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -98,8 +98,11 @@ async function acquireSeq(sessionDir, stamp) {
   }
 }
 
-// Записать событие атомарно и вернуть путь файла. Каталог создается при отсутствии.
-export async function writeEvent(top, session, event) {
+// Записать событие и вернуть путь файла. Каталог создается при отсутствии. Финальный
+// файл создается открытием с O_CREAT|O_EXCL и наполняется напрямую: rename на POSIX
+// перезаписал бы занятое имя молча, EEXIST после него недостижим. opts.nextId -
+// генератор случайного id имени (переопределяется тестом коллизии).
+export async function writeEvent(top, session, event, opts = {}) {
   const targetDir = eventsDir(top, session);
   const sessionDir = dirname(targetDir);
   await mkdir(targetDir, { recursive: true });
@@ -108,18 +111,26 @@ export async function writeEvent(top, session, event) {
   if (!/^[a-z]+$/.test(producer)) throw new EventsError(`недопустимый producer: ${producer}`);
   const seq = await acquireSeq(sessionDir, stamp);
   const payload = JSON.stringify(sortKeysDeep(event), null, 2) + '\n';
+  const nextId = typeof opts.nextId === 'function'
+    ? opts.nextId : () => randomUUID().replace(/-/g, '').slice(0, 6);
+  const { O_CREAT, O_EXCL, O_WRONLY } = constants;
   // Занятое имя (коллизия случайного id) перегенерируется с тем же номером lock.
   while (true) {
-    const id = randomUUID().replace(/-/g, '').slice(0, 6);
-    const final = join(targetDir, `${stamp}-${String(seq).padStart(6, '0')}-${producer}-${id}.json`);
+    const final = join(targetDir,
+      `${stamp}-${String(seq).padStart(6, '0')}-${producer}-${nextId()}.json`);
+    let handle;
     try {
-      const tmp = join(targetDir, `.tmp-${randomUUID().replace(/-/g, '')}`);
-      await writeFile(tmp, payload, 'utf8');
-      await renameP(tmp, final);
-      return final;
+      handle = await open(final, O_CREAT | O_EXCL | O_WRONLY, 0o644);
     } catch (err) {
-      if (err.code !== 'EEXIST') throw err;
+      if (err.code === 'EEXIST') continue;
+      throw err;
     }
+    try {
+      await handle.writeFile(payload, 'utf8');
+    } finally {
+      await handle.close();
+    }
+    return final;
   }
 }
 

@@ -1,8 +1,11 @@
 // Тесты hooks/release-writer.mjs: разбор команды снятия, событие release с diffHash и
 // сроком, молчание на прочие промпты.
 
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
-import { loadFixture, makeTmpRepo, readEvents, runHook } from './helpers.mjs';
+import { git, loadFixture, makeTmpRepo, readEvents, runHook } from './helpers.mjs';
 import { parseReleaseCommand } from '../../hooks/release-writer.mjs';
 
 test('parseReleaseCommand: gate с причиной и сроком', () => {
@@ -98,6 +101,28 @@ test('нераспознанная команда снятия: диагност
     assertEq((await readEvents(ctx.top, 'rel-session-1')).length, 0);
   } finally {
     await ctx.cleanup();
+  }
+});
+
+test('репозиторий без коммитов: diffHash null, предупреждение в stderr один раз, событие пишется', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'quality-nocommit-'));
+  const top = join(base, 'repo');
+  await mkdir(top, { recursive: true });
+  git(top, 'init', '-q');
+  git(top, 'config', 'user.email', 'test@example.com');
+  git(top, 'config', 'user.name', 'Test');
+  try {
+    const payload = await loadFixture('release-gate', { cwd: top, session_id: 'rel-nocommit' });
+    const r = runHook('release-writer.mjs', payload);
+    assertEq(r.status, 0, r.stderr);
+    const [e] = await readEvents(top, 'rel-nocommit');
+    assertEq(e.type, 'release');
+    assertEq(e.diffHash, null, 'HEAD не разрешается - diffHash null');
+    assert(r.stderr.includes('diffHash не вычислен'), `предупреждение в stderr: ${r.stderr}`);
+    assertEq(r.stderr.split('\n').filter((l) => l.includes('diffHash не вычислен')).length, 1,
+      'предупреждение напечатано один раз без дубля');
+  } finally {
+    await rm(base, { recursive: true, force: true });
   }
 });
 

@@ -22,7 +22,7 @@
         ]
       },
       {
-        "matcher": "^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)|Bash|PowerShell)$",
+        "matcher": "^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|get_project_errors|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)|Bash|PowerShell)$",
         "hooks": [
           {
             "type": "command",
@@ -33,7 +33,7 @@
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)|Bash|PowerShell)$",
+        "matcher": "^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|get_project_errors|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)|Bash|PowerShell)$",
         "hooks": [
           {
             "type": "command",

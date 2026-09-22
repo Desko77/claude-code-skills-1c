@@ -18,15 +18,110 @@ import { nowIso, repoTop, sha256Hex, sortKeysDeep, writeEvent } from './common/q
 // Заякоренный матчер инструментов проверки: ключ MCP-сервера содержит дефисы, точки и
 // подчеркивания (mcp__ai-edt-3_1_38_92__validate_query). Bash и PowerShell ловят запуск
 // скриптов набора; само решение принимает resolveCheck по команде и ответу.
+// Единственный источник выражения: строки матчера в hooks/hooks.json сверяются с ним
+// гардом tests/hooks/matcher-guard.test.mjs.
 export const MATCHER =
   '^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|' +
-  'security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)' +
+  'get_project_errors|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|' +
+  'detect_query_anti_patterns|insights)' +
   '|Bash|PowerShell)$';
 
-// Запуск скрипта набора в команде: skills/<скил>/scripts/<имя>-validate.ps1|py либо
-// scripts/<имя>-validate.ps1|py от корня скила, оба разделителя пути.
-const NABOR_SCRIPT_RE =
-  /(?:skills[\\/][^\s;&|'"]*[\\/])?scripts[\\/][A-Za-z0-9._-]*(?:bsl|query|meta|role|form)-validate\.(?:ps1|py)(?![\w.-])/i;
+// Путь скрипта набора как целый токен команды: skills/<скил>/scripts/<имя>-validate.ps1|py
+// либо scripts/<имя>-validate.ps1|py от корня скила, оба разделителя пути.
+const SCRIPT_PATH_RE =
+  /^(?:skills[\\/][^\\/]+[\\/])?scripts[\\/][A-Za-z0-9._-]*(?:bsl|query|meta|role|form)-validate\.(?:ps1|py)$/i;
+
+// Убрать комментарии: # вне кавычек в начале слова до конца строки (bash, PowerShell).
+// Содержимое кавычек не трогается: путь скрипта передается и в кавычках.
+function stripComments(command) {
+  let quote = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '#' && (i === 0 || /[\s;&|(<>]/.test(command[i - 1]))) return command.slice(0, i);
+  }
+  return command;
+}
+
+// Разбить команду на сегменты по ; && || | & и переводам строк вне кавычек: сегмент -
+// одна простая команда. Одиночный & - тоже граница: следующая простая команда (вызов
+// через & в PowerShell, фоновый запуск в bash) начинается первым токеном сегмента.
+function splitSegments(command) {
+  const segments = [''];
+  let quote = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else if (ch === ';' || ch === '&' || ch === '|' || ch === '\n' || ch === '\r') {
+      if ((ch === '&' || ch === '|') && command[i + 1] === ch) i++;
+      segments.push('');
+      continue;
+    }
+    segments[segments.length - 1] += ch;
+  }
+  return segments.map((s) => s.trim()).filter(Boolean);
+}
+
+// Токены сегмента с учетом кавычек: кавычки снимаются, содержимое - один токен.
+function tokenize(segment) {
+  const tokens = [];
+  let cur = '';
+  let quote = null;
+  for (const ch of segment) {
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+      } else {
+        cur += ch;
+      }
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else if (/\s/.test(ch)) {
+      if (cur) {
+        tokens.push(cur);
+        cur = '';
+      }
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) tokens.push(cur);
+  return tokens;
+}
+
+// Запускает ли команда скрипт набора: путь скрипта - исполняемый токен, то есть
+// python|python3 [-X utf8] <путь>, pwsh|powershell ... -File <путь> либо <путь> первым
+// токеном сегмента (в том числе вызов & "<путь>"). Путь в комментарии, строковом
+// литерале-аргументе прочей команды или после псевдовызова запуском не считается.
+function runsNaborScript(command) {
+  const clean = stripComments(String(command || ''));
+  for (const segment of splitSegments(clean)) {
+    const tokens = tokenize(segment);
+    if (!tokens.length) continue;
+    const [first, ...rest] = tokens;
+    if (SCRIPT_PATH_RE.test(first)) return true;
+    if (first === 'python' || first === 'python3') {
+      if (SCRIPT_PATH_RE.test(rest[0] || '')) return true;
+      if (rest[0] === '-X' && rest[1] === 'utf8' && SCRIPT_PATH_RE.test(rest[2] || '')) return true;
+    }
+    if (first === 'pwsh' || first === 'powershell') {
+      for (let i = 1; i < tokens.length - 1; i++) {
+        if (tokens[i].toLowerCase() === '-file' && SCRIPT_PATH_RE.test(tokens[i + 1])) return true;
+      }
+    }
+  }
+  return false;
+}
 
 // Строка результата скрипта набора: EVIDENCE {...} одной строкой (evidence-format.md).
 const EVIDENCE_LINE_RE = /(?:^|\n)[ \t]*EVIDENCE[ \t]+(\{[^\n]*\})/;
@@ -45,20 +140,22 @@ function pickTarget(toolInput) {
   return null;
 }
 
-// Ответ инструмента в текст: строка, MCP content-массив, structuredContent либо
-// канонический JSON прочей структуры.
+// Ответ инструмента в текст: строка, массив элементов content верхнего уровня,
+// MCP content-массив, structuredContent либо канонический JSON прочей структуры.
 export function responseToText(resp) {
   if (resp == null) return '';
   if (typeof resp === 'string') return resp;
   const parts = [];
-  if (Array.isArray(resp.content)) {
-    for (const item of resp.content) {
+  const pushContent = (items) => {
+    for (const item of items) {
       if (typeof item === 'string') parts.push(item);
       else if (item && typeof item.text === 'string') parts.push(item.text);
     }
-  }
+  };
+  if (Array.isArray(resp)) pushContent(resp);
+  if (Array.isArray(resp.content)) pushContent(resp.content);
   if (resp.structuredContent !== undefined) {
-    try { parts.push(JSON.stringify(resp.structuredContent, null, 2)); } catch { /* ignore */ }
+    try { parts.push(JSON.stringify(resp.structuredContent, null, 2)); } catch { /* не сериализуемый фрагмент пропускается */ }
   }
   if (parts.length) return parts.join('\n');
   try { return JSON.stringify(resp, null, 2); } catch { return String(resp); }
@@ -96,6 +193,10 @@ export function resolveCheck(toolName, toolInput, responseText) {
       case 'syntaxcheck':
         return { base: 'syntaxcheck', check: 'syntaxcheck@configurator', detector: 'syntaxcheck',
           level: 'static', env: 'configurator' };
+      case 'get_project_errors':
+        // Standalone-имя закрывает ту же проверку, что операция фасада diagnostics.
+        return { base: 'get_project_errors', check: 'get_project_errors@edt',
+          detector: 'get_project_errors', level: 'semantic', env: 'edt' };
       case 'diagnostics':
         // Операции фасада: get_project_errors и validate_for_export - проверки,
         // revalidate_objects и прочие - нет.
@@ -108,6 +209,10 @@ export function resolveCheck(toolName, toolInput, responseText) {
             detector: 'validate_for_export', level: 'semantic', env: 'edt' };
         }
         return null;
+      case 'detect_query_anti_patterns':
+        // Standalone-имя закрывает ту же проверку, что операция фасада insights.
+        return { base: 'detect_query_anti_patterns', check: 'detect_query_anti_patterns@edt',
+          detector: 'detect_query_anti_patterns', level: 'static', env: 'edt' };
       case 'insights':
         if (op === 'detect_query_anti_patterns') {
           return { base: 'detect_query_anti_patterns', check: 'detect_query_anti_patterns@edt',
@@ -120,7 +225,7 @@ export function resolveCheck(toolName, toolInput, responseText) {
   }
   if (toolName === 'Bash' || toolName === 'PowerShell') {
     const command = toolInput && typeof toolInput.command === 'string' ? toolInput.command : '';
-    if (!NABOR_SCRIPT_RE.test(command)) return null;
+    if (!runsNaborScript(command)) return null;
     const line = EVIDENCE_LINE_RE.exec(responseText || '');
     if (!line) return null;
     let data;
@@ -175,10 +280,18 @@ async function loadSeverityMaps() {
 // нее), поэтому отдельное слово ограничивается соседними не-буквами.
 const FINDING_LINE_RE = /ошиб|нарушени|находк|замечан|finding|error|проблем/i;
 const SUMMARY_NEGATION_RE = /(?:ошибок|ошибки|находок|находки|нарушений|нарушения|замечаний|замечания|проблемы|проблем)\s*(?:нет|:?\s*не\s+(?:обнаружено|найдено|выявлено))|отсутствуют\s+(?:ошибки|находки|нарушения|проблемы)|no\s+(?:errors|issues|findings)/i;
-const PASS_RE = /ошибок нет|не обнаружено|не найдено|не выявлено|находок нет|нарушений не|замечаний нет|чисто|валиден|корректен|пройден|no\s+(?:errors|issues|findings)/i;
+// Строка-сводка счетчика ("Ошибок: 2", "Errors: 2") - не находка: ее сумма не
+// прибавляется к числу строк-находок.
+const SUMMARY_COUNT_RE = /^\s*(?:ошибок|ошибки|находок|находки|нарушений|нарушения|замечаний|замечания|проблем|errors?|issues|findings)\s*[:=]?\s*\d+\s*$/i;
+// Итоговая фраза чистоты - только явная сводка с подлежащим. Голое "не найдено"
+// встречается в текстах находок ("Поле Родитель не найдено в таблице") и прохода
+// не подтверждает: без явной сводки итог - unknown с фрагментом ответа.
+const PASS_RE = /(?:ошибок|ошибки|находок|находки|нарушений|нарушения|замечаний|замечания|проблемы|проблем)\s*(?:нет|:?\s*не\s+(?:обнаружено|обнаружены|найдено|найдены|выявлено|выявлены))|отсутствуют\s+(?:ошибки|находки|нарушения|проблемы)|no\s+(?:errors|issues|findings)|(?:запрос|код|синтаксис|файл|форма|валидация|проверка|конфигурация)\s+(?:корректен|корректна|пройден|пройдена|успешна|успешно)/i;
 
 function findingLines(text) {
-  return String(text || '').split(/\r?\n/).filter((line) => FINDING_LINE_RE.test(line) && !SUMMARY_NEGATION_RE.test(line));
+  return String(text || '').split(/\r?\n/)
+    .filter((line) => FINDING_LINE_RE.test(line) && !SUMMARY_NEGATION_RE.test(line)
+      && !SUMMARY_COUNT_RE.test(line));
 }
 
 // Подсчитать вхождения кодов диагностик по картам важностей; числа Critical/Major/Minor.
@@ -280,8 +393,9 @@ export async function processPayload(payload, log = () => {}) {
   let top;
   try {
     top = await repoTop(cwd);
-  } catch (err) {
-    log(`[evidence-writer] ${err instanceof Error ? err.message : String(err)}`);
+  } catch {
+    // Причина возвращается для печати CLI-блоком; дополнительная запись в stderr
+    // из processPayload дублировала бы ее.
     return { written: null, reason: 'каталог не является git-репозиторием' };
   }
   const { diffHash, diffError } = await currentDiffHash(cwd);

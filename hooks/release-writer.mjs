@@ -73,10 +73,13 @@ export async function processPayload(payload, now = () => new Date()) {
     return { stdout: '', stderr: `[release-writer] ${err.message}` };
   }
   let diffHash = null;
+  let diffWarn = '';
   try {
     diffHash = (await computeChangeset(cwd, 'HEAD')).diffHash;
   } catch (err) {
-    process.stderr.write(`[release-writer] diffHash не вычислен: ${err.message}\n`);
+    // Предупреждение возвращается для печати CLI-блоком; запись в process.stderr
+    // из processPayload дублировала бы его.
+    diffWarn = `[release-writer] diffHash не вычислен: ${err.message}`;
   }
   const expiresAt = formatIso(new Date(now().getTime() + parsed.ttlMs));
   const event = {
@@ -94,7 +97,7 @@ export async function processPayload(payload, now = () => new Date()) {
   try {
     await writeEvent(top, session, event);
   } catch (err) {
-    return { stdout: '', stderr: `[release-writer] ${err.message}` };
+    return { stdout: '', stderr: [diffWarn, `[release-writer] ${err.message}`].filter(Boolean).join('\n') };
   }
   const what = parsed.scope === 'gate' ? 'гейт целиком' : `проверка ${parsed.check}`;
   const out = JSON.stringify({
@@ -103,7 +106,7 @@ export async function processPayload(payload, now = () => new Date()) {
       additionalContext: `снятие записано: ${what}, до ${expiresAt}. Причина: ${parsed.reason}`,
     },
   });
-  return { stdout: out, stderr: '' };
+  return { stdout: out, stderr: diffWarn };
 }
 
 async function readStdin() {

@@ -35,7 +35,10 @@
 1. Скопируйте каталог `hooks/` в проект, например в `<проект>/.claude/hooks/`, и используйте в путях
    `${CLAUDE_PROJECT_DIR}/.claude/hooks/...`. Готовый фрагмент настроек - в `hooks.json` этого каталога.
 2. Добавьте в `<проект>/.claude/settings.json` (пути ниже - для варианта с копированием; полный
-   фрагмент - в `hooks.json` этого каталога):
+   фрагмент - в `hooks.json` этого каталога). Строку матчера `evidence-writer` копируйте из
+   `hooks/hooks.json` как есть - источник выражения задан константой `MATCHER` в
+   `hooks/evidence-writer.mjs`, гард `tests/hooks/matcher-guard.test.mjs` сверяет копии,
+   поэтому здесь выражение не повторяется:
 
 ```json
 {
@@ -49,12 +52,12 @@
       { "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [{ "type": "command",
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/skill-suggester.mjs\"" }] },
-      { "matcher": "^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)|Bash|PowerShell)$",
+      { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] }
     ],
     "PostToolUseFailure": [
-      { "matcher": "^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|detect_query_anti_patterns|insights)|Bash|PowerShell)$",
+      { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] }
     ],
@@ -92,14 +95,20 @@
 
 - **evidence-writer** (`PostToolUse` / `PostToolUseFailure`): после вызова MCP-инструмента
   проверки (`validate_query`, `code_review`, `diagnostics`, `validate_for_export`,
-  `security_audit`, `ask_1c_ai`, `check_1c_code`, `syntaxcheck`, `insights` с операцией
-  `detect_query_anti_patterns`; ключ сервера любой) пишет событие `applied` с итогом
-  вызова, при отказе инструмента - `failed`. Для `Bash`/`PowerShell` пишет `applied`
-  только когда команда запускает скрипт набора (`bsl-validate`, `query-validate`,
-  `meta-validate`, `role-validate`, `form-validate` из `skills/*/scripts/`) и скрипт
-  напечатал строку результата `EVIDENCE {...}` - прочие команды событием не становятся.
-  Не разбирается итог - пишется `status: "unknown"` с фрагментом ответа; такое событие
-  валидатор не принимает. Итог не выдумывается.
+  `get_project_errors`, `security_audit`, `ask_1c_ai`, `check_1c_code`, `syntaxcheck`,
+  `detect_query_anti_patterns`, `insights` с операцией `detect_query_anti_patterns`;
+  ключ сервера любой) пишет событие `applied` с итогом вызова, при отказе инструмента -
+  `failed`. Для `Bash`/`PowerShell` пишет `applied` только когда команда запускает скрипт
+  набора (`bsl-validate`, `query-validate`, `meta-validate`, `role-validate`,
+  `form-validate` из `skills/*/scripts/`) и скрипт напечатал строку результата
+  `EVIDENCE {...}` - прочие команды событием не становятся. Запуском считается путь
+  скрипта исполняемым токеном: довод `python`/`python3 [-X utf8]`, довод `-File` у
+  `pwsh`/`powershell` либо первый токен команды (в том числе вызов `& "<путь>"`);
+  путь в комментарии или аргументе прочей команды запуском не считается. Известный
+  предел: хук подтверждает запуск по форме команды, а не по факту процесса - подмена
+  через `python -c` с кодом, печатающим строку `EVIDENCE`, или одноименный файл
+  злоумышленника формой проходят. Не разбирается итог - пишется `status: "unknown"`
+  с фрагментом ответа; такое событие валидатор не принимает. Итог не выдумывается.
 - **session-context** (`SessionStart`): сообщает модели идентификатор сессии следа
   (строка `сессия: <id>` и путь каталога событий - его передают в CLI доводом
   `--session`) и вычищает каталоги сессий старше 7 дней. Работает одинаково при старте,
