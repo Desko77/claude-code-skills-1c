@@ -29,6 +29,15 @@
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "^(Write|Edit|MultiEdit|NotebookEdit|mcp__[A-Za-z0-9._-]+__(write_module_source|edit_metadata|edit_form|config_io|[a-z_]+_workshop))$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-arm.mjs\""
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -48,6 +57,24 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-context.mjs\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-baseline.mjs\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-stop.mjs\""
           }
         ]
       }

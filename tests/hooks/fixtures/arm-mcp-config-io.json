@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__1c-edt__config_io",
+  "tool_input": {
+    "operation": "export_configuration_to_xml",
+    "inputPath": "dump/xml"
+  },
+  "tool_response": "Экспорт выполнен",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_arm_config_io"
+}
