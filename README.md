@@ -607,8 +607,10 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
   пробелы и прямой путь. Снимается прогоном проверок либо командой `/quality release`.
 - **edt-gate** - пока проект загружен в живой AI-EDT (`phase` `ready`, имя в `projects` ответа
   `/health`), отклоняет `Read`, `Grep`, `Glob`, `Bash` и `PowerShell` по исходникам этого проекта
-  и называет инструмент-замену. Окно на 15 минут открывается, если после отказа инструмента
-  `/health` не в `phase` `ready`. Снятие - `/quality release gate`.
+  и запуск клиента `1cv8` / `1cv8c` / `1cv8s` / `start-1c.ps1`, и называет инструмент-замену.
+  Окно на 15 минут открывается, если после отказа инструмента `/health` не в `phase` `ready`,
+  а после отказа `launch_debugger`, `debug_launch` или `start_client` - всегда. Снятие -
+  `/quality release gate`. Переменная `AI_EDT_GATE` со значением кроме пустого и `on` отключает ворота.
 
 Формат следа - `skills/1c-code-review/references/evidence-format.md`, валидатор -
 `tools/evidence.py`. Требуется Node.js 18+. Автоматически не подключаются: порядок ручного
