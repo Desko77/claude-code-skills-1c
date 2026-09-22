@@ -1,0 +1,23 @@
+{
+  "name": "Правило QUERY-13: Колонка таблицы значений без типа в параметре запроса",
+  "setup": "external:tests/catalog/QUERY-13",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-13"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-13] defect.bsl:2",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}
