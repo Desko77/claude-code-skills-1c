@@ -9,8 +9,7 @@ import { dirname, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { assert, assertEq, run, test } from './harness.mjs';
 import { HOOKS, REPO_ROOT, git, makeTmpRepo, readEvents, runHook, writeRepoFile } from './helpers.mjs';
-import { GATE_MATCHER } from '../../hooks/edt-gate.mjs';
-import { MATCHER } from '../../hooks/evidence-writer.mjs';
+import { FAIL_MATCHER, GATE_MATCHER } from '../../hooks/edt-gate.mjs';
 
 const PROJECT_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
@@ -79,6 +78,7 @@ async function makeGate(options = {}) {
   const stub = await startStub(() => bodyFn());
   const key = options.key || 'ai-edt';
   const env = { ...process.env, HOME: home, USERPROFILE: home };
+  delete env.AI_EDT_GATE;
 
   if (options.serverSpec) {
     await writeRepoFile(ctx.top, '.mcp.json', JSON.stringify({
@@ -117,10 +117,11 @@ async function makeGate(options = {}) {
   // и заглушка /health в этом же процессе не успевает ответить до таймаута.
   function run(payload, extra = {}) {
     const body = { session_id: 'edt-session', cwd: extra.cwd || ctx.top, ...payload };
+    const childEnv = { ...env, ...(extra.env || {}) };
     return new Promise((resolvePromise) => {
       const child = spawn(process.execPath, [join(HOOKS, 'edt-gate.mjs')], {
         cwd: body.cwd,
-        env,
+        env: childEnv,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       const out = [];
@@ -181,7 +182,10 @@ test('hooks.json: ворота первые в PreToolUse, окно с матч�
   const fail = conf.hooks.PostToolUseFailure.filter((entry) =>
     entry.hooks.some((h) => String(h.command).includes('edt-gate.mjs')));
   assertEq(fail.length, 1);
-  assertEq(fail[0].matcher, MATCHER);
+  assertEq(fail[0].matcher, FAIL_MATCHER);
+  assert(FAIL_MATCHER.includes('launch_debugger'));
+  assert(FAIL_MATCHER.includes('debug_launch'));
+  assert(FAIL_MATCHER.includes('start_client'));
 });
 
 test('Read .mdo при phase ready и проекте в списке отклоняется', async () => {
@@ -614,6 +618,276 @@ test('Read README внутри проекта пропускается', async (
   try {
     passed(await g.run(readCall(g.ctx.top, 'README.md')));
     assertEq(g.stub.hits(), 0);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+function launchCall(command, tool = 'Bash') {
+  return {
+    hook_event_name: 'PreToolUse',
+    tool_name: tool,
+    tool_input: { command },
+  };
+}
+
+function clientCommand(top) {
+  return '1cv8c.exe ENTERPRISE /F "' + top + '" /N"Admin" /P"secret"';
+}
+
+test('1cv8c.exe с /N и /P по проекту живого инстанса отклоняется и называет три выхода', async () => {
+  const g = await makeGate();
+  try {
+    const reason = reasonOf(await g.run(launchCall(clientCommand(g.ctx.top))));
+    assert(reason.includes('launch_debugger action=launch'), reason);
+    assert(reason.includes('externalObjectName'), reason);
+    assert(reason.includes('externalObjectProject'), reason);
+    assert(reason.includes('startupOption'), reason);
+    assert(reason.includes('enableExternalObjectDump=true'), reason);
+    assert(reason.includes('set_infobase_credentials'), reason);
+    assert(reason.includes('15 минут'), reason);
+    assert(reason.includes('debug_launch'), reason);
+    assert(reason.includes('start_client'), reason);
+    assert(reason.includes('/quality release gate'), reason);
+    assert(reason.includes('AI_EDT_GATE=off'), reason);
+    assert(reason.includes('Demo'), reason);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('тот же запуск 1cv8c.exe при остановленном инстансе пропускается', async () => {
+  const g = await makeGate();
+  try {
+    await g.stub.close();
+    passed(await g.run(launchCall(clientCommand(g.ctx.top))));
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('start-1c.ps1 по проекту живого инстанса отклоняется', async () => {
+  const g = await makeGate();
+  try {
+    const command = 'powershell.exe -NoProfile -File "C:\\Users\\me\\.claude\\skills\\1c-mcp-toolkit\\scripts\\start-1c.ps1"'
+      + ' -Database "' + g.ctx.top + '" -User Admin -Password secret';
+    const reason = reasonOf(await g.run(launchCall(command, 'PowerShell')));
+    assert(reason.includes('launch_debugger action=launch'), reason);
+    assert(reason.includes('AI_EDT_GATE=off'), reason);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('запуск 1С по проекту, которого нет в projects, пропускается', async () => {
+  const g = await makeGate({
+    body: () => ({ phase: 'ready', instance: 'AI-EDT @ test', projects: ['Other'] }),
+  });
+  try {
+    passed(await g.run(launchCall(clientCommand(g.ctx.top))));
+    assert(g.stub.hits() >= 1, 'health запрошен');
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('AI_EDT_GATE=off пропускает запуск и пишет диагностику', async () => {
+  const g = await makeGate();
+  try {
+    const r = await g.run(launchCall(clientCommand(g.ctx.top)), { env: { AI_EDT_GATE: 'off' } });
+    passed(r);
+    assert(r.stderr.includes('ворота отключены переменной AI_EDT_GATE'), r.stderr);
+    assertEq(g.stub.hits(), 0);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('AI_EDT_GATE=on оставляет ворота включенными', async () => {
+  const g = await makeGate();
+  try {
+    const r = await g.run(launchCall(clientCommand(g.ctx.top)), { env: { AI_EDT_GATE: 'on' } });
+    const reason = reasonOf(r);
+    assert(reason.includes('launch_debugger action=launch'), reason);
+    assert(!r.stderr.includes('отключены'), r.stderr);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('AI_EDT_GATE с прочим непустым значением отключает ворота', async () => {
+  const g = await makeGate();
+  try {
+    const r = await g.run(launchCall(clientCommand(g.ctx.top)), { env: { AI_EDT_GATE: '0' } });
+    passed(r);
+    assert(r.stderr.includes('AI_EDT_GATE'), r.stderr);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('пустая AI_EDT_GATE ворота не отключает', async () => {
+  const g = await makeGate();
+  try {
+    const reason = reasonOf(await g.run(launchCall(clientCommand(g.ctx.top)), { env: { AI_EDT_GATE: '' } }));
+    assert(reason.includes('launch_debugger'), reason);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('отказ launch_debugger при phase ready открывает окно, после until запуск снова отклоняется', async () => {
+  const g = await makeGate();
+  const session = 'launch-win';
+  try {
+    const fail = await g.run({
+      hook_event_name: 'PostToolUseFailure',
+      tool_name: 'mcp__ai-edt__launch_debugger',
+      tool_input: { action: 'launch' },
+      error: 'порт отладки уже используется',
+      session_id: session,
+    });
+    assertEq(fail.status, 0, fail.stderr);
+    const events = await readEvents(g.ctx.top, session);
+    const probe = events.find((e) => e.type === 'probe');
+    assert(probe, 'событие probe');
+    assertEq(probe.status, 'ok');
+    assertEq(probe.source, 'ai-edt');
+    const winFile = join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json');
+    const win = JSON.parse(await readFile(winFile, 'utf8'));
+    assertEq(win.server, 'ai-edt');
+    const left = Date.parse(win.until) - Date.now();
+    assert(left > 14 * 60 * 1000 && left < 16 * 60 * 1000, `until около 15 минут: ${win.until}`);
+    passed(await g.run({ ...launchCall(clientCommand(g.ctx.top)), session_id: session }));
+
+    win.until = '2000-01-01T00:00:00.000Z';
+    await writeFile(winFile, JSON.stringify(win), 'utf8');
+    const reason = reasonOf(await g.run({
+      ...launchCall(clientCommand(g.ctx.top)),
+      session_id: session,
+    }));
+    assert(reason.includes('launch_debugger action=launch'), reason);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('отказ debug_launch при phase ready открывает окно', async () => {
+  const g = await makeGate();
+  const session = 'debug-launch-win';
+  try {
+    const fail = await g.run({
+      hook_event_name: 'PostToolUseFailure',
+      tool_name: 'mcp__ai-edt__debug_launch',
+      tool_input: {},
+      error: 'нет приложения',
+      session_id: session,
+    });
+    assertEq(fail.status, 0, fail.stderr);
+    const events = await readEvents(g.ctx.top, session);
+    assertEq(events.find((e) => e.type === 'probe').status, 'ok');
+    const win = JSON.parse(await readFile(
+      join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json'), 'utf8'));
+    assertEq(win.server, 'ai-edt');
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('отказ start_client при phase ready открывает окно', async () => {
+  const g = await makeGate();
+  const session = 'start-client-win';
+  try {
+    const fail = await g.run({
+      hook_event_name: 'PostToolUseFailure',
+      tool_name: 'mcp__ai-edt__start_client',
+      tool_input: {},
+      error: 'реструктуризация',
+      session_id: session,
+    });
+    assertEq(fail.status, 0, fail.stderr);
+    const events = await readEvents(g.ctx.top, session);
+    assertEq(events.find((e) => e.type === 'probe').status, 'ok');
+    const win = JSON.parse(await readFile(
+      join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json'), 'utf8'));
+    assertEq(win.server, 'ai-edt');
+    passed(await g.run({ ...launchCall(clientCommand(g.ctx.top)), session_id: session }));
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('действующее release gate пропускает запуск клиента', async () => {
+  const g = await makeGate();
+  const session = 'rel-launch';
+  try {
+    reasonOf(await g.run({ ...launchCall(clientCommand(g.ctx.top)), session_id: session }));
+    const rel = runHook('release-writer.mjs', {
+      hook_event_name: 'UserPromptSubmit',
+      prompt: '/quality release gate запуск вручную --for 1h',
+      session_id: session,
+      cwd: g.ctx.top,
+    }, { cwd: g.ctx.top });
+    assertEq(rel.status, 0, rel.stderr);
+    passed(await g.run({ ...launchCall(clientCommand(g.ctx.top)), session_id: session }));
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('битый .mcp.json на запуске клиента: пропуск и диагностика', async () => {
+  const g = await makeGate({ noEnable: true });
+  try {
+    await writeRepoFile(g.ctx.top, '.mcp.json', '{ this is not json');
+    const r = await g.run(launchCall(clientCommand(g.ctx.top)));
+    passed(r);
+    assert(r.stderr.includes('[edt-gate]'), r.stderr);
+    assert(r.stderr.includes('.mcp.json'), r.stderr);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('запуск без пути базы из каталога EDT-проекта отклоняется', async () => {
+  const g = await makeGate();
+  try {
+    const reason = reasonOf(await g.run(launchCall('1cv8c.exe /N Admin /P secret')));
+    assert(reason.includes('launch_debugger action=launch'), reason);
+    assert(reason.includes(g.ctx.top), reason);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('запуск с /F вне EDT-проекта пропускается, даже если cwd внутри проекта', async () => {
+  const g = await makeGate();
+  const outside = await mkdtemp(join(tmpdir(), 'edt-gate-base-'));
+  try {
+    passed(await g.run(launchCall('1cv8c.exe /F "' + outside + '" /N Admin /P secret')));
+    assertEq(g.stub.hits(), 0);
+  } finally {
+    await rm(outside, { recursive: true, force: true });
+    await g.cleanup();
+  }
+});
+
+test('1cv8c без расширения .exe отклоняется', async () => {
+  const g = await makeGate();
+  try {
+    const reason = reasonOf(await g.run(launchCall('1cv8c ENTERPRISE /F "' + g.ctx.top + '" /N u /P p')));
+    assert(reason.includes('launch_debugger'), reason);
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('1cv8.exe и 1cv8s.exe по проекту живого инстанса отклоняются', async () => {
+  const g = await makeGate();
+  try {
+    const thick = reasonOf(await g.run(launchCall('1cv8.exe ENTERPRISE /F "' + g.ctx.top + '" /N u /P p')));
+    assert(thick.includes('launch_debugger action=launch'), thick);
+    const server = reasonOf(await g.run(launchCall('"C:\\Program Files\\1cv8\\8.3.27.1508\\bin\\1cv8s.exe" /F "' + g.ctx.top + '"')));
+    assert(server.includes('set_infobase_credentials'), server);
   } finally {
     await g.cleanup();
   }
