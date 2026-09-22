@@ -155,16 +155,18 @@ class InstallHomeTests(unittest.TestCase):
         for src in common_files:
             self.assertEqual((base / "common" / src.name).read_bytes(), src.read_bytes())
 
-    def test_tools_component_installs_only_installer(self):
-        """Компонент tools с include: ставится только install_home.py, ничего больше из tools/."""
+    def test_tools_component_installs_only_listed(self):
+        """Компонент tools с include: ставятся только инструменты контура качества и установщик."""
+        expected = ["change_profile.py", "changeset.py", "evidence.py", "install_home.py",
+                    "quality_events.py"]
         result = self.install("--components", "tools")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         base = self.home / "tools" / "1c-skills"
-        installed = [p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_file()]
-        self.assertEqual(installed, ["install_home.py"])
+        installed = sorted(p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_file())
+        self.assertEqual(installed, expected)
         self.assertEqual((base / "install_home.py").read_bytes(), INSTALLER.read_bytes())
         manifest = json.loads(self.manifest_bytes())
-        self.assertEqual(list(manifest["files"]), ["tools/1c-skills/install_home.py"])
+        self.assertEqual(sorted(manifest["files"]), ["tools/1c-skills/" + name for name in expected])
 
     def test_three_components_together(self):
         """--components agents,hooks,tools: файлы всех трех компонентов на месте."""
