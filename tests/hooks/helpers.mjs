@@ -46,11 +46,13 @@ export async function writeRepoFile(repo, rel, text) {
 }
 
 // Запустить хук с payload на stdin; возвращает { status, stdout, stderr }.
+// opts.env дополняет окружение процесса (например подмена PYTHON для недоступного валидатора).
 export function runHook(hookFile, payload, opts = {}) {
   return spawnSync(process.execPath, [join(HOOKS, hookFile)], {
     input: JSON.stringify(payload),
     encoding: 'utf8',
     cwd: opts.cwd || REPO_ROOT,
+    env: opts.env ? { ...process.env, ...opts.env } : process.env,
   });
 }
 

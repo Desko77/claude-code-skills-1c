@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__ai-edt-3_1_38_92__edit_metadata",
+  "tool_input": {
+    "operation": "add_object_attribute",
+    "fqn": "Catalog.Контрагенты.Attribute.Комментарий"
+  },
+  "tool_response": "Атрибут добавлен",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_arm_mcp_metadata"
+}
