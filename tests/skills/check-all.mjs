@@ -24,6 +24,7 @@ const GUARDS = [
   ['check-tools.mjs', 'инструменты tools/: unit-тесты установщика проходят'],
   ['check-catalog.mjs', 'каталог дефектов: карточки, реестр идентификаторов, фикстуры, генерация'],
   ['check-lint-catalog.mjs', 'реестр lint-правил: пара фикстур на правило, паритет портов bsl-validate'],
+  ['check-hooks.mjs', 'хуки следа проверок: applied/failed/release, сквозная совместимость с evidence.py'],
 ];
 
 let failed = 0;

@@ -16,6 +16,9 @@ test-tmp/
 
 # Local settings
 .claude/settings.local.json
+
+# След проверок контура качества (события сессий, локальные)
+.claude/.state/
 .v8-project.json
 .mcp.json
 

@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "/quality release gate горячий фикс на проде, проверки прогоню после --for 2h",
+  "session_id": "FIXTURE-SESSION"
+}

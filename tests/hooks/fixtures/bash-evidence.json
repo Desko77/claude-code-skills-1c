@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "python skills/1c-bsl-validate/scripts/bsl-validate.py --path proj/src/CommonModules/Обмен/Module.bsl"
+  },
+  "tool_response": "Проверка CLIENT-04: найдено\nEVIDENCE {\"check\":\"bsl_validate@configurator\",\"ids\":[\"CLIENT-04\"],\"inputHash\":\"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2\",\"status\":\"findings\"}\nПроверено строк: 42",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_bash_evidence"
+}
