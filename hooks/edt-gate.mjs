@@ -1,8 +1,12 @@
 // edt-gate.mjs - ворота MCP-first.
 // PreToolUse: Read, Grep, Glob, Bash, PowerShell по исходникам EDT-проекта
-// отклоняются, когда проект загружен в живой AI-EDT (phase ready, имя в projects).
+// и запуск клиента 1С (1cv8, 1cv8c, 1cv8s, start-1c.ps1) отклоняются, когда проект
+// загружен в живой AI-EDT (phase ready, имя в projects).
 // PostToolUseFailure: окно-исключение на 15 минут, если /health сервера из имени
 // инструмента не отвечает, отказал в авторизации или phase не ready.
+// Отказ launch_debugger, debug_launch или start_client открывает окно всегда:
+// probe пишется по факту /health, операционный отказ хук не разбирает.
+// AI_EDT_GATE с любым значением кроме пустого и on отключает ворота целиком.
 // Внутренняя ошибка - выход 0, диагностика в stderr, вызов не блокируется.
 //
 // stdin: JSON PreToolUse или PostToolUseFailure
@@ -16,6 +20,20 @@ import { eventsDir, formatIso, listEventFiles, nowIso, repoTop, writeEvent } fro
 
 // Заякоренный матчер PreToolUse. Строка в hooks/hooks.json сверяется тестом.
 export const GATE_MATCHER = '^(Read|Grep|Glob|Bash|PowerShell)$';
+
+// PostToolUseFailure ворот: инструменты проверки (как у evidence-writer) и запуск клиента.
+// Строка в hooks/hooks.json сверяется тестом с этой константой.
+export const FAIL_MATCHER =
+  '^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|' +
+  'get_project_errors|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|' +
+  'detect_query_anti_patterns|insights|launch_debugger|debug_launch|start_client)' +
+  '|Bash|PowerShell)$';
+
+const LAUNCH_EXES = new Set(['1cv8', '1cv8c', '1cv8s']);
+const LAUNCH_FAIL_TOOLS = new Set(['launch_debugger', 'debug_launch', 'start_client']);
+// Ключи пути файловой базы или проекта в команде запуска. /S сюда не входит:
+// это ссылка серверной базы, а не каталог на диске.
+const BASE_SWITCHES = ['/F', '-InfoBasePath', '-Database'];
 
 const SOURCE_EXTS = ['.bsl', '.os', '.mdo', '.form', '.dcs', '.mxlx', '.cmi', '.rights', '.xdto'];
 const UTILITIES = new Set([
@@ -140,6 +158,121 @@ function denyReason({ file, serverKey, replacement, shell }) {
   return 'Ворота MCP-first: ' + file + '. Сервер ' + serverKey + '. Замена: ' + replacement + '.'
     + shellNote + ' Раздел "Сначала индекс" (rules/mcp-tool-priority.md).'
     + ' Снятие: /quality release gate <причина>.';
+}
+
+function denyLaunchReason({ file, serverKey, projectName }) {
+  return 'Ворота MCP-first: запуск клиента 1С для EDT-проекта ' + projectName
+    + ' (' + file + '). Сервер ' + serverKey + '.'
+    + ' Замена: launch_debugger action=launch.'
+    + ' Внешняя обработка: externalObjectName, при необходимости externalObjectProject;'
+    + ' параметры: startupOption;'
+    + ' пустой клиент проекта внешних объектов: enableExternalObjectDump=true.'
+    + ' Реквизиты: infobase_admin operation=set_infobase_credentials.'
+    + ' Выходы: отказ launch_debugger, debug_launch или start_client открывает окно на 15 минут;'
+    + ' снятие: /quality release gate <причина>;'
+    + ' переменная AI_EDT_GATE=off отключает ворота.'
+    + ' Раздел "Сначала индекс" (rules/mcp-tool-priority.md).';
+}
+
+// Любое значение кроме пустого и on гасит ворота. Регистр значения значим: on оставляет их.
+export function gateDisabled() {
+  const value = process.env.AI_EDT_GATE;
+  if (value == null || value === '' || value === 'on') return false;
+  return true;
+}
+
+function isLaunchExe(token) {
+  let name = baseName(token).toLowerCase();
+  if (name.endsWith('.exe')) name = name.slice(0, -4);
+  return LAUNCH_EXES.has(name);
+}
+
+function isStart1c(token) {
+  return baseName(token).toLowerCase() === 'start-1c.ps1';
+}
+
+// Токен запуска: имя исполняемого файла либо тот же текст внутри одного кавычечного блока
+// (cmd /c "1cv8c.exe /F ...").
+function tokenIsLaunch(token) {
+  if (isLaunchExe(token) || isStart1c(token)) return true;
+  const parts = String(token).split(/\s+/);
+  if (parts.length < 2) return false;
+  return parts.some((part) => isLaunchExe(part) || isStart1c(part));
+}
+
+export function isLaunchCommand(command) {
+  return commandTokens(command).some(tokenIsLaunch);
+}
+
+function readSwitchValue(text, i) {
+  while (i < text.length && /\s/.test(text[i])) i++;
+  if (i >= text.length) return null;
+  if (text[i] === '=') return readSwitchValue(text, i + 1);
+  const quote = text[i];
+  if (quote === '"' || quote === "'") {
+    const end = text.indexOf(quote, i + 1);
+    if (end < 0) return null;
+    return { value: text.slice(i + 1, end), next: end + 1 };
+  }
+  const m = /^[^\s;&|()]+/.exec(text.slice(i));
+  if (!m) return null;
+  return { value: m[0], next: i + m[0].length };
+}
+
+function gluedFilePath(text) {
+  if (/^[A-Za-z]:/.test(text) || /^\\\\/.test(text) || /^\.{1,2}[\\/]/.test(text) || /^[\\/]/.test(text)) {
+    const m = /^[^\s;&|()]+/.exec(text);
+    return m ? m[0] : '';
+  }
+  return '';
+}
+
+// Пути файловой базы и проекта: /F, -InfoBasePath, -Database. Пустая строка отбрасывается.
+export function collectBasePaths(command) {
+  const text = String(command || '');
+  const lower = text.toLowerCase();
+  const out = [];
+  for (const name of BASE_SWITCHES) {
+    const needle = name.toLowerCase();
+    let from = 0;
+    while (from < lower.length) {
+      const at = lower.indexOf(needle, from);
+      if (at < 0) break;
+      const prev = at === 0 ? '' : text[at - 1];
+      if (at > 0 && !/[\s;&|(]/.test(prev)) {
+        from = at + 1;
+        continue;
+      }
+      const after = at + needle.length;
+      const nextCh = text[after] || '';
+      if (nextCh && !/[\s=;"']/.test(nextCh)) {
+        if (name === '/F') {
+          const glued = gluedFilePath(text.slice(after));
+          if (glued) {
+            out.push(glued);
+            from = after + glued.length;
+            continue;
+          }
+        }
+        from = after;
+        continue;
+      }
+      const got = readSwitchValue(text, after);
+      if (got && got.value) out.push(got.value);
+      from = got ? got.next : after + 1;
+    }
+  }
+  return out;
+}
+
+// Цели запуска. Пустой список - команда не запускает клиент.
+// Путь базы или проекта назван - только он, даже если это не EDT.
+// Путь не назван - cwd: проект берется, когда каталог лежит под EDT-проектом.
+function launchFiles(command, cwd) {
+  if (!isLaunchCommand(command)) return [];
+  const paths = collectBasePaths(command);
+  if (paths.length) return paths.map((p) => absPath(p, cwd));
+  return [cwd];
 }
 
 function absPath(p, cwd) {
@@ -488,9 +621,13 @@ function targetsOf(payload, cwd) {
   }
   if (tool === 'Bash' || tool === 'PowerShell') {
     const command = typeof input.command === 'string' ? input.command : '';
-    return shellTargets(command).map((token) => ({
-      tool, file: absPath(token, cwd), shell: true,
+    const launches = launchFiles(command, cwd).map((file) => ({
+      tool, file, shell: false, launch: true,
     }));
+    const reads = shellTargets(command).map((token) => ({
+      tool, file: absPath(token, cwd), shell: true, launch: false,
+    }));
+    return [...launches, ...reads];
   }
   return [];
 }
@@ -523,6 +660,13 @@ export async function processGate(payload) {
     for (const row of rows) {
       const health = classifyHealth(row.result);
       if (health.kind === 'ready' && health.projects.includes(hit.project.name)) {
+        if (hit.launch) {
+          return deny(denyLaunchReason({
+            file: hit.file,
+            serverKey: row.server.key,
+            projectName: hit.project.name,
+          }));
+        }
         return deny(denyReason({
           file: hit.file,
           serverKey: row.server.key,
@@ -559,18 +703,48 @@ async function openWindow(top, session, serverKey) {
   await writeFile(file, JSON.stringify(body), 'utf8');
 }
 
+function isLaunchFailure(toolSuffix) {
+  return LAUNCH_FAIL_TOOLS.has(String(toolSuffix || '').toLowerCase());
+}
+
+// status probe по факту /health: ready -> ok, остальное -> down.
+function probeOf(health) {
+  if (health && health.kind === 'ready') return { status: 'ok', detail: health.detail || 'phase=ready' };
+  if (health && health.kind === 'foreign') return { status: 'down', detail: 'не AI-EDT' };
+  return { status: 'down', detail: (health && health.detail) || 'нет ответа' };
+}
+
 export async function processFailure(payload) {
   const toolName = String(payload.tool_name || '');
   if (toolName.startsWith('mcp__plugin_')) return allow();
   const parsed = MCP_TOOL_RE.exec(toolName);
   if (!parsed) return allow();
   const key = parsed[1];
+  const launchFail = isLaunchFailure(parsed[2]);
   const session = typeof payload.session_id === 'string' ? payload.session_id : '';
   if (!session) return allow('[edt-gate] payload без session_id');
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
   const server = await findServerByKey(cwd, key);
-  if (!server) return allow(`[edt-gate] сервер ${key} не найден`);
   const top = await stateTop(cwd);
+  // Операционный отказ запуска (порт, модальное окно, нет приложения) хук не судит:
+  // окно открывается всегда, probe остается по факту /health.
+  if (launchFail) {
+    let health = { kind: 'down', detail: server ? 'нет ответа' : 'сервер не найден', projects: [] };
+    if (server) {
+      const rows = await loadHealth([server], top, true);
+      health = classifyHealth(rows[0] ? rows[0].result : null);
+    }
+    const probe = probeOf(health);
+    const notes = [];
+    try {
+      await writeProbe(top, session, cwd, probe.status, probe.detail);
+    } catch (err) {
+      notes.push(`[edt-gate] probe: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    await openWindow(top, session, key);
+    return allow(notes.join('\n'));
+  }
+  if (!server) return allow(`[edt-gate] сервер ${key} не найден`);
   const rows = await loadHealth([server], top, true);
   const health = classifyHealth(rows[0] ? rows[0].result : null);
   if (health.kind === 'foreign') return allow();
@@ -595,6 +769,7 @@ export async function processFailure(payload) {
 export async function processPayload(payload) {
   try {
     if (!payload || typeof payload !== 'object') return allow();
+    if (gateDisabled()) return allow('[edt-gate] ворота отключены переменной AI_EDT_GATE');
     if (payload.hook_event_name === 'PostToolUseFailure') return await processFailure(payload);
     return await processGate(payload);
   } catch (err) {
