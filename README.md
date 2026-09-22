@@ -400,7 +400,7 @@ BSL Language Server в Claude Code по протоколу LSP: диагност
 <tr><td><code>1c-mcp-toolkit</code></td><td>Прямой HTTP API к живой запущенной базе 1С (запросы, BSL-код, метаданные, журнал)</td></tr>
 <tr><td><code>1c-platform-docs</code></td><td>Поиск по документации API платформы</td></tr>
 <tr><td><code>1c-query-validate</code></td><td>Проверка текста запроса по выгрузке: существуют ли таблицы, табличные части, виртуальные таблицы регистров и поля</td></tr>
-<tr><td><code>1c-bsl-validate</code></td><td>Проверка вызовов общих модулей в BSL по выгрузке: существует ли модуль и экспортный ли метод</td></tr>
+<tr><td><code>1c-bsl-validate</code></td><td>Проверка вызовов общих модулей в BSL по выгрузке: существует ли модуль и экспортный ли метод; режим <code>-Catalog</code> - текстовый lint модулей по каталогу дефектов (реестр правил, строка EVIDENCE)</td></tr>
 <tr><td><code>1c-code-review</code></td><td>Ревью BSL по каталогу дефектов: карточки с триггером, законной формой и важностью (Critical/Major/Minor), генерируемый индекс, матрица детекторов по средам (references/detectors.md), гейтовый конфиг bsl-language-server (assets/bsl-ls-gate.json), отчет с идентификаторами находок и ключом локации</td></tr>
 <tr><td><code>1c-query-optimization</code></td><td>Продвинутая оптимизация запросов</td></tr>
 <tr><td><code>zup-hr-api-reference</code></td><td>Справочник API 1С:ЗУП 3.1: кадровый учет (физлица, стажи, договоры ГПХ, представления СКД) и расчет (средний заработок, начисления, пособия/СФР, взносы, отчетность)</td></tr>
