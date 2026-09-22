@@ -4,6 +4,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile, utimes } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -15,7 +16,9 @@ export const PY = process.env.PYTHON || (process.platform === 'win32' ? 'python'
 
 // Временный каталог с git-репозиторием внутри: { top, cleanup }.
 export async function makeTmpRepo() {
-  const base = await mkdtemp(join(tmpdir(), 'quality-hooks-'));
+  // Канонический путь: на раннерах Windows временный каталог приходит в короткой форме 8.3
+  // (RUNNER~1), а хуки отдают длинную форму через git - сравнение путей в тестах иначе расходится.
+  const base = realpathSync.native(await mkdtemp(join(tmpdir(), 'quality-hooks-')));
   const top = join(base, 'repo');
   await mkdir(top, { recursive: true });
   await git(top, 'init', '-q');
