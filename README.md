@@ -471,7 +471,7 @@ BSL Language Server в Claude Code по протоколу LSP: диагност
 | `integrations.md` | Python-first подход к HTTP-интеграциям 1С |
 | `1c-skd-two-pass-preprocessing.md` | Двухпроходный СКД: предобработка деталей до свертки |
 
-## Команды (5)
+## Команды (6)
 
 | Файл | Описание |
 |------|----------|
@@ -480,6 +480,7 @@ BSL Language Server в Claude Code по протоколу LSP: диагност
 | `docx-to-md.md` | Конвертация DOCX в Markdown |
 | `move-project.md` | Перенос проекта Claude Code с сохранением памяти, сессий и планов |
 | `browser-debug.md` | Запуск браузера с CDP-отладкой для веб-приложений |
+| `quality.md` | Снятие гейта качества или отдельной проверки с записью в след проверок |
 
 ## Агенты (1)
 
