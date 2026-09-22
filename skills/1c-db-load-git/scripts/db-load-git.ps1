@@ -305,16 +305,25 @@ function Invoke-GitLines {
     $psi.WorkingDirectory = (Get-Location).Path
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
     $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+    $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
     $psi.CreateNoWindow = $true
     try {
         $proc = [System.Diagnostics.Process]::Start($psi)
     } catch {
+        Write-Host "git not started: $($_.Exception.Message)"
         return @()
     }
+    # stderr читается до WaitForExit, иначе процесс с полным буфером stderr не завершится.
+    $errTask = $proc.StandardError.ReadToEndAsync()
     $out = $proc.StandardOutput.ReadToEnd()
     $proc.WaitForExit()
-    if ($proc.ExitCode -ne 0) { return @() }
+    if ($proc.ExitCode -ne 0) {
+        # Отказ git называется вслух: молчаливый пустой список выглядел бы как "изменений нет".
+        Write-Host "git $($GitArgs -join ' ') failed (exit $($proc.ExitCode)): $($errTask.Result.Trim())"
+        return @()
+    }
     return @($out -split "`r?`n" | Where-Object { $_ -ne '' })
 }
 

@@ -174,6 +174,8 @@ def run_git(config_dir, git_args):
     )
     if result.returncode == 0:
         return [line for line in result.stdout.splitlines() if line.strip()]
+    # Отказ git называется вслух: молчаливый пустой список выглядел бы как "изменений нет".
+    print(f"git {' '.join(git_args)} failed (exit {result.returncode}): {result.stderr.strip()}")
     return []
 
 
