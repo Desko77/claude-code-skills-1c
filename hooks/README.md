@@ -1,11 +1,11 @@
-# Хуки: защита конфигураций на поддержке + подсказка навыков + след проверок
+# Хуки: защита конфигураций на поддержке + подсказка навыков + след проверок + ворота MCP-first
 
 > ⚠️ **Экспериментально, по умолчанию выключено.** Эти хуки **не подключаются автоматически** даже при
 > установке плагина - их нужно включить вручную (см. "Установка" ниже). Базовая защита поддержки уже работает
 > без хуков - встроена в сами навыки-мутаторы; хуки лишь добавляют перехват правок **в обход навыков** и
 > подсказки. Фича новая, обкатывается; отзывы приветствуются.
 
-Пять хуков Claude Code для работы с типовыми конфигурациями 1С:
+Шесть хуков Claude Code для работы с типовыми конфигурациями 1С:
 
 - **Защита от правки "на замке"** (`support-guard.mjs`). Если модель пытается напрямую (инструментами
   `Edit`/`Write`) изменить объект типовой конфигурации, который стоит на поддержке поставщика,
@@ -19,6 +19,7 @@
 - **След проверок** (`evidence-writer.mjs`, `session-context.mjs`, `release-writer.mjs`) - см. раздел ниже.
 - **Гейт завершения хода** (`quality-baseline.mjs`, `quality-arm.mjs`, `quality-stop.mjs`) - см. раздел ниже.
   Гейт без хука отметки не работает: `quality-baseline.mjs` регистрируется вместе с `quality-stop.mjs`.
+- **Ворота MCP-first** (`edt-gate.mjs`) - см. раздел "Ворота MCP-first". Пока проект загружен в живой AI-EDT, `Read`, `Grep`, `Glob`, `Bash` и `PowerShell` по исходникам этого проекта отклоняются с именем инструмента-замены.
 
 Это дополнительный слой поверх проверок, которые уже встроены в сами навыки: навыки-мутаторы и так не дадут
 испортить объект на поддержке. Хуки добавляют защиту для случаев, когда правят файлы **в обход навыков**.
@@ -46,6 +47,9 @@
 {
   "hooks": {
     "PreToolUse": [
+      { "matcher": "^(Read|Grep|Glob|Bash|PowerShell)$",
+        "hooks": [{ "type": "command",
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/edt-gate.mjs\"" }] },
       { "matcher": "Edit|Write|MultiEdit",
         "hooks": [{ "type": "command",
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/support-guard.mjs\"" }] }
@@ -64,7 +68,10 @@
     "PostToolUseFailure": [
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
-          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] }
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] },
+      { "matcher": "<та же строка matcher, что у evidence-writer.mjs>",
+        "hooks": [{ "type": "command",
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/edt-gate.mjs\"" }] }
     ],
     "Stop": [
       { "hooks": [{ "type": "command",
@@ -173,6 +180,62 @@
 `cross_review@any`, когда команда запускает `codex-code-review.sh` либо `cursor-run.ps1`
 исполняемым токеном и в выводе есть маркер вердикта. Скрипты ревью в набор не входят - они
 живут в личном контуре, хук опознает их по имени файла.
+
+## Ворота MCP-first
+
+`hooks/edt-gate.mjs`, событие `PreToolUse`. Матчер - `Read`, `Grep`, `Glob`, `Bash`,
+`PowerShell`; строка задана в `hooks/hooks.json` и стоит первой в списке `PreToolUse`.
+
+Отказ (`permissionDecision: deny`), когда цель лежит в EDT-проекте и этот проект загружен
+в живой AI-EDT. EDT-проект: вверх от файла или каталога есть `.project`, в тексте которого
+есть `com._1c.g5.v8.dt`; имя проекта - первое `<name>`. Живой AI-EDT: среди включенных
+серверов есть HTTP-сервер, ответ `GET <url без суффикса /mcp>/health` имеет `phase`
+`ready`, поле `instance` начинается с `AI-EDT @`, и имя проекта входит в `projects`.
+Таймаут запроса - 1 секунда. Ответ кэшируется 60 секунд в
+`.claude/.state/quality/edt-health.json`, ключ кэша - URL `/health`.
+
+Серверы читаются из трех мест: `.mcp.json` (от `cwd` вверх до корня диска), `mcpServers`
+в `~/.claude.json`, `projects[<cwd>].mcpServers` в `~/.claude.json`. Сервер из `.mcp.json`
+включен, если задан `enableAllProjectMcpServers` или его ключ есть в
+`enabledMcpjsonServers`, и этого ключа нет в `disabledMcpjsonServers`. Флаги берутся из
+`.claude/settings.local.json`, `.claude/settings.json` и записи `projects[<cwd>]`.
+Учитывается только `type` `http`. Ключи плагинов (`plugin_...`) и инструменты
+`mcp__plugin_*` не рассматриваются.
+
+Цель: у `Read` это `file_path` с расширением `.bsl`, `.os`, `.mdo`, `.form`, `.dcs`,
+`.mxlx`, `.cmi`, `.rights` или `.xdto`. У `Grep` и `Glob` это `path`, а если `path` нет -
+`cwd`; каталог внутри EDT-проекта достаточен. У `Bash` и `PowerShell` отказ только когда
+в тексте команды есть утилита `cat`, `head`, `tail`, `sed`, `grep`, `rg`, `find`, `awk`,
+`python`, `Get-Content`, `Select-String` или `type` и рядом путь с таким расширением или
+сегмент каталога `src`.
+
+В причине отказа: путь, ключ сервера, инструмент-замена, раздел "Сначала индекс" правила
+`rules/mcp-tool-priority.md` и команда `/quality release gate`. Замена по виду цели:
+`.mdo` - `get_metadata_details`; `.bsl` и `.os` - `get_module_structure` и
+`read_method_source`; `.form` - `get_form_structure`; `.dcs` - `dcs_workshop`; `Grep`,
+`Glob` и остальные расширения - `code_search operation=text_search`. Для `Bash` и
+`PowerShell` в причине есть фраза "Перебор исходников при живой EDT".
+
+Вызов пропускается (выход 0, пустой stdout): цель не в EDT-проекте; имя проекта не входит
+в `projects` ни одного живого AI-EDT; открыто окно-исключение; в следе сессии есть
+действующее `release` с `scope` `gate` (тот же `diffHash`, `expiresAt` еще не наступил);
+внутренняя ошибка хука. Текст внутренней ошибки пишется в stderr.
+
+Окно-исключение открывает тот же `edt-gate.mjs` на `PostToolUseFailure`. Матчер совпадает
+с матчером `evidence-writer` (строка в `hooks/hooks.json`). Ключ сервера берется из имени
+инструмента `mcp__<ключ>__<имя>`, затем хук запрашивает `/health`. Нет ответа, статус 401
+или 403, либо `phase` не `ready` - в след пишется `probe` со `status` `down` и `source`
+`ai-edt`, и создается `.claude/.state/quality/<session>/edt-window.json` с полями `until`
+(15 минут от записи) и `server`. Ошибка операции при `phase` `ready` пишет `probe` со
+`status` `ok` и файл окна не создает. Каждый подтвержденный отказ `/health` заново
+записывает `until`. Автоматического ослабления после серии отказов нет.
+
+Снять ворота, не дожидаясь `until` и при живом сервере, может только команда человека
+`/quality release gate <причина> [--for 30m|2h|1d]` (хук `release-writer`).
+
+Известные пределы. `PreToolUse` не видит файлы, подключенные через `@` в промпте
+пользователя. Для `Bash` и `PowerShell` хук смотрит текст команды, а не запущенный
+процесс: обход через переменные shell, `cd` и дочерние процессы возможен.
 
 ## Что делать при отказе защиты
 

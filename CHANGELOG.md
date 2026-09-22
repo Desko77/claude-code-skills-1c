@@ -120,6 +120,19 @@
   снятия) и сквозной тест с `python tools/change_profile.py`, `tools/evidence.py add`
   и `evidence.py check --strict` (события хука закрывают обязательные проверки,
   вердикт clean). Гард `tests/skills/check-hooks.mjs` зарегистрирован в `check-all.mjs`.
+- `hooks/edt-gate.mjs` (`PreToolUse`, матчер `Read|Grep|Glob|Bash|PowerShell`, первый в списке):
+  отклоняет чтение исходников EDT-проекта, когда AI-EDT в `phase` `ready` и имя проекта есть в
+  `projects` ответа `/health` (`instance` начинается с `AI-EDT @`). Причина называет путь, ключ
+  сервера, инструмент-замену и команду `/quality release gate`. Для `Bash` и `PowerShell` отказ
+  только если в команде есть утилита чтения и путь исходника или сегмент `src`. Ответ `/health`
+  кэшируется 60 секунд. Внутренняя ошибка не блокирует вызов.
+- Окно-исключение на `PostToolUseFailure` (матчер `evidence-writer`): нет ответа `/health`,
+  отказ авторизации или `phase` не `ready` - событие `probe` со `status` `down` и файл
+  `.claude/.state/quality/<session>/edt-window.json` на 15 минут (`until`, `server`). Ошибка
+  операции при `phase` `ready` пишет `probe` со `status` `ok`, окно не открывается. Снятие -
+  `/quality release gate`.
+- Тесты `tests/hooks/edt-gate.test.mjs`: временный EDT-проект, подмена `HOME`/`USERPROFILE`,
+  заглушка `/health`.
 
 ### Агенты
 
