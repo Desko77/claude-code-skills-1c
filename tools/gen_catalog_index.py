@@ -6,7 +6,9 @@
 обязательные поля и пишет:
 
 - catalog/INDEX.md - таблица идентификатор, важность, группа, архетипы, детекторы, триггер;
-- skills/1c-code-review/references/detectors.md - сводная матрица детекторов и строка покрытия;
+- skills/1c-code-review/references/detectors.md - сводная матрица детекторов и строка покрытия
+  (детекторы bsl_validate вне реестра реализованных правил
+  skills/1c-bsl-validate/scripts/catalog-rules.json помечаются planned, в покрытие не входят);
 - секции между маркерами catalog:begin / catalog:end в rules/anti_patterns.md (таблица
   триггеров с колонкой псевдонима) и rules/code-review-checklist.md (таблица по группам).
 
@@ -25,6 +27,7 @@
 """
 import argparse
 import io
+import json
 import re
 import sys
 from pathlib import Path
@@ -33,6 +36,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "skills" / "1c-code-review" / "references" / "catalog"
 INDEX = CATALOG / "INDEX.md"
 DETECTORS_MD = ROOT / "skills" / "1c-code-review" / "references" / "detectors.md"
+LINT_REGISTRY = ROOT / "skills" / "1c-bsl-validate" / "scripts" / "catalog-rules.json"
 RULE_TARGETS = {
     ROOT / "rules" / "anti_patterns.md": "anti",
     ROOT / "rules" / "code-review-checklist.md": "checklist",
@@ -235,6 +239,46 @@ def load_cards():
     return sorted(cards, key=lambda c: c["id"])
 
 
+def load_lint_registry(cards):
+    """Реестр реализованных правил lint скила 1c-bsl-validate.
+
+    Файл skills/1c-bsl-validate/scripts/catalog-rules.json - массив идентификаторов
+    карточек. Идентификатор обязан называть карточку с детектором bsl_validate:<ИД>:
+    запись без карточки или без детектора - ошибка каталога. Детектор bsl_validate:<ИД>
+    детерминирован только при наличии <ИД> в реестре; вне реестра в сводной матрице
+    он помечается planned и в покрытие не входит.
+    """
+    if not LINT_REGISTRY.exists():
+        raise CardError("нет реестра lint-правил: %s" % LINT_REGISTRY.relative_to(ROOT))
+    try:
+        rules = json.loads(LINT_REGISTRY.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise CardError("реестр lint-правил не разбирается как JSON: %s" % exc)
+    if not isinstance(rules, list) or any(not isinstance(r, str) for r in rules):
+        raise CardError("реестр lint-правил - не массив строк")
+    if len(set(rules)) != len(rules):
+        raise CardError("реестр lint-правил: повтор идентификатора")
+    lint_ids = {c["id"] for c in cards
+                if any(d.startswith("bsl_validate:") for _e, d, _l in c["detectors"])}
+    unknown = [r for r in rules if r not in lint_ids]
+    if unknown:
+        raise CardError("реестр lint-правил: %s без карточки с детектором bsl_validate" % unknown)
+    return set(rules), lint_ids
+
+
+def is_deterministic(detector, level, lint_registry):
+    """Детерминирован ли детектор: уровень из словаря, lint-правило - только из реестра.
+
+    lint_registry=None снимает ограничение реестра: все bsl_validate считаются
+    детерминированными (подсчет "с учетом планируемых lint-правил").
+    """
+    if level not in DETERMINISTIC_LEVELS:
+        return False
+    if detector.startswith("bsl_validate:"):
+        return lint_registry is None or detector.partition(":")[2] in lint_registry
+    return True
+
+
 def short_detectors(card):
     """Краткая форма колонки INDEX: детекторы по средам через запятую."""
     parts = []
@@ -244,17 +288,24 @@ def short_detectors(card):
     return "; ".join(parts)
 
 
-def coverage(cards):
-    """Покрытие детерминированными детекторами: (critical_ok, critical_total, det_total)."""
-    def deterministic_in(card, env=None):
-        return any(lvl in DETERMINISTIC_LEVELS and (env is None or e == env)
-                   for e, _d, lvl in card["detectors"])
+def coverage(cards, lint_registry):
+    """Покрытие детерминированными детекторами.
+
+    Возвращает (critical_ok, critical, det_now, det_planned). det_now - карточки
+    с детерминированным детектором сейчас: lint-правило учитывается только из реестра
+    реализованных. det_planned - то же с учетом всех bsl_validate как планируемых
+    lint-правил.
+    """
+    def deterministic_in(card, env=None, registry=frozenset()):
+        return any(is_deterministic(d, lvl, registry) and (env is None or e == env)
+                   for e, d, lvl in card["detectors"])
 
     critical = [c for c in cards if c["severity"] == "Critical"]
     critical_ok = [c for c in critical
                    if deterministic_in(c, "EDT") or c["justification"]]
-    det_all = [c for c in cards if deterministic_in(c)]
-    return critical_ok, critical, det_all
+    det_now = [c for c in cards if deterministic_in(c, registry=lint_registry)]
+    det_planned = [c for c in cards if deterministic_in(c, registry=None)]
+    return critical_ok, critical, det_now, det_planned
 
 
 def render_index(cards):
@@ -277,32 +328,53 @@ def render_index(cards):
     return "\n".join(lines)
 
 
-def render_detectors(cards):
-    critical_ok, critical, det_all = coverage(cards)
+def lint_cards(cards):
+    """Карточки с детектором bsl_validate - задания для lint-режима скила 1c-bsl-validate."""
+    return [c for c in cards
+            if any(d.startswith("bsl_validate:") for _e, d, _l in c["detectors"])]
+
+
+def render_detectors(cards, lint_registry):
+    critical_ok, critical, det_now, det_planned = coverage(cards, lint_registry)
     lines = [
         "# Сводная матрица детекторов",
         "",
         "Генерируется `tools/gen_catalog_index.py` по разделу Детекторы карточек каталога;",
         "правится только через карточки. Уровни доказательности и словарь детекторов -",
         "docs/1c-defect-catalog-spec.md, раздел Детекторы. Колонка lint - карточки с детектором",
-        "`bsl_validate:<ИД>`: задание для lint-режима скила `1c-bsl-validate`. Обоснование",
-        "чтения приведено в самой карточке.",
+        "`bsl_validate:<ИД>`: задание для lint-режима скила `1c-bsl-validate`; `planned` -",
+        "правило вне реестра реализованных правил, в покрытие не входит. Обоснование чтения",
+        "приведено в самой карточке.",
         "",
         "| Карточка | Важность | EDT | Конфигуратор | lint |",
         "|----------|----------|-----|--------------|------|",
     ]
     for c in cards:
         edt = ", ".join("%s (%s)" % (d, lvl) for e, d, lvl in c["detectors"] if e == "EDT")
-        conf = ", ".join("%s (%s)" % (d, lvl) for e, d, lvl in c["detectors"]
-                         if e == "Конфигуратор")
-        lint = "lint" if any(d.startswith("bsl_validate:") for _e, d, _l in c["detectors"]) else ""
-        lines.append("| %s | %s | %s | %s | %s |" % (c["id"], c["severity"], edt, conf, lint))
+        conf_parts = []
+        for e, d, lvl in c["detectors"]:
+            if e != "Конфигуратор":
+                continue
+            planned = (d.startswith("bsl_validate:")
+                       and d.partition(":")[2] not in lint_registry)
+            conf_parts.append("%s (%s%s)" % (d, lvl, ", planned" if planned else ""))
+        lint = ""
+        for _e, d, _l in c["detectors"]:
+            if d.startswith("bsl_validate:"):
+                lint = ("lint" if d.partition(":")[2] in lint_registry else "planned")
+        lines.append("| %s | %s | %s | %s | %s |" % (
+            c["id"], c["severity"], edt, ", ".join(conf_parts), lint))
     lines.append("")
     lines.append("Покрытие: Critical с детерминированным детектором в EDT либо с обоснованием"
                  " чтения - %d из %d; с детерминированным детектором хотя бы в одной среде -"
-                 " %d из %d (%d%%)."
-                 % (len(critical_ok), len(critical), len(det_all), len(cards),
-                    round(100.0 * len(det_all) / len(cards))))
+                 " %d из %d (%d%%), с учетом планируемых lint-правил - %d из %d (%d%%)."
+                 " Реестр реализованных правил lint - %d из %d карточек"
+                 " (`skills/1c-bsl-validate/scripts/catalog-rules.json`)."
+                 % (len(critical_ok), len(critical), len(det_now), len(cards),
+                    round(100.0 * len(det_now) / len(cards)),
+                    len(det_planned), len(cards),
+                    round(100.0 * len(det_planned) / len(cards)),
+                    len(lint_registry), len(lint_cards(cards))))
     lines.append("")
     return "\n".join(lines)
 
@@ -371,7 +443,9 @@ def main():
 
     try:
         cards = load_cards()
-        outputs = [(INDEX, render_index(cards)), (DETECTORS_MD, render_detectors(cards))]
+        lint_registry, _lint_ids = load_lint_registry(cards)
+        outputs = [(INDEX, render_index(cards)),
+                   (DETECTORS_MD, render_detectors(cards, lint_registry))]
         for path, kind in RULE_TARGETS.items():
             if not path.exists():
                 raise CardError("нет файла правила: %s" % path)

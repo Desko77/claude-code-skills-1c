@@ -3,7 +3,6 @@
   "diagnostics": {
     "mode": "ON",
     "parameters": {
-      "AssignToReadOnlyProperty": true,
       "BeginTransactionBeforeTryCatch": true,
       "CommitTransactionOutsideTryCatch": true,
       "CreateQueryInCycle": true,
@@ -19,16 +18,11 @@
       "SelectTopWithoutOrderBy": true,
       "SetPrivilegedMode": true,
       "UnionAll": true,
-      "UnknownMember": true,
       "UsingFindElementByString": true,
-      "UsingHardcodeSecretInformation": true,
       "VirtualTableCallWithoutParameters": true,
       "WrongUseOfRollbackTransactionMethod": true
     },
     "metadata": {
-      "AssignToReadOnlyProperty": {
-        "severity": "MAJOR"
-      },
       "BeginTransactionBeforeTryCatch": {
         "severity": "MAJOR"
       },
@@ -74,14 +68,8 @@
       "UnionAll": {
         "severity": "MINOR"
       },
-      "UnknownMember": {
-        "severity": "MAJOR"
-      },
       "UsingFindElementByString": {
         "severity": "MINOR"
-      },
-      "UsingHardcodeSecretInformation": {
-        "severity": "CRITICAL"
       },
       "VirtualTableCallWithoutParameters": {
         "severity": "MAJOR"

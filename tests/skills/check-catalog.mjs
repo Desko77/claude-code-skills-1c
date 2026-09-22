@@ -13,7 +13,11 @@
 //   5. матрица детекторов: детекторы из словаря спецификации, уровни совпадают со словарем,
 //      правило lint названо идентификатором карточки, при "чтение" в EDT есть обоснование;
 //   6. пороги покрытия: 100% Critical с детерминированным детектором в EDT либо с обоснованием
-//      чтения, не менее 50% всех карточек с детерминированным детектором хотя бы в одной среде;
+//      чтения, не менее 50% всех карточек с детерминированным детектором хотя бы в одной среде
+//      (сравнение по счетчикам, округление - только печать). Детектор bsl_validate:<ИД>
+//      детерминирован только при <ИД> в реестре реализованных правил lint
+//      skills/1c-bsl-validate/scripts/catalog-rules.json; пока реестр пуст, недобор порога
+//      печатается предупреждением и не проваливает проверку (переходное правило спецификации);
 //   7. гейтовый конфиг assets/bsl-ls-gate.json: состав диагностик совпадает с code_review-ссылками
 //      карточек в обе стороны, важность диагностики равна важности карточки без конфликтов.
 //
@@ -72,6 +76,7 @@ const DETECTOR_DICT = {
 };
 const DETERMINISTIC = new Set(['semantic', 'static']);
 const GATE_CONFIG = join(ROOT, 'skills/1c-code-review/assets/bsl-ls-gate.json');
+const LINT_REGISTRY = join(ROOT, 'skills/1c-bsl-validate/scripts/catalog-rules.json');
 const SEVERITY_MAP = { Critical: 'CRITICAL', Major: 'MAJOR', Minor: 'MINOR' };
 
 const problems = [];
@@ -288,8 +293,38 @@ for (const id of issuedSeen) {
 for (const card of cards) checkFixture(card);
 
 // 6. Пороги покрытия детерминированными детекторами.
+// Детектор bsl_validate:<ИД> детерминирован только при <ИД> в реестре реализованных
+// правил lint (skills/1c-bsl-validate/scripts/catalog-rules.json); каждая запись реестра
+// обязана называть карточку с этим детектором.
+const lintCards = cards.filter((c) =>
+  c.detectors.some((d) => d.detector.startsWith('bsl_validate:')));
+const lintCardIds = new Set(lintCards.map((c) => c.id));
+let lintRegistry = null;
+try {
+  const parsed = JSON.parse(readFileSync(LINT_REGISTRY, 'utf8'));
+  if (!Array.isArray(parsed) || parsed.some((r) => typeof r !== 'string')) {
+    problems.push('реестр lint-правил: ожидался массив строк - идентификаторов карточек');
+  } else {
+    lintRegistry = new Set(parsed);
+    if (lintRegistry.size !== parsed.length) {
+      problems.push('реестр lint-правил: повтор идентификатора');
+    }
+    for (const id of lintRegistry) {
+      if (!lintCardIds.has(id)) {
+        problems.push(`реестр lint-правил: ${id} без карточки с детектором bsl_validate`);
+      }
+    }
+  }
+} catch (e) {
+  problems.push(`реестр lint-правил ${LINT_REGISTRY} не читается как JSON: ${e.message}`);
+}
+const isDeterministic = (d) => {
+  if (!DETERMINISTIC.has(d.level)) return false;
+  if (!d.detector.startsWith('bsl_validate:')) return true;
+  return lintRegistry !== null && lintRegistry.has(d.detector.slice('bsl_validate:'.length));
+};
 const deterministicIn = (card, env = null) =>
-  card.detectors.some((d) => DETERMINISTIC.has(d.level) && (!env || d.env === env));
+  card.detectors.some((d) => isDeterministic(d) && (!env || d.env === env));
 const critical = cards.filter((c) => c.severity === 'Critical');
 const criticalUncovered = critical.filter(
   (c) => !deterministicIn(c, 'EDT') && !c.justification);
@@ -299,10 +334,20 @@ if (criticalUncovered.length) {
 }
 const coveredTotal = cards.filter((c) => deterministicIn(c));
 const coveragePercent = Math.round((100 * coveredTotal.length) / cards.length);
-if (coveragePercent < 50) {
-  const unread = cards.filter((c) => !deterministicIn(c)).map((c) => c.id);
-  problems.push(
-    `порог покрытия: детерминированный детектор хотя бы в одной среде у ${coveredTotal.length} из ${cards.length} (${coveragePercent}%), ниже 50%. Без детектора: ${unread.join(', ')}`);
+if (coveredTotal.length * 2 < cards.length) {
+  const implemented =
+    lintRegistry === null ? 0 : [...lintRegistry].filter((id) => lintCardIds.has(id)).length;
+  if (implemented > 0) {
+    const unread = cards.filter((c) => !deterministicIn(c)).map((c) => c.id);
+    problems.push(
+      `порог покрытия: детерминированный детектор хотя бы в одной среде у ${coveredTotal.length} из ${cards.length} (${coveragePercent}%), ниже 50%. Без детектора: ${unread.join(', ')}`);
+  } else {
+    // Переходное правило спецификации (раздел Детекторы): пока реестр lint-правил пуст,
+    // недобор порога не проваливает гард - печатается предупреждение.
+    console.log(
+      `порог покрытия не достигнут: lint-правила не реализованы (реестр: ${implemented} из ${lintCards.length});` +
+        ` детерминированный детектор хотя бы в одной среде у ${coveredTotal.length} из ${cards.length} (${coveragePercent}%)`);
+  }
 }
 
 // 7. Гейтовый конфиг: состав диагностик и важности совпадают с карточками в обе стороны.
