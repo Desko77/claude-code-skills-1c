@@ -17,6 +17,8 @@
   (`1c-meta-edit`/`1c-form-edit`/`1c-skd-edit`/...). Не блокирует, подсказывает не чаще одного раза за сессию
   на группу и действие.
 - **След проверок** (`evidence-writer.mjs`, `session-context.mjs`, `release-writer.mjs`) - см. раздел ниже.
+- **Гейт завершения хода** (`quality-baseline.mjs`, `quality-arm.mjs`, `quality-stop.mjs`) - см. раздел ниже.
+  Гейт без хука отметки не работает: `quality-baseline.mjs` регистрируется вместе с `quality-stop.mjs`.
 
 Это дополнительный слой поверх проверок, которые уже встроены в сами навыки: навыки-мутаторы и так не дадут
 испортить объект на поддержке. Хуки добавляют защиту для случаев, когда правят файлы **в обход навыков**.
@@ -54,16 +56,25 @@
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/skill-suggester.mjs\"" }] },
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
-          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] }
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] },
+      { "matcher": "<строка matcher из hooks/hooks.json - блок quality-arm.mjs>",
+        "hooks": [{ "type": "command",
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-arm.mjs\"" }] }
     ],
     "PostToolUseFailure": [
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
           "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/evidence-writer.mjs\"" }] }
     ],
+    "Stop": [
+      { "hooks": [{ "type": "command",
+          "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-stop.mjs\"" }] }
+    ],
     "SessionStart": [
       { "hooks": [{ "type": "command",
-        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-context.mjs\"" }] }
+        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-context.mjs\"" }] },
+      { "hooks": [{ "type": "command",
+        "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-baseline.mjs\"" }] }
     ],
     "UserPromptSubmit": [
       { "hooks": [{ "type": "command",
@@ -128,6 +139,40 @@
 `CLAUDE_PLUGIN_ROOT` либо рядом с собой (`../skills/`). При ручной установке хуков без
 каталога скила числа не считаются, итог деградирует до `pass`/`unknown` - событие
 записывается, но числа находок будут нулевыми.
+
+## Гейт завершения хода
+
+Три хука не дают завершить ход ассистента, пока правки сессии в файлах 1С не прошли проверки
+из профиля правки. Вердикт считает не хук, а `tools/evidence.py check --strict`: хук запускает
+его и переводит код выхода в решение.
+
+- **quality-baseline** (`SessionStart`): один раз на сессию пишет событие `baseline` - `HEAD` и
+  каноническое множество изменений с хешами содержимого на момент старта
+  (`skills/1c-code-review/references/changeset.md`). При `resume`, `compact` и `clear`
+  существующая отметка не перезаписывается, иначе правки, сделанные до сжатия контекста,
+  выпали бы из гейта. Вне git пишется отметка без `HEAD` - гейт тогда не применяется.
+- **quality-arm** (`PostToolUse`): событие `armed` при записи через `Write`, `Edit`, `MultiEdit`,
+  `NotebookEdit` и через MCP-инструменты правки AI-EDT (`write_module_source`, `edit_metadata`,
+  `edit_form`, `config_io`, мастерские `*_workshop`). Это атрибуция "какой инструмент и когда",
+  а не источник полноты: правки через `Bash`, скрипты и каскады `edit_metadata` видны гейту
+  через каноническое множество, а не через события.
+- **quality-stop** (`Stop`): правки сессии - файлы 1С (`.bsl`, `.os`, `.mdo`, `.form`, `.dcs`,
+  `.mxlx`, `.cmi`, `.rights`, `.xdto`, XML выгрузки Конфигуратора), чей хеш отличается от
+  отметки или которых в ней нет. Таких правок нет - выход 0 молча. Есть - запускается
+  `tools/evidence.py check --strict`: вердикт `clean` и `с пробелами` пропускают ход,
+  `blocked` дает выход 2 с перечнем правок, причинами блока и прямым путем (профиль,
+  обязательные проверки, команда снятия). Повторная попытка завершения (`stop_hook_active`)
+  блок не снимает.
+
+Обходы названы честно: `Stop` срабатывает на завершение ХОДА, а не сессии, поэтому прерывание
+пользователем и защита платформы от бесконечных блокировок гейт обходят; ход при недоступном
+`tools/evidence.py` или сломанной отметке пропускается (выход 0 с диагностикой) - гейт не имеет
+права останавливать работу из-за собственной поломки.
+
+Кросс-ревью тоже попадает в след: `evidence-writer` пишет `applied` для проверки
+`cross_review@any`, когда команда запускает `codex-code-review.sh` либо `cursor-run.ps1`
+исполняемым токеном и в выводе есть маркер вердикта. Скрипты ревью в набор не входят - они
+живут в личном контуре, хук опознает их по имени файла.
 
 ## Что делать при отказе защиты
 

@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
 import { loadFixture, makeTmpRepo, readEvents, runHook, spawnHook } from './helpers.mjs';
-import { MATCHER, outcomeFor, resolveCheck, responseToText } from '../../hooks/evidence-writer.mjs';
+import { MATCHER, crossReviewOutcome, outcomeFor, resolveCheck, responseToText }
+  from '../../hooks/evidence-writer.mjs';
 
 const RE = new RegExp(MATCHER);
 
@@ -504,6 +505,16 @@ test('cwd вне git-репозитория: диагностика в stderr р
   } finally {
     await rm(base, { recursive: true, force: true });
   }
+});
+
+test('crossReviewOutcome: находка P0 считается Critical', () => {
+  const p0 = crossReviewOutcome('Full review comments:\n\n- [P0] Утечка ключа - file.mjs:10\n');
+  assertEq(p0.status, 'findings');
+  assertEq(p0.critical, 1, 'P0 - Critical, иначе гейт пропустит блокирующую находку');
+  const p1 = crossReviewOutcome('- [P1] Ошибка - file.mjs:20\n');
+  assertEq(p1.critical, 1, 'P1 остается Critical');
+  const p3 = crossReviewOutcome('- [P3] Стиль - file.mjs:30\n');
+  assertEq(p3.minor, 1, 'P3 - Minor');
 });
 
 await run();

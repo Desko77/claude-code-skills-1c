@@ -78,6 +78,15 @@
 
 ### Хуки
 
+- Гейт завершения хода: `hooks/quality-baseline.mjs` (событие `baseline` - HEAD и каноническое множество с
+  хешами, один раз на сессию, при `resume` / `compact` / `clear` не перезаписывается),
+  `hooks/quality-arm.mjs` (события `armed` по правкам через `Write`, `Edit`, `MultiEdit`, `NotebookEdit` и
+  MCP-правки AI-EDT), `hooks/quality-stop.mjs` (`Stop`: правки сессии в файлах 1С без вердикта
+  `tools/evidence.py check --strict` дают выход 2 с перечнем пробелов и прямым путем; `stop_hook_active`
+  блок не снимает; отказ валидатора или отметки - выход 0 с диагностикой).
+- `hooks/evidence-writer.mjs` пишет `applied` для проверки `cross_review@any`, когда команда запускает
+  `codex-code-review.sh` либо `cursor-run.ps1` исполняемым токеном и в выводе есть маркер вердикта.
+
 - `hooks/evidence-writer.mjs` (`PostToolUse` / `PostToolUseFailure`, заякоренный матчер):
   записывает события `applied` и `failed` следа проверок по факту вызова инструмента -
   MCP-инструменты проверки (ключ сервера с дефисами, точками и подчеркиваниями), фасады

@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "bash /c/Users/dev/.claude/skills/codex-review/scripts/codex-code-review.sh uncommitted"
+  },
+  "tool_response": "[codex-code-review] mode=uncommitted effort=high\n- [P1] src/Module.bsl:12 пропущена блокировка\nВЕРДИКТ: NEEDS_REVISION",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_codex_review"
+}

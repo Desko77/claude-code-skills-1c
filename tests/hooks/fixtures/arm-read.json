@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "proj/src/CommonModules/Обмен/Module.bsl"
+  },
+  "tool_response": "Содержимое файла",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_arm_read"
+}
