@@ -5,9 +5,10 @@
 Фикстуры - каталоги событий .claude/.state/quality/<сессия>/events/ во временном
 чистом git-репозитории (diffHash прогона стабилен). Каждая ветка вердикта check
 --strict - отдельный тест: clean, with_gaps (пропуск и снятие), blocked (нет scope,
-устаревший хеш, обязательная без события, critical, без toolUseId, чужое и
-просроченное снятие, поврежденный файл, пропуск без класса, пропуск с битой ссылкой,
-нет probe). Подкоманды add и render проверяются на запись и формат отчета.
+устаревший хеш, обязательная без события, critical - в том числе с пропуском и с
+поздним applied без critical, без toolUseId, чужое и просроченное снятие,
+поврежденный файл, пропуск без класса, пропуск с битой ссылкой, нет probe).
+Подкоманды add и render проверяются на запись и формат отчета.
 """
 
 from __future__ import annotations
@@ -246,6 +247,53 @@ class EvidenceCheckTests(unittest.TestCase):
         proc = check(self.repo)
         self.assertEqual(proc.returncode, 3)
         self.assertIn("critical", proc.stdout.decode("utf-8"))
+
+    def test_blocked_critical_with_valid_skip(self):
+        """critical плюс валидный skipped той же проверки: пропуск не перекрывает, код 3."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        ref = self.trace.put("2026-09-22T100100-000-hook-f1.json",
+                             {"type": "failed", "check": "code_review@edt",
+                              "detector": "code_review", "toolUseId": "t1",
+                              "error": "timeout"})
+        self.trace.put("2026-09-22T100200-000-hook-a1.json",
+                       applied("code_review@edt", "t1", "findings", critical=1))
+        self.trace.put("2026-09-22T100300-000-cli-s1.json",
+                       {"type": "skipped", "check": "code_review@edt",
+                        "class": "tool_unavailable", "ref": ref})
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 3)
+        self.assertIn("applied с critical без снятия: code_review@edt",
+                      proc.stdout.decode("utf-8"))
+
+    def test_blocked_critical_with_later_pass(self):
+        """critical плюс позднее applied без critical той же проверки: код 3, не clean."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100100-000-hook-a1.json",
+                       applied("code_review@edt", "t1", "findings", critical=1))
+        self.trace.put("2026-09-22T100200-000-hook-a2.json",
+                       applied("code_review@edt", "t2", "pass"))
+        self.trace.put("2026-09-22T100300-000-cli-p1.json", probe("ai-edt"))
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 3)
+        self.assertIn("applied с critical без снятия: code_review@edt",
+                      proc.stdout.decode("utf-8"))
+
+    def test_with_gaps_critical_release_beats_skip(self):
+        """critical плюс действующее release: снятие перекрывает и critical, и skipped."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100100-000-hook-a1.json",
+                       applied("code_review@edt", "t1", "findings", critical=1))
+        self.trace.put("2026-09-22T100200-000-cli-s1.json",
+                       {"type": "skipped", "check": "code_review@edt",
+                        "class": "not_applicable", "reason": "правка документации"})
+        self.trace.put("2026-09-22T100300-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "code_review@edt",
+                        "reason": "ложное срабатывание", "source": "user_prompt",
+                        "expiresAt": FUTURE})
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 1, proc.stdout.decode("utf-8", errors="replace"))
+        self.assertIn("с пробелами", proc.stdout.decode("utf-8"))
+        self.assertIn("пробел: code_review@edt", proc.stdout.decode("utf-8"))
 
     def test_blocked_no_tool_use_id(self):
         """applied без toolUseId: код 3."""

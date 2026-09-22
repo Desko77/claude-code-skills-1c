@@ -4,9 +4,10 @@
 
 Каталог событий - .claude/.state/quality/<session>/events/ в корне репозитория
 (спецификация - skills/1c-code-review/references/evidence-format.md). Событие -
-один неизменяемый JSON-файл с именем <время>-<источник>-<id>.json; запись идет через
-временный файл и переименование. Поврежденный JSON при чтении не поднимает исключение:
-файл возвращается записью type=corrupt с именем и текстом ошибки.
+один неизменяемый JSON-файл с именем <время>-<номер>-<источник>-<id>.json; запись
+идет через временный файл и переименование. Поврежденный JSON при чтении не
+поднимает исключение: файл возвращается записью type=corrupt с именем и текстом
+ошибки.
 
 Пишут события: tools/change_profile.py (scope, producer profile), tools/evidence.py
 (skipped, not_verified, probe; producer cli) и хуки (applied, failed, release,
@@ -66,11 +67,34 @@ def events_dir(repo_dir: Path | str, session: str) -> Path:
     return repo_top(repo_dir) / STATE_REL / session / "events"
 
 
-def _filename(event: dict) -> str:
-    """Имя файла события: время, producer и случайный id.
+def _acquire_seq(session_dir: Path, time_part: str) -> int:
+    """Занять номер последовательности отметки времени созданием lock-файла.
 
-    Время формата YYYY-MM-DDTHHMMSS-<мс> самолексикографично - сортировка имен
-    совпадает с порядком записи. Поле at обязано быть ISO 8601; иначе EventsError.
+    Номер упорядочивает события одной миллисекунды по записи, а не по producer.
+    Файл <время>-<номер>.lock в каталоге сессии создается открытием с
+    O_CREAT|O_EXCL: занятый номер поднимает FileExistsError, перебор идет со
+    следующего. Lock-файлы остаются в каталоге как занятые номера. Node-писатель
+    событий повторяет ту же схему (evidence-format.md).
+    """
+    seq = 0
+    while True:
+        try:
+            fd = os.open(str(session_dir / f"{time_part}-{seq:06d}.lock"),
+                         os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        except FileExistsError:
+            seq += 1
+            continue
+        os.close(fd)
+        return seq
+
+
+def _filename(event: dict, session_dir: Path) -> str:
+    """Имя файла события: время, номер последовательности, producer и случайный id.
+
+    Время формата YYYY-MM-DDTHHMMSS-<мс> самолексикографично; номер - 6 цифр
+    монотонной последовательности отметки времени, поэтому сортировка имен
+    совпадает с порядком записи и в пределах одной миллисекунды. Поле at обязано
+    быть ISO 8601; иначе EventsError.
     """
     try:
         stamp = datetime.fromisoformat(event["at"])
@@ -79,8 +103,9 @@ def _filename(event: dict) -> str:
     producer = event.get("producer", "cli")
     if not re.fullmatch(r"[a-z]+", str(producer)):
         raise EventsError(f"недопустимый producer: {producer!r}")
-    return (f"{stamp:%Y-%m-%dT%H%M%S}-{stamp.microsecond // 1000:03d}"
-            f"-{producer}-{uuid.uuid4().hex[:6]}.json")
+    time_part = f"{stamp:%Y-%m-%dT%H%M%S}-{stamp.microsecond // 1000:03d}"
+    seq = _acquire_seq(session_dir, time_part)
+    return f"{time_part}-{seq:06d}-{producer}-{uuid.uuid4().hex[:6]}.json"
 
 
 def write_event(repo_dir: Path | str, session: str, event: dict) -> Path:
@@ -91,11 +116,12 @@ def write_event(repo_dir: Path | str, session: str, event: dict) -> Path:
     имя перегенерируется (id случайный, коллизия маловероятна, но проверяется).
     """
     target_dir = events_dir(repo_dir, session)
+    session_dir = target_dir.parent
     target_dir.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(event, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    final = target_dir / _filename(event)
+    final = target_dir / _filename(event, session_dir)
     while final.exists():
-        final = target_dir / _filename(event)
+        final = target_dir / _filename(event, session_dir)
     tmp = target_dir / f".tmp-{uuid.uuid4().hex}"
     tmp.write_text(payload, encoding="utf-8", newline="\n")
     os.replace(tmp, final)
