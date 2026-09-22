@@ -43,7 +43,7 @@ python tools/install_home.py install --components agents,hooks,tools
 |---|---|---|
 | `agents` | весь каталог `agents/` репозитория | `~/.claude/agents/` |
 | `hooks` | весь каталог `hooks/` репозитория | `~/.claude/hooks/1c-skills/` |
-| `tools` | только `tools/install_home.py` | `~/.claude/tools/1c-skills/` |
+| `tools` | `install_home.py`, `changeset.py`, `change_profile.py`, `evidence.py`, `quality_events.py` | `~/.claude/tools/1c-skills/` |
 
 Установщик ведет манифест `~/.claude/.install-manifest.json` (путь и sha256 каждого файла),
 измененный снаружи файл считает конфликтом и не трогает; `--force` переписывает с резервной

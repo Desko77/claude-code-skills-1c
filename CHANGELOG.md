@@ -10,6 +10,9 @@
   инструмента; недоступен после двух проверок - отчет первой строкой и только потом перебор. Второй
   запрет: `execute_query` toolkit и консоль кода - только после чистого `validate_query`
   (`1c-query-validate` в среде без EDT). `code-exploration-guide.md` ссылается на раздел.
+- `sdd-workflow.md`: артефакт этапа включает след проверок по формату
+  `evidence-format.md` скила 1c-code-review. `agent-verification-patterns.md`: сверка покрытия
+  фиксируется следом проверок того же формата.
 
 ### Каталог дефектов
 
@@ -64,6 +67,42 @@
   Группы `FORM-`, `META-`, `PROC-` открыты; фикстура типа `evidence` - файл следа
   `evidence.json` с полем `kind`, гард проверяет его наличие и структуру.
 
+### Хуки
+
+- `hooks/evidence-writer.mjs` (`PostToolUse` / `PostToolUseFailure`, заякоренный матчер):
+  записывает события `applied` и `failed` следа проверок по факту вызова инструмента -
+  MCP-инструменты проверки (ключ сервера с дефисами, точками и подчеркиваниями), фасады
+  по операции (`diagnostics`: `get_project_errors`, `validate_for_export`;
+  `insights`: `detect_query_anti_patterns`), `Bash`/`PowerShell` со скриптами набора
+  (`bsl-validate`, `query-validate`, `meta-validate`, `role-validate`, `form-validate`)
+  при наличии строки результата `EVIDENCE {...}` в выводе. Событие несет `toolUseId`,
+  `inputHash`, `responseHash`, `diffHash` (через `hooks/_changeset.mjs`), разобранный
+  итог (`code_review` - числа Critical/Major/Minor по кодам диагностик из
+  `assets/bsl-ls-gate.json`, `get_project_errors` - ошибки critical и предупреждения
+  minor, `syntaxcheck` - pass/error); неразобранный итог пишется `status: "unknown"` с
+  фрагментом ответа. Итог не выдумывается.
+- `hooks/session-context.mjs` (`SessionStart`, все источники startup/resume/clear/
+  compact/fork): сообщает модели идентификатор сессии и путь каталога событий через
+  `additionalContext`, вычищает каталоги сессий старше 7 дней.
+- `hooks/release-writer.mjs` (`UserPromptSubmit`): команда
+  `/quality release gate|check <область> <причина> [--for 30m|2h|1d]` (срок по
+  умолчанию 4 часа) записывает событие `release` с `diffHash`, `expiresAt` и
+  источником `user_prompt`; прочие промпты игнорируются.
+- Общий модуль `hooks/common/quality-events.mjs`: запись событий хуками по схеме
+  `tools/quality_events.py` - номер последовательности lock-файлом, имя
+  `<время>-<номер>-hook-<id>.json` с локальным временем, тело JSON с сортировкой
+  ключей, запись временным файлом с переименованием; конкурентные записи хуков дают
+  отдельные файлы.
+- `hooks/hooks.json`: регистрация трех хуков; `hooks/README.md`: раздел "След
+  проверок". Установщик `tools/install_home.py` ставит каталог `hooks/` целиком,
+  новые файлы входят в компонент без правки.
+- Тесты `tests/hooks/`: 38 проверок в 4 файлах (матчер на реальных именах инструментов,
+  разбор итогов, запись applied/failed, параллельная запись, строка EVIDENCE и защита
+  от echo-подделки, три источника SessionStart, очистка устаревших сессий, команды
+  снятия) и сквозной тест с `python tools/change_profile.py`, `tools/evidence.py add`
+  и `evidence.py check --strict` (события хука закрывают обязательные проверки,
+  вердикт clean). Гард `tests/skills/check-hooks.mjs` зарегистрирован в `check-all.mjs`.
+
 ### Агенты
 
 - `agents/1c-explore.md` (новый каталог): субагент-разведчик EDT-проекта, модель `sonnet`,
@@ -91,6 +130,29 @@
   кадрирование diffHash на синтетических записях, `git rm --cached` с игнором,
   гитлинк, путь с ведущим дефисом), вывод двух CLI сверяется байт в байт,
   детерминированность - двойным запуском.
+- Профиль правки `tools/change_profile.py`: класс объема C0-C3 по каноническому множеству
+  (строки BSL - сумма добавленных и удаленных по `git diff --numstat`, файл без записи numstat
+  считается целиком; новый объект метаданных - добавленный файл метаданных), архетипы по путям
+  множества и тексту diff (добавленные строки и контекст), среда edt/configurator по предку
+  с `.project`, содержащим `com._1c.g5.v8.dt`; обязательный состав проверок по таблице
+  "архетип x среда" (идентификаторы `<проверка>@<среда>`, класс C2 и выше добавляет
+  `cross_review`, C3 - `adversarial_audit`); поле driver называет поднявшее класс условие;
+  довод `--vendor-copy` понижает C2/C3 до C1 с обоснованием в следе. Событие `scope` пишется
+  в каталог следа (`--session`, `--no-write`), функция `compute_profile(repo_dir, base,
+  vendor_copy)`. Спецификация - `skills/1c-code-review/references/profile-map.md`.
+- След проверок `tools/evidence.py`: подкоманды `add` (типы `skipped` с классом
+  `tool_unavailable`/`not_applicable`, `not_verified`, `probe`; типы `applied` и `release`
+  отвергаются кодом 2 - их пишет только хук), `check --strict` (прогон - последнее `scope`
+  с текущим `diffHash` и события с тем же хешем после него; вердикты clean/with_gaps/blocked,
+  коды 0/1/3; blocked - отсутствие scope с текущим хешем, поврежденный файл, обязательная
+  проверка без события, `applied` с critical без снятия, `applied` без `toolUseId`, `release`
+  с чужим хешем или просроченное, пропуск без класса или ссылки, отсутствие probe ok по
+  источнику закрывающего applied) и `render` (markdown: таблицы "Проверено", "С пробелами"
+  с классами, "Не проверено"). Общий модуль `tools/quality_events.py`: атомарная запись
+  события временным файлом с переименованием, чтение каталога сессии, поврежденный JSON
+  возвращается событием corrupt. Каталог `.claude/.state/` добавлен в `.gitignore`.
+  Спецификация - `skills/1c-code-review/references/evidence-format.md`.
+  Тесты: `tests/tools/profile/` - 17, `tests/tools/evidence/` - 29.
 
 ### Установка
 
