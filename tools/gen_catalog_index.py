@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Генератор индекса и каталожных секций правил из карточек дефектов.
+"""Генератор индекса, сводной детекторов и каталожных секций правил из карточек дефектов.
 
 Читает карточки skills/1c-code-review/references/catalog/<ИДЕНТИФИКАТОР>.md, проверяет
 обязательные поля и пишет:
 
 - catalog/INDEX.md - таблица идентификатор, важность, группа, архетипы, детекторы, триггер;
+- skills/1c-code-review/references/detectors.md - сводная матрица детекторов и строка покрытия;
 - секции между маркерами catalog:begin / catalog:end в rules/anti_patterns.md (таблица
   триггеров с колонкой псевдонима) и rules/code-review-checklist.md (таблица по группам).
 
 Вне маркеров файлы правил не меняются. Одинаковый вход дает одинаковый выход: сортировка
 по идентификатору, генерация одной строкой на строку таблицы.
+
+Раздел "Детекторы" карточки - таблица "Среда | Детектор | Уровень" из словаря спецификации
+(docs/1c-defect-catalog-spec.md, раздел "Детекторы"); при "чтение" в среде EDT обязательна
+строка "Обоснование чтения: ...". Генератор сверяет детектор со словарем, уровень -
+со словарем, идентификатор правила lint - с идентификатором карточки.
 
 Режим --check ничего не пишет и выходит с кодом 1, если сгенерированное отличается от
 файлов на диске.
@@ -26,6 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "skills" / "1c-code-review" / "references" / "catalog"
 INDEX = CATALOG / "INDEX.md"
+DETECTORS_MD = ROOT / "skills" / "1c-code-review" / "references" / "detectors.md"
 RULE_TARGETS = {
     ROOT / "rules" / "anti_patterns.md": "anti",
     ROOT / "rules" / "code-review-checklist.md": "checklist",
@@ -33,6 +40,33 @@ RULE_TARGETS = {
 
 BEGIN = "<!-- catalog:begin -->"
 END = "<!-- catalog:end -->"
+
+# Словарь детекторов спецификации: среда -> детектор -> уровень.
+# "code_review:*" и "bsl_validate:*" - семейства с параметром (код диагностики,
+# идентификатор карточки).
+DETECTOR_DICT = {
+    "EDT": {
+        "code_review:*": "static",
+        "get_project_errors": "semantic",
+        "validate_query": "semantic",
+        "validate_for_export": "semantic",
+        "security_audit": "semantic",
+        "detect_query_anti_patterns": "static",
+        "ask_1c_ai": "llm",
+        "чтение": "read",
+    },
+    "Конфигуратор": {
+        "syntaxcheck": "static",
+        "bsl_validate:*": "static",
+        "query_validate": "static",
+        "meta_validate": "static",
+        "role_validate": "static",
+        "form_validate": "static",
+        "чтение": "read",
+    },
+}
+DETERMINISTIC_LEVELS = {"semantic", "static"}
+
 
 SECTIONS = [
     "Идентификатор и группа",
@@ -121,14 +155,7 @@ def parse_card(path):
 
     trigger = fields["Триггер"].split("\n")[0].strip()
 
-    detectors = []
-    for row in fields["Детекторы"].split("\n"):
-        cells = [c.strip() for c in row.strip().strip("|").split("|")]
-        if len(cells) != 2 or not cells[0] or set(cells[0]) <= {"-", " "}:
-            continue  # пустая строка, разделитель или строка с другим числом колонок
-        if cells == ["Среда", "Детектор"]:
-            continue  # заголовок таблицы
-        detectors.append("%s: %s" % (cells[0], cells[1]))
+    detectors, justification = parse_detectors(card_id, fields["Детекторы"])
 
     return {
         "id": card_id,
@@ -139,8 +166,61 @@ def parse_card(path):
         "trigger": trigger,
         "archetypes": archetypes,
         "detectors": detectors,
+        "justification": justification,
         "fixture_type": fixture_type,
     }
+
+
+def detector_level(env, detector):
+    """Уровень детектора по словарю; семейства с параметром задаются как префикс:*."""
+    table = DETECTOR_DICT.get(env)
+    if table is None:
+        return None
+    if detector in table:
+        return table[detector]
+    family, sep, param = detector.partition(":")
+    if sep and family + ":*" in table:
+        return table[family + ":*"], param
+    return None
+
+
+def parse_detectors(card_id, body):
+    """Разобрать таблицу "Среда | Детектор | Уровень" и обоснование чтения."""
+    detectors = []
+    justification = ""
+    for line in body.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("Обоснование чтения:"):
+            justification = stripped.partition(":")[2].strip()
+            continue
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cells) != 3 or not cells[0] or set(cells[0]) <= {"-", " "}:
+            continue  # пустая строка, разделитель или строка с другим числом колонок
+        if cells == ["Среда", "Детектор", "Уровень"]:
+            continue  # заголовок таблицы
+        env, detector, level = cells
+        resolved = detector_level(env, detector)
+        if resolved is None:
+            raise CardError("%s: детектор %s в среде %s вне словаря" % (card_id, detector, env))
+        expected, param = resolved if isinstance(resolved, tuple) else (resolved, "")
+        if level != expected:
+            raise CardError("%s: уровень %s у детектора %s не совпадает со словарем (%s)"
+                            % (card_id, level, detector, expected))
+        if detector.startswith("bsl_validate:") and param != card_id:
+            raise CardError("%s: правило lint %s не совпадает с идентификатором карточки"
+                            % (card_id, detector))
+        detectors.append((env, detector, level))
+    if not detectors:
+        raise CardError("%s: таблица детекторов пуста" % card_id)
+    envs = [d[0] for d in detectors]
+    if "EDT" not in envs or "Конфигуратор" not in envs:
+        raise CardError("%s: в матрице нет обеих сред" % card_id)
+    has_edt_read = any(e == "EDT" and d == "чтение" for e, d, _ in detectors)
+    if has_edt_read and not justification:
+        raise CardError("%s: чтение в среде EDT без строки 'Обоснование чтения:'" % card_id)
+    return detectors, justification
 
 
 def load_cards():
@@ -155,13 +235,36 @@ def load_cards():
     return sorted(cards, key=lambda c: c["id"])
 
 
+def short_detectors(card):
+    """Краткая форма колонки INDEX: детекторы по средам через запятую."""
+    parts = []
+    for env in ("EDT", "Конфигуратор"):
+        names = [d for e, d, _lvl in card["detectors"] if e == env]
+        parts.append("%s: %s" % (env, ", ".join(names)))
+    return "; ".join(parts)
+
+
+def coverage(cards):
+    """Покрытие детерминированными детекторами: (critical_ok, critical_total, det_total)."""
+    def deterministic_in(card, env=None):
+        return any(lvl in DETERMINISTIC_LEVELS and (env is None or e == env)
+                   for e, _d, lvl in card["detectors"])
+
+    critical = [c for c in cards if c["severity"] == "Critical"]
+    critical_ok = [c for c in critical
+                   if deterministic_in(c, "EDT") or c["justification"]]
+    det_all = [c for c in cards if deterministic_in(c)]
+    return critical_ok, critical, det_all
+
+
 def render_index(cards):
     lines = [
         "# Индекс каталога дефектов",
         "",
         "Генерируется `tools/gen_catalog_index.py` по карточкам каталога; правится только",
         "через карточки. Колонка Триггер - формулировка одной строкой; полные триггер,",
-        "законная форма и способ чинить - в карточке с идентичным именем.",
+        "законная форма и способ чинить - в карточке с идентичным именем. Сводная матрица",
+        "детекторов с уровнями доказательности - references/detectors.md.",
         "",
         "| Идентификатор | Важность | Группа | Архетипы | Детекторы | Триггер |",
         "|---------------|----------|--------|----------|-----------|---------|",
@@ -169,7 +272,37 @@ def render_index(cards):
     for c in cards:
         lines.append("| %s | %s | %s | %s | %s | %s |" % (
             c["id"], c["severity"], c["group"],
-            ", ".join(c["archetypes"]), "; ".join(c["detectors"]), c["trigger"]))
+            ", ".join(c["archetypes"]), short_detectors(c), c["trigger"]))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def render_detectors(cards):
+    critical_ok, critical, det_all = coverage(cards)
+    lines = [
+        "# Сводная матрица детекторов",
+        "",
+        "Генерируется `tools/gen_catalog_index.py` по разделу Детекторы карточек каталога;",
+        "правится только через карточки. Уровни доказательности и словарь детекторов -",
+        "docs/1c-defect-catalog-spec.md, раздел Детекторы. Колонка lint - карточки с детектором",
+        "`bsl_validate:<ИД>`: задание для lint-режима скила `1c-bsl-validate`. Обоснование",
+        "чтения приведено в самой карточке.",
+        "",
+        "| Карточка | Важность | EDT | Конфигуратор | lint |",
+        "|----------|----------|-----|--------------|------|",
+    ]
+    for c in cards:
+        edt = ", ".join("%s (%s)" % (d, lvl) for e, d, lvl in c["detectors"] if e == "EDT")
+        conf = ", ".join("%s (%s)" % (d, lvl) for e, d, lvl in c["detectors"]
+                         if e == "Конфигуратор")
+        lint = "lint" if any(d.startswith("bsl_validate:") for _e, d, _l in c["detectors"]) else ""
+        lines.append("| %s | %s | %s | %s | %s |" % (c["id"], c["severity"], edt, conf, lint))
+    lines.append("")
+    lines.append("Покрытие: Critical с детерминированным детектором в EDT либо с обоснованием"
+                 " чтения - %d из %d; с детерминированным детектором хотя бы в одной среде -"
+                 " %d из %d (%d%%)."
+                 % (len(critical_ok), len(critical), len(det_all), len(cards),
+                    round(100.0 * len(det_all) / len(cards))))
     lines.append("")
     return "\n".join(lines)
 
@@ -238,7 +371,7 @@ def main():
 
     try:
         cards = load_cards()
-        outputs = [(INDEX, render_index(cards))]
+        outputs = [(INDEX, render_index(cards)), (DETECTORS_MD, render_detectors(cards))]
         for path, kind in RULE_TARGETS.items():
             if not path.exists():
                 raise CardError("нет файла правила: %s" % path)
@@ -264,10 +397,12 @@ def main():
                 print("  %s" % name)
             print("Выполни: python tools/gen_catalog_index.py")
             return 1
-        print("OK - индекс и каталожные секции совпадают с карточками (%d шт.)." % len(cards))
+        print("OK - индекс, сводная детекторов и каталожные секции совпадают с карточками"
+              " (%d шт.)." % len(cards))
         return 0
-    print("Записано: %s и секции в %d правилах (%d карточек)."
-          % (INDEX.relative_to(ROOT), len(RULE_TARGETS), len(cards)))
+    print("Записано: %s, %s и секции в %d правилах (%d карточек)."
+          % (INDEX.relative_to(ROOT), DETECTORS_MD.relative_to(ROOT),
+             len(RULE_TARGETS), len(cards)))
     return 0
 
 

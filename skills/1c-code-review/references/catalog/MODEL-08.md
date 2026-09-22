@@ -33,10 +33,11 @@ Major
 
 ## Детекторы
 
-| Среда | Детектор |
-|-------|----------|
-| EDT | чтение |
-| Конфигуратор | чтение |
+| Среда | Детектор | Уровень |
+|-------|----------|---------|
+| EDT | code_review:AssignToReadOnlyProperty | static |
+| EDT | get_project_errors | semantic |
+| Конфигуратор | syntaxcheck | static |
 
 ## Архетипы правки
 
