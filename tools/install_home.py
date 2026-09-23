@@ -63,6 +63,8 @@ COMPONENTS: dict[str, dict[str, object]] = {
     "tools": {"source": "tools", "target": "tools/1c-skills",
               "include": ["install_home.py", "changeset.py", "change_profile.py",
                           "evidence.py", "quality_events.py"]},
+    "commands": {"source": "commands", "target": "commands",
+                 "include": ["quality.md"]},
 }
 
 

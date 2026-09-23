@@ -176,6 +176,25 @@ class InstallHomeTests(unittest.TestCase):
         self.assertTrue((self.home / "hooks" / "1c-skills" / "hooks.json").exists())
         self.assertTrue((self.home / "tools" / "1c-skills" / "install_home.py").exists())
 
+    def test_commands_quality_keeps_personal_and_check_sees_drift(self):
+        """commands/quality.md ставится, личный close-task.md не тронут, --check видит правку."""
+        personal = self.home / "commands" / "close-task.md"
+        personal.parent.mkdir(parents=True)
+        personal.write_text("личная команда\n", encoding="utf-8")
+        result = self.install()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        quality = self.home / "commands" / "quality.md"
+        self.assertEqual(quality.read_bytes(), (REPO_ROOT / "commands" / "quality.md").read_bytes())
+        self.assertEqual(personal.read_text(encoding="utf-8"), "личная команда\n")
+        self.assertFalse((self.home / "commands" / "move-project.md").exists())
+        self.assertNotIn("close-task.md", result.stdout)
+        quality.write_text("правка\n", encoding="utf-8")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("РАСХОЖДЕНИЕ", result.stdout)
+        self.assertIn("quality.md", result.stdout)
+        self.assertEqual(personal.read_text(encoding="utf-8"), "личная команда\n")
+
     def test_check_all_components_clean(self):
         """--check по трем компонентам после их установки: выход 0."""
         result = self.install("--components", "agents,hooks,tools")
