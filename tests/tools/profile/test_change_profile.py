@@ -18,6 +18,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from state_env import isolate_state_dir
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TOOL = REPO_ROOT / "tools" / "change_profile.py"
 EVIDENCE_CLI = REPO_ROOT / "tools" / "evidence.py"
@@ -89,6 +92,7 @@ def run_cli(repo: Path, *extra: str) -> subprocess.CompletedProcess:
 
 class ComputeProfileTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
@@ -350,6 +354,7 @@ class ComputeProfileTests(unittest.TestCase):
 
 class ChangeProfileCliTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)

@@ -21,6 +21,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from state_env import isolate_state_dir
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CLI = REPO_ROOT / "tools" / "evidence.py"
 SESSION = "sess-test"
@@ -125,6 +128,7 @@ def check(repo: Path, base: str = "HEAD") -> subprocess.CompletedProcess:
 
 class EvidenceCheckTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
@@ -376,6 +380,7 @@ class EvidenceCheckTests(unittest.TestCase):
 
 class EvidenceAddTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
@@ -451,6 +456,7 @@ class EvidenceAddTests(unittest.TestCase):
 
 class EvidenceRenderTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)

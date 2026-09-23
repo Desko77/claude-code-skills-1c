@@ -12,9 +12,13 @@ from __future__ import annotations
 
 import importlib.util
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from state_env import isolate_state_dir
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SESSION = "sess-events"
@@ -53,6 +57,7 @@ def make_repo(tmp: Path) -> Path:
 
 class QualityEventsOrderTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
