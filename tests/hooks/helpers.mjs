@@ -6,7 +6,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile, utimes } from 'node:fs/promises';
 import { mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { eventsDir, sessionDir } from '../../hooks/common/quality-events.mjs';
 
@@ -56,12 +56,23 @@ export async function writeRepoFile(repo, rel, text) {
 
 // Запустить хук с payload на stdin; возвращает { status, stdout, stderr }.
 // opts.env дополняет окружение процесса (например подмена PYTHON для недоступного валидатора).
+// opts.args - доводы после пути хука (например --only). Абсолютный hookFile - этот файл,
+// иначе имя внутри hooks/.
 export function runHook(hookFile, payload, opts = {}) {
-  return spawnSync(process.execPath, [join(HOOKS, hookFile)], {
+  const script = isAbsolute(hookFile) ? hookFile : join(HOOKS, hookFile);
+  let env = process.env;
+  if (opts.env) {
+    env = { ...process.env };
+    for (const [key, value] of Object.entries(opts.env)) {
+      if (value === undefined || value === null) delete env[key];
+      else env[key] = String(value);
+    }
+  }
+  return spawnSync(process.execPath, [script, ...(opts.args || [])], {
     input: JSON.stringify(payload),
     encoding: 'utf8',
     cwd: opts.cwd || REPO_ROOT,
-    env: opts.env ? { ...process.env, ...opts.env } : process.env,
+    env,
   });
 }
 

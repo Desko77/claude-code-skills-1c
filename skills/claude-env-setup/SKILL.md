@@ -93,7 +93,7 @@ foreach ($p in 8002,8003,8004,8007,8008,8009,12250,6003,1234) {
 затирает измененное снаружи:
 
 ```bash
-python tools/install_home.py install --components agents,hooks,tools   # установка
+python tools/install_home.py install --components agents,hooks,tools,commands   # установка
 python tools/install_home.py --check                                    # 0 - совпадает с репозиторием
 ```
 

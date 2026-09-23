@@ -31,10 +31,10 @@
 **Установка.** Скилы, правила, команды - пофайлово, по правилам из `safety.md` раздел 3:
 отсутствующее копировать, совпадающее пропускать, расходящееся показывать пользователю. Наивное
 `cp -r skills/* ~/.claude/skills/` затирает пользовательские доработки - так не делать. Агенты,
-хуки и инструменты набора - исполняемым установщиком из корня репозитория:
+хуки, инструменты и команда `/quality` набора - исполняемым установщиком из корня репозитория:
 
 ```bash
-python tools/install_home.py install --components agents,hooks,tools
+python tools/install_home.py install --components agents,hooks,tools,commands
 ```
 
 Компоненты установщика и их адресаты (без `--components` ставятся все):
@@ -44,6 +44,7 @@ python tools/install_home.py install --components agents,hooks,tools
 | `agents` | весь каталог `agents/` репозитория | `~/.claude/agents/` |
 | `hooks` | весь каталог `hooks/` репозитория | `~/.claude/hooks/1c-skills/` |
 | `tools` | `install_home.py`, `changeset.py`, `change_profile.py`, `evidence.py`, `quality_events.py` | `~/.claude/tools/1c-skills/` |
+| `commands` | `commands/quality.md` (остальные команды набора ставятся пофайлово, как скилы) | `~/.claude/commands/` |
 
 Установщик ведет манифест `~/.claude/.install-manifest.json` (путь и sha256 каждого файла),
 измененный снаружи файл считает конфликтом и не трогает; `--force` переписывает с резервной
