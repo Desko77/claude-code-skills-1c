@@ -4,11 +4,19 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile, utimes } from 'node:fs/promises';
-import { realpathSync } from 'node:fs';
-import { readdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// След тестов не пишется в домашний каталог: дочерние процессы хуков наследуют переменную.
+if (!process.env.QUALITY_STATE_DIR) {
+  const stateDir = mkdtempSync(join(tmpdir(), 'quality-state-'));
+  process.env.QUALITY_STATE_DIR = stateDir;
+  process.on('exit', () => {
+    rmSync(stateDir, { recursive: true, force: true });
+  });
+}
 
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const HOOKS = join(REPO_ROOT, 'hooks');
