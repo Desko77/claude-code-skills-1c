@@ -83,6 +83,20 @@
 
 ### Хуки
 
+- Поиск `evidence.py` для гейта завершения хода: `CLAUDE_PLUGIN_ROOT/tools/evidence.py`,
+  `tools/evidence.py` на уровень выше каталога `hooks/`, домашняя установка
+  `<дом>/.claude/tools/1c-skills/evidence.py` через `claudeHome()`.
+- Каталог скила для чисел Critical/Major `code_review`: первый из `CLAUDE_PLUGIN_ROOT`,
+  каталога над `hooks/` и `<дом>/.claude`, в котором есть
+  `skills/1c-code-review/assets/bsl-ls-gate.json`. Нет такого корня - числа нулевые,
+  событие записывается.
+- Довод `--only <корень>` (повторяемый) у хуков `evidence-writer`, `session-context`,
+  `release-writer`, `quality-baseline`, `quality-arm`, `quality-stop`, `edt-gate`,
+  `support-guard`, `skill-suggester`. Список пуст - хук работает в любом каталоге.
+  Иначе - когда `cwd` payload (без него текущий каталог процесса) равен корню или лежит
+  внутри него. Вне области выход 0, без вывода и без записи в след. `--only` без
+  значения - хук без ограничения и строка в stderr.
+
 - Гейт завершения хода: `hooks/quality-baseline.mjs` (событие `baseline` - HEAD и каноническое множество с
   хешами, один раз на сессию, при `resume` / `compact` / `clear` не перезаписывается),
   `hooks/quality-arm.mjs` (события `armed` по правкам через `Write`, `Edit`, `MultiEdit`, `NotebookEdit` и
@@ -216,6 +230,10 @@
   Тесты: `tests/tools/profile/` - 17, `tests/tools/evidence/` - 29.
 
 ### Установка
+
+- Компонент `commands`: в дом ставится только `commands/quality.md`
+  (`<дом>/commands/quality.md`). Остальные команды каталога `commands/` и личные
+  команды пользователя установщик не трогает.
 
 - `tools/install_home.py`: установщик компонентов в `~/.claude` (компонент `agents`), манифест
   `.install-manifest.json` (путь и sha256), конфликт при внешней правке файла (код 1), `--force`
