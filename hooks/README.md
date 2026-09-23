@@ -91,6 +91,88 @@
 }
 ```
 
+Домашняя установка кладет хуки и инструменты туда, где их ищет набор, без правки клиентского
+репозитория:
+
+```bash
+python tools/install_home.py
+```
+
+| Что | Куда |
+|---|---|
+| каталог `hooks/` | `~/.claude/hooks/1c-skills/` |
+| `evidence.py`, `quality_events.py`, `changeset.py`, `change_profile.py`, `install_home.py` | `~/.claude/tools/1c-skills/` (файл `evidence.py` лежит прямо в этом каталоге) |
+| `commands/quality.md` | `~/.claude/commands/quality.md` (остальные команды пользователя не трогаются) |
+| скил `1c-code-review` | `~/.claude/skills/1c-code-review/` - отсюда берутся числа Critical/Major (`assets/bsl-ls-gate.json`); установщик скилы не копирует |
+
+Регистрация на уровне пользователя - в `~/.claude/settings.json`. Путь к хуку абсолютный
+(`<домашний каталог>/.claude/hooks/1c-skills/<хук>.mjs`, на Windows это `USERPROFILE`). Довод
+`--only` повторяется и называет корень воркспейса; без него пользовательская регистрация
+сработала бы в каждом открытом каталоге. Строки матчера - те же, что в `hooks/hooks.json`.
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "^(Read|Grep|Glob|Bash|PowerShell)$",
+        "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/edt-gate.mjs\" --only \"D:/work/client\"" }] },
+      { "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/support-guard.mjs\" --only \"D:/work/client\"" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Read|Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/skill-suggester.mjs\" --only \"D:/work/client\"" }] },
+      { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
+        "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/evidence-writer.mjs\" --only \"D:/work/client\"" }] },
+      { "matcher": "<строка matcher из hooks/hooks.json - блок quality-arm.mjs>",
+        "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/quality-arm.mjs\" --only \"D:/work/client\"" }] }
+    ],
+    "PostToolUseFailure": [
+      { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
+        "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/evidence-writer.mjs\" --only \"D:/work/client\"" }] },
+      { "matcher": "<строка matcher из hooks/hooks.json - блок edt-gate.mjs на PostToolUseFailure>",
+        "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/edt-gate.mjs\" --only \"D:/work/client\"" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command",
+          "command": "node \"~/.claude/hooks/1c-skills/quality-stop.mjs\" --only \"D:/work/client\"" }] }
+    ],
+    "SessionStart": [
+      { "hooks": [{ "type": "command",
+        "command": "node \"~/.claude/hooks/1c-skills/session-context.mjs\" --only \"D:/work/client\"" }] },
+      { "hooks": [{ "type": "command",
+        "command": "node \"~/.claude/hooks/1c-skills/quality-baseline.mjs\" --only \"D:/work/client\"" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command",
+        "command": "node \"~/.claude/hooks/1c-skills/release-writer.mjs\" --only \"D:/work/client\"" }] }
+    ]
+  }
+}
+```
+
+Правило `--only`. Список пуст - хук работает в любом каталоге. Иначе хук работает, когда `cwd`
+из payload (если его нет - текущий каталог процесса) равен одному из корней или лежит внутри
+него: путь приводится через realpath, обратные слеши заменяются на `/`, завершающий `/`
+срезается, на Windows сравнение без учета регистра. Вне области хук завершается кодом 0, ничего
+не пишет в stdout и stderr и не пишет в след. `--only` без значения не выключает хук: ограничение
+снимается, в stderr одна строка. Второй корень задается повторным `--only`. Так регистрация в
+настройках пользователя действует только в названных воркспейсах, а файлы клиентских репозиториев
+не правятся.
+
+Хук `PreToolUse` в настройках, которые читает Cursor, отклоняет все инструменты Cursor CLI,
+запущенного из Git Bash (в том числе через промежуточный `pwsh`): оболочка сообщает
+`syntax error near unexpected token '&'`. Из PowerShell тот же хук исполняется. Настройки
+родительских каталогов Cursor не читает: вложенный worktree без своего файла настроек не задет.
+Хуки остальных событий этой ошибкой оболочки работу Cursor не останавливают.
+
 ## Настройка (`.v8-project.json`)
 
 Поведение настраивается в файле проекта `.v8-project.json` - глобально и/или по конкретной базе
@@ -144,10 +226,11 @@
 Внутренняя ошибка любого хука - выход 0 со строкой в stderr, работа сессии не блокируется.
 
 Число Critical/Major для `code_review` считается по кодам диагностик из гейтового
-конфига `skills/1c-code-review/assets/bsl-ls-gate.json`: хук ищет каталог скила через
-`CLAUDE_PLUGIN_ROOT` либо рядом с собой (`../skills/`). При ручной установке хуков без
-каталога скила числа не считаются, итог деградирует до `pass`/`unknown` - событие
-записывается, но числа находок будут нулевыми.
+конфига `skills/1c-code-review/assets/bsl-ls-gate.json`. Хук берет первый корень, где этот
+файл есть: `CLAUDE_PLUGIN_ROOT`, каталог над `hooks/` репозитория набора, `<дом>/.claude`
+(домашняя установка, скил в `~/.claude/skills/1c-code-review/`). Нет ни одного такого корня -
+числа не считаются, итог деградирует до `pass`/`unknown`: событие записывается, числа
+находок нулевые.
 
 ## Гейт завершения хода
 
