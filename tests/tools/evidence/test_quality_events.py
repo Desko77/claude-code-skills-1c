@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 import tempfile
@@ -107,6 +108,53 @@ class QualityEventsOrderTests(unittest.TestCase):
                                  "2026-09-22T120000-123-000001.lock"])
         # Lock-файлы не читаются как события.
         self.assertEqual(len(self.mod.read_events(self.repo, SESSION)), 2)
+
+
+class StateBasePathTests(unittest.TestCase):
+    def test_absolute_rule_by_platform(self):
+        """Абсолютность базы: на win32 диск или UNC, иначе начало с /."""
+        mod = load_module()
+        for value in ("rel/dir", "./x", "x"):
+            self.assertFalse(mod.absolute_state_dir(value, "win32"), value)
+            self.assertFalse(mod.absolute_state_dir(value, "linux"), value)
+        self.assertFalse(mod.absolute_state_dir("/foo", "win32"))
+        self.assertTrue(mod.absolute_state_dir("/foo", "linux"))
+        self.assertTrue(mod.absolute_state_dir("C:/x", "win32"))
+        self.assertTrue(mod.absolute_state_dir("C:\\x", "win32"))
+        self.assertFalse(mod.absolute_state_dir("C:/x", "linux"))
+        self.assertTrue(mod.absolute_state_dir("\\\\server\\share\\x", "win32"))
+        self.assertTrue(mod.absolute_state_dir("//server/share/x", "win32"))
+        self.assertFalse(mod.absolute_state_dir("\\\\server\\share\\x", "linux"))
+
+    def test_relative_value_uses_home(self):
+        """rel/dir, ./x и x не задают базу; на win32 /foo тоже, C:/x и UNC задают."""
+        mod = load_module()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        home = tmp.name
+        saved = {key: os.environ.get(key) for key in ("HOME", "USERPROFILE", "QUALITY_STATE_DIR")}
+
+        def restore() -> None:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+        self.addCleanup(restore)
+        os.environ["HOME"] = home
+        os.environ["USERPROFILE"] = home
+        default = Path(home) / ".claude" / "state" / "quality"
+        for value in ("rel/dir", "./x", "x"):
+            os.environ["QUALITY_STATE_DIR"] = value
+            self.assertEqual(mod.state_base(), default, value)
+        if sys.platform == "win32":
+            os.environ["QUALITY_STATE_DIR"] = "/foo"
+            self.assertEqual(mod.state_base(), default)
+            os.environ["QUALITY_STATE_DIR"] = "C:/x"
+            self.assertEqual(mod.state_base(), Path("C:/x"))
+            os.environ["QUALITY_STATE_DIR"] = "\\\\server\\share\\x"
+            self.assertEqual(mod.state_base(), Path("\\\\server\\share\\x"))
 
 
 if __name__ == "__main__":
