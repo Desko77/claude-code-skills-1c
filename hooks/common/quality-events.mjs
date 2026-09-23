@@ -10,9 +10,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, rm, readdir, stat } from 'node:fs/promises';
 import { execFile as execFileCb } from 'node:child_process';
-import { constants } from 'node:fs';
+import { constants, realpathSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { dirname, join } from 'node:path';
+import { claudeHome } from './home.mjs';
 
 const execFile = promisify(execFileCb);
 
@@ -34,12 +35,61 @@ export async function repoTop(cwd) {
   }
 }
 
-// Каталог событий сессии. Недопустимый идентификатор - EventsError.
-export function eventsDir(top, session) {
+// База следа: QUALITY_STATE_DIR, если переменная не пустая, иначе
+// <домашний каталог>/.claude/state/quality.
+export function stateBase() {
+  const env = process.env.QUALITY_STATE_DIR;
+  if (env) return env;
+  return join(claudeHome(), '.claude', 'state', 'quality');
+}
+
+// Канонический путь. Отказ realpath - путь без изменений.
+function canonicalTop(top) {
+  try {
+    return realpathSync.native(top);
+  } catch {
+    return top;
+  }
+}
+
+// Нормализация корня репозитория. platform - win32, linux или darwin.
+export function normalizeTop(path, platform) {
+  let text = String(path).replace(/\\/g, '/');
+  const driveRoot = /^[A-Za-z]:\/$/;
+  while (text.length > 1 && text.endsWith('/') && !driveRoot.test(text)) {
+    text = text.slice(0, -1);
+  }
+  if (platform === 'win32') text = text.toLowerCase();
+  return text;
+}
+
+// Ключ репозитория: сегмент пути и 12 hex sha256 нормализованной строки.
+export function repoKey(normalized) {
+  const slash = String(normalized).lastIndexOf('/');
+  let segment = slash === -1 ? String(normalized) : String(normalized).slice(slash + 1);
+  segment = segment.replace(/[^A-Za-z0-9._-]/g, '_').replace(/_+/g, '_');
+  segment = segment.replace(/^[_.-]+|[_.-]+$/g, '').slice(0, 32).replace(/[_.-]+$/g, '');
+  if (!segment) segment = 'repo';
+  const digest = createHash('sha256').update(String(normalized), 'utf8').digest('hex').slice(0, 12);
+  return `${segment}-${digest}`;
+}
+
+// Корень следа репозитория: <база>/<ключ>.
+export function stateRoot(top) {
+  return join(stateBase(), repoKey(normalizeTop(canonicalTop(top), process.platform)));
+}
+
+// Каталог сессии. Недопустимый идентификатор - EventsError.
+export function sessionDir(top, session) {
   if (!SESSION_RE.test(session || '')) {
     throw new EventsError(`недопустимый идентификатор сессии: ${session}`);
   }
-  return join(top, '.claude', '.state', 'quality', session, 'events');
+  return join(stateRoot(top), session);
+}
+
+// Каталог событий сессии.
+export function eventsDir(top, session) {
+  return join(sessionDir(top, session), 'events');
 }
 
 // Рекурсивно отсортировать ключи объектов: сериализация совпадает с
@@ -147,28 +197,73 @@ export async function listEventFiles(top, session) {
   }
 }
 
-// Вычистить каталоги сессий старше ttlMs (по времени изменения каталога сессии; его
-// обновляет каждое событие - lock-файлы создаются именно там). Возвращает число удаленных.
-export async function sweepStaleSessions(top, ttlMs) {
-  const root = join(top, '.claude', '.state', 'quality');
+// Удалить устаревшие сессии одного ключа. Ошибка на каталоге сессии пропускает его.
+// Каталог ключа удаляется, когда подкаталогов не осталось и каждый файл старше ttlMs.
+async function sweepKeyDir(keyDir, ttlMs, now) {
+  let entries;
+  try {
+    entries = await readdir(keyDir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  let removed = 0;
+  for (const ent of entries) {
+    if (!ent.isDirectory()) continue;
+    const sessionPath = join(keyDir, ent.name);
+    try {
+      const info = await stat(sessionPath);
+      if (!info.isDirectory() || now - info.mtimeMs <= ttlMs) continue;
+      await rm(sessionPath, { recursive: true, force: true });
+      removed++;
+    } catch {
+      // каталог сессии недоступен - пропуск
+    }
+  }
+  let left;
+  try {
+    left = await readdir(keyDir, { withFileTypes: true });
+  } catch {
+    return removed;
+  }
+  if (left.some((ent) => ent.isDirectory())) return removed;
+  for (const ent of left) {
+    try {
+      const info = await stat(join(keyDir, ent.name));
+      if (now - info.mtimeMs <= ttlMs) return removed;
+    } catch {
+      return removed;
+    }
+  }
+  try {
+    await rm(keyDir, { recursive: true, force: true });
+  } catch {
+    // каталог ключа не удален - пропуск
+  }
+  return removed;
+}
+
+// Вычистить каталоги сессий старше ttlMs по времени изменения во всех ключах базы.
+// Возвращает число удаленных каталогов сессий. Ошибка базы, кроме отсутствия, пробрасывается;
+// ошибка отдельного каталога ключа пропускает его.
+export async function sweepStaleSessions(ttlMs) {
+  const base = stateBase();
   let names;
   try {
-    names = await readdir(root);
+    names = await readdir(base);
   } catch (err) {
     if (err.code === 'ENOENT') return 0;
     throw err;
   }
   let removed = 0;
+  const now = Date.now();
   for (const name of names) {
-    const sessionDir = join(root, name);
+    const keyDir = join(base, name);
     try {
-      const info = await stat(sessionDir);
-      if (info.isDirectory() && Date.now() - info.mtimeMs > ttlMs) {
-        await rm(sessionDir, { recursive: true, force: true });
-        removed++;
-      }
+      const info = await stat(keyDir);
+      if (!info.isDirectory()) continue;
+      removed += await sweepKeyDir(keyDir, ttlMs, now);
     } catch {
-      // каталог чужой или уже удален параллельным хуком - пропустить
+      // каталог ключа недоступен - пропуск
     }
   }
   return removed;
