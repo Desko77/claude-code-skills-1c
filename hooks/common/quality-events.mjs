@@ -20,6 +20,9 @@ const execFile = promisify(execFileCb);
 // Идентификатор сессии: буква-цифра-подчеркивание-точка-дефис, без разделителей пути.
 export const SESSION_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
+// Имя каталога ключа: 1-32 символа сегмента, дефис, 12 hex.
+const KEY_DIR_RE = /^[A-Za-z0-9._-]{1,32}-[0-9a-f]{12}$/;
+
 export class EventsError extends Error {}
 
 // Корень git-репозитория: каталог следа один на репозиторий (tools/quality_events.py,
@@ -35,11 +38,20 @@ export async function repoTop(cwd) {
   }
 }
 
-// База следа: QUALITY_STATE_DIR, если переменная не пустая, иначе
+// Абсолютный путь базы. На win32: X:\ или X:/, либо UNC (два слеша и символ не-слеш).
+// На остальных платформах: начало с /.
+export function absoluteStateDir(value, platform = process.platform) {
+  if (platform === 'win32') {
+    return /^[A-Za-z]:[\\/]/.test(value) || /^[\\/][\\/][^\\/]/.test(value);
+  }
+  return String(value).startsWith('/');
+}
+
+// База следа: QUALITY_STATE_DIR, если значение абсолютное, иначе
 // <домашний каталог>/.claude/state/quality.
 export function stateBase() {
   const env = process.env.QUALITY_STATE_DIR;
-  if (env) return env;
+  if (env && absoluteStateDir(env)) return env;
   return join(claudeHome(), '.claude', 'state', 'quality');
 }
 
@@ -198,7 +210,8 @@ export async function listEventFiles(top, session) {
 }
 
 // Удалить устаревшие сессии одного ключа. Ошибка на каталоге сессии пропускает его.
-// Каталог ключа удаляется, когда подкаталогов не осталось и каждый файл старше ttlMs.
+// Удаляются только подкаталоги с именем сессии старше ttlMs. Каталог ключа удаляется,
+// когда в нем не осталось ничего, кроме файла edt-health.json старше ttlMs.
 async function sweepKeyDir(keyDir, ttlMs, now) {
   let entries;
   try {
@@ -208,7 +221,7 @@ async function sweepKeyDir(keyDir, ttlMs, now) {
   }
   let removed = 0;
   for (const ent of entries) {
-    if (!ent.isDirectory()) continue;
+    if (!ent.isDirectory() || !SESSION_RE.test(ent.name)) continue;
     const sessionPath = join(keyDir, ent.name);
     try {
       const info = await stat(sessionPath);
@@ -225,11 +238,13 @@ async function sweepKeyDir(keyDir, ttlMs, now) {
   } catch {
     return removed;
   }
-  if (left.some((ent) => ent.isDirectory())) return removed;
-  for (const ent of left) {
+  const others = left.filter((ent) => ent.name !== 'edt-health.json');
+  if (others.length > 0) return removed;
+  const health = left.find((ent) => ent.name === 'edt-health.json');
+  if (health) {
     try {
-      const info = await stat(join(keyDir, ent.name));
-      if (now - info.mtimeMs <= ttlMs) return removed;
+      const info = await stat(join(keyDir, health.name));
+      if (!info.isFile() || now - info.mtimeMs <= ttlMs) return removed;
     } catch {
       return removed;
     }
@@ -242,7 +257,8 @@ async function sweepKeyDir(keyDir, ttlMs, now) {
   return removed;
 }
 
-// Вычистить каталоги сессий старше ttlMs по времени изменения во всех ключах базы.
+// Вычистить каталоги сессий старше ttlMs по времени изменения в каталогах ключей базы.
+// Имя ключа - KEY_DIR_RE; остальные имена базы не затрагиваются.
 // Возвращает число удаленных каталогов сессий. Ошибка базы, кроме отсутствия, пробрасывается;
 // ошибка отдельного каталога ключа пропускает его.
 export async function sweepStaleSessions(ttlMs) {
@@ -257,6 +273,7 @@ export async function sweepStaleSessions(ttlMs) {
   let removed = 0;
   const now = Date.now();
   for (const name of names) {
+    if (!KEY_DIR_RE.test(name)) continue;
     const keyDir = join(base, name);
     try {
       const info = await stat(keyDir);
