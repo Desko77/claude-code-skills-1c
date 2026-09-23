@@ -4,7 +4,7 @@
 
 Каталог событий - <база>/<ключ>/<session>/events/ вне репозитория
 (спецификация - skills/1c-code-review/references/evidence-format.md). База -
-QUALITY_STATE_DIR, если переменная не пустая, иначе
+QUALITY_STATE_DIR, если значение абсолютное, иначе
 <домашний каталог>/.claude/state/quality. Событие - один неизменяемый JSON-файл
 с именем <время>-<номер>-<источник>-<id>.json; запись идет через временный файл
 и переименование. Поврежденный JSON при чтении не поднимает исключение: файл
@@ -49,10 +49,18 @@ def claude_home() -> str:
     return os.environ.get("HOME") or os.environ.get("USERPROFILE") or str(Path.home())
 
 
+def absolute_state_dir(value: str, platform: str) -> bool:
+    """Абсолютный путь базы: на win32 диск или UNC, иначе начало с /."""
+    if platform == "win32":
+        return (re.match(r"^[A-Za-z]:[\\/]", value) is not None
+                or re.match(r"^[\\/][\\/][^\\/]", value) is not None)
+    return value.startswith("/")
+
+
 def state_base() -> Path:
-    """База следа: QUALITY_STATE_DIR, если переменная не пустая, иначе домашний каталог."""
+    """База следа: QUALITY_STATE_DIR, если значение абсолютное, иначе домашний каталог."""
     env = os.environ.get("QUALITY_STATE_DIR", "")
-    if env:
+    if env and absolute_state_dir(env, sys.platform):
         return Path(env)
     return Path(claude_home()) / ".claude" / "state" / "quality"
 
