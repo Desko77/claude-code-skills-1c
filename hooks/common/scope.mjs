@@ -44,7 +44,8 @@ export function directoryInScope(cwd, roots) {
   for (const root of roots) {
     const base = normalizeDir(root);
     if (!base) continue;
-    if (dir === base || dir.startsWith(`${base}/`)) return true;
+    const prefix = base.endsWith('/') ? base : `${base}/`;
+    if (dir === base || dir.startsWith(prefix)) return true;
   }
   return false;
 }

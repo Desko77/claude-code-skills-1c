@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, parse } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
 import { makeTmpRepo, readEvents, runHook, writeRepoFile } from './helpers.mjs';
 import { directoryInScope, ONLY_PARSE_ERROR, parseOnlyArgs, scopeStatus } from '../../hooks/common/scope.mjs';
@@ -199,6 +199,15 @@ test('directoryInScope: пустой список, вложенный катал
   } finally {
     await rm(base, { recursive: true, force: true });
     await rm(sibling, { recursive: true, force: true });
+  }
+});
+
+test('directoryInScope: корень файловой системы охватывает вложенные каталоги', async () => {
+  const base = realpathSync.native(await mkdtemp(join(tmpdir(), 'scope-root-')));
+  try {
+    assert(directoryInScope(base, [parse(base).root]), `${base} внутри ${parse(base).root}`);
+  } finally {
+    await rm(base, { recursive: true, force: true });
   }
 });
 
