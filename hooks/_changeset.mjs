@@ -11,8 +11,10 @@
 import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { execFile as execFileCb } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
+import { stateBase } from './common/quality-events.mjs';
 
 const execFile = promisify(execFileCb);
 const GIT_MAX_BUFFER = 64 * 1024 * 1024;
@@ -142,6 +144,39 @@ export function buildDiffPayload(files) {
   return Buffer.concat(chunks);
 }
 
+function slashPath(value) {
+  return String(value).replace(/\\/g, '/');
+}
+
+function foldPath(value) {
+  return process.platform === 'win32' ? value.toLowerCase() : value;
+}
+
+// Относительный путь каталога следа внутри корня. Вне корня - null.
+function traceRel(top) {
+  const raw = stateBase();
+  let base = raw;
+  try {
+    base = realpathSync.native(raw);
+  } catch {
+    base = raw;
+  }
+  const topNorm = slashPath(top);
+  const baseNorm = slashPath(base);
+  if (foldPath(baseNorm) === foldPath(topNorm)) return null;
+  const topPrefix = topNorm.endsWith('/') ? topNorm : `${topNorm}/`;
+  if (!foldPath(baseNorm).startsWith(foldPath(topPrefix))) return null;
+  const rel = baseNorm.slice(topPrefix.length).normalize('NFC');
+  return rel || null;
+}
+
+function underTrace(path, rel) {
+  if (!rel) return false;
+  const foldedPath = foldPath(slashPath(path));
+  const foldedRel = foldPath(rel);
+  return foldedPath === foldedRel || foldedPath.startsWith(`${foldedRel}/`);
+}
+
 // Вычислить каноническое множество изменений относительно base; результат по
 // спецификации skills/1c-code-review/references/changeset.md:
 // { base, diffHash, files } с записями { path, sha256, status [, renamedFrom] }.
@@ -156,6 +191,7 @@ export async function computeChangeset(repoDir, base = 'HEAD') {
   if (!repoStat.isDirectory()) throw new ChangesetError(`не каталог: ${repoPath}`);
 
   const top = decode(await runGit(['rev-parse', '--show-toplevel'], repoPath), 'git rev-parse').trim();
+  const rel = traceRel(top);
   const baseSha = decode(
     await runGit(['rev-parse', '--verify', `${base}^{commit}`], top), 'git rev-parse').trim();
   const diffRaw = await runGit(
@@ -166,6 +202,7 @@ export async function computeChangeset(repoDir, base = 'HEAD') {
   for (const token of splitNul(untrackedRaw)) {
     const fsPath = decode(token, 'git ls-files');
     const path = fsPath.normalize('NFC');
+    if (underTrace(path, rel)) continue;
     if (!entries.has(path)) {
       entries.set(path, { status: 'added', renamedFrom: null, fsPath });
     }

@@ -5,7 +5,7 @@ import { readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
 import { makeTmpRepo } from './helpers.mjs';
-import { writeEvent } from '../../hooks/common/quality-events.mjs';
+import { sessionDir, writeEvent } from '../../hooks/common/quality-events.mjs';
 
 test('коллизия имени события: существующий файл не перезаписывается, id перегенерируется', async () => {
   const ctx = await makeTmpRepo();
@@ -19,9 +19,9 @@ test('коллизия имени события: существующий фа�
 
     // lock-файлы удалены: следующий вызов занимает тот же номер последовательности и
     // сначала получает то же имя - оно занято, id перегенерируется.
-    const sessionDir = join(ctx.top, '.claude', '.state', 'quality', 'col-1');
-    for (const name of await readdir(sessionDir)) {
-      if (name.endsWith('.lock')) await rm(join(sessionDir, name));
+    const colDir = sessionDir(ctx.top, 'col-1');
+    for (const name of await readdir(colDir)) {
+      if (name.endsWith('.lock')) await rm(join(colDir, name));
     }
     const second = await writeEvent(ctx.top, 'col-1', mk(2), { nextId: () => ids[next++] });
     assert(second.endsWith('-hook-bbbbbb.json'), `имя второго события: ${second}`);

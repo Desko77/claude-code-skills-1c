@@ -18,6 +18,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from state_env import isolate_state_dir
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TOOL = REPO_ROOT / "tools" / "change_profile.py"
 EVIDENCE_CLI = REPO_ROOT / "tools" / "evidence.py"
@@ -33,6 +36,15 @@ TXN_MODULE = """Процедура ВыполнитьОбмен()
 def load_module():
     """Модуль tools/change_profile.py, импортированный по пути: вызов функций без CLI."""
     spec = importlib.util.spec_from_file_location("change_profile_py", TOOL)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_quality_events():
+    """Модуль tools/quality_events.py: каталог событий вне репозитория."""
+    spec = importlib.util.spec_from_file_location("quality_events_profile_test",
+                                                  REPO_ROOT / "tools" / "quality_events.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -62,8 +74,6 @@ def make_repo(tmp: Path) -> Path:
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "core.autocrlf", "false")
     git(repo, "config", "core.quotepath", "false")
-    # Каталог следа исключен из git: запись события не должна менять diffHash.
-    (repo / ".gitignore").write_text(".claude/.state/\n", encoding="utf-8")
     return repo
 
 
@@ -89,6 +99,7 @@ def run_cli(repo: Path, *extra: str) -> subprocess.CompletedProcess:
 
 class ComputeProfileTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
@@ -350,6 +361,7 @@ class ComputeProfileTests(unittest.TestCase):
 
 class ChangeProfileCliTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
@@ -390,7 +402,7 @@ class ChangeProfileCliTests(unittest.TestCase):
         repo = self.scenario_repo()
         proc = run_cli(repo, "--json", "--session", "sess-1")
         self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", errors="replace"))
-        events_dir = repo / ".claude" / ".state" / "quality" / "sess-1" / "events"
+        events_dir = load_quality_events().events_dir(repo, "sess-1")
         files = sorted(events_dir.glob("*.json"))
         self.assertEqual(len(files), 1)
         event = json.loads(files[0].read_text(encoding="utf-8"))
@@ -414,7 +426,7 @@ class ChangeProfileCliTests(unittest.TestCase):
         repo = self.scenario_repo()
         proc = run_cli(repo, "--json", "--session", "sess-1", "--no-write")
         self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", errors="replace"))
-        self.assertFalse((repo / ".claude").exists())
+        self.assertFalse(load_quality_events().events_dir(repo, "sess-1").exists())
 
     def test_bad_base_exit_2(self):
         """Неразрешаемый base - код 2, диагностика в stderr без traceback."""
