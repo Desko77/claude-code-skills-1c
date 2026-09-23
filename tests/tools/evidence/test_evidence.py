@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """Тесты валидатора следа: tools/evidence.py.
 
-Фикстуры - каталоги событий .claude/.state/quality/<сессия>/events/ во временном
-чистом git-репозитории (diffHash прогона стабилен). Каждая ветка вердикта check
+Фикстуры - каталоги событий сессии во временном чистом git-репозитории
+(diffHash прогона стабилен). Каждая ветка вердикта check
 --strict - отдельный тест: clean, with_gaps (пропуск и снятие), blocked (нет scope,
 устаревший хеш, обязательная без события, critical - в том числе с пропуском и с
 поздним applied без critical, без toolUseId, чужое и просроченное снятие,
@@ -20,6 +20,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from state_env import isolate_state_dir
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CLI = REPO_ROOT / "tools" / "evidence.py"
@@ -43,10 +46,20 @@ def git(repo: Path, *args: str) -> None:
     assert proc.returncode == 0, f"git {args}: {proc.stderr.decode('utf-8', errors='replace')}"
 
 
+def load_quality_events():
+    """Модуль tools/quality_events.py: каталог событий вне репозитория."""
+    spec = importlib.util.spec_from_file_location("quality_events_evidence_test",
+                                                  REPO_ROOT / "tools" / "quality_events.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def make_clean_repo(tmp: Path) -> Path:
-    """Чистый репозиторий с закоммиченным .gitignore на каталог следа.
+    """Чистый репозиторий с базовым коммитом.
 
     diffHash прогона - хеш пустого множества: все события с этим хешем образуют прогон.
+    След пишется вне дерева.
     """
     repo = tmp / "repo"
     repo.mkdir()
@@ -54,7 +67,6 @@ def make_clean_repo(tmp: Path) -> Path:
     git(repo, "config", "user.email", "test@example.com")
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "core.autocrlf", "false")
-    (repo / ".gitignore").write_text(".claude/.state/\n", encoding="utf-8")
     (repo / "base.txt").write_text("база\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "база", "--no-gpg-sign", "--no-verify")
@@ -66,7 +78,7 @@ class Trace:
 
     def __init__(self, repo: Path):
         self.repo = repo
-        self.directory = repo / ".claude" / ".state" / "quality" / SESSION / "events"
+        self.directory = load_quality_events().events_dir(repo, SESSION)
         self.diff_hash = load_changeset().compute_changeset(repo, "HEAD")["diffHash"]
         self.counter = 0
 
@@ -125,6 +137,7 @@ def check(repo: Path, base: str = "HEAD") -> subprocess.CompletedProcess:
 
 class EvidenceCheckTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
@@ -376,6 +389,7 @@ class EvidenceCheckTests(unittest.TestCase):
 
 class EvidenceAddTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)
@@ -451,6 +465,7 @@ class EvidenceAddTests(unittest.TestCase):
 
 class EvidenceRenderTests(unittest.TestCase):
     def setUp(self):
+        isolate_state_dir(self)
         self._tmp = tempfile.TemporaryDirectory()
         self.tmp = Path(self._tmp.name)
         self.addCleanup(self._tmp.cleanup)

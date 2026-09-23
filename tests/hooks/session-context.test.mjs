@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { mkdtemp } from 'node:fs/promises';
 import { assert, assertEq, run, test } from './harness.mjs';
 import { loadFixture, makeTmpRepo, runHook, touchSessionDir } from './helpers.mjs';
+import { eventsDir, sessionDir } from '../../hooks/common/quality-events.mjs';
 
 test('SessionStart source=startup: additionalContext с идентификатором и каталогом', async () => {
   const ctx = await makeTmpRepo();
@@ -18,7 +19,7 @@ test('SessionStart source=startup: additionalContext с идентификато
     const out = JSON.parse(r.stdout.trim());
     const ctxOut = out.hookSpecificOutput;
     assertEq(ctxOut.hookEventName, 'SessionStart');
-    const expectedDir = join(ctx.top, '.claude', '.state', 'quality', 'ctx-session-1', 'events');
+    const expectedDir = eventsDir(ctx.top, 'ctx-session-1');
     assertEq(ctxOut.additionalContext, `сессия: ctx-session-1\nкаталог событий: ${expectedDir}`);
   } finally {
     await ctx.cleanup();
@@ -46,8 +47,8 @@ test('SessionStart source=compact: тот же ответ, отметка baseli
     assertEq(r.status, 0);
     const out = JSON.parse(r.stdout.trim());
     assert(out.hookSpecificOutput.additionalContext.includes('каталог событий'));
-    const eventsDir = join(ctx.top, '.claude', '.state', 'quality', 'ctx-session-1', 'events');
-    assert(!existsSync(eventsDir) || (await import('node:fs/promises')).readdir(eventsDir).then(
+    const dir = eventsDir(ctx.top, 'ctx-session-1');
+    assert(!existsSync(dir) || (await import('node:fs/promises')).readdir(dir).then(
       (names) => names.filter((n) => n.endsWith('.json')).length === 0, () => true),
     'baseline не пишется');
   } finally {
@@ -58,8 +59,8 @@ test('SessionStart source=compact: тот же ответ, отметка baseli
 test('очистка: каталоги сессий старше 7 дней удаляются, свежие остаются', async () => {
   const ctx = await makeTmpRepo();
   try {
-    const stale = join(ctx.top, '.claude', '.state', 'quality', 'stale-session', 'events');
-    const fresh = join(ctx.top, '.claude', '.state', 'quality', 'fresh-session', 'events');
+    const stale = join(sessionDir(ctx.top, 'stale-session'), 'events');
+    const fresh = join(sessionDir(ctx.top, 'fresh-session'), 'events');
     await mkdir(stale, { recursive: true });
     await mkdir(fresh, { recursive: true });
     await writeFile(join(stale, '2026-01-01T000000-000-000000-hook-abc123.json'), '{}\n', 'utf8');

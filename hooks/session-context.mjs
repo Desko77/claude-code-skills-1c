@@ -1,7 +1,7 @@
 // session-context.mjs - хук SessionStart: сообщает модели идентификатор сессии следа
 // проверок и путь каталога событий (передается в CLI доводом --session), вычищает
-// каталоги сессий старше 7 дней. Работает одинаково для source startup, resume, clear,
-// compact и fork. Внутренняя ошибка - выход 0 со строкой в stderr.
+// каталоги сессий старше 7 дней в каталогах ключей. Работает одинаково для source
+// startup, resume, clear, compact и fork. Внутренняя ошибка - выход 0 со строкой в stderr.
 //
 // stdin: SessionStart JSON { source, session_id, cwd, ... }.
 
@@ -26,7 +26,7 @@ export async function processPayload(payload) {
   }
   let swept = 0;
   try {
-    swept = await sweepStaleSessions(top, STALE_TTL_MS);
+    swept = await sweepStaleSessions(STALE_TTL_MS);
   } catch (err) {
     // очистка вспомогательная: сбой не мешает сообщить сессию
     process.stderr.write(`[session-context] очистка не выполнена: ${err.message}\n`);

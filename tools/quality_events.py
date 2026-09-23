@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """Общий модуль событий следа проверок: запись, чтение, отбор прогона.
 
-Каталог событий - .claude/.state/quality/<session>/events/ в корне репозитория
-(спецификация - skills/1c-code-review/references/evidence-format.md). Событие -
-один неизменяемый JSON-файл с именем <время>-<номер>-<источник>-<id>.json; запись
-идет через временный файл и переименование. Поврежденный JSON при чтении не
-поднимает исключение: файл возвращается записью type=corrupt с именем и текстом
-ошибки.
+Каталог событий - <база>/<ключ>/<session>/events/ вне репозитория
+(спецификация - skills/1c-code-review/references/evidence-format.md). База -
+QUALITY_STATE_DIR, если значение абсолютное, иначе
+<домашний каталог>/.claude/state/quality. Событие - один неизменяемый JSON-файл
+с именем <время>-<номер>-<источник>-<id>.json; запись идет через временный файл
+и переименование. Поврежденный JSON при чтении не поднимает исключение: файл
+возвращается записью type=corrupt с именем и текстом ошибки.
 
 Пишут события: tools/change_profile.py (scope, producer profile), tools/evidence.py
 (skipped, not_verified, probe; producer cli) и хуки (applied, failed, release,
@@ -17,17 +18,19 @@ baseline, armed; producer hook) - хуки этим модулем не реал
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import subprocess
+import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
 
 # Идентификатор сессии: буква-цифра-подчеркивание-точка-дефис, без разделителей пути.
 SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
-STATE_REL = Path(".claude") / ".state" / "quality"
+_DRIVE_ROOT = re.compile(r"[A-Za-z]:/")
 
 
 class EventsError(Exception):
@@ -39,11 +42,69 @@ def now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="milliseconds")
 
 
+def claude_home() -> str:
+    """Домашний каталог: на win32 первым USERPROFILE, иначе HOME, затем Path.home."""
+    if sys.platform == "win32":
+        return os.environ.get("USERPROFILE") or os.environ.get("HOME") or str(Path.home())
+    return os.environ.get("HOME") or os.environ.get("USERPROFILE") or str(Path.home())
+
+
+def absolute_state_dir(value: str, platform: str) -> bool:
+    """Абсолютный путь базы: на win32 диск или UNC, иначе начало с /."""
+    if platform == "win32":
+        return (re.match(r"^[A-Za-z]:[\\/]", value) is not None
+                or re.match(r"^[\\/][\\/][^\\/]", value) is not None)
+    return value.startswith("/")
+
+
+def state_base() -> Path:
+    """База следа: QUALITY_STATE_DIR, если значение абсолютное, иначе домашний каталог."""
+    env = os.environ.get("QUALITY_STATE_DIR", "")
+    if env and absolute_state_dir(env, sys.platform):
+        return Path(env)
+    return Path(claude_home()) / ".claude" / "state" / "quality"
+
+
+def normalize_top(path: str, platform: str) -> str:
+    """Нормализация корня репозитория. platform - win32, linux или darwin."""
+    text = str(path).replace("\\", "/")
+    while len(text) > 1 and text.endswith("/") and _DRIVE_ROOT.fullmatch(text) is None:
+        text = text[:-1]
+    if platform == "win32":
+        text = text.lower()
+    return text
+
+
+def repo_key(normalized: str) -> str:
+    """Ключ репозитория: сегмент пути и 12 hex sha256 нормализованной строки."""
+    segment = str(normalized).rsplit("/", 1)[-1]
+    segment = re.sub(r"[^A-Za-z0-9._-]", "_", segment)
+    segment = re.sub(r"_+", "_", segment)
+    segment = segment.strip("_.-")[:32].rstrip("_.-")
+    if not segment:
+        segment = "repo"
+    digest = hashlib.sha256(str(normalized).encode("utf-8")).hexdigest()[:12]
+    return f"{segment}-{digest}"
+
+
+def _canonical_top(top: str) -> str:
+    """Канонический путь. Отказ realpath - путь без изменений."""
+    try:
+        return os.path.realpath(top)
+    except OSError:
+        return top
+
+
+def state_root(top: Path | str) -> Path:
+    """Корень следа репозитория: <база>/<ключ>."""
+    canonical = _canonical_top(os.fspath(top))
+    return state_base() / repo_key(normalize_top(canonical, sys.platform))
+
+
 def repo_top(repo_dir: Path | str) -> Path:
     """Корень git-репозитория по git rev-parse --show-toplevel.
 
-    События пишутся в корень репозитория независимо от того, каким подкаталогом
-    задан --repo: каталог следа один на репозиторий, как и строка .gitignore.
+    Каталог следа один на репозиторий независимо от того, каким подкаталогом задан --repo.
     """
     try:
         proc = subprocess.run(["git", "rev-parse", "--show-toplevel"],
@@ -61,10 +122,15 @@ def validate_session(session: str) -> None:
         raise EventsError(f"недопустимый идентификатор сессии: {session!r}")
 
 
-def events_dir(repo_dir: Path | str, session: str) -> Path:
-    """Каталог событий сессии в корне репозитория."""
+def session_dir(repo_dir: Path | str, session: str) -> Path:
+    """Каталог сессии: <база>/<ключ>/<session>."""
     validate_session(session)
-    return repo_top(repo_dir) / STATE_REL / session / "events"
+    return state_root(repo_top(repo_dir)) / session
+
+
+def events_dir(repo_dir: Path | str, session: str) -> Path:
+    """Каталог событий сессии вне репозитория."""
+    return session_dir(repo_dir, session) / "events"
 
 
 def _acquire_seq(session_dir: Path, time_part: str) -> int:

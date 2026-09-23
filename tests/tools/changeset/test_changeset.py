@@ -78,6 +78,16 @@ def run_node(repo: Path, base: str | None = None) -> subprocess.CompletedProcess
     return run_cli(["node", str(NODE_CLI)], repo, base)
 
 
+def run_hook(repo: Path, hook: str, payload: dict) -> subprocess.CompletedProcess:
+    """Запустить хук с JSON на stdin в каталоге репозитория."""
+    return subprocess.run(
+        ["node", str(REPO_ROOT / "hooks" / hook)],
+        input=json.dumps(payload).encode("utf-8"),
+        capture_output=True,
+        cwd=str(repo),
+    )
+
+
 def git(repo: Path, *args: str) -> None:
     """Выполнить git в репозитории; отказ команды - ошибка теста с выводом git."""
     proc = subprocess.run(["git", "-C", str(repo), *args], capture_output=True)
@@ -451,6 +461,103 @@ class ChangesetTests(unittest.TestCase):
         git(repo, "rm", "-q", "--cached", "--", "-foo")
         self.assert_scenario(repo, expect={"-foo": {"status": "modified"}},
                              sha_expect={"-foo": u("вторая\n")})
+
+    def test_trace_inside_repo_excluded_from_untracked(self):
+        """Каталог следа внутри корня не входит в untracked: diffHash стабилен и совпадает.
+
+        Хук пишет событие в QUALITY_STATE_DIR = <корень>/.qstate. Второе событие
+        не меняет diffHash. Обычный untracked-файл вне каталога входит в множество.
+        На win32 то же при другом регистре пути. Запись git diff внутри каталога
+        остается.
+        """
+        repo = make_repo(self.tmp)
+        write_file(repo, "base.txt", u("база\n"))
+        commit_all(repo)
+        state = str(repo / ".qstate")
+        saved = os.environ.get("QUALITY_STATE_DIR")
+        os.environ["QUALITY_STATE_DIR"] = state
+
+        def restore() -> None:
+            if saved is None:
+                os.environ.pop("QUALITY_STATE_DIR", None)
+            else:
+                os.environ["QUALITY_STATE_DIR"] = saved
+
+        self.addCleanup(restore)
+        session = "qstate-session"
+        baseline = run_hook(repo, "quality-baseline.mjs", {
+            "hook_event_name": "SessionStart",
+            "source": "startup",
+            "cwd": str(repo),
+            "session_id": session,
+        })
+        self.assertEqual(baseline.returncode, 0, baseline.stderr.decode("utf-8", errors="replace"))
+        self.assertGreaterEqual(len(list((repo / ".qstate").rglob("*.json"))), 1)
+
+        def load_pair() -> dict:
+            py = run_py(repo)
+            node = run_node(repo)
+            self.assertEqual(py.returncode, 0, py.stderr.decode("utf-8", errors="replace"))
+            self.assertEqual(node.returncode, 0, node.stderr.decode("utf-8", errors="replace"))
+            self.assertEqual(py.stdout, node.stdout, "вывод Python и Node расходится")
+            return json.loads(py.stdout.decode("utf-8"))
+
+        def assert_no_trace(data: dict) -> None:
+            for entry in data["files"]:
+                path = entry["path"].replace("\\", "/")
+                folded = path.lower() if sys.platform == "win32" else path
+                self.assertFalse(folded == ".qstate" or folded.startswith(".qstate/"), path)
+
+        first = load_pair()
+        assert_no_trace(first)
+        applied = run_hook(repo, "evidence-writer.mjs", {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "mcp__1c-edt__validate_for_export",
+            "tool_input": {},
+            "tool_response": "Ошибок нет",
+            "tool_use_id": "toolu_qstate",
+            "cwd": str(repo),
+            "session_id": session,
+        })
+        self.assertEqual(applied.returncode, 0, applied.stderr.decode("utf-8", errors="replace"))
+        self.assertGreaterEqual(len(list((repo / ".qstate").rglob("*.json"))), 2)
+        second = load_pair()
+        assert_no_trace(second)
+        self.assertEqual(second["diffHash"], first["diffHash"])
+        if sys.platform == "win32":
+            os.environ["QUALITY_STATE_DIR"] = "".join(
+                ch.upper() if ch.islower() else ch.lower() if ch.isupper() else ch
+                for ch in state)
+            cased_hook = run_hook(repo, "evidence-writer.mjs", {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "mcp__1c-edt__validate_for_export",
+                "tool_input": {},
+                "tool_response": "Ошибок нет",
+                "tool_use_id": "toolu_qstate_case",
+                "cwd": str(repo),
+                "session_id": session,
+            })
+            self.assertEqual(cased_hook.returncode, 0,
+                             cased_hook.stderr.decode("utf-8", errors="replace"))
+            cased = load_pair()
+            assert_no_trace(cased)
+            self.assertEqual(cased["diffHash"], first["diffHash"])
+        write_file(repo, "outside.txt", u("вне\n"))
+        control = load_pair()
+        assert_no_trace(control)
+        self.assertIn("outside.txt", {entry["path"] for entry in control["files"]})
+        write_file(repo, ".qstate/pinned.txt", b"v1\n")
+        git(repo, "add", "--", ".qstate/pinned.txt")
+        git(repo, "commit", "-q", "-m", "pin", "--no-gpg-sign", "--no-verify")
+        write_file(repo, ".qstate/pinned.txt", b"v2\n")
+        pinned = load_pair()
+        by_path = {entry["path"]: entry["status"] for entry in pinned["files"]}
+        self.assertEqual(by_path.get(".qstate/pinned.txt"), "modified")
+        for path in by_path:
+            if path == ".qstate/pinned.txt":
+                continue
+            folded = path.lower() if sys.platform == "win32" else path
+            self.assertFalse(folded == ".qstate" or folded.startswith(".qstate/"), path)
 
     def test_not_a_repository(self):
         """Каталог без .git: обе CLI завершаются кодом 2 без traceback."""

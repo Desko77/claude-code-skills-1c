@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process';
 import { assert, assertEq, run, test } from './harness.mjs';
 import { HOOKS, REPO_ROOT, git, makeTmpRepo, readEvents, runHook, writeRepoFile } from './helpers.mjs';
 import { FAIL_MATCHER, GATE_MATCHER } from '../../hooks/edt-gate.mjs';
+import { sessionDir, stateRoot } from '../../hooks/common/quality-events.mjs';
 
 const PROJECT_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
@@ -514,7 +515,7 @@ test('окно после отказа с phase building пропускает Re
       session_id: session,
     });
     assertEq(fail.status, 0, fail.stderr);
-    const winFile = join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json');
+    const winFile = join(sessionDir(g.ctx.top, session), 'edt-window.json');
     const win = JSON.parse(await readFile(winFile, 'utf8'));
     assertEq(win.server, 'ai-edt');
     const left = Date.parse(win.until) - Date.now();
@@ -527,12 +528,12 @@ test('окно после отказа с phase building пропускает Re
     assert(String(probe.detail).includes('building'), probe.detail);
 
     g.setBody(() => ({ phase: 'ready', instance: 'AI-EDT @ test', projects: ['Demo'] }));
-    await rm(join(g.ctx.top, '.claude', '.state', 'quality', 'edt-health.json'), { force: true });
+    await rm(join(stateRoot(g.ctx.top), 'edt-health.json'), { force: true });
     passed(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session }));
 
     win.until = '2000-01-01T00:00:00.000Z';
     await writeFile(winFile, JSON.stringify(win), 'utf8');
-    await rm(join(g.ctx.top, '.claude', '.state', 'quality', 'edt-health.json'), { force: true });
+    await rm(join(stateRoot(g.ctx.top), 'edt-health.json'), { force: true });
     const reason = reasonOf(await g.run({
       ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'),
       session_id: session,
@@ -561,7 +562,7 @@ test('отказ операции при phase ready окно не открыв�
     assertEq(probe.status, 'ok');
     let missing = false;
     try {
-      await readFile(join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json'), 'utf8');
+      await readFile(join(sessionDir(g.ctx.top, session), 'edt-window.json'), 'utf8');
     } catch (err) {
       missing = err.code === 'ENOENT';
     }
@@ -588,7 +589,7 @@ test('отказ авторизации /health открывает окно', as
     const events = await readEvents(g.ctx.top, session);
     assertEq(events.find((e) => e.type === 'probe').status, 'down');
     const win = JSON.parse(await readFile(
-      join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json'), 'utf8'));
+      join(sessionDir(g.ctx.top, session), 'edt-window.json'), 'utf8'));
     assertEq(win.server, 'ai-edt');
   } finally {
     await g.cleanup();
@@ -753,7 +754,7 @@ test('отказ launch_debugger при phase ready открывает окно,
     assert(probe, 'событие probe');
     assertEq(probe.status, 'ok');
     assertEq(probe.source, 'ai-edt');
-    const winFile = join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json');
+    const winFile = join(sessionDir(g.ctx.top, session), 'edt-window.json');
     const win = JSON.parse(await readFile(winFile, 'utf8'));
     assertEq(win.server, 'ai-edt');
     const left = Date.parse(win.until) - Date.now();
@@ -787,7 +788,7 @@ test('отказ debug_launch при phase ready открывает окно', a
     const events = await readEvents(g.ctx.top, session);
     assertEq(events.find((e) => e.type === 'probe').status, 'ok');
     const win = JSON.parse(await readFile(
-      join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json'), 'utf8'));
+      join(sessionDir(g.ctx.top, session), 'edt-window.json'), 'utf8'));
     assertEq(win.server, 'ai-edt');
   } finally {
     await g.cleanup();
@@ -809,7 +810,7 @@ test('отказ start_client при phase ready открывает окно', a
     const events = await readEvents(g.ctx.top, session);
     assertEq(events.find((e) => e.type === 'probe').status, 'ok');
     const win = JSON.parse(await readFile(
-      join(g.ctx.top, '.claude', '.state', 'quality', session, 'edt-window.json'), 'utf8'));
+      join(sessionDir(g.ctx.top, session), 'edt-window.json'), 'utf8'));
     assertEq(win.server, 'ai-edt');
     passed(await g.run({ ...launchCall(clientCommand(g.ctx.top)), session_id: session }));
   } finally {
@@ -890,6 +891,21 @@ test('1cv8.exe и 1cv8s.exe по проекту живого инстанса о
     assert(server.includes('set_infobase_credentials'), server);
   } finally {
     await g.cleanup();
+  }
+});
+
+test('хранилище недоступно: 1cv8c.exe /N /P по живому инстансу пропускается', async () => {
+  const g = await makeGate();
+  const base = await mkdtemp(join(tmpdir(), 'quality-blocker-'));
+  const blocker = join(base, 'not-dir');
+  await writeFile(blocker, 'x', 'utf8');
+  try {
+    const r = await g.run(launchCall('1cv8c.exe /N"u" /P"p"'), { env: { QUALITY_STATE_DIR: blocker } });
+    passed(r);
+    assert(r.stderr.includes('след недоступен'), r.stderr);
+  } finally {
+    await g.cleanup();
+    await rm(base, { recursive: true, force: true });
   }
 });
 
