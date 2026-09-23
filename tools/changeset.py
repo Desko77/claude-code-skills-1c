@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
+import os
 import subprocess
 import sys
 import unicodedata
@@ -39,6 +41,20 @@ for _stream in (sys.stdout, sys.stderr):
 
 class ChangesetError(Exception):
     """Отказ расчета: git недоступен, каталог не репозиторий, base не разрешается, путь не UTF-8."""
+
+
+_TOOLS_DIR = Path(__file__).resolve().parent
+
+
+def _load_tool(name: str):
+    """Импортировать модуль tools/ по пути файла: tools/ не пакет."""
+    spec = importlib.util.spec_from_file_location(name, _TOOLS_DIR / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+quality_events = _load_tool("quality_events")
 
 
 def _run_git(args: list[str], cwd: Path) -> bytes:
@@ -164,19 +180,61 @@ def build_payload(files: list[dict]) -> bytes:
     return b"".join(chunks)
 
 
+def _slash(path: str) -> str:
+    return str(path).replace("\\", "/")
+
+
+def _fold(path: str) -> str:
+    return path.lower() if sys.platform == "win32" else path
+
+
+def _canonical_state_base() -> str:
+    """realpath базы следа. Отказ и отсутствующий путь - строка как есть."""
+    raw = os.fspath(quality_events.state_base())
+    if not os.path.exists(raw):
+        return raw
+    try:
+        return os.path.realpath(raw)
+    except OSError:
+        return raw
+
+
+def _trace_rel(top_text: str) -> str | None:
+    """Относительный путь каталога следа внутри корня. Вне корня - None."""
+    top_norm = _slash(top_text)
+    base_norm = _slash(_canonical_state_base())
+    if _fold(base_norm) == _fold(top_norm):
+        return None
+    top_prefix = top_norm if top_norm.endswith("/") else top_norm + "/"
+    if not _fold(base_norm).startswith(_fold(top_prefix)):
+        return None
+    rel = unicodedata.normalize("NFC", base_norm[len(top_prefix):])
+    return rel or None
+
+
+def _under_trace(path: str, rel: str | None) -> bool:
+    if not rel:
+        return False
+    folded_path = _fold(_slash(path))
+    folded_rel = _fold(rel)
+    return folded_path == folded_rel or folded_path.startswith(folded_rel + "/")
+
+
 def compute_changeset(repo_dir: Path | str, base: str = "HEAD") -> dict:
     """Вычислить каноническое множество изменений репозитория относительно base.
 
     Возвращает {"base": SHA-1, "diffHash": hex, "files": [записи]} по спецификации
     skills/1c-code-review/references/changeset.md. Базовые команды: rev-parse,
     diff --name-status, ls-files --others; untracked-пути сливаются с записями diff
-    по правилам спецификации.
+    по правилам спецификации. Пути каталога следа внутри корня из untracked исключаются.
     """
     repo_dir = Path(repo_dir)
     if not repo_dir.is_dir():
         raise ChangesetError(f"каталог не найден: {repo_dir}")
-    top = Path(_decode(_run_git(["rev-parse", "--show-toplevel"], repo_dir),
-                       "git rev-parse").strip())
+    top_text = _decode(_run_git(["rev-parse", "--show-toplevel"], repo_dir),
+                       "git rev-parse").strip()
+    top = Path(top_text)
+    trace_rel = _trace_rel(top_text)
     base_sha = _decode(_run_git(["rev-parse", "--verify", f"{base}^{{commit}}"], top),
                        "git rev-parse").strip()
     diff_raw = _run_git(["diff", "--name-status", "-z", "-M",
@@ -189,6 +247,8 @@ def compute_changeset(repo_dir: Path | str, base: str = "HEAD") -> dict:
             continue
         fs_path = _decode(token, "git ls-files")
         path = unicodedata.normalize("NFC", fs_path)
+        if _under_trace(path, trace_rel):
+            continue
         if path not in entries:
             entries[path] = {"status": "added", "renamedFrom": None, "fsPath": fs_path}
         # Путь, совпавший с записью diff (git rm --cached без игнора), отдельной
