@@ -26,7 +26,7 @@ export async function processPayload(payload) {
   }
   let swept = 0;
   try {
-    swept = await sweepStaleSessions(top, STALE_TTL_MS);
+    swept = await sweepStaleSessions(STALE_TTL_MS);
   } catch (err) {
     // очистка вспомогательная: сбой не мешает сообщить сессию
     process.stderr.write(`[session-context] очистка не выполнена: ${err.message}\n`);

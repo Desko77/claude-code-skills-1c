@@ -14,9 +14,13 @@
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, basename, resolve, isAbsolute, parse } from 'node:path';
-import { homedir } from 'node:os';
 import { computeChangeset } from './_changeset.mjs';
-import { eventsDir, formatIso, listEventFiles, nowIso, repoTop, writeEvent } from './common/quality-events.mjs';
+import { claudeHome } from './common/home.mjs';
+import {
+  eventsDir, formatIso, listEventFiles, nowIso, repoTop, sessionDir, stateRoot, writeEvent,
+} from './common/quality-events.mjs';
+
+export { claudeHome };
 
 // Заякоренный матчер PreToolUse. Строка в hooks/hooks.json сверяется тестом.
 export const GATE_MATCHER = '^(Read|Grep|Glob|Bash|PowerShell)$';
@@ -60,12 +64,6 @@ function deny(reason) {
     stderr: '',
     exitCode: 0,
   };
-}
-
-// Домашний каталог: на Windows USERPROFILE, иначе HOME. Тесты подменяют оба.
-export function claudeHome() {
-  if (process.platform === 'win32') return process.env.USERPROFILE || process.env.HOME || homedir();
-  return process.env.HOME || process.env.USERPROFILE || homedir();
 }
 
 // Расширение исходника EDT из списка ворот, иначе null.
@@ -517,11 +515,29 @@ async function stateTop(cwd) {
 }
 
 function cachePath(top) {
-  return join(top, '.claude', '.state', 'quality', 'edt-health.json');
+  return join(stateRoot(top), 'edt-health.json');
 }
 
 function windowPath(top, session) {
-  return join(top, '.claude', '.state', 'quality', session, 'edt-window.json');
+  return join(sessionDir(top, session), 'edt-window.json');
+}
+
+// Перед отказом каталог сессии должен создаваться: без следа не работают окно
+// и /quality release. Пустая строка - хранилище доступно либо сессия не задана.
+async function ensureSessionStore(top, session) {
+  let dir;
+  try {
+    dir = sessionDir(top, session);
+  } catch {
+    return '';
+  }
+  try {
+    await mkdir(dir, { recursive: true });
+    return '';
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `[edt-gate] след недоступен, ворота пропускают: ${msg}`;
+  }
 }
 
 async function readCache(file) {
@@ -646,6 +662,8 @@ export async function processGate(payload) {
 
   const session = typeof payload.session_id === 'string' ? payload.session_id : '';
   const top = await stateTop(cwd);
+  const unavailable = await ensureSessionStore(top, session);
+  if (unavailable) return allow(unavailable);
   const now = Date.now();
   if (session && await activeWindow(top, session, now)) return allow();
   if (session) {

@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { computeChangeset } from '../_changeset.mjs';
-import { listEventFiles } from './quality-events.mjs';
+import { eventsDir, listEventFiles } from './quality-events.mjs';
 
 const execFile = promisify(execFileCb);
 
@@ -32,10 +32,10 @@ export function is1cFile(path) {
 // JSON пропускается (гейт увидит отметку среди целых файлов либо сообщит об отсутствии).
 // Возвращает событие либо null.
 export async function findBaseline(top, session) {
+  const dir = eventsDir(top, session);
   for (const name of [...await listEventFiles(top, session)].reverse()) {
     try {
-      const data = JSON.parse(await readFile(join(top, '.claude', '.state', 'quality',
-        session, 'events', name), 'utf8'));
+      const data = JSON.parse(await readFile(join(dir, name), 'utf8'));
       if (data && data.type === 'baseline') return data;
     } catch {
       // поврежденный или недоступный файл - не отметка
@@ -47,10 +47,10 @@ export async function findBaseline(top, session) {
 // Последнее событие scope сессии (любой diffHash) - источник перечня обязательных
 // проверок для текста блока. Возвращает событие либо null.
 export async function findLastScope(top, session) {
+  const dir = eventsDir(top, session);
   for (const name of [...await listEventFiles(top, session)].reverse()) {
     try {
-      const data = JSON.parse(await readFile(join(top, '.claude', '.state', 'quality',
-        session, 'events', name), 'utf8'));
+      const data = JSON.parse(await readFile(join(dir, name), 'utf8'));
       if (data && data.type === 'scope') return data;
     } catch {
       // поврежденный файл пропускается
