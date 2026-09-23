@@ -41,6 +41,15 @@ def load_module():
     return module
 
 
+def load_quality_events():
+    """Модуль tools/quality_events.py: каталог событий вне репозитория."""
+    spec = importlib.util.spec_from_file_location("quality_events_profile_test",
+                                                  REPO_ROOT / "tools" / "quality_events.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def load_changeset():
     """Модуль tools/changeset.py по пути: текущий diffHash для сверки события scope."""
     spec = importlib.util.spec_from_file_location("changeset_profile_test",
@@ -65,8 +74,6 @@ def make_repo(tmp: Path) -> Path:
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "core.autocrlf", "false")
     git(repo, "config", "core.quotepath", "false")
-    # Каталог следа исключен из git: запись события не должна менять diffHash.
-    (repo / ".gitignore").write_text(".claude/.state/\n", encoding="utf-8")
     return repo
 
 
@@ -395,7 +402,7 @@ class ChangeProfileCliTests(unittest.TestCase):
         repo = self.scenario_repo()
         proc = run_cli(repo, "--json", "--session", "sess-1")
         self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", errors="replace"))
-        events_dir = repo / ".claude" / ".state" / "quality" / "sess-1" / "events"
+        events_dir = load_quality_events().events_dir(repo, "sess-1")
         files = sorted(events_dir.glob("*.json"))
         self.assertEqual(len(files), 1)
         event = json.loads(files[0].read_text(encoding="utf-8"))
@@ -419,7 +426,7 @@ class ChangeProfileCliTests(unittest.TestCase):
         repo = self.scenario_repo()
         proc = run_cli(repo, "--json", "--session", "sess-1", "--no-write")
         self.assertEqual(proc.returncode, 0, proc.stderr.decode("utf-8", errors="replace"))
-        self.assertFalse((repo / ".claude").exists())
+        self.assertFalse(load_quality_events().events_dir(repo, "sess-1").exists())
 
     def test_bad_base_exit_2(self):
         """Неразрешаемый base - код 2, диагностика в stderr без traceback."""

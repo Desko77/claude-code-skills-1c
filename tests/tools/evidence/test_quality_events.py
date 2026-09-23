@@ -41,14 +41,13 @@ def git(repo: Path, *args: str) -> None:
 
 
 def make_repo(tmp: Path) -> Path:
-    """Чистый репозиторий с закоммиченным .gitignore на каталог следа."""
+    """Чистый репозиторий с базовым коммитом. След пишется вне дерева."""
     repo = tmp / "repo"
     repo.mkdir()
     git(repo, "init", "-q")
     git(repo, "config", "user.email", "test@example.com")
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "core.autocrlf", "false")
-    (repo / ".gitignore").write_text(".claude/.state/\n", encoding="utf-8")
     (repo / "base.txt").write_text("база\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "база", "--no-gpg-sign", "--no-verify")

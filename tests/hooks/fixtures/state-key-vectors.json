@@ -1,0 +1,62 @@
+[
+  {
+    "platform": "win32",
+    "input": "E:\\Python projects\\claude-code-skills-1c",
+    "normalized": "e:/python projects/claude-code-skills-1c",
+    "key": "claude-code-skills-1c-153f401f6fbf"
+  },
+  {
+    "platform": "win32",
+    "input": "E:/Python Projects/Claude-Code-Skills-1C/",
+    "normalized": "e:/python projects/claude-code-skills-1c",
+    "key": "claude-code-skills-1c-153f401f6fbf"
+  },
+  {
+    "platform": "win32",
+    "input": "E:\\EDT\\Workspace_Пример_ЕРП2",
+    "normalized": "e:/edt/workspace_пример_ерп2",
+    "key": "workspace_2-b9c528172f4e"
+  },
+  {
+    "platform": "win32",
+    "input": "E:\\",
+    "normalized": "e:/",
+    "key": "repo-49968e7463f4"
+  },
+  {
+    "platform": "win32",
+    "input": "\\\\server\\share\\Repo",
+    "normalized": "//server/share/repo",
+    "key": "repo-ac1eb3e234ec"
+  },
+  {
+    "platform": "linux",
+    "input": "/home/User/Repo/",
+    "normalized": "/home/User/Repo",
+    "key": "Repo-553a72975df0"
+  },
+  {
+    "platform": "linux",
+    "input": "/",
+    "normalized": "/",
+    "key": "repo-8a5edab28263"
+  },
+  {
+    "platform": "linux",
+    "input": "/srv/a very long repository name with spaces and more",
+    "normalized": "/srv/a very long repository name with spaces and more",
+    "key": "a_very_long_repository_name_with-42c985ba1c23"
+  },
+  {
+    "platform": "darwin",
+    "input": "/Users/U/Repo",
+    "normalized": "/Users/U/Repo",
+    "key": "Repo-baaa108a1e1d"
+  },
+  {
+    "platform": "linux",
+    "input": "/srv/.hidden-",
+    "normalized": "/srv/.hidden-",
+    "key": "hidden-14d33d025e70"
+  }
+]
