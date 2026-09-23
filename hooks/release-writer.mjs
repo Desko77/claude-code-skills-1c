@@ -10,6 +10,7 @@
 
 import { computeChangeset } from './_changeset.mjs';
 import { formatIso, repoTop, writeEvent } from './common/quality-events.mjs';
+import { scopeStatus } from './common/scope.mjs';
 
 const RELEASE_PREFIX = '/quality release ';
 const DEFAULT_TTL_MS = 4 * 60 * 60 * 1000;
@@ -120,6 +121,9 @@ if (process.argv[1]?.endsWith('release-writer.mjs')) {
   try {
     const raw = await readStdin();
     const payload = raw.trim() ? JSON.parse(raw) : null;
+    const scope = scopeStatus(payload);
+    if (scope.error) process.stderr.write(`${scope.error}\n`);
+    if (scope.skip) process.exit(0);
     const { stdout, stderr } = await processPayload(payload);
     if (stdout) process.stdout.write(stdout + '\n');
     if (stderr) process.stderr.write(`${stderr}\n`);
