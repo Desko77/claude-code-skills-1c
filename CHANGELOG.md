@@ -137,7 +137,7 @@
 - Окно-исключение на `PostToolUseFailure` (матчер `edt-gate` в `hooks/hooks.json`: инструменты
   проверки и `launch_debugger`, `debug_launch`, `start_client`): нет ответа `/health`,
   отказ авторизации или `phase` не `ready` - событие `probe` со `status` `down` и файл
-  `.claude/.state/quality/<session>/edt-window.json` на 15 минут (`until`, `server`). Ошибка
+  `<база>/<ключ>/<session>/edt-window.json` на 15 минут (`until`, `server`). Ошибка
   операции при `phase` `ready` пишет `probe` со `status` `ok` и окно не открывает. Отказ
   `launch_debugger`, `debug_launch` или `start_client` открывает окно всегда; `status` события
   `probe` остается по факту `/health`. Снятие - `/quality release gate` (пропускает и чтение,
@@ -201,7 +201,7 @@
   источнику закрывающего applied) и `render` (markdown: таблицы "Проверено", "С пробелами"
   с классами, "Не проверено"). Общий модуль `tools/quality_events.py`: атомарная запись
   события временным файлом с переименованием, чтение каталога сессии, поврежденный JSON
-  возвращается событием corrupt. Каталог `.claude/.state/` добавлен в `.gitignore`.
+  возвращается событием corrupt. След лежит в `<база>/<ключ>/<session>/events/` вне репозитория (`QUALITY_STATE_DIR` или `<домашний каталог>/.claude/state/quality`).
   Спецификация - `skills/1c-code-review/references/evidence-format.md`.
   Тесты: `tests/tools/profile/` - 17, `tests/tools/evidence/` - 29.
 
