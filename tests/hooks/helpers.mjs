@@ -1,6 +1,6 @@
 // helpers.mjs - общее для тестов hooks: временный git-репозиторий, запуск хука и CLI,
 // чтение каталога событий. Тесты не зависят от машины: git настраивается локально,
-// концы строк - LF, каталог следа исключен из git (как требует формат следа).
+// концы строк - LF. Каталог следа лежит вне репозитория.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile, utimes } from 'node:fs/promises';
@@ -8,6 +8,7 @@ import { mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { eventsDir, sessionDir } from '../../hooks/common/quality-events.mjs';
 
 // След тестов не пишется в домашний каталог: дочерние процессы хуков наследуют переменную.
 if (!process.env.QUALITY_STATE_DIR) {
@@ -34,7 +35,7 @@ export async function makeTmpRepo() {
   await git(top, 'config', 'user.name', 'Test');
   await git(top, 'config', 'core.autocrlf', 'false');
   await git(top, 'config', 'core.quotepath', 'false');
-  await writeFile(join(top, '.gitignore'), '.claude/.state/\n', 'utf8');
+  await writeFile(join(top, 'README.md'), 'base\n', 'utf8');
   // Базовый коммит: без него HEAD не разрешается и diffHash не вычисляется.
   await git(top, 'add', '-A');
   await git(top, 'commit', '-q', '-m', 'base', '--no-gpg-sign', '--no-verify');
@@ -74,7 +75,7 @@ export function spawnHook(hookFile, payload) {
 
 // События сессии в порядке имен: [{...event, _file}].
 export async function readEvents(top, session) {
-  const dir = join(top, '.claude', '.state', 'quality', session, 'events');
+  const dir = eventsDir(top, session);
   let names;
   try {
     names = readdirSync(dir).filter((n) => n.endsWith('.json')).sort();
@@ -92,7 +93,7 @@ export async function readEvents(top, session) {
 
 // Подменить время изменения каталога сессии (тест очистки устаревших).
 export async function touchSessionDir(top, session, ageMs) {
-  const dir = join(top, '.claude', '.state', 'quality', session);
+  const dir = sessionDir(top, session);
   const t = new Date(Date.now() - ageMs);
   await utimes(dir, t, t);
 }
