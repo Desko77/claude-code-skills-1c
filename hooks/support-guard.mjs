@@ -1,14 +1,15 @@
-// support-guard.mjs v1.0 — PreToolUse hook (§1A): block raw Edit/Write/MultiEdit of
+// support-guard.mjs v1.0 - PreToolUse hook (§1A): block raw Edit/Write/MultiEdit of
 // vendor objects "на замке" / read-only configs that bypass the in-skill guard (§1B).
 // Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 //
 // stdin: PreToolUse JSON { tool_name, tool_input, cwd, ... }.
-// Decision via stdout JSON hookSpecificOutput.permissionDecision (deny) — see
+// Decision via stdout JSON hookSpecificOutput.permissionDecision (deny) - see
 // docs/1c-support-state-spec.md. Reaction (deny|warn|off) from .v8-project.json
 // editingAllowedCheck, identical to §1B. Never blocks on its own errors.
 
 import { decideSupport } from './common/support-state.mjs';
 import { getEditMode } from './common/project.mjs';
+import { scopeStatus } from './common/scope.mjs';
 import { resolve, isAbsolute } from 'node:path';
 
 // Collect candidate file paths from an Edit/Write/MultiEdit tool_input. Handles the
@@ -32,7 +33,7 @@ function diagnostic(code, target, cfgDir) {
     '[support-guard] Редактирование отклонено: это объект типовой конфигурации на поддержке поставщика, ' +
     'прямое редактирование молча сломает будущие обновления.';
   const cfe =
-    'Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) — ' +
+    'Рекомендуемый путь: внести доработку в расширение (навыки cfe-borrow / cfe-patch-method) - ' +
     'состояние поддержки менять не нужно, обновления вендора сохраняются.';
   const offNote = 'Снять проверку для этой базы: editingAllowedCheck = warn|off в .v8-project.json.';
   const root = cfgDir || '<каталог дампа>';
@@ -40,12 +41,12 @@ function diagnostic(code, target, cfgDir) {
   if (code === 'capability-off') {
     return [
       head,
-      `Состояние: у всей конфигурации выключена возможность изменения (режим read-only «из коробки») — ` +
-        `поэтому объект «${target}» редактировать нельзя.`,
+      `Состояние: у всей конфигурации выключена возможность изменения (режим read-only 'из коробки') - ` +
+        `поэтому объект '${target}' редактировать нельзя.`,
       cfe,
       `Либо снять защиту явно (навык support-edit, два шага):`,
-      `  1. support-edit -Path "${root}" -Capability on   — включить возможность изменения (объекты пока остаются на замке);`,
-      `  2. support-edit -Path "${target}" -Set editable   — открыть этот объект для редактирования.`,
+      `  1. support-edit -Path "${root}" -Capability on   - включить возможность изменения (объекты пока остаются на замке);`,
+      `  2. support-edit -Path "${target}" -Set editable   - открыть этот объект для редактирования.`,
       `Изменение применяется в базу полной загрузкой выгрузки и обходит механизм обновлений вендора.`,
       offNote,
     ].join('\n');
@@ -53,21 +54,21 @@ function diagnostic(code, target, cfgDir) {
   if (code === 'not-removed') {
     return [
       head,
-      `Состояние: объект «${target}» на поддержке (не снят с поддержки) — его удаление разорвёт обновления вендора.`,
+      `Состояние: объект '${target}' на поддержке (не снят с поддержки) - его удаление разорвет обновления вендора.`,
       cfe,
       `Либо сначала снять объект с поддержки, затем удалять:`,
-      `  support-edit -Path "${target}" -Set off-support   — объект уходит из-под обновлений, после этого удаление безопасно.`,
+      `  support-edit -Path "${target}" -Set off-support   - объект уходит из-под обновлений, после этого удаление безопасно.`,
       offNote,
     ].join('\n');
   }
   // locked (G=0, f1=0)
   return [
     head,
-    `Состояние: объект «${target}» на замке (возможность изменения конфигурации включена, но сам объект не редактируется).`,
+    `Состояние: объект '${target}' на замке (возможность изменения конфигурации включена, но сам объект не редактируется).`,
     cfe,
     `Либо разрешить редактирование этого объекта (навык support-edit, выбрать одно):`,
-    `  • support-edit -Path "${target}" -Set editable      — редактировать и дальше получать обновления вендора (при обновлении возможны конфликты слияния);`,
-    `  • support-edit -Path "${target}" -Set off-support   — снять с поддержки: редактирование свободно, обновления по объекту больше не приходят.`,
+    `  • support-edit -Path "${target}" -Set editable      - редактировать и дальше получать обновления вендора (при обновлении возможны конфликты слияния);`,
+    `  • support-edit -Path "${target}" -Set off-support   - снять с поддержки: редактирование свободно, обновления по объекту больше не приходят.`,
     offNote,
   ].join('\n');
 }
@@ -114,6 +115,9 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
   const raw = await readStdin();
   let input = {};
   try { input = raw.trim() ? JSON.parse(raw) : {}; } catch { input = {}; }
+  const scope = scopeStatus(input);
+  if (scope.error) process.stderr.write(`${scope.error}\n`);
+  if (scope.skip) process.exit(0);
   const { stdout, stderr, exitCode } = processInput(input);
   if (stdout) process.stdout.write(stdout);
   if (stderr) process.stderr.write(stderr + '\n');

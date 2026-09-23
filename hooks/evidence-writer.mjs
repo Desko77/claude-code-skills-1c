@@ -9,11 +9,14 @@
 //
 // Матчер и таблица итогов - ниже; имена полей payload - документация Claude Code hooks.
 
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { computeChangeset } from './_changeset.mjs';
+import { claudeHome } from './common/home.mjs';
 import { nowIso, repoTop, sha256Hex, sortKeysDeep, writeEvent } from './common/quality-events.mjs';
+import { scopeStatus } from './common/scope.mjs';
 
 // Заякоренный матчер инструментов проверки: ключ MCP-сервера содержит дефисы, точки и
 // подчеркивания (mcp__ai-edt-3_1_38_92__validate_query). Bash и PowerShell ловят запуск
@@ -291,11 +294,27 @@ export function resolveCheck(toolName, toolInput, responseText) {
   return null;
 }
 
-// Каталог скила 1c-code-review: CLAUDE_PLUGIN_ROOT (установка плагином) либо каталог
-// над hooks/ репозитория набора.
+// Каталог скила 1c-code-review: первый корень, где лежит гейтовый конфиг
+// skills/1c-code-review/assets/bsl-ls-gate.json. Корни по порядку: CLAUDE_PLUGIN_ROOT,
+// каталог над hooks/, домашняя установка <дом>/.claude. Нет ни одного - первый
+// кандидат (числа Critical/Major нулевые). Проверка существования - один раз на процесс.
+const SKILL_GATE_REL = join('skills', '1c-code-review', 'assets', 'bsl-ls-gate.json');
+let skillRootMemo;
 function skillAssetRoot() {
+  if (skillRootMemo !== undefined) return skillRootMemo;
   const hookDir = dirname(fileURLToPath(import.meta.url));
-  return process.env.CLAUDE_PLUGIN_ROOT || join(hookDir, '..');
+  const candidates = [];
+  if (process.env.CLAUDE_PLUGIN_ROOT) candidates.push(process.env.CLAUDE_PLUGIN_ROOT);
+  candidates.push(join(hookDir, '..'));
+  candidates.push(join(claudeHome(), '.claude'));
+  for (const root of candidates) {
+    if (existsSync(join(root, SKILL_GATE_REL))) {
+      skillRootMemo = root;
+      return root;
+    }
+  }
+  skillRootMemo = candidates[0];
+  return skillRootMemo;
 }
 
 // Карты важностей: код диагностики bsl-language-server -> CRITICAL|MAJOR|MINOR (гейтовый
@@ -506,6 +525,9 @@ if (process.argv[1]?.endsWith('evidence-writer.mjs')) {
   try {
     const raw = await readStdin();
     const payload = raw.trim() ? JSON.parse(raw) : null;
+    const scope = scopeStatus(payload);
+    if (scope.error) process.stderr.write(`${scope.error}\n`);
+    if (scope.skip) process.exit(0);
     const result = await processPayload(payload, (msg) => process.stderr.write(`${msg}\n`));
     if (result.reason) process.stderr.write(`[evidence-writer] ${result.reason}\n`);
     process.exit(0);
@@ -518,4 +540,5 @@ if (process.argv[1]?.endsWith('evidence-writer.mjs')) {
 // Для тестов: перезагрузить кеш карт важностей (после подмены корня скила).
 export function resetSeverityCache() {
   severityMaps = null;
+  skillRootMemo = undefined;
 }

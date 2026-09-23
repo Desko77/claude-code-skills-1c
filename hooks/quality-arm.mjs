@@ -12,6 +12,7 @@
 
 import { computeChangeset } from './_changeset.mjs';
 import { nowIso, repoTop, writeEvent } from './common/quality-events.mjs';
+import { scopeStatus } from './common/scope.mjs';
 
 export const ARM_MATCHER =
   '^(Write|Edit|MultiEdit|NotebookEdit'
@@ -81,6 +82,9 @@ if (process.argv[1]?.endsWith('quality-arm.mjs')) {
   try {
     const raw = await readStdin();
     const payload = raw.trim() ? JSON.parse(raw) : null;
+    const scope = scopeStatus(payload);
+    if (scope.error) process.stderr.write(`${scope.error}\n`);
+    if (scope.skip) process.exit(0);
     const { stderr } = await processPayload(payload);
     if (stderr) process.stderr.write(`${stderr}\n`);
     process.exit(0);
