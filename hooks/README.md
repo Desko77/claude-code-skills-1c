@@ -106,7 +106,8 @@ python tools/install_home.py
 | скил `1c-code-review` | `~/.claude/skills/1c-code-review/` - отсюда берутся числа Critical/Major (`assets/bsl-ls-gate.json`); установщик скилы не копирует |
 
 Регистрация на уровне пользователя - в `~/.claude/settings.json`. Путь к хуку абсолютный
-(`<домашний каталог>/.claude/hooks/1c-skills/<хук>.mjs`, на Windows это `USERPROFILE`). Довод
+(`<домашний каталог>/.claude/hooks/1c-skills/<хук>.mjs`, на Windows это `USERPROFILE`); в примере
+`C:/Users/<пользователь>` заменяется своим каталогом - тильда внутри кавычек не раскрывается. Довод
 `--only` повторяется и называет корень воркспейса; без него пользовательская регистрация
 сработала бы в каждом открытом каталоге. Строки матчера - те же, что в `hooks/hooks.json`.
 
@@ -116,43 +117,43 @@ python tools/install_home.py
     "PreToolUse": [
       { "matcher": "^(Read|Grep|Glob|Bash|PowerShell)$",
         "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/edt-gate.mjs\" --only \"D:/work/client\"" }] },
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/edt-gate.mjs\" --only \"D:/work/client\"" }] },
       { "matcher": "Edit|Write|MultiEdit",
         "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/support-guard.mjs\" --only \"D:/work/client\"" }] }
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/support-guard.mjs\" --only \"D:/work/client\"" }] }
     ],
     "PostToolUse": [
       { "matcher": "Read|Edit|Write|MultiEdit",
         "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/skill-suggester.mjs\" --only \"D:/work/client\"" }] },
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/skill-suggester.mjs\" --only \"D:/work/client\"" }] },
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/evidence-writer.mjs\" --only \"D:/work/client\"" }] },
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/evidence-writer.mjs\" --only \"D:/work/client\"" }] },
       { "matcher": "<строка matcher из hooks/hooks.json - блок quality-arm.mjs>",
         "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/quality-arm.mjs\" --only \"D:/work/client\"" }] }
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/quality-arm.mjs\" --only \"D:/work/client\"" }] }
     ],
     "PostToolUseFailure": [
       { "matcher": "<строка matcher из hooks/hooks.json - блоки evidence-writer.mjs>",
         "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/evidence-writer.mjs\" --only \"D:/work/client\"" }] },
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/evidence-writer.mjs\" --only \"D:/work/client\"" }] },
       { "matcher": "<строка matcher из hooks/hooks.json - блок edt-gate.mjs на PostToolUseFailure>",
         "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/edt-gate.mjs\" --only \"D:/work/client\"" }] }
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/edt-gate.mjs\" --only \"D:/work/client\"" }] }
     ],
     "Stop": [
       { "hooks": [{ "type": "command",
-          "command": "node \"~/.claude/hooks/1c-skills/quality-stop.mjs\" --only \"D:/work/client\"" }] }
+          "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/quality-stop.mjs\" --only \"D:/work/client\"" }] }
     ],
     "SessionStart": [
       { "hooks": [{ "type": "command",
-        "command": "node \"~/.claude/hooks/1c-skills/session-context.mjs\" --only \"D:/work/client\"" }] },
+        "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/session-context.mjs\" --only \"D:/work/client\"" }] },
       { "hooks": [{ "type": "command",
-        "command": "node \"~/.claude/hooks/1c-skills/quality-baseline.mjs\" --only \"D:/work/client\"" }] }
+        "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/quality-baseline.mjs\" --only \"D:/work/client\"" }] }
     ],
     "UserPromptSubmit": [
       { "hooks": [{ "type": "command",
-        "command": "node \"~/.claude/hooks/1c-skills/release-writer.mjs\" --only \"D:/work/client\"" }] }
+        "command": "node \"C:/Users/<пользователь>/.claude/hooks/1c-skills/release-writer.mjs\" --only \"D:/work/client\"" }] }
     ]
   }
 }
