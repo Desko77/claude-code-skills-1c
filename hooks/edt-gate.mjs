@@ -16,6 +16,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, basename, resolve, isAbsolute, parse } from 'node:path';
 import { computeChangeset } from './_changeset.mjs';
 import { claudeHome } from './common/home.mjs';
+import { scopeStatus } from './common/scope.mjs';
 import {
   eventsDir, formatIso, listEventFiles, nowIso, repoTop, sessionDir, stateRoot, writeEvent,
 } from './common/quality-events.mjs';
@@ -806,6 +807,9 @@ if (process.argv[1]?.endsWith('edt-gate.mjs')) {
   try {
     const raw = await readStdin();
     const payload = raw.trim() ? JSON.parse(raw) : null;
+    const scope = scopeStatus(payload);
+    if (scope.error) process.stderr.write(`${scope.error}\n`);
+    if (scope.skip) process.exit(0);
     const { stdout, stderr, exitCode } = await processPayload(payload);
     if (stdout) process.stdout.write(stdout.endsWith('\n') ? stdout : `${stdout}\n`);
     if (stderr) process.stderr.write(stderr.endsWith('\n') ? stderr : `${stderr}\n`);

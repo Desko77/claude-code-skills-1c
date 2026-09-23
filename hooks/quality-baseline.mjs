@@ -12,6 +12,7 @@ import { resolve } from 'node:path';
 import { buildDiffPayload, computeChangeset } from './_changeset.mjs';
 import { EventsError, nowIso, repoTop, writeEvent } from './common/quality-events.mjs';
 import { findBaseline, resolveHead } from './common/quality-gate.mjs';
+import { scopeStatus } from './common/scope.mjs';
 
 // diffHash пустого множества: та же формула, что у computeChangeset на пустом списке.
 function emptyChangeset() {
@@ -84,6 +85,9 @@ if (process.argv[1]?.endsWith('quality-baseline.mjs')) {
   try {
     const raw = await readStdin();
     const payload = raw.trim() ? JSON.parse(raw) : null;
+    const scope = scopeStatus(payload);
+    if (scope.error) process.stderr.write(`${scope.error}\n`);
+    if (scope.skip) process.exit(0);
     const { stderr } = await processPayload(payload, (msg) => process.stderr.write(`${msg}\n`));
     if (stderr) process.stderr.write(`${stderr}\n`);
     process.exit(0);

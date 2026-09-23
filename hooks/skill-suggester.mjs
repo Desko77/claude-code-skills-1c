@@ -1,4 +1,4 @@
-// skill-suggester.mjs v1.0 — PostToolUse hook: nudge toward the matching 1C skill when
+// skill-suggester.mjs v1.0 - PostToolUse hook: nudge toward the matching 1C skill when
 // the model works the sources with raw tools (forgot a skill, or went manual).
 // Source: https://github.com/Nikolay-Shirokov/cc-1c-skills
 //
@@ -10,11 +10,12 @@
 import { classifyFile } from './common/object-class.mjs';
 import { findConfigRoot } from './common/support-state.mjs';
 import { getSuggesterMode } from './common/project.mjs';
+import { scopeStatus } from './common/scope.mjs';
 import { resolve, isAbsolute, join } from 'node:path';
 import { existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
-// Only file-targeting tools — these are where a skill genuinely substitutes the raw action.
+// Only file-targeting tools - these are where a skill genuinely substitutes the raw action.
 // Content search (Grep/Glob) is intentionally NOT nudged: *-info skills help understand a
 // located object, not find one by content.
 function pickTarget(input, cwd) {
@@ -79,6 +80,9 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
   const raw = await readStdin();
   let input = {};
   try { input = raw.trim() ? JSON.parse(raw) : {}; } catch { input = {}; }
+  const scope = scopeStatus(input);
+  if (scope.error) process.stderr.write(`${scope.error}\n`);
+  if (scope.skip) process.exit(0);
   const { stdout, stderr, exitCode } = processInput(input);
   if (stdout) process.stdout.write(stdout);
   if (stderr) process.stderr.write(stderr + '\n');

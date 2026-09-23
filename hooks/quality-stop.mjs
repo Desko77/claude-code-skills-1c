@@ -14,6 +14,7 @@
 import { spawnSync } from 'node:child_process';
 import { repoTop } from './common/quality-events.mjs';
 import { findBaseline, findLastScope, resolveEvidencePy, sessionEdits } from './common/quality-gate.mjs';
+import { scopeStatus } from './common/scope.mjs';
 
 const VALIDATOR_TIMEOUT_MS = 120000;
 
@@ -126,6 +127,9 @@ if (process.argv[1]?.endsWith('quality-stop.mjs')) {
   try {
     const raw = await readStdin();
     const payload = raw.trim() ? JSON.parse(raw) : null;
+    const scope = scopeStatus(payload);
+    if (scope.error) process.stderr.write(`${scope.error}\n`);
+    if (scope.skip) process.exit(0);
     const { code, stderr } = await processPayload(payload);
     if (stderr) process.stderr.write(`${stderr}\n`);
     process.exit(code);

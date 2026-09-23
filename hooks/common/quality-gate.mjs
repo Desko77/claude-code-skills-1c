@@ -7,11 +7,11 @@
 
 import { access, readFile } from 'node:fs/promises';
 import { execFile as execFileCb } from 'node:child_process';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { computeChangeset } from '../_changeset.mjs';
+import { claudeHome } from './home.mjs';
 import { eventsDir, listEventFiles } from './quality-events.mjs';
 
 const execFile = promisify(execFileCb);
@@ -92,8 +92,9 @@ export async function resolveHead(cwd) {
   }
 }
 
-// Путь к tools/evidence.py в порядке поиска: CLAUDE_PLUGIN_ROOT, ../tools от каталога
-// хуков (репозиторий набора), домашняя установка tools/1c-skills. null - не найден.
+// Путь к tools/evidence.py в порядке поиска: CLAUDE_PLUGIN_ROOT/tools/evidence.py,
+// ../tools от каталога хуков (репозиторий набора), домашняя установка
+// <дом>/.claude/tools/1c-skills/evidence.py. null - не найден.
 export async function resolveEvidencePy() {
   const hookDir = dirname(dirname(fileURLToPath(import.meta.url)));
   const candidates = [];
@@ -101,7 +102,7 @@ export async function resolveEvidencePy() {
     candidates.push(join(process.env.CLAUDE_PLUGIN_ROOT, 'tools', 'evidence.py'));
   }
   candidates.push(join(hookDir, '..', 'tools', 'evidence.py'));
-  candidates.push(join(homedir(), '.claude', 'tools', '1c-skills', 'tools', 'evidence.py'));
+  candidates.push(join(claudeHome(), '.claude', 'tools', '1c-skills', 'evidence.py'));
   for (const path of candidates) {
     try {
       await access(path);
