@@ -1,0 +1,21 @@
+{
+  "name": "Точечный запрос: отказ пишется в stderr переводом строки LF",
+  "setup": "none",
+  "params": {
+    "indexPath": "нет-такого-индекса.json"
+  },
+  "args_extra": [
+    "-Object",
+    "Catalog.Контрагенты"
+  ],
+  "noSnapshot": "отказ до записи - фиксировать нечего",
+  "expectError": "Index file not found",
+  "expect": {
+    "stderrContains": [
+      "Index file not found"
+    ],
+    "stderrNotContains": [
+      "\r"
+    ]
+  }
+}

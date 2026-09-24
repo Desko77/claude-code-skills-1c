@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Линтер набора: frontmatter, перекрестные ссылки и бюджет постоянного контекста.
+"""Линтер набора: frontmatter, перекрестные ссылки, бюджет постоянного контекста
+и счетчики README.
 
-Три проверки, каждая ловит свой класс молчаливых поломок.
+Четыре проверки, каждая ловит свой класс молчаливых поломок.
 
 1. Frontmatter. У скила обязателен блок с полями name и description, и name обязан
    совпадать с именем каталога: расхождение означает, что скил не вызовется по имени.
@@ -16,6 +17,10 @@
    только при работе с совпавшими файлами. Описания скилов лежат в контексте каждый ход
    независимо ни от чего. Обе величины растут незаметно, поэтому меряются и держатся под
    порогом-храповиком: вырос - либо ужимай, либо подними порог осознанно.
+
+4. Счетчики README. Числа в заголовке "## Скилы (N)", в сумме колонки "Скилов" таблицы
+   групп и в "**N правил**" обязаны совпадать с фактическим составом skills/ и rules/.
+   Счетчик расходится молча при каждом добавлении скила или правила, если его не сверять.
 
 Запуск:  python tools/validate_ruleset.py [--budget]
 Выход 1 при находках уровня ERROR.
@@ -38,9 +43,13 @@ RULE_KEYS = {"paths", "globs", "alwaysApply", "name", "description"}
 PATH_KEYS = ("paths", "paths[]", "globs", "globs[]")
 
 
-def rule_files():
-    """Правила обеих форм: .md здесь, .mdc в зеркале."""
-    return sorted(list(RULES_DIR.glob("*.md")) + list(RULES_DIR.glob("*.mdc")))
+def rule_files(rules_dir=RULES_DIR):
+    """Правила обеих форм: .md здесь, .mdc в зеркале.
+
+    Параметр rules_dir - каталог правил, по умолчанию rules/ этого репозитория.
+    Результат - отсортированный список путей.
+    """
+    return sorted(list(rules_dir.glob("*.md")) + list(rules_dir.glob("*.mdc")))
 
 # Имена, которые выглядят ссылкой на файл, но ею не являются: шаблоны имен результата,
 # заполнители в примерах команд. Проверять их бессмысленно.
@@ -179,6 +188,74 @@ def check_links(problems):
             problems.append(("ERROR", str(path), f"ссылка на несуществующий файл: {name}"))
 
 
+def check_readme_counters(problems, root=ROOT):
+    """Сверить счетчики README с фактическим составом репозитория.
+
+    Параметры: problems - список находок (уровень, где, сообщение); root - корень
+    репозитория, параметром, чтобы тест мог подать временный каталог. Результат -
+    дополненный список находок.
+
+    В зеркале для Cursor проверка не выполняется: сборка копирует линтер в зеркало,
+    а README там свой, без мест под эти счетчики. Признак зеркала - в rules/ есть
+    файлы .mdc и нет .md. В исходном наборе поведение прежнее: три сверки - число
+    в заголовке "## Скилы (N)" и сумма колонки "Скилов" таблицы групп - с числом
+    каталогов первого уровня в skills/; число в "**N правил**" - с числом файлов
+    правил обеих форм. Место счетчика, не найденное по шаблону (README переписан),
+    - тоже блокирующая находка: молчаливый пропуск вернет рассинхрон.
+    """
+    rules_dir = root / "rules"
+    if not list(rules_dir.glob("*.md")) and list(rules_dir.glob("*.mdc")):
+        return
+    readme = root / "README.md"
+    text = read(readme)
+    skills_count = sum(1 for entry in (root / "skills").iterdir() if entry.is_dir())
+    rules_count = len(rule_files(rules_dir))
+
+    heading = re.search(r"^## Скилы \((\d+)\)\s*$", text, re.MULTILINE)
+    if heading is None:
+        problems.append(("ERROR", str(readme),
+                         'не найден заголовок "## Скилы (N)": место счетчика потеряно'))
+    elif int(heading.group(1)) != skills_count:
+        problems.append(("ERROR", str(readme),
+                         f'заголовок "## Скилы ({heading.group(1)})", '
+                         f"каталогов skills/ - {skills_count}"))
+
+    # Таблица групп: строка-заголовок с колонкой "Скилов", затем сумма чисел
+    # последней колонки по строкам, пока они остаются строками таблицы.
+    table_total = None
+    lines = text.split("\n")
+    for index, line in enumerate(lines):
+        if not re.match(r"^\|.*\|\s*Скилов\s*\|\s*$", line):
+            continue
+        total = 0
+        rows = 0
+        for row in lines[index + 2:]:
+            cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+            if len(cells) < 2 or not re.fullmatch(r"\d+", cells[-1]):
+                break
+            total += int(cells[-1])
+            rows += 1
+        if rows:
+            table_total = total
+        break
+    if table_total is None:
+        problems.append(("ERROR", str(readme),
+                         'не найдена таблица групп скилов с колонкой "Скилов"'))
+    elif table_total != skills_count:
+        problems.append(("ERROR", str(readme),
+                         f'таблица групп: сумма колонки "Скилов" - {table_total}, '
+                         f"каталогов skills/ - {skills_count}"))
+
+    rules_line = re.search(r"\*\*(\d+) правил\*\*", text)
+    if rules_line is None:
+        problems.append(("ERROR", str(readme),
+                         'не найдена строка "**N правил**": место счетчика потеряно'))
+    elif int(rules_line.group(1)) != rules_count:
+        problems.append(("ERROR", str(readme),
+                         f'в тексте "**{rules_line.group(1)} правил**", '
+                         f"файлов rules/*.md - {rules_count}"))
+
+
 def measure_budget():
     """Постоянно загружаемое: правила без paths плюс описания всех скилов."""
     always = []
@@ -212,6 +289,7 @@ def main():
     problems = []
     check_frontmatter(problems)
     check_links(problems)
+    check_readme_counters(problems)
 
     always, conditional, descriptions = measure_budget()
     always_bytes = sum(size for _, size in always)
