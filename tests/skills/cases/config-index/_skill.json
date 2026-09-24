@@ -3,8 +3,10 @@
   "setup": "none",
   "args": [
     {
-      "flag": "-ConfigPath",
-      "from": "workDir"
+      "flag": "-IndexPath",
+      "from": "workPath",
+      "field": "indexPath",
+      "optional": true
     },
     {
       "flag": "-OutFile",
