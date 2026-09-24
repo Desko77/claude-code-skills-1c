@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# config-index v1.0 - Build a JSON index of a 1C configuration dump
+# config-index v1.0 - Build a JSON index of a 1C configuration dump, or query a built index
 # Source: https://github.com/Desko77/claude-code-skills-1c
 """Reads a Designer XML dump and writes one JSON index: what objects exist, their attributes,
 tabular sections, register dimensions and resources, and the exported methods of common modules.
-Other skills read the index instead of walking the dump themselves."""
+Other skills read the index instead of walking the dump themselves. A built index also answers
+point questions: one object record by FQN, or the FQNs whose name matches a substring."""
 import sys, os, argparse, json, re, time
 from lxml import etree
 
@@ -81,7 +82,7 @@ BUCKET_ORDER_NAMED = ['enumValues', 'forms', 'templates', 'commands', 'subsystem
 
 EXPORT_RE = re.compile(
     r'^[ \t]*(?:(?:Асинх|Async)[ \t]+)?(?:Процедура|Функция|Procedure|Function)[ \t]+'
-    r'([A-Za-z_А-яЁё][A-Za-z0-9_А-яЁё]*)[ \t]*\(',
+    r'([A-Za-z_\u0410-\u044F\u0401\u0451][A-Za-z0-9_\u0410-\u044F\u0401\u0451]*)[ \t]*\(',
     re.IGNORECASE | re.MULTILINE)
 # Экспорт может стоять на следующей строке - список параметров нередко переносят.
 EXPORT_TAIL_RE = re.compile(r'^\s*(Экспорт|Export)\b', re.IGNORECASE)
@@ -337,16 +338,93 @@ def idx_read_object(path, kind, types_sink):
     return entry
 
 
+def idx_usage(msg):
+    """Отказ разбора доводов: причина в stderr, код возврата 2."""
+    sys.stderr.write(msg + '\n')
+    return 2
+
+
+def idx_read_json(path):
+    """Читает индекс. Возвращает (данные, None) либо (None, код возврата); причина - в stderr."""
+    if not os.path.isabs(path):
+        path = os.path.join(os.getcwd(), path)
+    if not os.path.isfile(path):
+        sys.stderr.write('Index file not found: ' + path + '\n')
+        return None, 1
+    try:
+        with open(path, 'r', encoding='utf-8-sig') as fh:
+            return json.load(fh), None
+    except (OSError, ValueError):
+        sys.stderr.write('Index file could not be read: ' + path + '\n')
+        return None, 1
+
+
+def idx_query(args):
+    """Точечный вопрос к готовому индексу: одна запись по FQN или имена по подстроке."""
+    # Разделение строгое: половина доводов от сборки рядом с запросом означала бы, что
+    # непонятно, что именно запускать - сборку индекса или чтение готового.
+    if args.IndexPath == '':
+        return idx_usage('Query mode requires -IndexPath')
+    if args.ConfigPath:
+        return idx_usage('-ConfigPath cannot be combined with -Object or -Find')
+    if args.OutFile:
+        return idx_usage('-OutFile cannot be combined with -Object or -Find')
+    if args.Detailed:
+        return idx_usage('-Detailed cannot be combined with -Object or -Find')
+
+    index, err = idx_read_json(args.IndexPath)
+    if err is not None:
+        return err
+    objects = index.get('objects') if isinstance(index, dict) else None
+    if not isinstance(objects, dict):
+        sys.stderr.write('Index file has no objects: ' + args.IndexPath + '\n')
+        return 1
+
+    if args.Object != '':
+        # Имена метаданных 1С регистр не различают, поэтому и FQN в запросе - тоже.
+        wanted = args.Object.lower()
+        key = next((name for name in objects if name.lower() == wanted), None)
+        if key is None:
+            sys.stderr.write('Object not found: ' + args.Object + '\n')
+            return 1
+        sys.stdout.write(json.dumps(objects[key], ensure_ascii=False, indent=2) + '\n')
+        return 0
+
+    needle = args.Find.lower()
+    names = sorted(name for name in objects if needle in name.lower())
+    if names:
+        sys.stdout.write('\n'.join(names) + '\n')
+    return 0
+
+
 def main():
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+    # newline="" обязателен: иначе текстовый stdout на Windows переводит LF в CRLF и
+    # расходится с ps1-портом, который пишет LF.
+    sys.stdout.reconfigure(encoding="utf-8", newline="")
+    sys.stderr.reconfigure(encoding="utf-8", newline="")
     parser = argparse.ArgumentParser(
-        description='Build a JSON index of a 1C configuration dump', allow_abbrev=False
+        description='Build a JSON index of a 1C configuration dump, or query a built index',
+        allow_abbrev=False
     )
-    parser.add_argument('-ConfigPath', dest='ConfigPath', required=True)
+    parser.add_argument('-ConfigPath', dest='ConfigPath', default='')
+    parser.add_argument('-IndexPath', dest='IndexPath', default='')
+    parser.add_argument('-Object', dest='Object', default='')
+    parser.add_argument('-Find', dest='Find', default='')
     parser.add_argument('-OutFile', dest='OutFile', default='')
     parser.add_argument('-Detailed', action='store_true')
     args = parser.parse_args()
+
+    # --- Query mode: one object or a list of names, straight out of a built index ---
+    query_object = args.Object != ''
+    query_find = args.Find != ''
+    if query_object and query_find:
+        return idx_usage('Use either -Object or -Find, not both')
+    if query_object or query_find:
+        return idx_query(args)
+    if args.IndexPath != '':
+        return idx_usage('-IndexPath requires -Object or -Find')
+    if args.ConfigPath == '':
+        return idx_usage('Missing -ConfigPath')
 
     # --- Resolve the configuration root ---
     config_path = args.ConfigPath

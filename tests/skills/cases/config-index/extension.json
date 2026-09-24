@@ -4,6 +4,10 @@
   "params": {
     "outFile": "index.json"
   },
+  "args_extra": [
+    "-ConfigPath",
+    "{workDir}"
+  ],
   "noSnapshot": "проверяется опознание расширения, а не полный состав; фикстура расширения из cfe-init меняется вместе с тем навыком",
   "expect": {
     "fileContains": [
