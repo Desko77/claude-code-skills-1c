@@ -1,0 +1,11 @@
+{
+  "id": "FORM-02",
+  "type": "project-tree",
+  "files": [
+    "clean/Form.form",
+    "defect/Form.form"
+  ],
+  "expected": [
+    "defect/Form.form"
+  ]
+}
