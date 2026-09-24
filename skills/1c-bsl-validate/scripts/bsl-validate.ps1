@@ -675,6 +675,8 @@ function Check-Sec01($ctx) {
 }
 
 # MODEL-18: пустой блок Исключение - репорт на строке Исключения.
+# Пустота определяется по исходному тексту: блок из одного поясняющего комментария
+# карточкой разрешен и пустым не считается, а после Remove-BslNoise он выглядит пустым.
 function Check-Model18($ctx) {
 	$out = @()
 	$q = $ctx.q
@@ -687,7 +689,7 @@ function Check-Model18($ctx) {
 		}
 		$empty = $true
 		for ($j = $i + 1; $j -lt $end; $j++) {
-			if ($q[$j].Trim().Length -gt 0) { $empty = $false; break }
+			if ($ctx.raw[$j].Trim().Length -gt 0) { $empty = $false; break }
 		}
 		if ($empty) { $out += $i + 1 }
 	}
@@ -695,14 +697,16 @@ function Check-Model18($ctx) {
 }
 
 # MODEL-22: удаление элемента коллекции внутри обхода этой же коллекции - репорт
-# на строке вызова Удалить. Обход ищется до первого КонецЦикла после заголовка:
-# вложенные циклы с теми же именами редки, ложных находок нет.
+# на строке вызова Удалить. Конец тела ищется по счетчику вложенности Для/Пока -
+# КонецЦикла, иначе вложенный цикл обрезает тело. Коллекция захватывается целиком
+# вместе с путем через точку: Объект.Строки.Удалить находится для обхода
+# Из Объект.Строки.
 function Check-Model22($ctx) {
 	$out = @()
 	$text = $ctx.q -join "`n"
-	$head = [regex]::new("\bДля\s+Каждого\s+(\w+)\s+Из\s+(\w+)\b",
+	$head = [regex]::new("\bДля\s+Каждого\s+(\w+)\s+Из\s+([\w.]+)\b",
 		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-	$close = [regex]::new("\bКонецЦикла\b",
+	$kw = [regex]::new("\b(?:Для|Пока|КонецЦикла)\b",
 		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 	foreach ($m in $head.Matches($text)) {
 		$item = $m.Groups[1].Value
@@ -712,9 +716,15 @@ function Check-Model22($ctx) {
 			if ($ch -eq "`n") { $lineNo++ }
 		}
 		$rest = $text.Substring($m.Index + $m.Length)
-		$em = $close.Match($rest)
-		$scopeText = if ($em.Success) { $rest.Substring(0, $em.Index) } else { $rest }
-		$pat = '\b' + [regex]::Escape($coll) + '\s*\.\s*Удалить\s*\(\s*' + [regex]::Escape($item) + '\s*\)'
+		$scopeText = $rest
+		$depth = 0
+		foreach ($km in $kw.Matches($rest)) {
+			if ($km.Value.ToLower() -ne "конеццикла") { $depth++ }
+			elseif ($depth -eq 0) { $scopeText = $rest.Substring(0, $km.Index); break }
+			else { $depth-- }
+		}
+		$parts = @($coll.Split('.') | ForEach-Object { [regex]::Escape($_) })
+		$pat = '\b' + ($parts -join '\s*\.\s*') + '\s*\.\s*Удалить\s*\(\s*' + [regex]::Escape($item) + '\s*\)'
 		$del = [regex]::new($pat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 		$dm = $del.Match($scopeText)
 		if ($dm.Success) {
