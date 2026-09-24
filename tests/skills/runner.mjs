@@ -461,8 +461,8 @@ function checkFileContains(workDir, spec, expectPresent) {
 // который молча ничего не проверяет (так уже было с 9 кейсами meta-edit) —
 // поэтому он ошибка, а не игнор.
 const KNOWN_EXPECT_KEYS = new Set([
-  'files', 'filesAbsent', 'stdoutContains', 'stdoutNotContains', 'stderrContains', 'preserves',
-  'fileContains', 'fileNotContains', 'filesEqual',
+  'files', 'filesAbsent', 'stdoutContains', 'stdoutNotContains', 'stderrContains', 'stderrNotContains',
+  'preserves', 'fileContains', 'fileNotContains', 'filesEqual',
 ]);
 
 function checkExpectKeys(caseData) {
@@ -908,6 +908,15 @@ async function runCaseAsync(testCase, opts) {
           if (!stderr.includes(needle)) errors.push(`stderr does not contain "${needle}"`);
         }
       }
+      // Симметрия к stdoutNotContains. Нужна там, где проверяемое в тексте не видно:
+      // CRLF вместо LF в stderr на сравнении строк неотличим, а байты у портов разные.
+      if (caseData.expect?.stderrNotContains) {
+        const needles = Array.isArray(caseData.expect.stderrNotContains)
+          ? caseData.expect.stderrNotContains : [caseData.expect.stderrNotContains];
+        for (const needle of needles) {
+          if (stderr.includes(needle)) errors.push(`stderr unexpectedly contains "${needle}"`);
+        }
+      }
       // Отсутствие файла — тоже утверждение, и нужно оно чаще всего НЕГАТИВНОМУ кейсу:
       // «отказ произошёл до записи». В позитивной ветке (где живёт expect.files) такой
       // проверки не было бы ровно там, где она единственная содержательная.
@@ -1146,6 +1155,15 @@ function runCase(testCase, opts) {
           ? caseData.expect.stderrContains : [caseData.expect.stderrContains];
         for (const needle of needles) {
           if (!stderr.includes(needle)) errors.push(`stderr does not contain "${needle}"`);
+        }
+      }
+      // Симметрия к stdoutNotContains. Нужна там, где проверяемое в тексте не видно:
+      // CRLF вместо LF в stderr на сравнении строк неотличим, а байты у портов разные.
+      if (caseData.expect?.stderrNotContains) {
+        const needles = Array.isArray(caseData.expect.stderrNotContains)
+          ? caseData.expect.stderrNotContains : [caseData.expect.stderrNotContains];
+        for (const needle of needles) {
+          if (stderr.includes(needle)) errors.push(`stderr unexpectedly contains "${needle}"`);
         }
       }
       // Отсутствие файла — тоже утверждение, и нужно оно чаще всего НЕГАТИВНОМУ кейсу:
