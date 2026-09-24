@@ -1,6 +1,10 @@
 {
   "name": "Без -OutFile индекс печатается в stdout",
   "setup": "fixture:sample-config",
+  "args_extra": [
+    "-ConfigPath",
+    "{workDir}"
+  ],
   "noSnapshot": "навык ничего не пишет в рабочий каталог - эталон зафиксировал бы фикстуру, а не выход навыка",
   "expect": {
     "stdoutContains": [

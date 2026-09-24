@@ -1,7 +1,10 @@
-﻿# config-index v1.0 - Build a JSON index of a 1C configuration dump
+﻿# config-index v1.0 - Build a JSON index of a 1C configuration dump, or query a built index
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
-	[Parameter(Mandatory)][string]$ConfigPath,
+	[string]$ConfigPath,
+	[string]$IndexPath,
+	[string]$Object,
+	[string]$Find,
 	[string]$OutFile,
 	[switch]$Detailed
 )
@@ -383,6 +386,97 @@ function ConvertTo-JsonText($value, [string]$indent) {
 	}
 	return '"' + (ConvertTo-JsonEscaped ([string]$value)) + '"'
 }
+
+# --- Query mode: one object or a list of names, straight out of a built index ---
+# Индекс строится один раз и весит мегабайты. Точечный вопрос к готовому файлу не должен
+# стоить повторного обхода выгрузки, поэтому запрос читает только индекс.
+
+function Exit-IdxUsage([string]$msg) {
+	[Console]::Error.WriteLine($msg)
+	exit 2
+}
+
+function Write-IdxError([string]$msg) {
+	[Console]::Error.WriteLine($msg)
+}
+
+# ConvertFrom-Json отдает PSCustomObject и Object[], а сериализатор понимает IDictionary
+# и IEnumerable. Приведение к тем же типам дает тот же порядок ключей и тот же отступ,
+# что и в самом индексе.
+function ConvertTo-IdxWritable($node) {
+	if ($null -eq $node) { return $null }
+	if ($node -is [System.Management.Automation.PSCustomObject]) {
+		$map = [ordered]@{}
+		foreach ($p in $node.PSObject.Properties) { $map[$p.Name] = (ConvertTo-IdxWritable $p.Value) }
+		return $map
+	}
+	if ($node -is [System.Array]) {
+		$list = [System.Collections.ArrayList]::new()
+		foreach ($item in $node) { [void]$list.Add((ConvertTo-IdxWritable $item)) }
+		return ,$list
+	}
+	return $node
+}
+
+# $null на выходе означает отказ: причина уже написана в stderr.
+function Read-IdxJson([string]$path) {
+	if (-not [System.IO.Path]::IsPathRooted($path)) { $path = Join-Path (Get-Location).Path $path }
+	if (-not [System.IO.File]::Exists($path)) {
+		Write-IdxError ("Index file not found: " + $path)
+		return $null
+	}
+	try {
+		return ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8) | ConvertFrom-Json)
+	} catch {
+		Write-IdxError ("Index file could not be read: " + $path)
+		return $null
+	}
+}
+
+$idxQueryObject = ($Object -ne "")
+$idxQueryFind = ($Find -ne "")
+
+if ($idxQueryObject -and $idxQueryFind) { Exit-IdxUsage "Use either -Object or -Find, not both" }
+
+if ($idxQueryObject -or $idxQueryFind) {
+	if ($IndexPath -eq "") { Exit-IdxUsage "Query mode requires -IndexPath" }
+	# Разделение строгое: половина доводов от сборки рядом с запросом означала бы, что
+	# непонятно, что именно запускать - сборку индекса или чтение готового.
+	if ($ConfigPath -ne "") { Exit-IdxUsage "-ConfigPath cannot be combined with -Object or -Find" }
+	if ($OutFile -ne "") { Exit-IdxUsage "-OutFile cannot be combined with -Object or -Find" }
+	if ($Detailed) { Exit-IdxUsage "-Detailed cannot be combined with -Object or -Find" }
+
+	$index = Read-IdxJson $IndexPath
+	if ($null -eq $index) { exit 1 }
+	$objects = $index.objects
+	if (-not ($objects -is [System.Management.Automation.PSCustomObject])) {
+		Write-IdxError ("Index file has no objects: " + $IndexPath)
+		exit 1
+	}
+
+	if ($idxQueryObject) {
+		$prop = $objects.PSObject.Properties[$Object]
+		if ($null -eq $prop) {
+			Write-IdxError ("Object not found: " + $Object)
+			exit 1
+		}
+		Write-Host (ConvertTo-JsonText (ConvertTo-IdxWritable $prop.Value) "")
+		exit 0
+	}
+
+	$names = New-Object System.Collections.Generic.List[string]
+	foreach ($p in $objects.PSObject.Properties) {
+		if ($p.Name.IndexOf($Find, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { $names.Add($p.Name) }
+	}
+	# Порядок задан посимвольным сравнением, а не культурным: культурное у портов разное
+	# (у PowerShell - текущая локаль, у python - код символа), и на кириллице они расходятся.
+	$names.Sort([System.StringComparer]::Ordinal)
+	if ($names.Count) { Write-Host ($names -join "`n") }
+	exit 0
+}
+
+if ($IndexPath -ne "") { Exit-IdxUsage "-IndexPath requires -Object or -Find" }
+if ($ConfigPath -eq "") { Exit-IdxUsage "Missing -ConfigPath" }
 
 # --- Resolve the configuration root ---
 

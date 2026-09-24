@@ -1,0 +1,26 @@
+{
+  "name": "Точечный запрос: поиск по подстроке без учета регистра, порядок по FQN",
+  "setup": "fixture:sample-config",
+  "preRun": [
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Find",
+    "АТ"
+  ],
+  "noSnapshot": "навык печатает имена в stdout и в рабочий каталог не пишет; эталон снят с ps1-мастера",
+  "expect": {
+    "stdoutContains": [
+      "AccumulationRegister.Остатки\nCatalog.Номенклатура\nEnum.Статусы"
+    ]
+  }
+}
