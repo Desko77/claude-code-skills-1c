@@ -652,8 +652,79 @@ def check_sec01(text):
     return out
 
 
+def check_model18(q, raw):
+    """MODEL-18: пустой блок Исключение - репорт на строке Исключения.
+
+    Пустота определяется по исходному тексту: блок из одного поясняющего
+    комментария карточкой разрешен и пустым не считается, а после
+    strip_bsl_noise такая строка выглядит пустой.
+    """
+    out = []
+    for i, end in _except_sections(q):
+        if all(not ln.strip() for ln in raw[i + 1:end]):
+            out.append(i + 1)
+    return out
+
+
+def _path_part_before(text, pos):
+    """Часть ли пути стоит перед позицией: точка, возможно отделенная пробелами.
+
+    Идентификатор вплотную к совпадению исключен границей слова в начале шаблона,
+    идентификатор через пробел (Если Строки.Удалить) - отдельный операнд, а не
+    продолжение пути, и совпадению не мешает.
+    """
+    i = pos
+    while i > 0 and text[i - 1].isspace():
+        i -= 1
+    return i > 0 and text[i - 1] == '.'
+
+
+def check_model22(q):
+    """MODEL-22: удаление элемента коллекции внутри обхода этой же коллекции.
+
+    Репорт на строке вызова Удалить. Конец тела ищется по счетчику вложенности
+    Для/Пока - КонецЦикла, иначе вложенный цикл обрезает тело и поздний вызов
+    Удалить выпадает из области. Коллекция захватывается целиком вместе с
+    путем через точку: Объект.Строки.Удалить должен находиться для обхода
+    Из Объект.Строки. Обратное неверно: при обходе локальной Строки совпадение
+    с середины пути Объект.Строки.Удалить отбрасывается - перед началом
+    совпадения не должно стоять части чужого пути (точки). Номер строки
+    считается от конца заголовка - того же места, от которого отложен текст
+    тела, иначе многострочный заголовок уводит находку вверх.
+    """
+    out = []
+    text = '\n'.join(q)
+    head = re.compile(r'\bДля\s+Каждого\s+(\w+)\s+Из\s+([\w.]+)\b', re.IGNORECASE)
+    kw = re.compile(r'\b(?:Для|Пока|КонецЦикла)\b', re.IGNORECASE)
+    for m in head.finditer(text):
+        item, coll = m.group(1), m.group(2)
+        rest = text[m.end():]
+        scope_text = rest
+        depth = 0
+        for km in kw.finditer(rest):
+            if km.group(0).lower() != 'конеццикла':
+                depth += 1
+            elif depth == 0:
+                scope_text = rest[:km.start()]
+                break
+            else:
+                depth -= 1
+        path = r'\s*\.\s*'.join(re.escape(part) for part in coll.split('.'))
+        del_re = re.compile(r'\b' + path + r'\s*\.\s*Удалить\s*\(\s*'
+                            + re.escape(item) + r'\s*\)', re.IGNORECASE)
+        dm = del_re.search(scope_text)
+        while dm is not None and _path_part_before(scope_text, dm.start()):
+            dm = del_re.search(scope_text, dm.start() + 1)
+        if dm:
+            base = text.count('\n', 0, m.end())
+            out.append(base + scope_text.count('\n', 0, dm.start()) + 1)
+    return out
+
+
 STRUCTURE_CHECKS = {
     'model-14': check_model14,
+    'model-18': check_model18,
+    'model-22': check_model22,
     'perf-05': check_perf05,
     'query-01': check_query01,
     'query-08': check_query08,
