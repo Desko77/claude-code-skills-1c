@@ -13,11 +13,13 @@ docs/1c-defect-catalog-spec.md, раздел Детекторы. Колонка 
 | CLIENT-02 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | CLIENT-03 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | CLIENT-04 | Major | code_review:DeprecatedMessage (static) | bsl_validate:CLIENT-04 (static) | lint |
+| CLIENT-05 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:CLIENT-05 (static) | lint |
 | EXT-01 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | EXT-02 | Critical | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | EXT-03 | Minor | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | EXT-04 | Major | чтение (read) | role_validate (static) |  |
 | FORM-01 | Critical | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
+| FORM-02 | Major | validate_for_export (semantic), чтение (read) | чтение (read) |  |
 | META-01 | Major | чтение (read) | чтение (read) |  |
 | MODEL-01 | Minor | code_review:NestedStatements (static) | чтение (read) |  |
 | MODEL-02 | Critical | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
@@ -35,12 +37,21 @@ docs/1c-defect-catalog-spec.md, раздел Детекторы. Колонка 
 | MODEL-14 | Major | code_review:IfElseIfEndsWithElse (static) | bsl_validate:MODEL-14 (static) | lint |
 | MODEL-15 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | MODEL-16 | Critical | get_project_errors (semantic) | syntaxcheck (static) |  |
+| MODEL-17 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:MODEL-17 (static) | lint |
+| MODEL-18 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:MODEL-18 (static) | lint |
+| MODEL-19 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
+| MODEL-20 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
+| MODEL-21 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:MODEL-21 (static) | lint |
+| MODEL-22 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:MODEL-22 (static) | lint |
 | PERF-01 | Critical | code_review:CreateQueryInCycle (static) | чтение (read) |  |
 | PERF-02 | Critical | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | PERF-03 | Minor | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | PERF-04 | Minor | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | PERF-05 | Minor | ask_1c_ai (llm), чтение (read) | bsl_validate:PERF-05 (static) | lint |
 | PERF-06 | Minor | code_review:UsingFindElementByString (static) | чтение (read) |  |
+| PERF-07 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
+| PERF-08 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
+| PERF-09 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | PROC-01 | Major | чтение (read) | чтение (read) |  |
 | PROC-02 | Major | чтение (read) | чтение (read) |  |
 | PROC-03 | Major | чтение (read) | чтение (read) |  |
@@ -51,22 +62,23 @@ docs/1c-defect-catalog-spec.md, раздел Детекторы. Колонка 
 | QUERY-05 | Minor | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | QUERY-06 | Major | code_review:JoinWithSubQuery (static) | bsl_validate:QUERY-06 (static) | lint |
 | QUERY-07 | Major | code_review:JoinWithVirtualTable (static) | bsl_validate:QUERY-07 (static) | lint |
-| QUERY-08 | Major | code_review:LogicalOrInTheWhereSectionOfQuery (static) | bsl_validate:QUERY-08 (static) | lint |
+| QUERY-08 | Major | code_review:LogicalOrInTheWhereSectionOfQuery (static), чтение (read) | bsl_validate:QUERY-08 (static) | lint |
 | QUERY-09 | Minor | code_review:UnionAll (static) | bsl_validate:QUERY-09 (static) | lint |
 | QUERY-10 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | QUERY-11 | Minor | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
-| QUERY-12 | Minor | code_review:FieldsFromJoinsWithoutIsNull (static) | чтение (read) |  |
+| QUERY-12 | Minor | code_review:FieldsFromJoinsWithoutIsNull (static), чтение (read) | чтение (read) |  |
 | QUERY-13 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:QUERY-13 (static) | lint |
 | QUERY-14 | Critical | ask_1c_ai (llm), чтение (read) | bsl_validate:QUERY-14 (static) | lint |
 | QUERY-15 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:QUERY-15 (static) | lint |
 | QUERY-16 | Critical | validate_query (semantic) | bsl_validate:QUERY-16 (static) | lint |
 | QUERY-17 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
-| QUERY-18 | Minor | code_review:SelectTopWithoutOrderBy (static) | bsl_validate:QUERY-18 (static) | lint |
+| QUERY-18 | Minor | code_review:SelectTopWithoutOrderBy (static), чтение (read) | bsl_validate:QUERY-18 (static) | lint |
 | SEC-01 | Critical | ask_1c_ai (llm), чтение (read) | bsl_validate:SEC-01 (static) | lint |
 | SEC-02 | Critical | code_review:SetPrivilegedMode (static), code_review:PrivilegedModuleMethodCall (static) | чтение (read) |  |
 | SEC-03 | Critical | security_audit (semantic), чтение (read) | чтение (read) |  |
 | SEC-04 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | SEC-05 | Major | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
+| SEC-06 | Critical | ask_1c_ai (llm), чтение (read) | чтение (read) |  |
 | TXN-01 | Major | code_review:BeginTransactionBeforeTryCatch (static) | bsl_validate:TXN-01 (static) | lint |
 | TXN-02 | Major | code_review:BeginTransactionBeforeTryCatch (static) | bsl_validate:TXN-02 (static) | lint |
 | TXN-03 | Major | code_review:CommitTransactionOutsideTryCatch (static) | bsl_validate:TXN-03 (static) | lint |
@@ -79,4 +91,4 @@ docs/1c-defect-catalog-spec.md, раздел Детекторы. Колонка 
 | TXN-10 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:TXN-10 (static) | lint |
 | TXN-11 | Major | ask_1c_ai (llm), чтение (read) | bsl_validate:TXN-11 (static) | lint |
 
-Покрытие: Critical с детерминированным детектором в EDT либо с обоснованием чтения - 12 из 12; с детерминированным детектором хотя бы в одной среде - 35 из 69 (51%), с учетом планируемых lint-правил - 35 из 69 (51%). Реестр реализованных правил lint - 23 из 23 карточек (`skills/1c-bsl-validate/scripts/catalog-rules.json`).
+Покрытие: Critical с детерминированным детектором в EDT либо с обоснованием чтения - 13 из 13; с детерминированным детектором хотя бы в одной среде - 41 из 81 (51%), с учетом планируемых lint-правил - 41 из 81 (51%). Реестр реализованных правил lint - 28 из 28 карточек (`skills/1c-bsl-validate/scripts/catalog-rules.json`).

@@ -674,8 +674,91 @@ function Check-Sec01($ctx) {
 	return ,$out
 }
 
+# MODEL-18: пустой блок Исключение - репорт на строке Исключения.
+# Пустота определяется по исходному тексту: блок из одного поясняющего комментария
+# карточкой разрешен и пустым не считается, а после Remove-BslNoise он выглядит пустым.
+function Check-Model18($ctx) {
+	$out = @()
+	$q = $ctx.q
+	for ($i = 0; $i -lt $q.Count; $i++) {
+		if (-not $catRe["except"].IsMatch($q[$i])) { continue }
+		if ($catRe["raise"].IsMatch($q[$i])) { continue }
+		$end = $q.Count
+		for ($j = $i + 1; $j -lt $q.Count; $j++) {
+			if ($catRe["endtry"].IsMatch($q[$j])) { $end = $j; break }
+		}
+		$empty = $true
+		for ($j = $i + 1; $j -lt $end; $j++) {
+			if ($ctx.raw[$j].Trim().Length -gt 0) { $empty = $false; break }
+		}
+		if ($empty) { $out += $i + 1 }
+	}
+	return ,$out
+}
+
+# Перед позицией в тексте часть пути: точка, возможно отделенная пробелами.
+# Идентификатор вплотную к совпадению исключен границей слова в начале шаблона,
+# идентификатор через пробел (Если Строки.Удалить) - отдельный операнд, а не
+# продолжение пути, и совпадению не мешает.
+function Test-PathPartBefore([string]$text, [int]$pos) {
+	$i = $pos
+	while ($i -gt 0 -and [char]::IsWhiteSpace($text[$i - 1])) { $i-- }
+	return ($i -gt 0 -and $text[$i - 1] -eq '.')
+}
+
+# MODEL-22: удаление элемента коллекции внутри обхода этой же коллекции - репорт
+# на строке вызова Удалить. Конец тела ищется по счетчику вложенности Для/Пока -
+# КонецЦикла, иначе вложенный цикл обрезает тело. Коллекция захватывается целиком
+# вместе с путем через точку: Объект.Строки.Удалить находится для обхода
+# Из Объект.Строки. Обратное неверно: при обходе локальной Строки совпадение
+# с середины пути Объект.Строки.Удалить отбрасывается - перед началом совпадения
+# не должно стоять части чужого пути (точки). Номер строки считается от конца
+# заголовка - того же места, от которого отложен текст тела, иначе многострочный
+# заголовок уводит находку вверх.
+function Check-Model22($ctx) {
+	$out = @()
+	$text = $ctx.q -join "`n"
+	$head = [regex]::new("\bДля\s+Каждого\s+(\w+)\s+Из\s+([\w.]+)\b",
+		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+	$kw = [regex]::new("\b(?:Для|Пока|КонецЦикла)\b",
+		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+	foreach ($m in $head.Matches($text)) {
+		$item = $m.Groups[1].Value
+		$coll = $m.Groups[2].Value
+		$rest = $text.Substring($m.Index + $m.Length)
+		$scopeText = $rest
+		$depth = 0
+		foreach ($km in $kw.Matches($rest)) {
+			if ($km.Value.ToLower() -ne "конеццикла") { $depth++ }
+			elseif ($depth -eq 0) { $scopeText = $rest.Substring(0, $km.Index); break }
+			else { $depth-- }
+		}
+		$parts = @($coll.Split('.') | ForEach-Object { [regex]::Escape($_) })
+		$pat = '\b' + ($parts -join '\s*\.\s*') + '\s*\.\s*Удалить\s*\(\s*' + [regex]::Escape($item) + '\s*\)'
+		$del = [regex]::new($pat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+		$dm = $del.Match($scopeText)
+		while ($dm.Success -and (Test-PathPartBefore $scopeText $dm.Index)) {
+			$dm = $del.Match($scopeText, $dm.Index + 1)
+		}
+		if ($dm.Success) {
+			$base = 0
+			foreach ($ch in $text.Substring(0, $m.Index + $m.Length).ToCharArray()) {
+				if ($ch -eq "`n") { $base++ }
+			}
+			$nl = 0
+			foreach ($ch in $scopeText.Substring(0, $dm.Index).ToCharArray()) {
+				if ($ch -eq "`n") { $nl++ }
+			}
+			$out += $base + $nl + 1
+		}
+	}
+	return ,(@($out | Sort-Object -Unique))
+}
+
 $structureChecks = @{
 	"model-14"  = ${function:Check-Model14}
+	"model-18"  = ${function:Check-Model18}
+	"model-22"  = ${function:Check-Model22}
 	"perf-05"   = ${function:Check-Perf05}
 	"query-01"  = ${function:Check-Query01}
 	"query-08"  = ${function:Check-Query08}

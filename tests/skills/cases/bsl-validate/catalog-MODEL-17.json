@@ -1,0 +1,25 @@
+{
+  "name": "Правило MODEL-17: опечатка копирования в выражении",
+  "setup": "external:tests/catalog/MODEL-17",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "MODEL-17"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[MODEL-17] defect.bsl:2",
+      "[MODEL-17] defect.bsl:5",
+      "[MODEL-17] defect.bsl:6",
+      "Result: 3 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}
