@@ -1,0 +1,24 @@
+{
+  "name": "Правило QUERY-01: Коррелированный подзапрос в списке полей",
+  "setup": "external:tests/catalog/QUERY-01",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "QUERY-01"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[QUERY-01] defect.bsl:5",
+      "[QUERY-01] defect.bsl:7",
+      "Result: 2 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

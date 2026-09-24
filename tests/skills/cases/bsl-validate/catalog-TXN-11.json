@@ -1,0 +1,23 @@
+{
+  "name": "Правило TXN-11: Явная транзакция вокруг записи с проведением",
+  "setup": "external:tests/catalog/TXN-11",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "TXN-11"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[TXN-11] defect.bsl:3",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

@@ -1,5 +1,283 @@
 # История версий
 
+## Не выпущено
+
+### Правила
+
+- `mcp-tool-priority.md`: новый раздел "Сначала индекс: AI-EDT до Read, Grep и Bash" - до перебора
+  исходников 1С две проверки доступности AI-EDT (`get_edt_version`, затем `ToolSearch`), при живом
+  инструменте `Grep`/`Glob` и чтение модулей целиком запрещены, `Read` - только по строкам из ответа
+  инструмента; недоступен после двух проверок - отчет первой строкой и только потом перебор. Второй
+  запрет: `execute_query` toolkit и консоль кода - только после чистого `validate_query`
+  (`1c-query-validate` в среде без EDT). Третий запрет: запуск клиента 1С для EDT-проекта -
+  `launch_debugger action=launch` (внешняя обработка - `externalObjectName`,
+  `externalObjectProject`, `startupOption`, `enableExternalObjectDump`), реквизиты один раз -
+  `infobase_admin operation=set_infobase_credentials`; своя строка `1cv8` / `1cv8c` / `1cv8s`
+  с `/N` и `/P`, `db-run.ps1` и личный `start-1c.ps1` - только без EDT или после отказа типового
+  маршрута. `code-exploration-guide.md` ссылается на раздел.
+- `sdd-workflow.md`: артефакт этапа включает след проверок по формату
+  `evidence-format.md` скила 1c-code-review. `agent-verification-patterns.md`: сверка покрытия
+  фиксируется следом проверок того же формата.
+
+### Каталог дефектов
+
+- Скил `1c-code-review`: ревью BSL по каталогу дефектов - 69 карточек с триггером, законной
+  формой, важностью и фикстурой; отчет с идентификаторами находок и ключом
+  `<путь>::<Метод>:<строка>`; шкала важности Critical/Major/Minor с таблицей перевода из
+  прежних четырех уровней.
+- `tools/gen_catalog_index.py`: индекс каталога `INDEX.md` и секции между маркерами
+  `catalog:begin` / `catalog:end` в `anti_patterns.md` и `code-review-checklist.md`
+  генерируются из карточек; режим `--check` для сборки.
+- Содержимое правил `anti_patterns.md`, `code-review-checklist.md` (security-паттерны),
+  `query-optimization-tips.md`, `1c-transactions-and-locks.md`, `form_module_rules.md`,
+  `1c-extension-patterns.md` перенесено в карточки каталога; правила держат сгенерированные
+  секции, входящие ссылки по номерам пунктов переведены на идентификаторы карточек.
+- Гард `tests/skills/check-catalog.mjs`: карточки, реестр `ledger.json`, фикстуры
+  `tests/catalog/` и совпадение генерации; зарегистрирован в `check-all.mjs`.
+- Кейсы `skills/1c-code-review/evals/evals.json`: 17 поведенческих кейсов знания каталога,
+  по дефектному и чистому модулю на каждую группу.
+- Матрица детекторов у всех карточек: таблица "Среда | Детектор | Уровень" из словаря
+  спецификации (EDT: `code_review:<Код>`, `get_project_errors`, `validate_query`,
+  `security_audit`, `ask_1c_ai`; Конфигуратор: `syntaxcheck`, `bsl_validate:<ИД>`,
+  `query_validate`, `meta_validate`, `role_validate`, `form_validate`; обе: `чтение`), при
+  `чтение` в EDT - обязательное обоснование. Сводная `references/detectors.md` с числами
+  покрытия: Critical с детерминированным детектором в EDT либо обоснованием - 12 из 12, с
+  детерминированным детектором хотя бы в одной среде - 35 из 69 (51%), реестр реализованных
+  правил lint - 23 из 23 карточек.
+- Режим `-Catalog` скила `1c-bsl-validate`: lint модулей BSL по реестру каталога дефектов
+  `skills/1c-bsl-validate/scripts/catalog-rules.json` (массив объектов `id`/`title`/`kind`:
+  `regex`, `query-regex`, `structure`). Вход - файл `.bsl` или каталог, вывод - таблица
+  находок (идентификатор, файл, строка, фрагмент; порядок - файл, строка, идентификатор)
+  и строка `EVIDENCE` с компактным JSON (`check`, `ids`, `inputHash`, `status`,
+  `findings`); флаг `-Json` - только JSON, `-RuleId` - одно
+  правило. Коды выхода: 0 без находок, 1 с находками, 2 ошибка вызова. Реализовано 23
+  правила (TXN-01..06, TXN-08, TXN-10, TXN-11, QUERY-01, QUERY-06..09, QUERY-13..16,
+  QUERY-18, SEC-01, PERF-05, MODEL-14, CLIENT-04) на обоих портах - Python и PowerShell
+  дают одинаковый stdout байт в байт на одинаковых входах. QUERY-01 - коррелированный
+  подзапрос в списке полей (structure), некоррелированный подзапрос не репортится;
+  правила `query-regex` матчат текст литерала запроса целиком (перевод строки внутри
+  признака допускается, QUERY-09 - в том числе перед `ВСЕ`); TXN-10 сопоставляет целые
+  идентификаторы вызовов; TXN-08 не репортит блокировку с `УстановитьЗначение` в
+  следующих строках. Гард `tests/skills/check-lint-catalog.mjs` сверяет порты сырым
+  stdout (одно правило и полный прогон каталога карточки) и запрос в нижнем регистре;
+  интеграционный тест `tests/hooks/bsl-validate-evidence.test.mjs` проводит реальный
+  вывод скрипта через хук `evidence-writer.mjs` в вердикт `tools/evidence.py check`.
+- Гейтовый конфиг `skills/1c-code-review/assets/bsl-ls-gate.json` (формат
+  `.bsl-language-server.json`): включены 18 диагностик bsl-language-server, на которые
+  ссылаются карточки, важность каждой равна важности карточки; остальные диагностики - по
+  умолчанию анализатора. Передача конфига - `assets/README.md`.
+- 24 карточки с источником "правило" дополнены номерами стандартов `#stdNNN` (поиск и
+  расшифровка диагностик через `v8std`).
+- Гард `check-catalog.mjs`: словарь детекторов и уровни, обоснование при `чтение` в EDT,
+  пороги покрытия (100% Critical; 50% всех - сравнение по счетчикам без округления),
+  реестр реализованных lint-правил `skills/1c-bsl-validate/scripts/catalog-rules.json`:
+  детектор `bsl_validate:<ИД>` вне реестра помечается `planned` и в покрытие не входит,
+  при пустом реестре недобор порога печатается предупреждением, сверка гейтового конфига
+  с карточками в обе стороны.
+- Сверка покрытия каталога `references/reconciliation-2026-09.md`: реестр из 47 признаков
+  каталога `1c-quality-gate` (22 AI-, 21 BSL-, 4 QRY-) и трех проверок `comol/ai_rules_1c`;
+  17 признаков закрыты имеющимися карточками, 30 карточек добавлено (MODEL-02..16, PERF-05,
+  PERF-06, QUERY-13..18, TXN-11, FORM-01, CLIENT-04, META-01, PROC-01..03), 1 отклонен.
+  Группы `FORM-`, `META-`, `PROC-` открыты; фикстура типа `evidence` - файл следа
+  `evidence.json` с полем `kind`, гард проверяет его наличие и структуру.
+
+### Хуки
+
+- Поиск `evidence.py` для гейта завершения хода: `CLAUDE_PLUGIN_ROOT/tools/evidence.py`,
+  `tools/evidence.py` на уровень выше каталога `hooks/`, домашняя установка
+  `<дом>/.claude/tools/1c-skills/evidence.py` через `claudeHome()`.
+- Каталог скила для чисел Critical/Major `code_review`: первый из `CLAUDE_PLUGIN_ROOT`,
+  каталога над `hooks/` и `<дом>/.claude`, в котором есть
+  `skills/1c-code-review/assets/bsl-ls-gate.json`. Нет такого корня - числа нулевые,
+  событие записывается.
+- Довод `--only <корень>` (повторяемый) у хуков `evidence-writer`, `session-context`,
+  `release-writer`, `quality-baseline`, `quality-arm`, `quality-stop`, `edt-gate`,
+  `support-guard`, `skill-suggester`. Список пуст - хук работает в любом каталоге.
+  Иначе - когда `cwd` payload (без него текущий каталог процесса) равен корню или лежит
+  внутри него. Вне области выход 0, без вывода и без записи в след. `--only` без
+  значения - хук без ограничения и строка в stderr.
+
+- Гейт завершения хода: `hooks/quality-baseline.mjs` (событие `baseline` - HEAD и каноническое множество с
+  хешами, один раз на сессию, при `resume` / `compact` / `clear` не перезаписывается),
+  `hooks/quality-arm.mjs` (события `armed` по правкам через `Write`, `Edit`, `MultiEdit`, `NotebookEdit` и
+  MCP-правки AI-EDT), `hooks/quality-stop.mjs` (`Stop`: правки сессии в файлах 1С без вердикта
+  `tools/evidence.py check --strict` дают выход 2 с перечнем пробелов и прямым путем; `stop_hook_active`
+  блок не снимает; отказ валидатора или отметки - выход 0 с диагностикой).
+- `hooks/evidence-writer.mjs` пишет `applied` для проверки `cross_review@any`, когда команда запускает
+  `codex-code-review.sh` либо `cursor-run.ps1` исполняемым токеном и в выводе есть маркер вердикта.
+
+- `hooks/evidence-writer.mjs` (`PostToolUse` / `PostToolUseFailure`, заякоренный матчер):
+  записывает события `applied` и `failed` следа проверок по факту вызова инструмента -
+  MCP-инструменты проверки (ключ сервера с дефисами, точками и подчеркиваниями), фасады
+  по операции (`diagnostics`: `get_project_errors`, `validate_for_export`;
+  `insights`: `detect_query_anti_patterns`), `Bash`/`PowerShell` со скриптами набора
+  (`bsl-validate`, `query-validate`, `meta-validate`, `role-validate`, `form-validate`)
+  при наличии строки результата `EVIDENCE {...}` в выводе. Событие несет `toolUseId`,
+  `inputHash`, `responseHash`, `diffHash` (через `hooks/_changeset.mjs`), разобранный
+  итог (`code_review` - числа Critical/Major/Minor по кодам диагностик из
+  `assets/bsl-ls-gate.json`, `get_project_errors` - ошибки critical и предупреждения
+  minor, `syntaxcheck` - pass/error); неразобранный итог пишется `status: "unknown"` с
+  фрагментом ответа. Итог не выдумывается.
+- `hooks/session-context.mjs` (`SessionStart`, все источники startup/resume/clear/
+  compact/fork): сообщает модели идентификатор сессии и путь каталога событий через
+  `additionalContext`, вычищает каталоги сессий старше 7 дней.
+- `hooks/release-writer.mjs` (`UserPromptSubmit`): команда
+  `/quality release gate|check <область> <причина> [--for 30m|2h|1d]` (срок по
+  умолчанию 4 часа) записывает событие `release` с `diffHash`, `expiresAt` и
+  источником `user_prompt`; прочие промпты игнорируются.
+- `commands/quality.md`: команда `/quality release` в наборе команд - файл команды
+  с синтаксисом обеих форм; событие `release` пишет хук, команда исполняемых шагов
+  не имеет.
+- Общий модуль `hooks/common/quality-events.mjs`: запись событий хуками по схеме
+  `tools/quality_events.py` - номер последовательности lock-файлом, имя
+  `<время>-<номер>-hook-<id>.json` с локальным временем, тело JSON с сортировкой
+  ключей, запись временным файлом с переименованием; конкурентные записи хуков дают
+  отдельные файлы.
+- `hooks/hooks.json`: регистрация трех хуков; `hooks/README.md`: раздел "След
+  проверок". Установщик `tools/install_home.py` ставит каталог `hooks/` целиком,
+  новые файлы входят в компонент без правки.
+- Тесты `tests/hooks/`: 38 проверок в 4 файлах (матчер на реальных именах инструментов,
+  разбор итогов, запись applied/failed, параллельная запись, строка EVIDENCE и защита
+  от echo-подделки, три источника SessionStart, очистка устаревших сессий, команды
+  снятия) и сквозной тест с `python tools/change_profile.py`, `tools/evidence.py add`
+  и `evidence.py check --strict` (события хука закрывают обязательные проверки,
+  вердикт clean). Гард `tests/skills/check-hooks.mjs` зарегистрирован в `check-all.mjs`.
+- `hooks/edt-gate.mjs` (`PreToolUse`, матчер `Read|Grep|Glob|Bash|PowerShell`, первый в списке):
+  отклоняет чтение исходников EDT-проекта, когда AI-EDT в `phase` `ready` и имя проекта есть в
+  `projects` ответа `/health` (`instance` начинается с `AI-EDT @`). Причина называет путь, ключ
+  сервера, инструмент-замену и команду `/quality release gate`. Для `Bash` и `PowerShell` отказ
+  только если в команде есть утилита чтения и путь исходника или сегмент `src`. Ответ `/health`
+  кэшируется 60 секунд. Внутренняя ошибка не блокирует вызов.
+- Окно-исключение на `PostToolUseFailure` (матчер `edt-gate` в `hooks/hooks.json`: инструменты
+  проверки и `launch_debugger`, `debug_launch`, `start_client`): нет ответа `/health`,
+  отказ авторизации или `phase` не `ready` - событие `probe` со `status` `down` и файл
+  `<база>/<ключ>/<session>/edt-window.json` на 15 минут (`until`, `server`). Ошибка
+  операции при `phase` `ready` пишет `probe` со `status` `ok` и окно не открывает. Отказ
+  `launch_debugger`, `debug_launch` или `start_client` открывает окно всегда; `status` события
+  `probe` остается по факту `/health`. Снятие - `/quality release gate` (пропускает и чтение,
+  и запуск). Переменная `AI_EDT_GATE` со значением кроме пустого и `on` отключает ворота:
+  выход 0 и строка в stderr. Класс запуска `Bash`/`PowerShell`: токен `1cv8.exe`, `1cv8c.exe`,
+  `1cv8s.exe` (или без расширения) либо `start-1c.ps1`, цель - путь базы или проекта в команде,
+  иначе `cwd`, если он под EDT-проектом.
+- Тесты `tests/hooks/edt-gate.test.mjs`: временный EDT-проект, подмена `HOME`/`USERPROFILE`,
+  заглушка `/health`, класс запуска и три выхода (окно после операционного отказа, `release gate`,
+  `AI_EDT_GATE`).
+
+### Скилы
+
+- `skills/1c-db-run/SKILL.md`: раздел "Когда EDT доступна" - EDT-проект запускается через
+  `launch_debugger action=launch`; скрипт `db-run.ps1` остается для случая без EDT и для отказа плагина.
+- `skills/1c-config-index`: точечный запрос к построенному индексу в обоих портах. `-IndexPath` вместе
+  с `-Object <FQN>` печатает запись объекта в формате и порядке ключей индекса, имя сверяется без учета
+  регистра (объекта нет - в stderr `Object not found: <FQN>`, код 1); `-IndexPath` вместе с
+  `-Find <подстрока>` печатает FQN подходящих объектов по возрастанию без учета регистра (совпадений
+  нет - пустой вывод, код 0); запрос вместе с доводом сборки, запрос без `-IndexPath` и `-IndexPath` без
+  запроса отвергаются кодом 2. Пустой индекс, индекс из пробелов и неразбираемый файл дают в stderr
+  `Index file could not be read: <файл>` и код 1, разобранный индекс без объектов (`null`, массив,
+  пустой объект) - `Index file has no objects: <файл>` и код 1. Ранее обязательный `-ConfigPath` стал
+  обязательным только для сборки. Оба порта пишут в stderr LF, вывод портов совпадает байт в байт,
+  двенадцать кейсов `tests/skills/cases/config-index/query-*.json`.
+
+### Агенты
+
+- `agents/1c-explore.md` (новый каталог): субагент-разведчик EDT-проекта, модель `sonnet`,
+  `disallowedTools: Grep, Glob, Bash, PowerShell`; блок "Сначала индекс" совпадает с правилом
+  дословно (проверяется гардом), при недоступном AI-EDT останавливается с отчетом.
+
+### Инструменты
+
+- Валидатор `tools/validate_ruleset.py` сверяет счетчики README с фактическим составом
+  репозитория: заголовок "## Скилы (N)" и сумма колонки "Скилов" таблицы групп - с числом
+  каталогов skills/, "**N правил**" - с числом файлов rules/*.md. Не найденное место
+  счетчика (README переписан) - тоже блокирующая находка. Тесты `tests/tools/ruleset/`.
+- Каноническое множество изменений git-репозитория: спецификация
+  `skills/1c-code-review/references/changeset.md` (состав относительно базового коммита,
+  запись файла `path`/`status`/`sha256`/`renamedFrom`, `diffHash`, сериализация JSON),
+  `tools/changeset.py` (функции `compute_changeset` и `build_payload`,
+  CLI `--repo`/`--base`/`--json`, таблица без `--json`, код выхода 2 при отказе)
+  и `hooks/_changeset.mjs` (экспорт `computeChangeset` и `buildDiffPayload`,
+  тот же CLI); обе реализации дают одинаковый JSON байт в байт. Запись `diffHash`
+  кадрируется префиксом длины пути (длина в байтах UTF-8, путь, статус, sha256,
+  разделители NUL) - имя с табуляцией или переводом строки не порождает коллизию.
+  Запись `deleted` с обычным файлом на диске арбитрируется сравнением blob-хешей
+  (случай `git rm --cached`, в том числе игнорируемый путь). Пути-гитлинки
+  (подмодули, режим `160000` в индексе или в base) исключаются целиком. Каталог
+  следа внутри корня репозитория не входит в пути `git ls-files --others`: база
+  после `realpath` (отказ - путь как есть) сравнивается с корнем, обратные слеши
+  заменены на `/`, на `win32` без учета регистра. Записи `git diff` не фильтруются.
+  Путь-операнд команд git отделен `--` (имя с ведущим дефисом иначе читается как ключ).
+  Тесты `tests/tools/changeset/`: 23 сценария во временном git-репозитории (чистое
+  дерево, staged, компенсированная правка, untracked, удаление, переименование,
+  игнорируемый файл, CRLF против LF, кириллица и пробелы в путях, явный base,
+  кадрирование diffHash на синтетических записях, `git rm --cached` с игнором,
+  гитлинк, путь с ведущим дефисом, каталог следа внутри дерева), вывод двух CLI
+  сверяется байт в байт, детерминированность - двойным запуском.
+- Профиль правки `tools/change_profile.py`: класс объема C0-C3 по каноническому множеству
+  (строки BSL - сумма добавленных и удаленных по `git diff --numstat`, файл без записи numstat
+  считается целиком; новый объект метаданных - добавленный файл метаданных), архетипы по путям
+  множества и тексту diff (добавленные строки и контекст), среда edt/configurator по предку
+  с `.project`, содержащим `com._1c.g5.v8.dt`; обязательный состав проверок по таблице
+  "архетип x среда" (идентификаторы `<проверка>@<среда>`, класс C2 и выше добавляет
+  `cross_review`, C3 - `adversarial_audit`); поле driver называет поднявшее класс условие;
+  довод `--vendor-copy` понижает C2/C3 до C1 с обоснованием в следе. Событие `scope` пишется
+  в каталог следа (`--session`, `--no-write`), функция `compute_profile(repo_dir, base,
+  vendor_copy)`. Спецификация - `skills/1c-code-review/references/profile-map.md`.
+- След проверок `tools/evidence.py`: подкоманды `add` (типы `skipped` с классом
+  `tool_unavailable`/`not_applicable`, `not_verified`, `probe`; типы `applied` и `release`
+  отвергаются кодом 2 - их пишет только хук), `check --strict` (прогон - последнее `scope`
+  с текущим `diffHash` и события с тем же хешем после него; вердикты clean/with_gaps/blocked,
+  коды 0/1/3; blocked - отсутствие scope с текущим хешем, поврежденный файл, обязательная
+  проверка без события, `applied` с critical без снятия, `applied` без `toolUseId`, `release`
+  с чужим хешем или просроченное, пропуск без класса или ссылки, отсутствие probe ok по
+  источнику закрывающего applied) и `render` (markdown: таблицы "Проверено", "С пробелами"
+  с классами, "Не проверено"). Общий модуль `tools/quality_events.py`: атомарная запись
+  события временным файлом с переименованием, чтение каталога сессии, поврежденный JSON
+  возвращается событием corrupt. След лежит в `<база>/<ключ>/<session>/events/`
+  вне репозитория. `QUALITY_STATE_DIR` задает базу, только если путь абсолютный:
+  на `win32` - `X:\` или `X:/` либо два слеша и символ не-слеш (UNC), на остальных
+  платформах - начало с `/`; иное значение игнорируется, как пустое, и берется
+  `<домашний каталог>/.claude/state/quality`. Очистка удаляет только каталоги с именем
+  из 1-32 символов `[A-Za-z0-9._-]`, дефиса и 12 hex; в каталоге ключа - только
+  подкаталоги сессий старше 7 дней. Каталог ключа снимается, когда в нем не осталось
+  ничего, кроме `edt-health.json` старше того же срока.
+  Спецификация - `skills/1c-code-review/references/evidence-format.md`.
+  Тесты: `tests/tools/profile/` - 17, `tests/tools/evidence/` - 29.
+
+### Установка
+
+- Компонент `commands`: в дом ставится только `commands/quality.md`
+  (`<дом>/commands/quality.md`). Остальные команды каталога `commands/` и личные
+  команды пользователя установщик не трогает.
+
+- `tools/install_home.py`: установщик компонентов в `~/.claude` (компонент `agents`), манифест
+  `.install-manifest.json` (путь и sha256), конфликт при внешней правке файла (код 1), `--force`
+  с резервной копией в `backup/install-<время>/`, `--dry-run`, `--check`. Раннер
+  `tests/tools/run_tests.py` (11 тестов установщика), скил `claude-env-setup` описывает установку
+  агентов через установщик.
+- Установщик ставит три компонента: `agents` (весь каталог `agents/` в `~/.claude/agents/`),
+  `hooks` (весь каталог `hooks/` в `~/.claude/hooks/1c-skills/`) и `tools` (только
+  `install_home.py` в `~/.claude/tools/1c-skills/`); у компонента может быть список включаемых
+  файлов `include` (точные пути или glob-шаблоны внутри исходного каталога). Тесты установщика:
+  15.
+
+### Тесты
+
+- Кейсы `cases/bsl-validate/catalog-<ИД>.json`: 23 кейса по одному на правило реестра - вход
+  каталог фикстур карточки, прогон `-Catalog` с `-RuleId`, проверка строк находок в
+  `defect.bsl` по манифесту и отсутствия находок в `clean.bsl`; проходят на обоих рантаймах.
+- Гард `check-lint-catalog.mjs`: каждое правило реестра подтверждается своей парой фикстур
+  (defect.bsl - находки ровно на `expected`, clean.bsl - ноль), JSON обоих портов на
+  одинаковых входах совпадает; зарегистрирован в `check-all.mjs`.
+- Гард `check-index-first.mjs`: блок между маркерами `index-first:begin/end` в правиле и агенте
+  совпадает дословно. Гард `check-tools.mjs`: unit-тесты инструментов проходят под раннером.
+
+### Источники
+
+- Источник текстов стандартов 1С по номеру: публичный MCP `https://ai.v8std.ru/mcp` (стандарт по
+  `#stdNNN`, расшифровка диагностик ACC/BSLLS/EDT, поиск по теме). Строка маршрутизации и политика
+  данных - в `rules/mcp-tool-priority.md` ("Стандарты: v8std и напарник"), правило ссылок на
+  стандарты - в `rules/1c-coding-standards.md`, строка в README, компонент в `claude-env-setup`.
+
 ## Обновление плагина AI-EDT до 0.2.50 - 2026-09-19
 
 Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее (дифф d461b995).

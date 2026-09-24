@@ -4,6 +4,10 @@
   "params": {
     "outFile": "index.json"
   },
+  "args_extra": [
+    "-ConfigPath",
+    "{workDir}"
+  ],
   "expect": {
     "files": [
       "index.json"

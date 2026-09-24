@@ -1,0 +1,15 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__1c-edt__code_review",
+  "tool_input": {
+    "modulePath": "proj/src/CommonModules/Обмен/Module.bsl",
+    "configurationPath": "proj/assets/bsl-ls-gate.json"
+  },
+  "tool_response": {
+    "content": [
+      { "type": "text", "text": "Находки:\nPERF-01 CreateQueryInCycle: запрос в цикле, строка 12\nSEC-02 SetPrivilegedMode: привилегированный режим без проверки, строка 40" }
+    ]
+  },
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_code_review"
+}

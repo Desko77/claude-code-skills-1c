@@ -4,6 +4,10 @@
   "params": {
     "outFile": "index.json"
   },
+  "args_extra": [
+    "-ConfigPath",
+    "{workDir}"
+  ],
   "noSnapshot": "эталон индекса закреплен кейсом sample-config; здесь проверяется разбор трудных заголовков метода и гашение комментариев вместе с литералами",
   "expect": {
     "fileContains": [

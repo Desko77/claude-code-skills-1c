@@ -1,0 +1,11 @@
+{
+  "id": "EXT-04",
+  "type": "project-tree",
+  "files": [
+    "clean/Roles/Расш1_РольПродаж/Rights.xml",
+    "defect/Roles/Расш1_РольПродаж/Rights.xml"
+  ],
+  "expected": [
+    "defect/Roles/Расш1_РольПродаж/Rights.xml"
+  ]
+}

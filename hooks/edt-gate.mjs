@@ -1,0 +1,821 @@
+// edt-gate.mjs - ворота MCP-first.
+// PreToolUse: Read, Grep, Glob, Bash, PowerShell по исходникам EDT-проекта
+// и запуск клиента 1С (1cv8, 1cv8c, 1cv8s, start-1c.ps1) отклоняются, когда проект
+// загружен в живой AI-EDT (phase ready, имя в projects).
+// PostToolUseFailure: окно-исключение на 15 минут, если /health сервера из имени
+// инструмента не отвечает, отказал в авторизации или phase не ready.
+// Отказ launch_debugger, debug_launch или start_client открывает окно всегда:
+// probe пишется по факту /health, операционный отказ хук не разбирает.
+// AI_EDT_GATE с любым значением кроме пустого и on отключает ворота целиком.
+// Внутренняя ошибка - выход 0, диагностика в stderr, вызов не блокируется.
+//
+// stdin: JSON PreToolUse или PostToolUseFailure
+// { hook_event_name, tool_name, tool_input, session_id, cwd, error }.
+
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { dirname, join, basename, resolve, isAbsolute, parse } from 'node:path';
+import { computeChangeset } from './_changeset.mjs';
+import { claudeHome } from './common/home.mjs';
+import { scopeStatus } from './common/scope.mjs';
+import {
+  eventsDir, formatIso, listEventFiles, nowIso, repoTop, sessionDir, stateRoot, writeEvent,
+} from './common/quality-events.mjs';
+
+export { claudeHome };
+
+// Заякоренный матчер PreToolUse. Строка в hooks/hooks.json сверяется тестом.
+export const GATE_MATCHER = '^(Read|Grep|Glob|Bash|PowerShell)$';
+
+// PostToolUseFailure ворот: инструменты проверки (как у evidence-writer) и запуск клиента.
+// Строка в hooks/hooks.json сверяется тестом с этой константой.
+export const FAIL_MATCHER =
+  '^(mcp__[A-Za-z0-9._-]+__(validate_query|code_review|diagnostics|validate_for_export|' +
+  'get_project_errors|security_audit|check_1c_code|ask_1c_ai|syntaxcheck|' +
+  'detect_query_anti_patterns|insights|launch_debugger|debug_launch|start_client)' +
+  '|Bash|PowerShell)$';
+
+const LAUNCH_EXES = new Set(['1cv8', '1cv8c', '1cv8s']);
+const LAUNCH_FAIL_TOOLS = new Set(['launch_debugger', 'debug_launch', 'start_client']);
+// Ключи пути файловой базы или проекта в команде запуска. /S сюда не входит:
+// это ссылка серверной базы, а не каталог на диске.
+const BASE_SWITCHES = ['/F', '-InfoBasePath', '-Database'];
+
+const SOURCE_EXTS = ['.bsl', '.os', '.mdo', '.form', '.dcs', '.mxlx', '.cmi', '.rights', '.xdto'];
+const UTILITIES = new Set([
+  'cat', 'head', 'tail', 'sed', 'grep', 'rg', 'find', 'awk', 'python',
+  'get-content', 'select-string', 'type',
+]);
+const HEALTH_TTL_MS = 60 * 1000;
+const WINDOW_MS = 15 * 60 * 1000;
+const MCP_TOOL_RE = /^mcp__([A-Za-z0-9._-]+)__(.+)$/;
+
+function allow(stderr = '') {
+  return { stdout: '', stderr, exitCode: 0 };
+}
+
+function deny(reason) {
+  return {
+    stdout: JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: reason,
+      },
+    }),
+    stderr: '',
+    exitCode: 0,
+  };
+}
+
+// Расширение исходника EDT из списка ворот, иначе null.
+export function sourceExt(file) {
+  const lower = String(file || '').toLowerCase();
+  for (const ext of SOURCE_EXTS) {
+    if (lower.endsWith(ext)) return ext;
+  }
+  return null;
+}
+
+// Сегмент каталога src: /src/, \src\, начало пути src/ или токен src.
+export function hasSrcSegment(token) {
+  const norm = String(token || '').replace(/\\/g, '/');
+  return /(^|\/)src(\/|$)/.test(norm);
+}
+
+function baseName(token) {
+  const norm = String(token).replace(/\\/g, '/');
+  const i = norm.lastIndexOf('/');
+  return i === -1 ? norm : norm.slice(i + 1);
+}
+
+// Токены команды: кавычки снимаются, комментарий # до конца строки отбрасывается,
+// разделители ; & | и пробелы делят токены.
+function commandTokens(command) {
+  const tokens = [];
+  let cur = '';
+  let quote = null;
+  const s = String(command || '');
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '#' && (i === 0 || /[\s;&|(<>]/.test(s[i - 1]))) break;
+    if (/[\s;&|()]/.test(ch)) {
+      if ((ch === '&' || ch === '|') && s[i + 1] === ch) i++;
+      if (cur) {
+        tokens.push(cur);
+        cur = '';
+      }
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur) tokens.push(cur);
+  return tokens;
+}
+
+function isUtility(token) {
+  let name = baseName(token).toLowerCase();
+  if (name.endsWith('.exe')) name = name.slice(0, -4);
+  return UTILITIES.has(name);
+}
+
+// Пути команды, которые имеют смысл для ворот: утилита чтения есть, и токен
+// несет расширение исходника либо сегмент src. Иначе пустой список (пропуск).
+export function shellTargets(command) {
+  const tokens = commandTokens(command);
+  if (!tokens.some(isUtility)) return [];
+  const targets = [];
+  for (const token of tokens) {
+    if (token.startsWith('-')) continue;
+    if (isUtility(token)) continue;
+    if (sourceExt(token) || hasSrcSegment(token)) targets.push(token);
+  }
+  return targets;
+}
+
+// Инструмент-замена в причине отказа.
+export function replacementFor(tool, file) {
+  if (tool === 'Grep' || tool === 'Glob') return 'code_search operation=text_search';
+  const ext = sourceExt(file) || '';
+  if (ext === '.mdo') return 'get_metadata_details';
+  if (ext === '.bsl' || ext === '.os') return 'get_module_structure и read_method_source';
+  if (ext === '.form') return 'get_form_structure';
+  if (ext === '.dcs') return 'dcs_workshop';
+  return 'code_search operation=text_search';
+}
+
+function denyReason({ file, serverKey, replacement, shell }) {
+  const shellNote = shell ? ' Перебор исходников при живой EDT.' : '';
+  return 'Ворота MCP-first: ' + file + '. Сервер ' + serverKey + '. Замена: ' + replacement + '.'
+    + shellNote + ' Раздел "Сначала индекс" (rules/mcp-tool-priority.md).'
+    + ' Снятие: /quality release gate <причина>.';
+}
+
+function denyLaunchReason({ file, serverKey, projectName }) {
+  return 'Ворота MCP-first: запуск клиента 1С для EDT-проекта ' + projectName
+    + ' (' + file + '). Сервер ' + serverKey + '.'
+    + ' Замена: launch_debugger action=launch.'
+    + ' Внешняя обработка: externalObjectName, при необходимости externalObjectProject;'
+    + ' параметры: startupOption;'
+    + ' пустой клиент проекта внешних объектов: enableExternalObjectDump=true.'
+    + ' Реквизиты: infobase_admin operation=set_infobase_credentials.'
+    + ' Выходы: отказ launch_debugger, debug_launch или start_client открывает окно на 15 минут;'
+    + ' снятие: /quality release gate <причина>;'
+    + ' переменная AI_EDT_GATE=off отключает ворота.'
+    + ' Раздел "Сначала индекс" (rules/mcp-tool-priority.md).';
+}
+
+// Любое значение кроме пустого и on гасит ворота. Регистр значения значим: on оставляет их.
+export function gateDisabled() {
+  const value = process.env.AI_EDT_GATE;
+  if (value == null || value === '' || value === 'on') return false;
+  return true;
+}
+
+function isLaunchExe(token) {
+  let name = baseName(token).toLowerCase();
+  if (name.endsWith('.exe')) name = name.slice(0, -4);
+  return LAUNCH_EXES.has(name);
+}
+
+function isStart1c(token) {
+  return baseName(token).toLowerCase() === 'start-1c.ps1';
+}
+
+// Токен запуска: имя исполняемого файла либо тот же текст внутри одного кавычечного блока
+// (cmd /c "1cv8c.exe /F ...").
+function tokenIsLaunch(token) {
+  if (isLaunchExe(token) || isStart1c(token)) return true;
+  const parts = String(token).split(/\s+/);
+  if (parts.length < 2) return false;
+  return parts.some((part) => isLaunchExe(part) || isStart1c(part));
+}
+
+export function isLaunchCommand(command) {
+  return commandTokens(command).some(tokenIsLaunch);
+}
+
+function readSwitchValue(text, i) {
+  while (i < text.length && /\s/.test(text[i])) i++;
+  if (i >= text.length) return null;
+  if (text[i] === '=') return readSwitchValue(text, i + 1);
+  const quote = text[i];
+  if (quote === '"' || quote === "'") {
+    const end = text.indexOf(quote, i + 1);
+    if (end < 0) return null;
+    return { value: text.slice(i + 1, end), next: end + 1 };
+  }
+  const m = /^[^\s;&|()]+/.exec(text.slice(i));
+  if (!m) return null;
+  return { value: m[0], next: i + m[0].length };
+}
+
+function gluedFilePath(text) {
+  if (/^[A-Za-z]:/.test(text) || /^\\\\/.test(text) || /^\.{1,2}[\\/]/.test(text) || /^[\\/]/.test(text)) {
+    const m = /^[^\s;&|()]+/.exec(text);
+    return m ? m[0] : '';
+  }
+  return '';
+}
+
+// Пути файловой базы и проекта: /F, -InfoBasePath, -Database. Пустая строка отбрасывается.
+export function collectBasePaths(command) {
+  const text = String(command || '');
+  const lower = text.toLowerCase();
+  const out = [];
+  for (const name of BASE_SWITCHES) {
+    const needle = name.toLowerCase();
+    let from = 0;
+    while (from < lower.length) {
+      const at = lower.indexOf(needle, from);
+      if (at < 0) break;
+      const prev = at === 0 ? '' : text[at - 1];
+      if (at > 0 && !/[\s;&|(]/.test(prev)) {
+        from = at + 1;
+        continue;
+      }
+      const after = at + needle.length;
+      const nextCh = text[after] || '';
+      if (nextCh && !/[\s=;"']/.test(nextCh)) {
+        if (name === '/F') {
+          const glued = gluedFilePath(text.slice(after));
+          if (glued) {
+            out.push(glued);
+            from = after + glued.length;
+            continue;
+          }
+        }
+        from = after;
+        continue;
+      }
+      const got = readSwitchValue(text, after);
+      if (got && got.value) out.push(got.value);
+      from = got ? got.next : after + 1;
+    }
+  }
+  return out;
+}
+
+// Цели запуска. Пустой список - команда не запускает клиент.
+// Путь базы или проекта назван - только он, даже если это не EDT.
+// Путь не назван - cwd: проект берется, когда каталог лежит под EDT-проектом.
+function launchFiles(command, cwd) {
+  if (!isLaunchCommand(command)) return [];
+  const paths = collectBasePaths(command);
+  if (paths.length) return paths.map((p) => absPath(p, cwd));
+  return [cwd];
+}
+
+function absPath(p, cwd) {
+  return isAbsolute(p) ? p : resolve(cwd, p);
+}
+
+// Каталог, с которого искать .project: у файла с расширением это родитель.
+function startDir(target) {
+  const trimmed = String(target).replace(/[\\/]+$/, '');
+  const base = basename(trimmed);
+  if (base.includes('.') && !base.startsWith('.')) return dirname(trimmed);
+  return trimmed || target;
+}
+
+// Ближайший вверх EDT-проект: .project содержит com._1c.g5.v8.dt, имя - первое <name>.
+export async function findEdtProject(target) {
+  let dir = startDir(target);
+  const root = parse(dir).root;
+  while (dir) {
+    try {
+      const text = await readFile(join(dir, '.project'), 'utf8');
+      if (text.includes('com._1c.g5.v8.dt')) {
+        const m = /<name>([^<]*)<\/name>/.exec(text);
+        const name = m ? m[1].trim() : '';
+        if (name) return { dir, name };
+      }
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    if (dir === root) return null;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+
+async function findUpFile(startDir, rel) {
+  let dir = startDir;
+  const root = parse(dir).root;
+  while (dir) {
+    const candidate = join(dir, rel);
+    try {
+      await readFile(candidate, 'utf8');
+      return candidate;
+    } catch (err) {
+      if (err.code !== 'ENOENT' && err.code !== 'EISDIR') throw err;
+    }
+    if (dir === root) return null;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+
+async function readJsonFile(file) {
+  let text;
+  try {
+    text = await readFile(file, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') return null;
+    throw err;
+  }
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    throw new Error(`${file}: ${err.message}`);
+  }
+}
+
+function isPluginKey(key) {
+  return /^plugin([_-]|$)/.test(key) || key.startsWith('mcp__plugin_');
+}
+
+// URL /health: суффикс /mcp у адреса MCP снимается.
+export function healthUrlFrom(mcpUrl) {
+  const u = new URL(mcpUrl);
+  let path = u.pathname.replace(/\/+$/, '');
+  if (path.endsWith('/mcp')) path = path.slice(0, -4);
+  u.pathname = `${path}/health`.replace(/\/{2,}/g, '/') || '/health';
+  u.search = '';
+  u.hash = '';
+  return u.toString();
+}
+
+function addServers(map, servers, origin) {
+  if (!servers || typeof servers !== 'object' || Array.isArray(servers)) return;
+  for (const [key, spec] of Object.entries(servers)) {
+    if (!spec || typeof spec !== 'object') continue;
+    if (isPluginKey(key)) continue;
+    if (spec.type !== 'http' || typeof spec.url !== 'string' || !spec.url) continue;
+    if (map.has(key)) continue;
+    let healthUrl;
+    try {
+      healthUrl = healthUrlFrom(spec.url);
+    } catch {
+      continue;
+    }
+    map.set(key, { key, url: spec.url, healthUrl, origin });
+  }
+}
+
+function absorbFlags(obj, acc) {
+  if (!obj || typeof obj !== 'object') return;
+  if (Array.isArray(obj.disabledMcpjsonServers)) {
+    for (const name of obj.disabledMcpjsonServers) {
+      if (typeof name === 'string') acc.disabled.add(name);
+    }
+  }
+  if (Array.isArray(obj.enabledMcpjsonServers)) {
+    for (const name of obj.enabledMcpjsonServers) {
+      if (typeof name === 'string') acc.enabled.add(name);
+    }
+  }
+  if (obj.enableAllProjectMcpServers === true) acc.enableAll = true;
+}
+
+function matchProjectRecord(projects, cwd) {
+  if (!projects || typeof projects !== 'object') return null;
+  const norm = cwd.replace(/[\\/]+$/, '');
+  const variants = new Set([norm, norm.replace(/\\/g, '/'), norm.replace(/\//g, '\\')]);
+  for (const [key, val] of Object.entries(projects)) {
+    const k = key.replace(/[\\/]+$/, '');
+    const forms = [k, k.replace(/\\/g, '/'), k.replace(/\//g, '\\')];
+    if (forms.some((form) => variants.has(form))) return val;
+  }
+  return null;
+}
+
+// Кандидаты: .mcp.json (с флагами включения), mcpServers ~/.claude.json и
+// projects[cwd].mcpServers. Сервер .mcp.json включен при enableAll или при
+// наличии ключа в enabledMcpjsonServers и отсутствии в disabledMcpjsonServers.
+export async function collectServers(cwd) {
+  const flags = { disabled: new Set(), enabled: new Set(), enableAll: false };
+  const fromMcpJson = new Map();
+  const always = new Map();
+
+  const mcpFile = await findUpFile(cwd, '.mcp.json');
+  const mcpJson = mcpFile ? await readJsonFile(mcpFile) : null;
+  if (mcpJson) addServers(fromMcpJson, mcpJson.mcpServers, 'mcpjson');
+
+  const settingsFile = await findUpFile(cwd, join('.claude', 'settings.json'));
+  const localFile = await findUpFile(cwd, join('.claude', 'settings.local.json'));
+  if (settingsFile) absorbFlags(await readJsonFile(settingsFile), flags);
+  if (localFile) absorbFlags(await readJsonFile(localFile), flags);
+
+  const claudeJson = await readJsonFile(join(claudeHome(), '.claude.json'));
+  if (claudeJson) {
+    const projectRecord = matchProjectRecord(claudeJson.projects, cwd);
+    if (projectRecord) {
+      addServers(always, projectRecord.mcpServers, 'local');
+      absorbFlags(projectRecord, flags);
+    }
+    addServers(always, claudeJson.mcpServers, 'user');
+  }
+
+  const out = [...always.values()];
+  const seen = new Set(out.map((server) => server.key));
+  for (const server of fromMcpJson.values()) {
+    if (seen.has(server.key)) continue;
+    if (flags.disabled.has(server.key)) continue;
+    if (!flags.enableAll && !flags.enabled.has(server.key)) continue;
+    out.push(server);
+  }
+  return out;
+}
+
+// Сервер по ключу из имени инструмента: среди объявленных, без фильтра включения
+// (инструмент уже вызван). Плагины и не-http не возвращаются.
+export async function findServerByKey(cwd, key) {
+  if (!key || isPluginKey(key)) return null;
+  const mcpFile = await findUpFile(cwd, '.mcp.json');
+  const mcpJson = mcpFile ? await readJsonFile(mcpFile) : null;
+  const claudeJson = await readJsonFile(join(claudeHome(), '.claude.json'));
+  const buckets = [];
+  if (mcpJson && mcpJson.mcpServers) buckets.push(mcpJson.mcpServers);
+  if (claudeJson && claudeJson.mcpServers) buckets.push(claudeJson.mcpServers);
+  const projectRecord = claudeJson ? matchProjectRecord(claudeJson.projects, cwd) : null;
+  if (projectRecord && projectRecord.mcpServers) buckets.push(projectRecord.mcpServers);
+  for (const bucket of buckets) {
+    const spec = bucket[key];
+    if (!spec || spec.type !== 'http' || typeof spec.url !== 'string') continue;
+    try {
+      return { key, url: spec.url, healthUrl: healthUrlFrom(spec.url) };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function fetchHealth(url) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1000);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } });
+    const text = await res.text();
+    let body = null;
+    try { body = JSON.parse(text); } catch { body = null; }
+    return { status: res.status, body, error: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: 0, body: null, error: message };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// kind: ready (AI-EDT phase ready), down (нет ответа, авторизация, phase не ready),
+// foreign (ответ не AI-EDT).
+export function classifyHealth(result) {
+  if (!result || result.error || !result.status) return { kind: 'down', detail: 'нет ответа', projects: [] };
+  if (result.status === 401 || result.status === 403) {
+    return { kind: 'down', detail: 'отказ авторизации', projects: [] };
+  }
+  const body = result.body && typeof result.body === 'object' && !Array.isArray(result.body)
+    ? result.body : null;
+  const instance = body && typeof body.instance === 'string' ? body.instance : '';
+  const phase = body && typeof body.phase === 'string' ? body.phase : '';
+  const ai = instance.startsWith('AI-EDT @');
+  if (instance && !ai) return { kind: 'foreign', detail: '', projects: [] };
+  if (phase === 'ready') {
+    if (!ai) return { kind: 'foreign', detail: '', projects: [] };
+    const projects = Array.isArray(body.projects)
+      ? body.projects.filter((p) => typeof p === 'string') : [];
+    return { kind: 'ready', detail: 'phase=ready', projects };
+  }
+  return {
+    kind: 'down',
+    detail: phase ? `phase=${phase}` : (ai ? 'нет phase' : 'нет ответа'),
+    projects: [],
+  };
+}
+
+async function stateTop(cwd) {
+  try {
+    return await repoTop(cwd);
+  } catch {
+    return cwd;
+  }
+}
+
+function cachePath(top) {
+  return join(stateRoot(top), 'edt-health.json');
+}
+
+function windowPath(top, session) {
+  return join(sessionDir(top, session), 'edt-window.json');
+}
+
+// Перед отказом каталог сессии должен создаваться: без следа не работают окно
+// и /quality release. Пустая строка - хранилище доступно либо сессия не задана.
+async function ensureSessionStore(top, session) {
+  let dir;
+  try {
+    dir = sessionDir(top, session);
+  } catch {
+    return '';
+  }
+  try {
+    await mkdir(dir, { recursive: true });
+    return '';
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `[edt-gate] след недоступен, ворота пропускают: ${msg}`;
+  }
+}
+
+async function readCache(file) {
+  try {
+    const data = JSON.parse(await readFile(file, 'utf8'));
+    return data && typeof data === 'object' ? data : {};
+  } catch (err) {
+    if (err.code === 'ENOENT') return {};
+    return {};
+  }
+}
+
+async function writeCache(file, cache) {
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(cache), 'utf8');
+}
+
+// Ответы /health по URL. refresh=true всегда ходит в сеть и обновляет кэш.
+async function loadHealth(servers, top, refresh) {
+  const file = cachePath(top);
+  const cache = await readCache(file);
+  const now = Date.now();
+  let dirty = false;
+  const rows = await Promise.all(servers.map(async (server) => {
+    const hit = cache[server.healthUrl];
+    if (!refresh && hit && typeof hit.at === 'number' && now - hit.at < HEALTH_TTL_MS && hit.result) {
+      return { server, result: hit.result };
+    }
+    const result = await fetchHealth(server.healthUrl);
+    cache[server.healthUrl] = { at: now, result };
+    dirty = true;
+    return { server, result };
+  }));
+  if (dirty) {
+    try { await writeCache(file, cache); } catch { /* решение не зависит от записи кэша */ }
+  }
+  return rows;
+}
+
+async function currentDiff(cwd) {
+  try {
+    return (await computeChangeset(cwd, 'HEAD')).diffHash || null;
+  } catch {
+    return null;
+  }
+}
+
+async function activeWindow(top, session, now) {
+  if (!session) return false;
+  let data;
+  try {
+    data = JSON.parse(await readFile(windowPath(top, session), 'utf8'));
+  } catch (err) {
+    if (err.code === 'ENOENT') return false;
+    throw err;
+  }
+  const until = Date.parse(data && data.until);
+  return Number.isFinite(until) && until > now;
+}
+
+async function activeReleaseGate(top, session, diffHash, now) {
+  if (!session || !diffHash) return false;
+  let names;
+  try {
+    names = await listEventFiles(top, session);
+  } catch {
+    return false;
+  }
+  const dir = eventsDir(top, session);
+  for (const name of names) {
+    let event;
+    try {
+      event = JSON.parse(await readFile(join(dir, name), 'utf8'));
+    } catch {
+      continue;
+    }
+    if (!event || event.type !== 'release' || event.scope !== 'gate') continue;
+    if (event.diffHash !== diffHash) continue;
+    const exp = Date.parse(event.expiresAt);
+    if (Number.isFinite(exp) && exp > now) return true;
+  }
+  return false;
+}
+
+// Цели PreToolUse. null - инструмент не смотрит исходники EDT, ворота молчат.
+function targetsOf(payload, cwd) {
+  const tool = String(payload.tool_name || '');
+  const input = payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {};
+  if (tool === 'Read') {
+    if (typeof input.file_path !== 'string' || !input.file_path) return [];
+    if (!sourceExt(input.file_path)) return [];
+    return [{ tool, file: absPath(input.file_path, cwd), shell: false }];
+  }
+  if (tool === 'Grep' || tool === 'Glob') {
+    const raw = typeof input.path === 'string' && input.path ? input.path : cwd;
+    return [{ tool, file: absPath(raw, cwd), shell: false }];
+  }
+  if (tool === 'Bash' || tool === 'PowerShell') {
+    const command = typeof input.command === 'string' ? input.command : '';
+    const launches = launchFiles(command, cwd).map((file) => ({
+      tool, file, shell: false, launch: true,
+    }));
+    const reads = shellTargets(command).map((token) => ({
+      tool, file: absPath(token, cwd), shell: true, launch: false,
+    }));
+    return [...launches, ...reads];
+  }
+  return [];
+}
+
+export async function processGate(payload) {
+  const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+  const targets = targetsOf(payload, cwd);
+  if (!targets.length) return allow();
+
+  const hits = [];
+  for (const target of targets) {
+    const project = await findEdtProject(target.file);
+    if (project) hits.push({ ...target, project });
+  }
+  if (!hits.length) return allow();
+
+  const session = typeof payload.session_id === 'string' ? payload.session_id : '';
+  const top = await stateTop(cwd);
+  const unavailable = await ensureSessionStore(top, session);
+  if (unavailable) return allow(unavailable);
+  const now = Date.now();
+  if (session && await activeWindow(top, session, now)) return allow();
+  if (session) {
+    const diffHash = await currentDiff(cwd);
+    if (await activeReleaseGate(top, session, diffHash, now)) return allow();
+  }
+
+  const servers = await collectServers(cwd);
+  if (!servers.length) return allow();
+  const rows = await loadHealth(servers, top, false);
+  for (const hit of hits) {
+    for (const row of rows) {
+      const health = classifyHealth(row.result);
+      if (health.kind === 'ready' && health.projects.includes(hit.project.name)) {
+        if (hit.launch) {
+          return deny(denyLaunchReason({
+            file: hit.file,
+            serverKey: row.server.key,
+            projectName: hit.project.name,
+          }));
+        }
+        return deny(denyReason({
+          file: hit.file,
+          serverKey: row.server.key,
+          replacement: replacementFor(hit.tool, hit.file),
+          shell: hit.shell,
+        }));
+      }
+    }
+  }
+  return allow();
+}
+
+async function writeProbe(top, session, cwd, status, detail) {
+  const event = {
+    type: 'probe',
+    at: nowIso(),
+    session,
+    producer: 'hook',
+    diffHash: await currentDiff(cwd),
+    source: 'ai-edt',
+    status,
+    detail,
+  };
+  await writeEvent(top, session, event);
+}
+
+async function openWindow(top, session, serverKey) {
+  const file = windowPath(top, session);
+  await mkdir(dirname(file), { recursive: true });
+  const body = {
+    until: formatIso(new Date(Date.now() + WINDOW_MS)),
+    server: serverKey,
+  };
+  await writeFile(file, JSON.stringify(body), 'utf8');
+}
+
+function isLaunchFailure(toolSuffix) {
+  return LAUNCH_FAIL_TOOLS.has(String(toolSuffix || '').toLowerCase());
+}
+
+// status probe по факту /health: ready -> ok, остальное -> down.
+function probeOf(health) {
+  if (health && health.kind === 'ready') return { status: 'ok', detail: health.detail || 'phase=ready' };
+  if (health && health.kind === 'foreign') return { status: 'down', detail: 'не AI-EDT' };
+  return { status: 'down', detail: (health && health.detail) || 'нет ответа' };
+}
+
+export async function processFailure(payload) {
+  const toolName = String(payload.tool_name || '');
+  if (toolName.startsWith('mcp__plugin_')) return allow();
+  const parsed = MCP_TOOL_RE.exec(toolName);
+  if (!parsed) return allow();
+  const key = parsed[1];
+  const launchFail = isLaunchFailure(parsed[2]);
+  const session = typeof payload.session_id === 'string' ? payload.session_id : '';
+  if (!session) return allow('[edt-gate] payload без session_id');
+  const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+  const server = await findServerByKey(cwd, key);
+  const top = await stateTop(cwd);
+  // Операционный отказ запуска (порт, модальное окно, нет приложения) хук не судит:
+  // окно открывается всегда, probe остается по факту /health.
+  if (launchFail) {
+    let health = { kind: 'down', detail: server ? 'нет ответа' : 'сервер не найден', projects: [] };
+    if (server) {
+      const rows = await loadHealth([server], top, true);
+      health = classifyHealth(rows[0] ? rows[0].result : null);
+    }
+    const probe = probeOf(health);
+    const notes = [];
+    try {
+      await writeProbe(top, session, cwd, probe.status, probe.detail);
+    } catch (err) {
+      notes.push(`[edt-gate] probe: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    await openWindow(top, session, key);
+    return allow(notes.join('\n'));
+  }
+  if (!server) return allow(`[edt-gate] сервер ${key} не найден`);
+  const rows = await loadHealth([server], top, true);
+  const health = classifyHealth(rows[0] ? rows[0].result : null);
+  if (health.kind === 'foreign') return allow();
+  const notes = [];
+  if (health.kind === 'ready') {
+    try {
+      await writeProbe(top, session, cwd, 'ok', health.detail);
+    } catch (err) {
+      notes.push(`[edt-gate] probe: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return allow(notes.join('\n'));
+  }
+  try {
+    await writeProbe(top, session, cwd, 'down', health.detail);
+  } catch (err) {
+    notes.push(`[edt-gate] probe: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  await openWindow(top, session, key);
+  return allow(notes.join('\n'));
+}
+
+export async function processPayload(payload) {
+  try {
+    if (!payload || typeof payload !== 'object') return allow();
+    if (gateDisabled()) return allow('[edt-gate] ворота отключены переменной AI_EDT_GATE');
+    if (payload.hook_event_name === 'PostToolUseFailure') return await processFailure(payload);
+    return await processGate(payload);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return allow(`[edt-gate] ${msg}`);
+  }
+}
+
+async function readStdin() {
+  const chunks = [];
+  for await (const c of process.stdin) chunks.push(c);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+if (process.argv[1]?.endsWith('edt-gate.mjs')) {
+  try {
+    const raw = await readStdin();
+    const payload = raw.trim() ? JSON.parse(raw) : null;
+    const scope = scopeStatus(payload);
+    if (scope.error) process.stderr.write(`${scope.error}\n`);
+    if (scope.skip) process.exit(0);
+    const { stdout, stderr, exitCode } = await processPayload(payload);
+    if (stdout) process.stdout.write(stdout.endsWith('\n') ? stdout : `${stdout}\n`);
+    if (stderr) process.stderr.write(stderr.endsWith('\n') ? stderr : `${stderr}\n`);
+    process.exit(exitCode);
+  } catch (err) {
+    process.stderr.write(`[edt-gate] ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(0);
+  }
+}

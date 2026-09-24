@@ -16,6 +16,7 @@ test-tmp/
 
 # Local settings
 .claude/settings.local.json
+
 .v8-project.json
 .mcp.json
 

@@ -1,7 +1,10 @@
-﻿# config-index v1.0 - Build a JSON index of a 1C configuration dump
+﻿# config-index v1.0 - Build a JSON index of a 1C configuration dump, or query a built index
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
-	[Parameter(Mandatory)][string]$ConfigPath,
+	[string]$ConfigPath,
+	[string]$IndexPath,
+	[string]$Object,
+	[string]$Find,
 	[string]$OutFile,
 	[switch]$Detailed
 )
@@ -384,6 +387,126 @@ function ConvertTo-JsonText($value, [string]$indent) {
 	return '"' + (ConvertTo-JsonEscaped ([string]$value)) + '"'
 }
 
+# --- Query mode: one object or a list of names, straight out of a built index ---
+# Индекс строится один раз и весит мегабайты. Точечный вопрос к готовому файлу не должен
+# стоить повторного обхода выгрузки, поэтому запрос читает только индекс.
+
+# Write, а не WriteLine: WriteLine добавляет CRLF, а порты обязаны писать в stderr одни и
+# те же байты - python-порт пишет LF.
+function Write-IdxError([string]$msg) {
+	[Console]::Error.Write($msg + "`n")
+}
+
+function Exit-IdxUsage([string]$msg) {
+	Write-IdxError $msg
+	exit 2
+}
+
+# ConvertFrom-Json отдает PSCustomObject и Object[], а сериализатор понимает IDictionary
+# и IEnumerable. Приведение к тем же типам дает тот же порядок ключей и тот же отступ,
+# что и в самом индексе.
+function ConvertTo-IdxWritable($node) {
+	if ($null -eq $node) { return $null }
+	if ($node -is [System.Management.Automation.PSCustomObject]) {
+		$map = [ordered]@{}
+		foreach ($p in $node.PSObject.Properties) { $map[$p.Name] = (ConvertTo-IdxWritable $p.Value) }
+		return $map
+	}
+	if ($node -is [System.Array]) {
+		$list = [System.Collections.ArrayList]::new()
+		foreach ($item in $node) { [void]$list.Add((ConvertTo-IdxWritable $item)) }
+		return ,$list
+	}
+	return $node
+}
+
+# $null на выходе означает, что значения нет: причина уже написана в stderr, признак отказа -
+# $script:idxReadFailed. Отличать отказ чтения от разобранного $null обязательно: файл с
+# литералом null и файл из пробелов дают одинаковый $null, но разные диагностики.
+$script:idxReadFailed = $false
+
+function Read-IdxJson([string]$path) {
+	$script:idxReadFailed = $false
+	if (-not [System.IO.Path]::IsPathRooted($path)) { $path = Join-Path (Get-Location).Path $path }
+	if (-not [System.IO.File]::Exists($path)) {
+		Write-IdxError ("Index file not found: " + $path)
+		$script:idxReadFailed = $true
+		return $null
+	}
+	$text = $null
+	try {
+		$text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+	} catch {
+		Write-IdxError ("Index file could not be read: " + $path)
+		$script:idxReadFailed = $true
+		return $null
+	}
+	# Пустой и пробельный файл ConvertFrom-Json принимает молча и отдает $null: без явной
+	# проверки отказ уходил бы в ветку "в индексе нет объектов" или в молчаливый выход.
+	if ($text.Trim() -eq "") {
+		Write-IdxError ("Index file could not be read: " + $path)
+		$script:idxReadFailed = $true
+		return $null
+	}
+	try {
+		return ($text | ConvertFrom-Json)
+	} catch {
+		Write-IdxError ("Index file could not be read: " + $path)
+		$script:idxReadFailed = $true
+		return $null
+	}
+}
+
+$idxQueryObject = ($Object -ne "")
+$idxQueryFind = ($Find -ne "")
+
+if ($idxQueryObject -and $idxQueryFind) { Exit-IdxUsage "Use either -Object or -Find, not both" }
+
+if ($idxQueryObject -or $idxQueryFind) {
+	if ($IndexPath -eq "") { Exit-IdxUsage "Query mode requires -IndexPath" }
+	# Разделение строгое: половина доводов от сборки рядом с запросом означала бы, что
+	# непонятно, что именно запускать - сборку индекса или чтение готового.
+	if ($ConfigPath -ne "") { Exit-IdxUsage "-ConfigPath cannot be combined with -Object or -Find" }
+	if ($OutFile -ne "") { Exit-IdxUsage "-OutFile cannot be combined with -Object or -Find" }
+	if ($Detailed) { Exit-IdxUsage "-Detailed cannot be combined with -Object or -Find" }
+
+	$index = Read-IdxJson $IndexPath
+	if ($script:idxReadFailed) { exit 1 }
+	$objects = $null
+	if ($null -ne $index) { $objects = $index.objects }
+	if (-not ($objects -is [System.Management.Automation.PSCustomObject])) {
+		Write-IdxError ("Index file has no objects: " + $IndexPath)
+		exit 1
+	}
+
+	if ($idxQueryObject) {
+		# Имена метаданных 1С регистр не различают, поэтому и FQN в запросе - тоже.
+		$match = $null
+		foreach ($p in $objects.PSObject.Properties) {
+			if ($p.Name.Equals($Object, [System.StringComparison]::OrdinalIgnoreCase)) { $match = $p; break }
+		}
+		if ($null -eq $match) {
+			Write-IdxError ("Object not found: " + $Object)
+			exit 1
+		}
+		Write-Host (ConvertTo-JsonText (ConvertTo-IdxWritable $match.Value) "")
+		exit 0
+	}
+
+	$names = New-Object System.Collections.Generic.List[string]
+	foreach ($p in $objects.PSObject.Properties) {
+		if ($p.Name.IndexOf($Find, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { $names.Add($p.Name) }
+	}
+	# Порядок задан посимвольным сравнением, а не культурным: культурное у портов разное
+	# (у PowerShell - текущая локаль, у python - код символа), и на кириллице они расходятся.
+	$names.Sort([System.StringComparer]::Ordinal)
+	if ($names.Count) { Write-Host ($names -join "`n") }
+	exit 0
+}
+
+if ($IndexPath -ne "") { Exit-IdxUsage "-IndexPath requires -Object or -Find" }
+if ($ConfigPath -eq "") { Exit-IdxUsage "Missing -ConfigPath" }
+
 # --- Resolve the configuration root ---
 
 if (-not [System.IO.Path]::IsPathRooted($ConfigPath)) {
@@ -393,13 +516,13 @@ if (Test-Path -LiteralPath $ConfigPath -PathType Leaf) {
 	$ConfigPath = [System.IO.Path]::GetDirectoryName($ConfigPath)
 }
 if (-not (Test-Path -LiteralPath $ConfigPath -PathType Container)) {
-	[Console]::Error.WriteLine("Configuration directory not found: " + $ConfigPath)
+	Write-IdxError ("Configuration directory not found: " + $ConfigPath)
 	exit 1
 }
 $configRoot = (Resolve-Path -LiteralPath $ConfigPath).Path
 $configXml = Join-Path $configRoot "Configuration.xml"
 if (-not (Test-Path -LiteralPath $configXml -PathType Leaf)) {
-	[Console]::Error.WriteLine("Configuration.xml not found in: " + $configRoot)
+	Write-IdxError ("Configuration.xml not found in: " + $configRoot)
 	exit 1
 }
 
@@ -412,7 +535,7 @@ $cfgDoc.PreserveWhitespace = $false
 $cfgDoc.Load($configXml)
 $cfgNode = Get-IdxChild $cfgDoc.DocumentElement "Configuration"
 if ($null -eq $cfgNode) {
-	[Console]::Error.WriteLine("Configuration.xml has no <Configuration> element")
+	Write-IdxError "Configuration.xml has no <Configuration> element"
 	exit 1
 }
 $cfgProps = Get-IdxChild $cfgNode "Properties"

@@ -74,7 +74,7 @@ Data (База данных, регистры)
 
 ## Инструменты MCP для исследования
 
-При наличии MCP-серверов использовать их для ускорения каждого этапа:
+При наличии MCP-серверов использовать их для ускорения каждого этапа. Порядок обращения к инструментам задает раздел "Сначала индекс" в `mcp-tool-priority.md`: до перебора исходников - проверка доступности AI-EDT. Разведку можно делегировать агенту `1c-explore`.
 
 В AI-EDT для поиска и навигации есть унифицированный фасад `code_search` (operations: `text_search`, `object_references`, `method_references`, `resolve_symbol`, `call_hierarchy`, `help`) - предпочтителен для нового кода. Standalone-имена ниже (`search_in_code`, `find_references`, ...) в tools/list скрыты (Canonical preset), но вызываемы как backward-compat алиасы, маршрутизируемые в operations фасада.
 

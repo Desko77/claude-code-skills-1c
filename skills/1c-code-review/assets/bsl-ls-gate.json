@@ -1,0 +1,82 @@
+{
+  "language": "ru",
+  "diagnostics": {
+    "mode": "ON",
+    "parameters": {
+      "BeginTransactionBeforeTryCatch": true,
+      "CommitTransactionOutsideTryCatch": true,
+      "CreateQueryInCycle": true,
+      "DeprecatedMessage": true,
+      "FieldsFromJoinsWithoutIsNull": true,
+      "IfElseIfEndsWithElse": true,
+      "JoinWithSubQuery": true,
+      "JoinWithVirtualTable": true,
+      "LogicalOrInTheWhereSectionOfQuery": true,
+      "NestedStatements": true,
+      "PrivilegedModuleMethodCall": true,
+      "QueryNestedFieldsByDot": true,
+      "SelectTopWithoutOrderBy": true,
+      "SetPrivilegedMode": true,
+      "UnionAll": true,
+      "UsingFindElementByString": true,
+      "VirtualTableCallWithoutParameters": true,
+      "WrongUseOfRollbackTransactionMethod": true
+    },
+    "metadata": {
+      "BeginTransactionBeforeTryCatch": {
+        "severity": "MAJOR"
+      },
+      "CommitTransactionOutsideTryCatch": {
+        "severity": "MAJOR"
+      },
+      "CreateQueryInCycle": {
+        "severity": "CRITICAL"
+      },
+      "DeprecatedMessage": {
+        "severity": "MAJOR"
+      },
+      "FieldsFromJoinsWithoutIsNull": {
+        "severity": "MINOR"
+      },
+      "IfElseIfEndsWithElse": {
+        "severity": "MAJOR"
+      },
+      "JoinWithSubQuery": {
+        "severity": "MAJOR"
+      },
+      "JoinWithVirtualTable": {
+        "severity": "MAJOR"
+      },
+      "LogicalOrInTheWhereSectionOfQuery": {
+        "severity": "MAJOR"
+      },
+      "NestedStatements": {
+        "severity": "MINOR"
+      },
+      "PrivilegedModuleMethodCall": {
+        "severity": "CRITICAL"
+      },
+      "QueryNestedFieldsByDot": {
+        "severity": "MAJOR"
+      },
+      "SelectTopWithoutOrderBy": {
+        "severity": "MINOR"
+      },
+      "SetPrivilegedMode": {
+        "severity": "CRITICAL"
+      },
+      "UnionAll": {
+        "severity": "MINOR"
+      },
+      "UsingFindElementByString": {
+        "severity": "MINOR"
+      },
+      "VirtualTableCallWithoutParameters": {
+        "severity": "MAJOR"
+      },
+      "WrongUseOfRollbackTransactionMethod": {
+        "severity": "MAJOR"
+      }
+    }
+  }
+}

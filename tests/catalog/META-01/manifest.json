@@ -1,0 +1,13 @@
+{
+  "id": "META-01",
+  "type": "project-tree",
+  "files": [
+    "clean/Metadata/Catalog.Магазины.xml",
+    "clean/Metadata/Catalog.Склады.xml",
+    "defect/Metadata/Catalog.Магазины.xml",
+    "defect/Metadata/Catalog.Склады.xml"
+  ],
+  "expected": [
+    "defect/Metadata/Catalog.Магазины.xml"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "PostToolUse",
+  "tool_name": "mcp__1c-edt__write_module_source",
+  "tool_input": {
+    "modulePath": "proj/src/CommonModules/Обмен/Module.bsl",
+    "mode": "replace",
+    "source": "Процедура Тест() КонецПроцедуры"
+  },
+  "tool_response": "Модуль записан",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_arm_mcp_write"
+}

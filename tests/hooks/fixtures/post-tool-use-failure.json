@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PostToolUseFailure",
+  "tool_name": "mcp__1c-edt__validate_query",
+  "tool_input": {
+    "queryText": "ВЫБРАТЬ Спр.Ссылка ИЗ Справочник.Номенклатура КАК Спр",
+    "dcsMode": false
+  },
+  "error": "MCP error -32000: Connection closed",
+  "session_id": "FIXTURE-SESSION",
+  "tool_use_id": "toolu_fixture_failure"
+}
