@@ -5,7 +5,9 @@
 Каждый сценарий строит временный каталог с README.md, каталогами skills/ и файлами
 rules/*.md и сверяет список находок: при совпадении всех трех счетчиков с фактом
 находок нет, при порче любого счетчика либо при пропавшем месте счетчика находка
-блокирующая.
+блокирующая. Правила со второй формой (.mdc) засчитываются в счетчик правил.
+Раскладка зеркала для Cursor (только .mdc, README свой без мест счетчиков) -
+проверка пропускается, находок нет.
 """
 
 from __future__ import annotations
@@ -139,6 +141,24 @@ class ReadmeCountersTest(unittest.TestCase):
         errors = self.blocking(self.run_check())
         self.assertEqual(len(errors), 1)
         self.assertIn('не найдена таблица групп скилов', errors[0][2])
+
+    def test_mdc_rules_counted(self):
+        """Правила .mdc засчитываются в счетчик правил наряду с .md."""
+        build_repo(self.root, heading=5, first=2, second=3, rules=4)
+        (self.root / "rules" / "rule-extra.mdc").write_text("# правило\n", encoding="utf-8")
+        self.rewrite_readme("**4 правил**", "**5 правил**")
+        self.assertEqual(self.run_check(), [])
+
+    def test_mirror_layout_skipped(self):
+        """Зеркало для Cursor: правила .mdc, README без мест счетчиков - находок нет."""
+        (self.root / "skills").mkdir()
+        (self.root / "skills" / "skill-0").mkdir()
+        (self.root / "rules").mkdir()
+        for index in range(2):
+            (self.root / "rules" / f"rule-{index}.mdc").write_text("# правило\n", encoding="utf-8")
+        (self.root / "README.md").write_text(
+            "# Зеркало\n\nСостав набора, счетчиков здесь нет.\n", encoding="utf-8")
+        self.assertEqual(self.run_check(), [])
 
 
 if __name__ == "__main__":

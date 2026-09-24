@@ -43,9 +43,13 @@ RULE_KEYS = {"paths", "globs", "alwaysApply", "name", "description"}
 PATH_KEYS = ("paths", "paths[]", "globs", "globs[]")
 
 
-def rule_files():
-    """Правила обеих форм: .md здесь, .mdc в зеркале."""
-    return sorted(list(RULES_DIR.glob("*.md")) + list(RULES_DIR.glob("*.mdc")))
+def rule_files(rules_dir=RULES_DIR):
+    """Правила обеих форм: .md здесь, .mdc в зеркале.
+
+    Параметр rules_dir - каталог правил, по умолчанию rules/ этого репозитория.
+    Результат - отсортированный список путей.
+    """
+    return sorted(list(rules_dir.glob("*.md")) + list(rules_dir.glob("*.mdc")))
 
 # Имена, которые выглядят ссылкой на файл, но ею не являются: шаблоны имен результата,
 # заполнители в примерах команд. Проверять их бессмысленно.
@@ -191,15 +195,21 @@ def check_readme_counters(problems, root=ROOT):
     репозитория, параметром, чтобы тест мог подать временный каталог. Результат -
     дополненный список находок.
 
-    Три сверки: число в заголовке "## Скилы (N)" и сумма колонки "Скилов" таблицы
-    групп - с числом каталогов первого уровня в skills/; число в "**N правил**" -
-    с числом файлов rules/*.md. Место счетчика, не найденное по шаблону (README
-    переписан), - тоже блокирующая находка: молчаливый пропуск вернет рассинхрон.
+    В зеркале для Cursor проверка не выполняется: сборка копирует линтер в зеркало,
+    а README там свой, без мест под эти счетчики. Признак зеркала - в rules/ есть
+    файлы .mdc и нет .md. В исходном наборе поведение прежнее: три сверки - число
+    в заголовке "## Скилы (N)" и сумма колонки "Скилов" таблицы групп - с числом
+    каталогов первого уровня в skills/; число в "**N правил**" - с числом файлов
+    правил обеих форм. Место счетчика, не найденное по шаблону (README переписан),
+    - тоже блокирующая находка: молчаливый пропуск вернет рассинхрон.
     """
+    rules_dir = root / "rules"
+    if not list(rules_dir.glob("*.md")) and list(rules_dir.glob("*.mdc")):
+        return
     readme = root / "README.md"
     text = read(readme)
     skills_count = sum(1 for entry in (root / "skills").iterdir() if entry.is_dir())
-    rules_count = len(list((root / "rules").glob("*.md")))
+    rules_count = len(rule_files(rules_dir))
 
     heading = re.search(r"^## Скилы \((\d+)\)\s*$", text, re.MULTILINE)
     if heading is None:
