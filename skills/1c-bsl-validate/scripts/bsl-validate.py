@@ -652,8 +652,43 @@ def check_sec01(text):
     return out
 
 
+def check_model18(q):
+    """MODEL-18: пустой блок Исключение - репорт на строке Исключения."""
+    out = []
+    for i, end in _except_sections(q):
+        if all(not ln.strip() for ln in q[i + 1:end]):
+            out.append(i + 1)
+    return out
+
+
+def check_model22(q):
+    """MODEL-22: удаление элемента коллекции внутри обхода этой же коллекции.
+
+    Репорт на строке вызова Удалить. Обход ищется до первого КонецЦикла после
+    заголовка: вложенные циклы с теми же именами редки, ложных находок нет.
+    """
+    out = []
+    text = '\n'.join(q)
+    head = re.compile(r'\bДля\s+Каждого\s+(\w+)\s+Из\s+(\w+)\b', re.IGNORECASE)
+    close = re.compile(r'\bКонецЦикла\b', re.IGNORECASE)
+    for m in head.finditer(text):
+        item, coll = m.group(1), m.group(2)
+        line_no = text.count('\n', 0, m.start()) + 1
+        rest = text[m.end():]
+        em = close.search(rest)
+        scope_text = rest[:em.start()] if em else rest
+        del_re = re.compile(r'\b' + re.escape(coll) + r'\s*\.\s*Удалить\s*\(\s*'
+                            + re.escape(item) + r'\s*\)', re.IGNORECASE)
+        dm = del_re.search(scope_text)
+        if dm:
+            out.append(line_no + scope_text.count('\n', 0, dm.start()))
+    return out
+
+
 STRUCTURE_CHECKS = {
     'model-14': check_model14,
+    'model-18': check_model18,
+    'model-22': check_model22,
     'perf-05': check_perf05,
     'query-01': check_query01,
     'query-08': check_query08,

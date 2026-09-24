@@ -674,8 +674,64 @@ function Check-Sec01($ctx) {
 	return ,$out
 }
 
+# MODEL-18: пустой блок Исключение - репорт на строке Исключения.
+function Check-Model18($ctx) {
+	$out = @()
+	$q = $ctx.q
+	for ($i = 0; $i -lt $q.Count; $i++) {
+		if (-not $catRe["except"].IsMatch($q[$i])) { continue }
+		if ($catRe["raise"].IsMatch($q[$i])) { continue }
+		$end = $q.Count
+		for ($j = $i + 1; $j -lt $q.Count; $j++) {
+			if ($catRe["endtry"].IsMatch($q[$j])) { $end = $j; break }
+		}
+		$empty = $true
+		for ($j = $i + 1; $j -lt $end; $j++) {
+			if ($q[$j].Trim().Length -gt 0) { $empty = $false; break }
+		}
+		if ($empty) { $out += $i + 1 }
+	}
+	return ,$out
+}
+
+# MODEL-22: удаление элемента коллекции внутри обхода этой же коллекции - репорт
+# на строке вызова Удалить. Обход ищется до первого КонецЦикла после заголовка:
+# вложенные циклы с теми же именами редки, ложных находок нет.
+function Check-Model22($ctx) {
+	$out = @()
+	$text = $ctx.q -join "`n"
+	$head = [regex]::new("\bДля\s+Каждого\s+(\w+)\s+Из\s+(\w+)\b",
+		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+	$close = [regex]::new("\bКонецЦикла\b",
+		[System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+	foreach ($m in $head.Matches($text)) {
+		$item = $m.Groups[1].Value
+		$coll = $m.Groups[2].Value
+		$lineNo = 1
+		foreach ($ch in $text.Substring(0, $m.Index).ToCharArray()) {
+			if ($ch -eq "`n") { $lineNo++ }
+		}
+		$rest = $text.Substring($m.Index + $m.Length)
+		$em = $close.Match($rest)
+		$scopeText = if ($em.Success) { $rest.Substring(0, $em.Index) } else { $rest }
+		$pat = '\b' + [regex]::Escape($coll) + '\s*\.\s*Удалить\s*\(\s*' + [regex]::Escape($item) + '\s*\)'
+		$del = [regex]::new($pat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+		$dm = $del.Match($scopeText)
+		if ($dm.Success) {
+			$nl = 0
+			foreach ($ch in $scopeText.Substring(0, $dm.Index).ToCharArray()) {
+				if ($ch -eq "`n") { $nl++ }
+			}
+			$out += $lineNo + $nl
+		}
+	}
+	return ,(@($out | Sort-Object -Unique))
+}
+
 $structureChecks = @{
 	"model-14"  = ${function:Check-Model14}
+	"model-18"  = ${function:Check-Model18}
+	"model-22"  = ${function:Check-Model22}
 	"perf-05"   = ${function:Check-Perf05}
 	"query-01"  = ${function:Check-Query01}
 	"query-08"  = ${function:Check-Query08}

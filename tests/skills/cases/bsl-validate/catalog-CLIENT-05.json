@@ -1,0 +1,23 @@
+{
+  "name": "Правило CLIENT-05: синхронный вызов, недоступный в веб-клиенте",
+  "setup": "external:tests/catalog/CLIENT-05",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "CLIENT-05"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[CLIENT-05] defect.bsl:3",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

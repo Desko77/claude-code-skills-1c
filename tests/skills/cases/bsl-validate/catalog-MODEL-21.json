@@ -1,0 +1,23 @@
+{
+  "name": "Правило MODEL-21: ТекущаяДата вместо ТекущаяДатаСеанса",
+  "setup": "external:tests/catalog/MODEL-21",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "MODEL-21"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[MODEL-21] defect.bsl:3",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}

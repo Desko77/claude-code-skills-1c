@@ -1,0 +1,23 @@
+{
+  "name": "Правило MODEL-22: удаление элементов при обходе коллекции",
+  "setup": "external:tests/catalog/MODEL-22",
+  "params": {
+    "modulePath": "."
+  },
+  "args_extra": [
+    "-Catalog",
+    "-RuleId",
+    "MODEL-22"
+  ],
+  "expectError": true,
+  "noSnapshot": "рабочий каталог external: фикстуры каталога доступны только для чтения; проверяется stdout",
+  "expect": {
+    "stdoutContains": [
+      "[MODEL-22] defect.bsl:4",
+      "Result: 1 finding(s)"
+    ],
+    "stdoutNotContains": [
+      "clean.bsl"
+    ]
+  }
+}
