@@ -666,6 +666,19 @@ def check_model18(q, raw):
     return out
 
 
+def _path_part_before(text, pos):
+    """Часть ли пути стоит перед позицией: точка, возможно отделенная пробелами.
+
+    Идентификатор вплотную к совпадению исключен границей слова в начале шаблона,
+    идентификатор через пробел (Если Строки.Удалить) - отдельный операнд, а не
+    продолжение пути, и совпадению не мешает.
+    """
+    i = pos
+    while i > 0 and text[i - 1].isspace():
+        i -= 1
+    return i > 0 and text[i - 1] == '.'
+
+
 def check_model22(q):
     """MODEL-22: удаление элемента коллекции внутри обхода этой же коллекции.
 
@@ -673,7 +686,11 @@ def check_model22(q):
     Для/Пока - КонецЦикла, иначе вложенный цикл обрезает тело и поздний вызов
     Удалить выпадает из области. Коллекция захватывается целиком вместе с
     путем через точку: Объект.Строки.Удалить должен находиться для обхода
-    Из Объект.Строки.
+    Из Объект.Строки. Обратное неверно: при обходе локальной Строки совпадение
+    с середины пути Объект.Строки.Удалить отбрасывается - перед началом
+    совпадения не должно стоять части чужого пути (точки). Номер строки
+    считается от конца заголовка - того же места, от которого отложен текст
+    тела, иначе многострочный заголовок уводит находку вверх.
     """
     out = []
     text = '\n'.join(q)
@@ -681,7 +698,6 @@ def check_model22(q):
     kw = re.compile(r'\b(?:Для|Пока|КонецЦикла)\b', re.IGNORECASE)
     for m in head.finditer(text):
         item, coll = m.group(1), m.group(2)
-        line_no = text.count('\n', 0, m.start()) + 1
         rest = text[m.end():]
         scope_text = rest
         depth = 0
@@ -697,8 +713,11 @@ def check_model22(q):
         del_re = re.compile(r'\b' + path + r'\s*\.\s*Удалить\s*\(\s*'
                             + re.escape(item) + r'\s*\)', re.IGNORECASE)
         dm = del_re.search(scope_text)
+        while dm is not None and _path_part_before(scope_text, dm.start()):
+            dm = del_re.search(scope_text, dm.start() + 1)
         if dm:
-            out.append(line_no + scope_text.count('\n', 0, dm.start()))
+            base = text.count('\n', 0, m.end())
+            out.append(base + scope_text.count('\n', 0, dm.start()) + 1)
     return out
 
 

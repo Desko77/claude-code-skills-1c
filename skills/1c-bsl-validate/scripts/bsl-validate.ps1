@@ -696,11 +696,25 @@ function Check-Model18($ctx) {
 	return ,$out
 }
 
+# Перед позицией в тексте часть пути: точка, возможно отделенная пробелами.
+# Идентификатор вплотную к совпадению исключен границей слова в начале шаблона,
+# идентификатор через пробел (Если Строки.Удалить) - отдельный операнд, а не
+# продолжение пути, и совпадению не мешает.
+function Test-PathPartBefore([string]$text, [int]$pos) {
+	$i = $pos
+	while ($i -gt 0 -and [char]::IsWhiteSpace($text[$i - 1])) { $i-- }
+	return ($i -gt 0 -and $text[$i - 1] -eq '.')
+}
+
 # MODEL-22: удаление элемента коллекции внутри обхода этой же коллекции - репорт
 # на строке вызова Удалить. Конец тела ищется по счетчику вложенности Для/Пока -
 # КонецЦикла, иначе вложенный цикл обрезает тело. Коллекция захватывается целиком
 # вместе с путем через точку: Объект.Строки.Удалить находится для обхода
-# Из Объект.Строки.
+# Из Объект.Строки. Обратное неверно: при обходе локальной Строки совпадение
+# с середины пути Объект.Строки.Удалить отбрасывается - перед началом совпадения
+# не должно стоять части чужого пути (точки). Номер строки считается от конца
+# заголовка - того же места, от которого отложен текст тела, иначе многострочный
+# заголовок уводит находку вверх.
 function Check-Model22($ctx) {
 	$out = @()
 	$text = $ctx.q -join "`n"
@@ -711,10 +725,6 @@ function Check-Model22($ctx) {
 	foreach ($m in $head.Matches($text)) {
 		$item = $m.Groups[1].Value
 		$coll = $m.Groups[2].Value
-		$lineNo = 1
-		foreach ($ch in $text.Substring(0, $m.Index).ToCharArray()) {
-			if ($ch -eq "`n") { $lineNo++ }
-		}
 		$rest = $text.Substring($m.Index + $m.Length)
 		$scopeText = $rest
 		$depth = 0
@@ -727,12 +737,19 @@ function Check-Model22($ctx) {
 		$pat = '\b' + ($parts -join '\s*\.\s*') + '\s*\.\s*Удалить\s*\(\s*' + [regex]::Escape($item) + '\s*\)'
 		$del = [regex]::new($pat, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
 		$dm = $del.Match($scopeText)
+		while ($dm.Success -and (Test-PathPartBefore $scopeText $dm.Index)) {
+			$dm = $del.Match($scopeText, $dm.Index + 1)
+		}
 		if ($dm.Success) {
+			$base = 0
+			foreach ($ch in $text.Substring(0, $m.Index + $m.Length).ToCharArray()) {
+				if ($ch -eq "`n") { $base++ }
+			}
 			$nl = 0
 			foreach ($ch in $scopeText.Substring(0, $dm.Index).ToCharArray()) {
 				if ($ch -eq "`n") { $nl++ }
 			}
-			$out += $lineNo + $nl
+			$out += $base + $nl + 1
 		}
 	}
 	return ,(@($out | Sort-Object -Unique))
