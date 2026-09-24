@@ -1,5 +1,20 @@
 # История версий
 
+## Обновление плагина AI-EDT до 0.2.55 - 2026-09-24
+
+Изменилась работа плагина (выпуски 0.2.54 и 0.2.55), набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.
+
+- `infobase_admin operation=register_infobase` регистрирует существующую базу (`path` или `connectionString`) в списке EDT и связывает с проектом одним вызовом, с учетными данными базы.
+- Запись списка баз не отвязывает конфигурации запуска (`launchApplicationIds`); клиента `start_client` останавливает `launch_debugger action=terminate`.
+- `update_database` отказывает на `ConfigDumpInfo.xml` чужого формата, `sync_control syncOperation=rebuild_dump_info` перестраивает файл выгрузкой Конфигуратора; `dryRun` отвечает на месте и перечисляет непроверенное в `notCheckedInDryRun`.
+- `sync_control status` по каждой привязке, `mark_synchronized` для базы без базовой линии.
+- `config_io operation=export_infobase_objects` - объекты конфигурации базы в XML Конфигуратора.
+- `mxl_workshop operation=check_print_width`, `settingsWarnings` у записи настроек СКД, сужение обходов `moduleFqn` / `methodName` / `subsystemName`, `find` в справке фасадов.
+- `extension_workshop borrow_object includeChildren`, `adoptedFormAttributes` у пути данных формы расширения, `dependency_graph edgeKinds`.
+- `naparnik` - вопрос 1С:Напарнику из EDT (мост выключен по умолчанию); строка в правиле-маршрутизаторе.
+- `vanessa`: доводы списка (`listKind`, `listName`, `column`, `columnValue`, `buttonTitle`) собирают действие в работающей 1С; кадр после действия - верхнее окно клиента тестирования (`frame-after-action.png`), не снимок экрана.
+- Тяжелые вызовы (обновление базы, в том числе перед запуском клиента, запуск Конфигуратора, создание базы) - не больше трех одновременно, отказ `503` с `Retry-After`.
+
 ## Обновление плагина AI-EDT до 0.2.53 - 2026-09-22
 
 Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее.
