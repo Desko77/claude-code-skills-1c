@@ -11,7 +11,7 @@
 - `config_io operation=export_infobase_objects` - объекты конфигурации базы в XML Конфигуратора.
 - `mxl_workshop operation=check_print_width`, `settingsWarnings` у записи настроек СКД, сужение обходов `moduleFqn` / `methodName` / `subsystemName`, `find` в справке фасадов.
 - `extension_workshop borrow_object includeChildren`, `adoptedFormAttributes` у пути данных формы расширения, `dependency_graph edgeKinds`.
-- `naparnik` - вопрос 1С:Напарнику из EDT (мост выключен по умолчанию); строка в правиле-маршрутизаторе.
+- `naparnik` - вопрос 1С:Напарнику из EDT (мост выключен по умолчанию; в режиме чтения доступен поиск по документации и ИТС в базе знаний сервиса, ответ без текста и без вызовов инструментов - отказ); строка в правиле-маршрутизаторе.
 - `vanessa`: доводы списка (`listKind`, `listName`, `column`, `columnValue`, `buttonTitle`) собирают действие в работающей 1С; кадр после действия - верхнее окно клиента тестирования (`frame-after-action.png`), не снимок экрана.
 - Тяжелые вызовы (обновление базы, в том числе перед запуском клиента, запуск Конфигуратора, создание базы) - не больше трех одновременно, отказ `503` с `Retry-After`.
 
