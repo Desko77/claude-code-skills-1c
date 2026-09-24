@@ -381,10 +381,13 @@ def idx_query(args):
         return 1
 
     if args.Object != '':
-        if args.Object not in objects:
+        # Имена метаданных 1С регистр не различают, поэтому и FQN в запросе - тоже.
+        wanted = args.Object.lower()
+        key = next((name for name in objects if name.lower() == wanted), None)
+        if key is None:
             sys.stderr.write('Object not found: ' + args.Object + '\n')
             return 1
-        sys.stdout.write(json.dumps(objects[args.Object], ensure_ascii=False, indent=2) + '\n')
+        sys.stdout.write(json.dumps(objects[key], ensure_ascii=False, indent=2) + '\n')
         return 0
 
     needle = args.Find.lower()

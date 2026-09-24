@@ -1,0 +1,26 @@
+{
+  "name": "Точечный запрос: файл индекса из пробелов отвергается с диагностикой",
+  "setup": "none",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "index.json",
+        "content": "   \n\t\n"
+      }
+    }
+  ],
+  "params": {
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Object",
+    "Catalog.Контрагенты"
+  ],
+  "noSnapshot": "отказ до записи - фиксировать нечего",
+  "expectError": "Index file could not be read",
+  "expect": {
+    "stderrContains": [
+      "Index file could not be read"
+    ]
+  }
+}
