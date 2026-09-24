@@ -1,0 +1,24 @@
+{
+  "name": "Точечный запрос: без -IndexPath запрос отвергается",
+  "setup": "fixture:sample-config",
+  "preRun": [
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "args_extra": [
+    "-Object",
+    "Catalog.Контрагенты"
+  ],
+  "noSnapshot": "отказ разбора доводов до записи - фиксировать нечего",
+  "expectError": "Query mode requires -IndexPath",
+  "expect": {
+    "stderrContains": [
+      "Query mode requires -IndexPath"
+    ]
+  }
+}

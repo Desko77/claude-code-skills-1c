@@ -1,0 +1,27 @@
+{
+  "name": "Точечный запрос: объекта нет в индексе",
+  "setup": "fixture:sample-config",
+  "preRun": [
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Object",
+    "Catalog.НетТакого"
+  ],
+  "noSnapshot": "отказ до записи - фиксировать нечего",
+  "expectError": "Object not found: Catalog.НетТакого",
+  "expect": {
+    "stderrContains": [
+      "Object not found: Catalog.НетТакого"
+    ]
+  }
+}

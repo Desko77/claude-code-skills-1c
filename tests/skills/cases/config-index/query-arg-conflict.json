@@ -1,0 +1,29 @@
+{
+  "name": "Точечный запрос: довод сборки вместе с запросом отвергается",
+  "setup": "fixture:sample-config",
+  "preRun": [
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Find",
+    "АТ",
+    "-ConfigPath",
+    "{workDir}"
+  ],
+  "noSnapshot": "отказ разбора доводов до записи - фиксировать нечего",
+  "expectError": "-ConfigPath cannot be combined with -Object or -Find",
+  "expect": {
+    "stderrContains": [
+      "-ConfigPath cannot be combined with -Object or -Find"
+    ]
+  }
+}

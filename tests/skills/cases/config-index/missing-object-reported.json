@@ -5,6 +5,8 @@
     "outFile": "index.json"
   },
   "args_extra": [
+    "-ConfigPath",
+    "{workDir}",
     "-Detailed"
   ],
   "noSnapshot": "эталон индекса по этой фикстуре уже закреплен кейсом sample-config; здесь проверяется отчет о разрыве в stdout",

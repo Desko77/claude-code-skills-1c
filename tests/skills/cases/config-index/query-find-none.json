@@ -1,0 +1,32 @@
+{
+  "name": "Точечный запрос: поиск без совпадений дает пустой вывод",
+  "setup": "fixture:sample-config",
+  "preRun": [
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Find",
+    "ШШШ"
+  ],
+  "noSnapshot": "пустой вывод - фиксировать нечего",
+  "expect": {
+    "stdoutNotContains": [
+      "Catalog.",
+      "Enum.",
+      "Document.",
+      "AccumulationRegister.",
+      "CommonModule.",
+      "Subsystem.",
+      "not found"
+    ]
+  }
+}

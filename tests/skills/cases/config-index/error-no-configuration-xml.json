@@ -1,6 +1,10 @@
 {
   "name": "Каталог без Configuration.xml отвергается",
   "setup": "fixture:no-config-xml",
+  "args_extra": [
+    "-ConfigPath",
+    "{workDir}"
+  ],
   "expectError": true,
   "noSnapshot": "навык отказывает до записи - фиксировать нечего",
   "expect": {

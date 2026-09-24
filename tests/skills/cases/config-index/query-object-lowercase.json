@@ -1,0 +1,26 @@
+{
+  "name": "Точечный запрос: FQN в другом регистре находит ту же запись",
+  "setup": "fixture:sample-config",
+  "preRun": [
+    {
+      "script": "config-index/scripts/config-index",
+      "args": {
+        "-ConfigPath": "{workDir}",
+        "-OutFile": "{workDir}/index.json"
+      }
+    }
+  ],
+  "params": {
+    "indexPath": "index.json"
+  },
+  "args_extra": [
+    "-Object",
+    "CATALOG.КонтрагенТЫ"
+  ],
+  "noSnapshot": "навык печатает запись в stdout и в рабочий каталог не пишет - эталон зафиксировал бы выход preRun, а не ответ запроса; эталон снят с ps1-мастера",
+  "expect": {
+    "stdoutContains": [
+      "{\n  \"kind\": \"Catalog\",\n  \"name\": \"Контрагенты\",\n  \"attributes\": {\n    \"ИНН\": [\n      \"string\"\n    ],\n    \"Партнер\": [\n      \"CatalogRef.Партнеры\"\n    ]\n  },\n  \"standardAttributes\": [\n    \"PredefinedDataName\",\n    \"Predefined\",\n    \"Ref\",\n    \"DeletionMark\",\n    \"IsFolder\",\n    \"Owner\",\n    \"Parent\",\n    \"Description\",\n    \"Code\"\n  ],\n  \"tabularSections\": {\n    \"КонтактныеЛица\": {\n      \"attributes\": {\n        \"ФИО\": [\n          \"string\"\n        ],\n        \"Телефон\": [\n          \"string\"\n        ]\n      },\n      \"standardAttributes\": [\n        \"LineNumber\"\n      ]\n    }\n  },\n  \"props\": {\n    \"Hierarchical\": \"false\",\n    \"HierarchyType\": \"HierarchyFoldersAndItems\",\n    \"CodeLength\": \"9\",\n    \"DescriptionLength\": \"25\"\n  }\n}"
+    ]
+  }
+}
