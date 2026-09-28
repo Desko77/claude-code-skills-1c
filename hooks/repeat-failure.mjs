@@ -14,6 +14,7 @@
 //
 // stdin: PostToolUseFailure JSON { session_id, tool_name, tool_input, error, cwd };
 
+import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { claudeHome } from './common/home.mjs';
@@ -73,11 +74,21 @@ export function isOff(env = process.env) {
   return value !== undefined && value !== '' && value !== '0';
 }
 
-// Состояние сессии из файла. Отсутствие, битый JSON и поля не того вида - null, счет
-// тогда начинается заново.
-async function readState(file) {
+// Отпечаток аргументов вызова: разные вызовы одного инструмента с одинаковой первой
+// строкой ошибки (у Bash это часто "Exit code 1") не считаются повтором. Числа
+// нормализуются, чтобы повтор с другим счетчиком или временем оставался повтором.
+export function inputFingerprint(toolInput) {
+  const text = JSON.stringify(toolInput ?? null).replace(/\d+/g, 'N');
+  return createHash('sha1').update(text).digest('hex').slice(0, 12);
+}
+
+// Состояние сессии из файла. Отсутствие, битый JSON, поля не того вида и запись старше
+// STALE_TTL_MS - null, счет тогда начинается заново.
+async function readState(file, now = Date.now()) {
   let raw;
   try {
+    const info = await stat(file);
+    if (now - info.mtimeMs > STALE_TTL_MS) return null;
     raw = await readFile(file, 'utf8');
   } catch {
     return null;
@@ -87,7 +98,7 @@ async function readState(file) {
     if (!data || typeof data !== 'object' || typeof data.signature !== 'string') return null;
     const count = Number(data.count);
     if (!Number.isInteger(count) || count < 1) return null;
-    return { signature: data.signature, count };
+    return { signature: data.signature, key: typeof data.key === 'string' ? data.key : '', count };
   } catch {
     return null;
   }
@@ -140,13 +151,14 @@ export async function processPayload(payload) {
   const tool = typeof payload.tool_name === 'string' ? payload.tool_name : '';
   if (!tool) return { stdout: '', stderr: '' };
   const signature = failureSignature(tool, payload.error);
+  const key = `${signature}|${inputFingerprint(payload.tool_input)}`;
   const file = stateFile(session);
   let count = 1;
   try {
     const prev = await readState(file);
-    if (prev && prev.signature === signature) count = prev.count + 1;
+    if (prev && prev.key === key) count = prev.count + 1;
     await mkdir(stateBase(), { recursive: true });
-    await writeFile(file, `${JSON.stringify({ signature, count })}\n`, 'utf8');
+    await writeFile(file, `${JSON.stringify({ signature, key, count })}\n`, 'utf8');
     await sweepStale(stateBase(), STALE_TTL_MS, Date.now());
   } catch (err) {
     return { stdout: '', stderr: `[repeat-failure] ${err.message}` };

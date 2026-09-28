@@ -148,6 +148,49 @@ test('другое имя инструмента с той же ошибкой -
   }
 });
 
+test('другие аргументы вызова с той же ошибкой - не повтор', async () => {
+  const h = await makeHome();
+  try {
+    runFail(failPayload(SESSION, { tool_input: { command: 'git status' } }), h.home);
+    runFail(failPayload(SESSION, { tool_input: { command: 'npm test' } }), h.home);
+    const third = runFail(failPayload(SESSION, { tool_input: { command: 'make build' } }), h.home);
+    assertEq(third.stdout.trim(), '', 'три разные команды с одной ошибкой не склеиваются');
+    const state = JSON.parse(await readFile(statePath(h.home, SESSION), 'utf8'));
+    assertEq(state.count, 1);
+  } finally {
+    await h.cleanup();
+  }
+});
+
+test('повтор, отличный только числами в аргументах, считается повтором', async () => {
+  const h = await makeHome();
+  try {
+    runFail(failPayload(SESSION, { tool_input: { command: 'sleep 1 && run --port 8081' } }), h.home);
+    runFail(failPayload(SESSION, { tool_input: { command: 'sleep 2 && run --port 8082' } }), h.home);
+    const third = runFail(failPayload(SESSION, { tool_input: { command: 'sleep 3 && run --port 8083' } }), h.home);
+    assert(contextOf(third).includes(`упал ${THRESHOLD} раз подряд`), third.stdout);
+  } finally {
+    await h.cleanup();
+  }
+});
+
+test('запись состояния старше 7 дней не продолжает счет', async () => {
+  const h = await makeHome();
+  try {
+    runFail(failPayload(SESSION), h.home);
+    runFail(failPayload(SESSION), h.home);
+    const file = statePath(h.home, SESSION);
+    const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    await utimes(file, old, old);
+    const next = runFail(failPayload(SESSION), h.home);
+    assertEq(next.stdout.trim(), '', 'устаревшее состояние отброшено');
+    const state = JSON.parse(await readFile(file, 'utf8'));
+    assertEq(state.count, 1);
+  } finally {
+    await h.cleanup();
+  }
+});
+
 test('сессии не мешают друг другу', async () => {
   const h = await makeHome();
   try {
