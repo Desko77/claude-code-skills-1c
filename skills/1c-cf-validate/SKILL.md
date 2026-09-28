@@ -10,7 +10,7 @@ allowed-tools:
 
 # /cf-validate - валидация конфигурации 1С
 
-Проверяет Configuration.xml на структурные ошибки: XML well-formedness, InternalInfo, свойства, enum-значения, ChildObjects, DefaultLanguage, файлы языков, каталоги объектов.
+Проверяет Configuration.xml на структурные ошибки: XML well-formedness, InternalInfo, свойства, enum-значения, ChildObjects, DefaultLanguage, файлы языков, каталоги объектов. `version` файлов в `Ext/` сверяется с `Configuration.xml`.
 
 ## Параметры
 

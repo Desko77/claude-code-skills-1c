@@ -29,6 +29,21 @@ def format_version_known(version):
     return _format_version_rank(FORMAT_VERIFIED_MIN) <= rank <= _format_version_rank(FORMAT_VERIFIED_MAX)
 
 
+# Сообщение о рассинхроне версии формата части и дескриптора.
+def format_version_mismatch_message(part_version, descriptor_version, part_label, descriptor_label):
+    return "Format version '%s' does not match descriptor version '%s' (%s vs %s)" % (part_version, descriptor_version, part_label, descriptor_label)
+
+
+# Версия атрибута version корневого элемента XML.
+def xml_root_version(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        root = etree.parse(path).getroot()
+        return root.get("version") or ""
+    except Exception:
+        return ""
+
 
 MD_NS = "http://v8.1c.ru/8.3/MDClasses"
 V8_NS = "http://v8.1c.ru/8.1/data/core"
@@ -630,6 +645,12 @@ def main():
             check9_ok = False
         else:
             files_checked += 1
+            form_version = xml_root_version(form_xml)
+            desc_label = os.path.basename(resolved_path)
+            if form_version and version and form_version != version:
+                report_error(format_version_mismatch_message(
+                    form_version, version, f"Forms/{fn}/Ext/Form.xml", desc_label))
+                check9_ok = False
 
     for tn in template_names:
         tpl_meta_xml = os.path.join(obj_dir, "Templates", f"{tn}.xml")

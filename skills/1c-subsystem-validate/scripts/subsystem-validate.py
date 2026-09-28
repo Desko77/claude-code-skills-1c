@@ -5,6 +5,23 @@
 import sys, os, argparse, json, re
 from lxml import etree
 
+
+# Сообщение о рассинхроне версии формата части и дескриптора.
+def format_version_mismatch_message(part_version, descriptor_version, part_label, descriptor_label):
+    return "Format version '%s' does not match descriptor version '%s' (%s vs %s)" % (part_version, descriptor_version, part_label, descriptor_label)
+
+
+# Версия атрибута version корневого элемента XML.
+def xml_root_version(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        root = etree.parse(path).getroot()
+        return root.get("version") or ""
+    except Exception:
+        return ""
+
+
 NS = {
     'md':  'http://v8.1c.ru/8.3/MDClasses',
     'v8':  'http://v8.1c.ru/8.1/data/core',
@@ -316,8 +333,13 @@ def main():
         ci_path = os.path.join(parent_dir2, base_name2, 'Ext', 'CommandInterface.xml')
         if os.path.exists(ci_path):
             try:
-                etree.parse(ci_path, etree.XMLParser(remove_blank_text=False))
+                ci_root = etree.parse(ci_path, etree.XMLParser(remove_blank_text=False)).getroot()
                 r.ok('11. CommandInterface: exists, well-formed')
+                ci_version = ci_root.get('version') or ''
+                sub_label = os.path.basename(resolved_path)
+                if ci_version and version and ci_version != version:
+                    r.error(format_version_mismatch_message(
+                        ci_version, version, 'CommandInterface.xml', sub_label))
             except etree.XMLSyntaxError as e:
                 r.warn(f'11. CommandInterface: exists but NOT well-formed: {e}')
         else:

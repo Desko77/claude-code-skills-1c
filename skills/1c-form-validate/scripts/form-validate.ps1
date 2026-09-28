@@ -32,6 +32,27 @@ function Test-FormatVersionKnown {
 	if ($rank -eq 0) { return $false }
 	return ($rank -ge (Get-FormatVersionRank $formatVerifiedMin)) -and ($rank -le (Get-FormatVersionRank $formatVerifiedMax))
 }
+
+# Сообщение о рассинхроне версии формата части и дескриптора.
+function Format-VersionMismatchMessage {
+	param([string]$PartVersion, [string]$DescriptorVersion, [string]$PartLabel, [string]$DescriptorLabel)
+	return "Format version '$PartVersion' does not match descriptor version '$DescriptorVersion' ($PartLabel vs $DescriptorLabel)"
+}
+
+# Версия атрибута version корневого элемента XML.
+function Get-XmlRootVersion {
+	param([string]$Path)
+	if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return "" }
+	try {
+		$doc = New-Object System.Xml.XmlDocument
+		$doc.PreserveWhitespace = $false
+		$doc.Load($Path)
+		if (-not $doc.DocumentElement) { return "" }
+		return [string]$doc.DocumentElement.GetAttribute("version")
+	} catch {
+		return ""
+	}
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Resolve path ---
@@ -86,6 +107,7 @@ $root = $xmlDoc.DocumentElement
 # Walk up from FormPath looking for Configuration.xml → config context
 # No Configuration.xml → external data processor / report (EPF/ERF)
 $script:isConfigContext = $false
+$script:descriptorPath = ""
 $walkDir = Split-Path (Resolve-Path $FormPath) -Parent
 for ($i = 0; $i -lt 15; $i++) {
 	if (-not $walkDir -or $walkDir -eq (Split-Path $walkDir)) { break }
@@ -97,15 +119,19 @@ for ($i = 0; $i -lt 15; $i++) {
 	if ($ownerXml -and (Test-Path $ownerXml)) {
 		$head = Get-Content $ownerXml -TotalCount 5 -Encoding UTF8 -ErrorAction SilentlyContinue
 		if ($head -and (($head -join " ") -match "<(ExternalDataProcessor|ExternalReport)\s")) {
+			$script:descriptorPath = $ownerXml
 			break
 		}
 	}
 	if (Test-Path (Join-Path $walkDir "Configuration.xml")) {
 		$script:isConfigContext = $true
+		$script:descriptorPath = Join-Path $walkDir "Configuration.xml"
 		break
 	}
 	$walkDir = Split-Path $walkDir
 }
+$script:descriptorVersion = Get-XmlRootVersion $script:descriptorPath
+$script:descriptorLabel = if ($script:descriptorPath) { [System.IO.Path]::GetFileName($script:descriptorPath) } else { "" }
 
 # --- Counters ---
 
@@ -176,6 +202,9 @@ if ($root.LocalName -ne "Form") {
 		}
 	} else {
 		Report-Warn "Form version attribute missing"
+	}
+	if ($version -and $script:descriptorVersion -and ($version -ne $script:descriptorVersion)) {
+		Report-Error (Format-VersionMismatchMessage $version $script:descriptorVersion "Form.xml" $script:descriptorLabel)
 	}
 }
 
@@ -648,7 +677,11 @@ if (-not $stopped -and $isExtension) {
 	# 11a. BaseForm version
 	$bfVersion = $baseFormNode.GetAttribute("version")
 	if ($bfVersion) {
-		Report-OK "BaseForm: version=$bfVersion"
+		if ($script:descriptorVersion -and ($bfVersion -ne $script:descriptorVersion)) {
+			Report-Error (Format-VersionMismatchMessage $bfVersion $script:descriptorVersion "BaseForm" $script:descriptorLabel)
+		} else {
+			Report-OK "BaseForm: version=$bfVersion"
+		}
 	} else {
 		Report-Warn "BaseForm: version attribute missing"
 	}

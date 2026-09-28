@@ -1,0 +1,21 @@
+{
+  "name": "Совпадающие версии формата Rights.xml и XML роли",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Goods" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": { "name": "TestRole", "objects": ["Catalog.Goods: Read"] },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rightsPath": "Roles/TestRole/Ext/Rights.xml" },
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": "does not match descriptor version"
+  }
+}

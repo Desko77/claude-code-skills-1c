@@ -11,6 +11,27 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Сообщение о рассинхроне версии формата части и дескриптора.
+function Format-VersionMismatchMessage {
+	param([string]$PartVersion, [string]$DescriptorVersion, [string]$PartLabel, [string]$DescriptorLabel)
+	return "Format version '$PartVersion' does not match descriptor version '$DescriptorVersion' ($PartLabel vs $DescriptorLabel)"
+}
+
+# Версия атрибута version корневого элемента XML.
+function Get-XmlRootVersion {
+	param([string]$Path)
+	if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return "" }
+	try {
+		$doc = New-Object System.Xml.XmlDocument
+		$doc.PreserveWhitespace = $false
+		$doc.Load($Path)
+		if (-not $doc.DocumentElement) { return "" }
+		return [string]$doc.DocumentElement.GetAttribute("version")
+	} catch {
+		return ""
+	}
+}
+
 # --- Resolve path ---
 if (-not [System.IO.Path]::IsPathRooted($SubsystemPath)) {
 	$SubsystemPath = Join-Path (Get-Location).Path $SubsystemPath
@@ -290,6 +311,11 @@ if (-not $script:stopped) {
 		try {
 			[xml]$ciDoc = Get-Content -Path $ciPath -Encoding UTF8
 			Report-OK "11. CommandInterface: exists, well-formed"
+			$ciVersion = $ciDoc.DocumentElement.GetAttribute("version")
+			$subLabel = [System.IO.Path]::GetFileName($resolvedPath)
+			if ($ciVersion -and $version -and ($ciVersion -ne $version)) {
+				Report-Error (Format-VersionMismatchMessage $ciVersion $version "CommandInterface.xml" $subLabel)
+			}
 		} catch {
 			Report-Warn "11. CommandInterface: exists but NOT well-formed: $($_.Exception.Message)"
 		}

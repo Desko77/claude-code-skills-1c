@@ -843,3 +843,5 @@ RLS применяется к правам `Read`, `Update`, `Insert`, `Delete` 
 | 8.3.27 | 2.20 | 2.20 | Только номер версии, структура идентична |
 
 Namespace Rights.xml (`http://v8.1c.ru/8.2/roles`) и namespace метаданных (`http://v8.1c.ru/8.3/MDClasses`) не менялись.
+
+`version` в `Rights.xml` совпадает с `version` в XML роли. Расхождение отвергается при загрузке.

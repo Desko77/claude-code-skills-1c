@@ -1,0 +1,38 @@
+{
+  "name": "Совпадающие версии формата Form и BaseForm с Configuration.xml расширения",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Goods" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Catalogs/Goods.xml", "-FormName": "ItemForm" }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": { "-Name": "ExtTest", "-OutputDir": "{workDir}/cfe", "-ConfigPath": "{workDir}" }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/cfe",
+        "-ConfigPath": "{workDir}",
+        "-Object": "Catalog.Goods.Form.ItemForm"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "cfe/Catalogs/Goods/Forms/ItemForm/Ext/Form/Module.bsl",
+        "content": "\n"
+      }
+    }
+  ],
+  "params": { "extensionPath": "cfe" },
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": "does not match descriptor version"
+  }
+}

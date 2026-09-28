@@ -34,6 +34,27 @@ function Test-FormatVersionKnown {
 	if ($rank -eq 0) { return $false }
 	return ($rank -ge (Get-FormatVersionRank $formatVerifiedMin)) -and ($rank -le (Get-FormatVersionRank $formatVerifiedMax))
 }
+
+# Сообщение о рассинхроне версии формата части и дескриптора.
+function Format-VersionMismatchMessage {
+	param([string]$PartVersion, [string]$DescriptorVersion, [string]$PartLabel, [string]$DescriptorLabel)
+	return "Format version '$PartVersion' does not match descriptor version '$DescriptorVersion' ($PartLabel vs $DescriptorLabel)"
+}
+
+# Версия атрибута version корневого элемента XML.
+function Get-XmlRootVersion {
+	param([string]$Path)
+	if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return "" }
+	try {
+		$doc = New-Object System.Xml.XmlDocument
+		$doc.PreserveWhitespace = $false
+		$doc.Load($Path)
+		if (-not $doc.DocumentElement) { return "" }
+		return [string]$doc.DocumentElement.GetAttribute("version")
+	} catch {
+		return ""
+	}
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Resolve path ---
@@ -834,6 +855,21 @@ foreach ($fi in $script:formList) {
 
 	# Read Form.xml as raw text for BaseForm checks
 	$formRawText = [System.IO.File]::ReadAllText($formXmlFile, [System.Text.Encoding]::UTF8)
+
+	if ($formRawText -match '<Form\b[^>]*\bversion="([^"]+)"') {
+		$formPartVersion = $Matches[1]
+		if ($version -and $formPartVersion -ne $version) {
+			Report-Error (Format-VersionMismatchMessage $formPartVersion $version "$ctx/Form.xml" "Configuration.xml")
+			$check11Ok = $false
+		}
+	}
+	if ($formRawText -match '<BaseForm\b[^>]*\bversion="([^"]+)"') {
+		$basePartVersion = $Matches[1]
+		if ($version -and $basePartVersion -ne $version) {
+			Report-Error (Format-VersionMismatchMessage $basePartVersion $version "$ctx/BaseForm" "Configuration.xml")
+			$check11Ok = $false
+		}
+	}
 
 	if ($formRawText -match '<BaseForm') {
 		# Check BaseForm has version

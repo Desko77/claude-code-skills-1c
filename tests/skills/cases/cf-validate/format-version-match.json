@@ -1,0 +1,16 @@
+{
+  "name": "Совпадающие версии формата Ext/HomePageWorkArea.xml и Configuration.xml",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": "Ext/HomePageWorkArea.xml",
+        "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<HomePageWorkArea xmlns=\"http://v8.1c.ru/8.3/xcf/extrnprops\" xmlns:xr=\"http://v8.1c.ru/8.3/xcf/readable\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.20\">\n\t<WorkingAreaTemplate>TwoColumnsVariableWidth</WorkingAreaTemplate>\n</HomePageWorkArea>\n"
+      }
+    }
+  ],
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": "does not match descriptor version"
+  }
+}

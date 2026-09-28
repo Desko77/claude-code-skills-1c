@@ -1,0 +1,52 @@
+{
+  "name": "Рассинхрон версии формата Form и BaseForm с Configuration.xml расширения",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Goods" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Catalogs/Goods.xml", "-FormName": "ItemForm" }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": { "-Name": "ExtTest", "-OutputDir": "{workDir}/cfe", "-ConfigPath": "{workDir}" }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/cfe",
+        "-ConfigPath": "{workDir}",
+        "-Object": "Catalog.Goods.Form.ItemForm"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "cfe/Catalogs/Goods/Forms/ItemForm/Ext/Form/Module.bsl",
+        "content": "\n"
+      }
+    },
+    {
+      "editFile": "{workDir}/cfe/Catalogs/Goods/Forms/ItemForm/Ext/Form.xml",
+      "replace": "version=\"2.20\"",
+      "with": "version=\"2.17\""
+    },
+    {
+      "editFile": "{workDir}/cfe/Catalogs/Goods/Forms/ItemForm/Ext/Form.xml",
+      "replace": "<BaseForm version=\"2.20\">",
+      "with": "<BaseForm version=\"2.17\">"
+    }
+  ],
+  "params": { "extensionPath": "cfe" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "Format version '2.17' does not match descriptor version '2.20' (Catalog.Goods.Form.ItemForm/Form.xml vs Configuration.xml)",
+      "Format version '2.17' does not match descriptor version '2.20' (Catalog.Goods.Form.ItemForm/BaseForm vs Configuration.xml)"
+    ]
+  },
+  "skipPlatformVerify": "рассинхрон версии формата отвергается платформой при загрузке"
+}

@@ -1,0 +1,27 @@
+{
+  "name": "Рассинхрон версии формата Rights.xml и XML роли",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Goods" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": { "name": "TestRole", "objects": ["Catalog.Goods: Read"] },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "editFile": "{workDir}/Roles/TestRole/Ext/Rights.xml",
+      "replace": "version=\"2.20\"",
+      "with": "version=\"2.17\""
+    }
+  ],
+  "params": { "rightsPath": "Roles/TestRole/Ext/Rights.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": "Format version '2.17' does not match descriptor version '2.20' (Rights.xml vs TestRole.xml)"
+  },
+  "skipPlatformVerify": "рассинхрон версии формата отвергается платформой при загрузке"
+}

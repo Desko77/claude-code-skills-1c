@@ -1,0 +1,32 @@
+{
+  "name": "Совпадающие версии формата формы и Configuration.xml",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Goods" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Catalogs/Goods.xml", "-FormName": "ItemForm" }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Test",
+        "attributes": [{ "name": "Объект", "type": "CatalogObject.Goods", "main": true }],
+        "elements": [{ "type": "InputField", "dataPath": "Объект.Наименование" }]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputPath": "{workDir}/Catalogs/Goods/Forms/ItemForm/Ext/Form.xml"
+      }
+    }
+  ],
+  "params": { "formPath": "Catalogs/Goods/Forms/ItemForm" },
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": "does not match descriptor version"
+  }
+}

@@ -24,6 +24,21 @@ def format_version_known(version):
     return _format_version_rank(FORMAT_VERIFIED_MIN) <= rank <= _format_version_rank(FORMAT_VERIFIED_MAX)
 
 
+# Сообщение о рассинхроне версии формата части и дескриптора.
+def format_version_mismatch_message(part_version, descriptor_version, part_label, descriptor_label):
+    return "Format version '%s' does not match descriptor version '%s' (%s vs %s)" % (part_version, descriptor_version, part_label, descriptor_label)
+
+
+# Версия атрибута version корневого элемента XML.
+def xml_root_version(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        root = etree.parse(path).getroot()
+        return root.get("version") or ""
+    except Exception:
+        return ""
+
 
 NS = {
     'md':  'http://v8.1c.ru/8.3/MDClasses',
@@ -876,6 +891,17 @@ def main():
         # Read Form.xml as raw text for BaseForm checks
         with open(form_xml_file, 'r', encoding='utf-8-sig') as f:
             form_raw_text = f.read()
+
+        form_ver_match = re.search(r'<Form\b[^>]*\bversion="([^"]+)"', form_raw_text)
+        if form_ver_match and version and form_ver_match.group(1) != version:
+            r.error(format_version_mismatch_message(
+                form_ver_match.group(1), version, f'{ctx}/Form.xml', 'Configuration.xml'))
+            check11_ok = False
+        base_ver_match = re.search(r'<BaseForm\b[^>]*\bversion="([^"]+)"', form_raw_text)
+        if base_ver_match and version and base_ver_match.group(1) != version:
+            r.error(format_version_mismatch_message(
+                base_ver_match.group(1), version, f'{ctx}/BaseForm', 'Configuration.xml'))
+            check11_ok = False
 
         if '<BaseForm' in form_raw_text:
             if not re.search(r'<BaseForm[^>]+version=', form_raw_text):

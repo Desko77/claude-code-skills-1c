@@ -24,6 +24,21 @@ def format_version_known(version):
     return _format_version_rank(FORMAT_VERIFIED_MIN) <= rank <= _format_version_rank(FORMAT_VERIFIED_MAX)
 
 
+# Сообщение о рассинхроне версии формата части и дескриптора.
+def format_version_mismatch_message(part_version, descriptor_version, part_label, descriptor_label):
+    return "Format version '%s' does not match descriptor version '%s' (%s vs %s)" % (part_version, descriptor_version, part_label, descriptor_label)
+
+
+# Версия атрибута version корневого элемента XML.
+def xml_root_version(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        root = etree.parse(path).getroot()
+        return root.get("version") or ""
+    except Exception:
+        return ""
+
 
 NS = {
     'md':  'http://v8.1c.ru/8.3/MDClasses',
@@ -558,6 +573,20 @@ def main():
                 r.warn(f'8. Missing directory: {md}')
     else:
         pass  # no ChildObjects
+
+    # --- Check 9: Ext/*.xml version matches Configuration.xml ---
+    ext_dir = os.path.join(config_dir, 'Ext')
+    if os.path.isdir(ext_dir):
+        for name in sorted(os.listdir(ext_dir)):
+            if not name.lower().endswith('.xml'):
+                continue
+            part_path = os.path.join(ext_dir, name)
+            if not os.path.isfile(part_path):
+                continue
+            part_version = xml_root_version(part_path)
+            if part_version and version and part_version != version:
+                r.error(format_version_mismatch_message(
+                    part_version, version, name, 'Configuration.xml'))
 
     # --- Final output ---
     r.finalize(out_file)

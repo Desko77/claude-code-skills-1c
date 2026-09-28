@@ -1039,6 +1039,8 @@ ChildObjects содержат `IntegrationServiceChannel` (каналы) - inlin
 
 В файлах `CommandInterface.xml`, `HomePageWorkArea.xml` атрибут `version` меняется на `2.20`. Структура не изменилась.
 
+Атрибут `version` файла в `Ext/` совпадает с `version` в `Configuration.xml`. Расхождение отвергается при загрузке.
+
 ### 7.6. Форматирование XML
 
 Отличий между версиями нет. Пустой элемент платформа во ВСЕХ замеренных версиях пишет плотно -

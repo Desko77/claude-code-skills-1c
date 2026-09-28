@@ -1,0 +1,19 @@
+{
+  "name": "Совпадающие версии формата формы и корневого XML обработки",
+  "preRun": [
+    {
+      "script": "epf-init/scripts/init",
+      "args": { "-Name": "ExtProc", "-SrcDir": "{workDir}", "-FormatVersion": "2.20" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/ExtProc.xml", "-FormName": "ItemForm" }
+    }
+  ],
+  "params": { "objectPath": "ExtProc.xml" },
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": "does not match descriptor version"
+  },
+  "skipPlatformVerify": "автономная внешняя обработка: верификатор грузит каталог как конфигурацию, EPF так не проверить"
+}
