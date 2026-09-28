@@ -1019,17 +1019,18 @@ def parse_object_entry(entry):
                     rights_order.append(r_name)
                 rights_map[r_name] = {'Value': bool_val, 'Condition': None}
 
-    # 3) Apply RLS conditions
-    if entry.get('rls'):
-        for p_name, p_value in entry['rls'].items():
-            rls_right = translate_right_name(p_name)
-            if rls_right in rights_map:
-                rights_map[rls_right]['Condition'] = str(p_value)
-            else:
-                print(f"WARNING: {obj_name}: RLS for '{rls_right}' but this right is not in the rights list", file=sys.stderr)
-
     # Convert to array (замыкание включенных прав + канонический порядок)
     rights = finish_rights(obj_name, rights_map, rights_order)
+
+    # 3) Apply RLS conditions - после замыкания: право, добавленное замыканием, тоже получает условие
+    if entry.get('rls'):
+        by_name = {r['Name']: r for r in rights}
+        for p_name, p_value in entry['rls'].items():
+            rls_right = translate_right_name(p_name)
+            if rls_right in by_name:
+                by_name[rls_right]['Condition'] = str(p_value)
+            else:
+                print(f"WARNING: {obj_name}: RLS for '{rls_right}' but this right is not in the rights list", file=sys.stderr)
     return {'Name': obj_name, 'Rights': rights}
 
 

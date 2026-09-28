@@ -935,20 +935,21 @@ function Parse-ObjectEntry {
 		}
 	}
 
-	# 3) Apply RLS conditions
+	# Convert to array (замыкание включенных прав + канонический порядок)
+	$rights = Finish-Rights -ObjectName $objName -RightsMap $rightsMap
+
+	# 3) Apply RLS conditions - после замыкания: право, добавленное замыканием, тоже получает условие
 	if ($entry.rls) {
 		foreach ($p in $entry.rls.PSObject.Properties) {
 			$rlsRight = Translate-RightName $p.Name
-			if ($rightsMap.Contains($rlsRight)) {
-				$rightsMap[$rlsRight].Condition = "$($p.Value)"
+			$target = @($rights | Where-Object { $_.Name -eq $rlsRight })
+			if ($target.Count -gt 0) {
+				$target[0].Condition = "$($p.Value)"
 			} else {
 				Write-Warning "${objName}: RLS for '$rlsRight' but this right is not in the rights list"
 			}
 		}
 	}
-
-	# Convert to array (замыкание включенных прав + канонический порядок)
-	$rights = Finish-Rights -ObjectName $objName -RightsMap $rightsMap
 
 	return @{ Name = $objName; Rights = $rights }
 }

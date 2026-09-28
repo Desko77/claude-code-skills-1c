@@ -88,8 +88,8 @@
 | SessionParameter | Get, Set |
 | CommonAttribute | View, Edit |
 
-Пресеты не определены для сервисов (WebService, HTTPService, IntegrationService) и простых типов
-с одним правом: CommonForm, CommonCommand, Subsystem, FilterCriterion.
+Пресеты не определены для сервисов (WebService, HTTPService, IntegrationService). У типов с одним
+правом (CommonForm, CommonCommand, Subsystem, FilterCriterion) есть только `@view`.
 
 Если пресет не определен для типа объекта - предупреждение с подсказкой доступных.
 
@@ -130,7 +130,8 @@
 | Administration (у Configuration) | DataAdministration |
 
 Импликация действует только на права, существующие у типа. Отклонения по типам (замер 8.3.27):
-у ChartOfAccounts блок `*DataHistory*` не тянет Read; у InformationRegister право
+у ChartOfAccounts права блока `*DataHistory*` напрямую не влекут Read (Read появляется только через View:
+ViewDataHistory -> View -> Read, как в выгрузке платформы); у InformationRegister право
 UpdateDataHistoryOfMissingData не влечет ReadDataHistoryOfMissingData.
 
 Права в файле идут в порядке выгрузки платформы, а не в порядке ввода.

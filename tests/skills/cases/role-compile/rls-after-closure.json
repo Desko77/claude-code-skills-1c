@@ -1,0 +1,47 @@
+{
+  "name": "Условие RLS на праве, добавленном замыканием",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "input": {
+    "name": "ТоварыПоУсловию",
+    "objects": [
+      {
+        "name": "Catalog.Товары",
+        "rights": {
+          "Edit": true
+        },
+        "rls": {
+          "Read": "ГДЕ Ссылка.ПометкаУдаления = ЛОЖЬ"
+        }
+      }
+    ]
+  },
+  "validatePath": "Roles/ТоварыПоУсловию",
+  "expect": {
+    "files": [
+      "Roles/ТоварыПоУсловию.xml",
+      "Roles/ТоварыПоУсловию/Ext/Rights.xml"
+    ],
+    "fileContains": [
+      {
+        "file": "Roles/ТоварыПоУсловию/Ext/Rights.xml",
+        "text": [
+          "<restrictionByCondition>",
+          "ГДЕ Ссылка.ПометкаУдаления = ЛОЖЬ"
+        ]
+      }
+    ],
+    "stderrNotContains": "RLS for"
+  }
+}
