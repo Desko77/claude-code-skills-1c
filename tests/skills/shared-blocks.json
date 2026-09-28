@@ -80,6 +80,7 @@
         "вызов": "Assert-InfoBaseMutable",
         "эталон": "1c-db-load-cf",
         "потребители": [
+          "1c-db-cfe-admin",
           "1c-db-load-cf",
           "1c-db-load-dt",
           "1c-db-load-git",
@@ -94,6 +95,7 @@
         "вызов": "assert_info_base_mutable",
         "эталон": "1c-db-load-cf",
         "потребители": [
+          "1c-db-cfe-admin",
           "1c-db-load-cf",
           "1c-db-load-dt",
           "1c-db-load-git",
@@ -135,6 +137,7 @@
         "вызов": "Show-PlatformOutput",
         "эталон": "1c-db-create",
         "потребители": [
+          "1c-db-cfe-admin",
           "1c-db-create",
           "1c-epf-build"
         ]
@@ -145,6 +148,7 @@
         "вызов": "show_platform_output",
         "эталон": "1c-db-create",
         "потребители": [
+          "1c-db-cfe-admin",
           "1c-db-create",
           "1c-epf-build"
         ]

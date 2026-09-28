@@ -1,0 +1,20 @@
+{
+  "name": "WhatIf: check печатает команду проверки расширения",
+  "args_extra": [
+    "check",
+    "-WhatIf",
+    "-InfoBasePath",
+    "C:\\Bases\\Demo",
+    "-Name",
+    "DemoExt",
+    "-V8Path",
+    "C:\\missing\\ibcmd.exe"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "ibcmd infobase config check --extension=DemoExt --db-path=C:\\Bases\\Demo"
+    ],
+    "stdoutNotContains": "Running:"
+  },
+  "noSnapshot": "команда печатается в stdout, файлов на выходе нет"
+}

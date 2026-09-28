@@ -1,0 +1,25 @@
+{
+  "name": "WhatIf: delete печатает команду удаления, пароль скрыт",
+  "args_extra": [
+    "delete",
+    "-WhatIf",
+    "-InfoBasePath",
+    "C:\\Bases\\Demo",
+    "-Name",
+    "DemoExt",
+    "-Password",
+    "topsecret",
+    "-V8Path",
+    "C:\\missing\\ibcmd.exe"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "ibcmd infobase config extension delete --name=DemoExt --db-path=C:\\Bases\\Demo --password=***"
+    ],
+    "stdoutNotContains": [
+      "Running:",
+      "topsecret"
+    ]
+  },
+  "noSnapshot": "команда печатается в stdout, файлов на выходе нет"
+}
