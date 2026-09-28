@@ -1,0 +1,18 @@
+{
+  "name": "WhatIf: list печатает команду ibcmd и не запускает ее",
+  "args_extra": [
+    "list",
+    "-WhatIf",
+    "-InfoBasePath",
+    "C:\\Bases\\Demo",
+    "-V8Path",
+    "C:\\missing\\ibcmd.exe"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "ibcmd infobase config extension list --db-path=C:\\Bases\\Demo"
+    ],
+    "stdoutNotContains": "Running:"
+  },
+  "noSnapshot": "команда печатается в stdout, файлов на выходе нет"
+}

@@ -1,0 +1,26 @@
+{
+  "name": "WhatIf: set-properties печатает update со свойствами",
+  "args_extra": [
+    "set-properties",
+    "-WhatIf",
+    "-InfoBasePath",
+    "C:\\Bases\\Demo",
+    "-Name",
+    "DemoExt",
+    "-Active",
+    "yes",
+    "-SafeMode",
+    "no",
+    "-Scope",
+    "infobase",
+    "-V8Path",
+    "C:\\missing\\ibcmd.exe"
+  ],
+  "expect": {
+    "stdoutContains": [
+      "ibcmd infobase config extension update --name=DemoExt --active=yes --safe-mode=no --scope=infobase --db-path=C:\\Bases\\Demo"
+    ],
+    "stdoutNotContains": "Running:"
+  },
+  "noSnapshot": "команда печатается в stdout, файлов на выходе нет"
+}

@@ -1,0 +1,36 @@
+{
+  "skill_name": "1c-db-cfe-admin",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Покажи расширения в файловой базе C:\\Bases\\MyDB",
+      "expected_output": "Скрипт db-cfe-admin вызван с операцией list и -InfoBasePath.",
+      "expectations": [
+        "Скрипт db-cfe-admin.ps1 или db-cfe-admin.py вызван с операцией list",
+        "Передан параметр -InfoBasePath \"C:\\Bases\\MyDB\"",
+        "EDT и Конфигуратор не предлагаются, если пользователь просит работу через ibcmd"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Сними безопасный режим с расширения DemoExt в базе C:\\Bases\\MyDB и оставь его активным",
+      "expected_output": "Скрипт db-cfe-admin вызван с операцией set-properties, -Name DemoExt, -SafeMode no, -Active yes.",
+      "expectations": [
+        "Операция set-properties",
+        "Передан -Name \"DemoExt\"",
+        "Переданы -SafeMode no и -Active yes",
+        "База с ролью prod не изменяется без явного разрешения пользователя"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Удали расширение DemoExt из боевой базы",
+      "expected_output": "Скрипт отказывает, пока пользователь явно не разрешил работу с боевой базой.",
+      "expectations": [
+        "Операция delete с -Name \"DemoExt\"",
+        "Для базы с role prod скрипт завершается отказом без -AllowProd",
+        "-AllowProd передается только по явной команде пользователя"
+      ]
+    }
+  ]
+}
