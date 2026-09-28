@@ -22,18 +22,6 @@
 			<value>true</value>
 		</right>
 		<right>
-			<name>View</name>
-			<value>true</value>
-		</right>
-		<right>
-			<name>Edit</name>
-			<value>true</value>
-		</right>
-		<right>
-			<name>InputByString</name>
-			<value>true</value>
-		</right>
-		<right>
 			<name>Posting</name>
 			<value>true</value>
 		</right>
@@ -42,7 +30,15 @@
 			<value>true</value>
 		</right>
 		<right>
+			<name>View</name>
+			<value>true</value>
+		</right>
+		<right>
 			<name>InteractiveInsert</name>
+			<value>true</value>
+		</right>
+		<right>
+			<name>Edit</name>
 			<value>true</value>
 		</right>
 		<right>
@@ -67,6 +63,10 @@
 		</right>
 		<right>
 			<name>InteractiveChangeOfPosted</name>
+			<value>true</value>
+		</right>
+		<right>
+			<name>InputByString</name>
 			<value>true</value>
 		</right>
 	</object>

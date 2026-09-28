@@ -1,0 +1,29 @@
+{
+  "name": "Замыкание Edit влечет Read, Update, View у справочника",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "input": {
+    "name": "РедакторТоваров",
+    "objects": [
+      "Catalog.Товары: Edit"
+    ]
+  },
+  "validatePath": "Roles/РедакторТоваров",
+  "expect": {
+    "files": [
+      "Roles/РедакторТоваров.xml",
+      "Roles/РедакторТоваров/Ext/Rights.xml"
+    ]
+  }
+}

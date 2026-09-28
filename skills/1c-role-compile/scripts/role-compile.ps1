@@ -328,7 +328,8 @@ $script:knownRights = @{
 	)
 	"AccumulationRegister" = @("Read","Update","View","Edit","TotalsControl")
 	"AccountingRegister" = @("Read","Update","View","Edit","TotalsControl")
-	"CalculationRegister" = @("Read","View")
+	# Замер 8.3.27: у регистра расчета есть Update и Edit, а TotalsControl - нет.
+	"CalculationRegister" = @("Read","Update","View","Edit")
 	"Constant" = @(
 		"Read","Update","View","Edit",
 		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
@@ -338,12 +339,13 @@ $script:knownRights = @{
 	"ChartOfAccounts" = @(
 		"Read","Insert","Update","Delete","View","Edit","InputByString",
 		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
-		"InteractiveDelete",
+		"InteractiveDelete","InteractiveDeleteMarked",
 		"InteractiveDeletePredefinedData","InteractiveSetDeletionMarkPredefinedData",
 		"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData",
 		"ReadDataHistory","ReadDataHistoryOfMissingData",
 		"UpdateDataHistory","UpdateDataHistoryOfMissingData",
-		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment"
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"ViewDataHistory","EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
 	)
 	"ChartOfCharacteristicTypes" = @(
 		"Read","Insert","Update","Delete","View","Edit","InputByString",
@@ -359,9 +361,13 @@ $script:knownRights = @{
 	"ChartOfCalculationTypes" = @(
 		"Read","Insert","Update","Delete","View","Edit","InputByString",
 		"InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
-		"InteractiveDelete",
+		"InteractiveDelete","InteractiveDeleteMarked",
 		"InteractiveDeletePredefinedData","InteractiveSetDeletionMarkPredefinedData",
-		"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData"
+		"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData",
+		"ReadDataHistory","ViewDataHistory","UpdateDataHistory",
+		"ReadDataHistoryOfMissingData","UpdateDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
 	)
 	"ExchangePlan" = @(
 		"Read","Insert","Update","Delete","View","Edit","InputByString",
@@ -375,12 +381,20 @@ $script:knownRights = @{
 	"BusinessProcess" = @(
 		"Read","Insert","Update","Delete","View","Edit","InputByString",
 		"Start","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
-		"InteractiveDelete","InteractiveActivate","InteractiveStart"
+		"InteractiveDelete","InteractiveDeleteMarked","InteractiveActivate","InteractiveStart",
+		"ReadDataHistory","ReadDataHistoryOfMissingData",
+		"UpdateDataHistory","UpdateDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"ViewDataHistory","EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
 	)
 	"Task" = @(
 		"Read","Insert","Update","Delete","View","Edit","InputByString",
 		"Execute","InteractiveInsert","InteractiveSetDeletionMark","InteractiveClearDeletionMark",
-		"InteractiveDelete","InteractiveActivate","InteractiveExecute"
+		"InteractiveDelete","InteractiveDeleteMarked","InteractiveActivate","InteractiveExecute",
+		"ReadDataHistory","ReadDataHistoryOfMissingData",
+		"UpdateDataHistory","UpdateDataHistoryOfMissingData",
+		"UpdateDataHistorySettings","UpdateDataHistoryVersionComment",
+		"ViewDataHistory","EditDataHistoryVersionComment","SwitchToDataHistoryVersion"
 	)
 	"DataProcessor" = @("Use","View")
 	"Report" = @("Use","View")
@@ -390,12 +404,153 @@ $script:knownRights = @{
 	"FilterCriterion" = @("View")
 	"DocumentJournal" = @("Read","View")
 	"Sequence" = @("Read","Update")
-	"WebService" = @("Use")
-	"HTTPService" = @("Use")
+	# Замер 8.3.27: у самих веб- и HTTP-сервисов прав нет - платформа отбрасывает блок
+	# при загрузке. Право Use живет на операции (WebService...Operation.*) и методе
+	# (HTTPService...URLTemplate.*.Method.*).
+	"WebService" = @()
+	"HTTPService" = @()
+	# Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
+	# платформа требует непустой InternalInfo, который известен только ей.
 	"IntegrationService" = @("Use")
 	"SessionParameter" = @("Get","Set")
 	"CommonAttribute" = @("View","Edit")
 }
+
+# --- Замыкание прав по зависимостям ---
+#
+# Платформа при загрузке роли дописывает права, без которых заданные не действуют:
+# после первой загрузки файл роли и база расходятся, если писать ровно заданный набор.
+# Замер круговым прогоном на 8.3.27.2214: роль с единственным правом R загружается в
+# пустую базу и выгружается обратно; в выгрузке - полный набор, который держит R.
+# Замыкание одноименных прав объединяется (проверено сверкой с выгрузкой полного набора).
+
+$script:globalRightImpl = @{
+	"Insert" = @("Read")
+	"Update" = @("Read")
+	"Delete" = @("Read")
+	"View" = @("Read")
+	"Edit" = @("Read","Update","View")
+	"InputByString" = @("Read","View")
+	"InteractiveInsert" = @("Read","Insert","Update","View","Edit")
+	"InteractiveDelete" = @("Read","Update","Delete","View","Edit")
+	"InteractiveDeleteMarked" = @("Read","Update","Delete","View","Edit")
+	"InteractiveSetDeletionMark" = @("Read","Update","View","Edit")
+	"InteractiveClearDeletionMark" = @("Read","Update","View","Edit")
+	"InteractiveDeletePredefinedData" = @("Read","Update","Delete","View","Edit","InteractiveDelete")
+	"InteractiveSetDeletionMarkPredefinedData" = @("Read","Update","View","Edit","InteractiveSetDeletionMark")
+	"InteractiveClearDeletionMarkPredefinedData" = @("Read","Update","View","Edit","InteractiveClearDeletionMark")
+	"InteractiveDeleteMarkedPredefinedData" = @("Read","Update","Delete","View","Edit","InteractiveDeleteMarked")
+	"Posting" = @("Read","Update")
+	"UndoPosting" = @("Read","Update")
+	"InteractivePosting" = @("Read","Update","Posting","View","Edit")
+	"InteractivePostingRegular" = @("InteractivePosting")
+	"InteractiveUndoPosting" = @("Read","Update","UndoPosting","View","Edit")
+	"InteractiveChangeOfPosted" = @("Read","Update","View","Edit")
+	"ReadDataHistory" = @("Read")
+	"ReadDataHistoryOfMissingData" = @("Read","ReadDataHistory")
+	"UpdateDataHistory" = @("Read","ReadDataHistory")
+	"UpdateDataHistoryOfMissingData" = @("Read","ReadDataHistory","ReadDataHistoryOfMissingData","UpdateDataHistory")
+	"UpdateDataHistoryVersionComment" = @("Read","ReadDataHistory")
+	"ViewDataHistory" = @("Read","View","ReadDataHistory")
+	"EditDataHistoryVersionComment" = @("Read","View","ReadDataHistory","UpdateDataHistoryVersionComment")
+	"SwitchToDataHistoryVersion" = @("Read","View")
+	"Start" = @("Read","Update")
+	"InteractiveStart" = @("Read","Update","Start")
+	"InteractiveActivate" = @("Read","Update")
+	"Execute" = @("Read","Update")
+	"InteractiveExecute" = @("Read","Update","Execute")
+	"Administration" = @("DataAdministration")
+}
+
+# Отклонения от глобальных правил, снятые тем же замером.
+$script:rightImplByType = @{
+	# У плана счетов блок истории данных не тянет за собой Read.
+	"ChartOfAccounts" = @{
+		"ReadDataHistory" = @()
+		"ReadDataHistoryOfMissingData" = @("ReadDataHistory")
+		"UpdateDataHistory" = @("ReadDataHistory")
+		"UpdateDataHistoryOfMissingData" = @("ReadDataHistory","ReadDataHistoryOfMissingData","UpdateDataHistory")
+		"UpdateDataHistoryVersionComment" = @("ReadDataHistory")
+		"ViewDataHistory" = @("View","ReadDataHistory")
+		"EditDataHistoryVersionComment" = @("View","ReadDataHistory","UpdateDataHistoryVersionComment")
+		"SwitchToDataHistoryVersion" = @("View")
+	}
+	# У регистра сведений история отсутствующих данных не входит в замыкание.
+	"InformationRegister" = @{
+		"UpdateDataHistoryOfMissingData" = @("Read","ReadDataHistory","UpdateDataHistory")
+	}
+	# У обработки и отчета просмотр требует использования, а не чтения.
+	"DataProcessor" = @{ "View" = @("Use") }
+	"Report" = @{ "View" = @("Use") }
+}
+
+function Get-ImplFor {
+	param([string]$ObjectType, [string]$Right)
+
+	# Импликации права у конкретного типа: переопределение или глобальные,
+	# пересеченные с правами типа (импликация имеет смысл только для существующих прав).
+	if ($script:rightImplByType.ContainsKey($ObjectType) -and
+		$script:rightImplByType[$ObjectType].ContainsKey($Right)) {
+		return @($script:rightImplByType[$ObjectType][$Right])
+	}
+	$implied = @()
+	if ($script:globalRightImpl.ContainsKey($Right)) { $implied = @($script:globalRightImpl[$Right]) }
+	if (-not $script:knownRights.ContainsKey($ObjectType)) { return $implied }
+	$typeRights = @($script:knownRights[$ObjectType])
+	return @($implied | Where-Object { $_ -in $typeRights })
+}
+
+function Close-Rights {
+	# Транзитивное замыкание включенных прав по зависимостям: платформа при загрузке
+	# дописывает те же права, поэтому замкнутый файл совпадает с выгрузкой после
+	# первой загрузки.
+	param([string]$ObjectType, [string[]]$RightNames)
+
+	$result = [System.Collections.Generic.HashSet[string]]::new([string[]]$RightNames)
+	$frontier = [System.Collections.Generic.Queue[string]]::new()
+	foreach ($r in $RightNames) { $frontier.Enqueue($r) }
+	while ($frontier.Count -gt 0) {
+		$r = $frontier.Dequeue()
+		foreach ($imp in (Get-ImplFor -ObjectType $ObjectType -Right $r)) {
+			if ($result.Add($imp)) { $frontier.Enqueue($imp) }
+		}
+	}
+	return @($result)
+}
+
+# --- Канонический порядок прав ---
+#
+# Платформа выгружает права объекта в одном порядке по всем типам. Порядок снят с
+# выгрузки полного набора и сверен: порядок каждого типа - подпоследовательность этого
+# списка. Права вне списка (незамеренные вложенные виды) идут в конце в порядке ввода.
+$script:rightOrder = @(
+	# Configuration
+	"Administration","DataAdministration","UpdateDataBaseConfiguration",
+	"ExclusiveMode","ActiveUsers","EventLog",
+	"ThinClient","WebClient","MobileClient","ThickClient","ExternalConnection",
+	"Automation","TechnicalSpecialistMode","CollaborationSystemInfoBaseRegistration",
+	"MainWindowModeNormal","MainWindowModeWorkplace","MainWindowModeEmbeddedWorkplace",
+	"MainWindowModeFullscreenWorkplace","MainWindowModeKiosk","AnalyticsSystemClient",
+	"SaveUserData","ConfigurationExtensionsAdministration",
+	"InteractiveOpenExtDataProcessors","InteractiveOpenExtReports","Output",
+	# объектные
+	"Read","Insert","Update","Delete","Posting","UndoPosting",
+	"Use","View","Get","Set",
+	"InteractiveInsert","Edit","InteractiveDelete","InteractiveSetDeletionMark",
+	"InteractiveClearDeletionMark","InteractiveDeleteMarked",
+	"InteractivePosting","InteractivePostingRegular","InteractiveUndoPosting",
+	"InteractiveChangeOfPosted","InputByString",
+	"InteractiveActivate","Start","InteractiveStart","Execute","InteractiveExecute",
+	"InteractiveDeletePredefinedData","InteractiveSetDeletionMarkPredefinedData",
+	"InteractiveClearDeletionMarkPredefinedData","InteractiveDeleteMarkedPredefinedData",
+	"TotalsControl",
+	"ReadDataHistory","ReadDataHistoryOfMissingData","UpdateDataHistory",
+	"UpdateDataHistoryOfMissingData","UpdateDataHistorySettings",
+	"UpdateDataHistoryVersionComment","ViewDataHistory","EditDataHistoryVersionComment",
+	"SwitchToDataHistoryVersion"
+)
+$script:rightOrderPos = @{}
+for ($i = 0; $i -lt $script:rightOrder.Count; $i++) { $script:rightOrderPos[$script:rightOrder[$i]] = $i }
 
 # Nested objects: Attribute, StandardAttribute, TabularSection, Dimension, Resource, AddressingAttribute
 $script:nestedRights = @("View","Edit")
@@ -578,6 +733,7 @@ $script:presets = @{
 		"InformationRegister" = @("Read","Update","View","Edit")
 		"AccumulationRegister" = @("Read","Update","View","Edit")
 		"AccountingRegister" = @("Read","Update","View","Edit")
+		"CalculationRegister" = @("Read","Update","View","Edit")
 		"Constant" = @("Read","Update","View","Edit")
 		"DocumentJournal" = @("Read","View")
 		"Sequence" = @("Read","Update")
@@ -663,6 +819,45 @@ function Validate-RightName {
 
 # --- 6. Parse object entries ---
 
+function Finish-Rights {
+	# Замыкание включенных прав и канонический порядок выдачи. Замыкание применяется
+	# только к объектам верхнего уровня с замеренным набором прав: у вложенных видов
+	# платформа зависимостей не дописывает (замер 8.3.27).
+	param([string]$ObjectName, $RightsMap)
+
+	$objectType = Get-ObjectType $ObjectName
+	$rightsOrder = @($RightsMap.Keys)
+	if (-not (Is-NestedObject $ObjectName) -and $script:knownRights.ContainsKey($objectType)) {
+		$enabled = @($rightsOrder | Where-Object { $RightsMap[$_].Value -eq "true" })
+		$closed = Close-Rights -ObjectType $objectType -RightNames $enabled
+		foreach ($r in $closed) {
+			if (-not $RightsMap.Contains($r)) {
+				$RightsMap[$r] = @{Value="true"; Condition=$null}
+			}
+		}
+		$rightsOrder = @($RightsMap.Keys)
+		foreach ($r in $rightsOrder) {
+			if ($RightsMap[$r].Value -eq "false" -and $closed -contains $r) {
+				$holders = @($closed | Where-Object { $_ -ne $r -and (Get-ImplFor -ObjectType $objectType -Right $_) -contains $r })
+				[Console]::Error.WriteLine("WARNING: ${ObjectName}: право '$r' выключено явно, но право $($holders -join '/') требует его включенным - платформа отбросит весь блок объекта при загрузке")
+			}
+		}
+	}
+	$tailCount = $script:rightOrder.Count
+	$rightsOrder = @($rightsOrder | Sort-Object `
+		{ if ($script:rightOrderPos.ContainsKey($_)) { [int]$script:rightOrderPos[$_] } else { [int]($tailCount + 1) } },`
+		{ [array]::IndexOf($rightsOrder, $_) })
+	$rights = @()
+	foreach ($k in $rightsOrder) {
+		$rights += ,@{
+			Name = $k
+			Value = $RightsMap[$k].Value
+			Condition = $RightsMap[$k].Condition
+		}
+	}
+	return $rights
+}
+
 function Parse-ObjectEntry {
 	param($entry)
 
@@ -689,10 +884,11 @@ function Parse-ObjectEntry {
 			}
 		}
 
-		$rights = @()
+		$rightsMap = [ordered]@{}
 		foreach ($r in $rightNames) {
-			$rights += ,@{Name=$r; Value="true"; Condition=$null}
+			$rightsMap[$r] = @{Value="true"; Condition=$null}
 		}
+		$rights = Finish-Rights -ObjectName $objName -RightsMap $rightsMap
 		return @{ Name = $objName; Rights = $rights }
 	}
 
@@ -739,25 +935,19 @@ function Parse-ObjectEntry {
 		}
 	}
 
-	# 3) Apply RLS conditions
+	# Convert to array (замыкание включенных прав + канонический порядок)
+	$rights = Finish-Rights -ObjectName $objName -RightsMap $rightsMap
+
+	# 3) Apply RLS conditions - после замыкания: право, добавленное замыканием, тоже получает условие
 	if ($entry.rls) {
 		foreach ($p in $entry.rls.PSObject.Properties) {
 			$rlsRight = Translate-RightName $p.Name
-			if ($rightsMap.Contains($rlsRight)) {
-				$rightsMap[$rlsRight].Condition = "$($p.Value)"
+			$target = @($rights | Where-Object { $_.Name -eq $rlsRight })
+			if ($target.Count -gt 0) {
+				$target[0].Condition = "$($p.Value)"
 			} else {
 				Write-Warning "${objName}: RLS for '$rlsRight' but this right is not in the rights list"
 			}
-		}
-	}
-
-	# Convert to array
-	$rights = @()
-	foreach ($k in $rightsMap.Keys) {
-		$rights += ,@{
-			Name = $k
-			Value = $rightsMap[$k].Value
-			Condition = $rightsMap[$k].Condition
 		}
 	}
 
