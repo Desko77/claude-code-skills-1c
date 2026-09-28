@@ -377,8 +377,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="каталог репозитория (по умолчанию текущий)")
         sp.add_argument("--session", required=True, metavar="ИД",
                         help="идентификатор сессии следа")
-        sp.add_argument("--base", default="HEAD", metavar="КОММИТ",
-                        help="базовый коммит (по умолчанию HEAD)")
+        sp.add_argument("--base", default=None, metavar="КОММИТ",
+                        help="базовый коммит (по умолчанию HEAD отметки сессии, иначе HEAD)")
 
     add_parser = sub.add_parser("add", help="записать событие skipped, not_verified, probe")
     common(add_parser)
@@ -409,6 +409,9 @@ def main(argv: list[str] | None = None) -> int:
     render_parser.set_defaults(func=cmd_render)
 
     args = parser.parse_args(argv)
+    # База diffHash без явного --base - HEAD отметки сессии: единая база с хуками
+    # и гейтом завершения хода (tools/quality_events.py, resolve_base).
+    args.base = quality_events.resolve_base(args.repo, args.session, args.base)
     return args.func(args)
 
 

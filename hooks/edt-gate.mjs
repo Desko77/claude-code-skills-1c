@@ -16,6 +16,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, basename, resolve, isAbsolute, parse } from 'node:path';
 import { computeChangeset } from './_changeset.mjs';
 import { claudeHome } from './common/home.mjs';
+import { sessionBase } from './common/quality-gate.mjs';
 import { scopeStatus } from './common/scope.mjs';
 import {
   eventsDir, formatIso, listEventFiles, nowIso, repoTop, sessionDir, stateRoot, writeEvent,
@@ -578,9 +579,11 @@ async function loadHealth(servers, top, refresh) {
   return rows;
 }
 
-async function currentDiff(cwd) {
+// diffHash от базы сессии (HEAD отметки): снятие и probe сравниваются с тем же
+// множеством, что и валидатор гейта завершения хода.
+async function currentDiff(cwd, top, session) {
   try {
-    return (await computeChangeset(cwd, 'HEAD')).diffHash || null;
+    return (await computeChangeset(cwd, await sessionBase(cwd, top, session))).diffHash || null;
   } catch {
     return null;
   }
@@ -668,7 +671,7 @@ export async function processGate(payload) {
   const now = Date.now();
   if (session && await activeWindow(top, session, now)) return allow();
   if (session) {
-    const diffHash = await currentDiff(cwd);
+    const diffHash = await currentDiff(cwd, top, session);
     if (await activeReleaseGate(top, session, diffHash, now)) return allow();
   }
 
@@ -704,7 +707,7 @@ async function writeProbe(top, session, cwd, status, detail) {
     at: nowIso(),
     session,
     producer: 'hook',
-    diffHash: await currentDiff(cwd),
+    diffHash: await currentDiff(cwd, top, session),
     source: 'ai-edt',
     status,
     detail,

@@ -92,6 +92,20 @@ export async function resolveHead(cwd) {
   }
 }
 
+// База diffHash событий сессии: HEAD из события baseline. Все писатели событий
+// и валидатор считают хеш от одной базы, и коммит по ходу сессии не расщепляет
+// прогон: иначе Stop требует прогон от отметки, а хуки и CLI пишут события от
+// текущего HEAD. Нет отметки или отметка без HEAD - текущий HEAD.
+export async function sessionBase(cwd, top, session) {
+  let baseline = null;
+  try {
+    baseline = await findBaseline(top, session);
+  } catch {
+    return 'HEAD';
+  }
+  return baseline && typeof baseline.head === 'string' && baseline.head ? baseline.head : 'HEAD';
+}
+
 // Путь к tools/evidence.py в порядке поиска: CLAUDE_PLUGIN_ROOT/tools/evidence.py,
 // ../tools от каталога хуков (репозиторий набора), домашняя установка
 // <дом>/.claude/tools/1c-skills/evidence.py. null - не найден.

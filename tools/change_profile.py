@@ -364,8 +364,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Профиль правки: класс объема, архетипы, среда, обязательные проверки.")
     parser.add_argument("--repo", type=Path, default=Path("."), metavar="КАТАЛОГ",
                         help="каталог репозитория (по умолчанию текущий)")
-    parser.add_argument("--base", default="HEAD", metavar="КОММИТ",
-                        help="базовый коммит (по умолчанию HEAD)")
+    parser.add_argument("--base", default=None, metavar="КОММИТ",
+                        help="базовый коммит (по умолчанию HEAD отметки сессии, иначе HEAD)")
     parser.add_argument("--session", metavar="ИД",
                         help="идентификатор сессии: пишет событие scope в каталог следа")
     parser.add_argument("--vendor-copy", metavar="ОБОСНОВАНИЕ",
@@ -376,7 +376,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="не писать событие scope")
     args = parser.parse_args(argv)
     try:
-        profile = compute_profile(args.repo, args.base, args.vendor_copy)
+        # База diffHash без явного --base - HEAD отметки сессии: единая база с
+        # хуками и гейтом завершения хода (tools/quality_events.py, resolve_base).
+        base = quality_events.resolve_base(args.repo, args.session, args.base)
+        profile = compute_profile(args.repo, base, args.vendor_copy)
         if args.session and not args.no_write:
             event = {"type": "scope", "at": quality_events.now_iso(),
                      "session": args.session, "diffHash": profile["diffHash"],

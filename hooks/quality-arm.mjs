@@ -12,6 +12,7 @@
 
 import { computeChangeset } from './_changeset.mjs';
 import { nowIso, repoTop, writeEvent } from './common/quality-events.mjs';
+import { sessionBase } from './common/quality-gate.mjs';
 import { scopeStatus } from './common/scope.mjs';
 
 export const ARM_MATCHER =
@@ -49,7 +50,7 @@ export async function processPayload(payload) {
   }
   let diffHash = null;
   try {
-    diffHash = (await computeChangeset(cwd, 'HEAD')).diffHash;
+    diffHash = (await computeChangeset(cwd, await sessionBase(cwd, top, payload.session_id))).diffHash;
   } catch {
     // отметка атрибуции без хеша множества остается валидной
   }

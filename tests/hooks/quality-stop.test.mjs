@@ -7,7 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
-import { git, makeTmpRepo, readEvents, runHook, writeRepoFile } from './helpers.mjs';
+import { git, makeTmpRepo, readEvents, runHook, runPythonSync, writeRepoFile } from './helpers.mjs';
 import { computeChangeset } from '../../hooks/_changeset.mjs';
 import { formatIso, nowIso, writeEvent } from '../../hooks/common/quality-events.mjs';
 import { is1cFile } from '../../hooks/common/quality-gate.mjs';
@@ -63,6 +63,14 @@ async function writeRun(top, session, { required, applied, probe }) {
       source: probe, status: 'ok', detail: 'тест',
     });
   }
+}
+
+// Событие armed как от quality-arm: файл - абсолютный путь, как его посылает Edit.
+async function arm(top, session, rel) {
+  await writeEvent(top, session, {
+    type: 'armed', at: nowIso(), session, producer: 'hook',
+    diffHash: await currentDiffHash(top), file: join(top, rel), tool: 'Edit', toolUseId: null,
+  });
 }
 
 test('is1cFile: расширения 1С и XML выгрузки Конфигуратора', () => {
@@ -285,6 +293,54 @@ test('действующее снятие gate: код 0', async () => {
     });
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 0, `снятие гейта снимает блок: ${r.stderr}`);
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('коммит посреди сессии: прогон от базы отметки закрывает гейт', async () => {
+  const EDT_PROJECT = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    + '<projectDescription><name>proj</name><natures>'
+    + '<nature>com._1c.g5.v8.dt.core.v8.nature</nature>'
+    + '</natures></projectDescription>\n';
+  const ctx = await makeTmpRepo();
+  try {
+    await writeRepoFile(ctx.top, 'proj/.project', EDT_PROJECT);
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE);
+    git(ctx.top, 'add', '-A');
+    git(ctx.top, 'commit', '-q', '-m', 'base', '--no-gpg-sign', '--no-verify');
+    await startSession(ctx.top, 'stop-commit-1');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-commit-1', 'proj/src/Module.bsl');
+    git(ctx.top, 'add', '-A');
+    git(ctx.top, 'commit', '-q', '-m', 'правка', '--no-gpg-sign', '--no-verify');
+
+    // Профиль без явного --base (как в подсказке блока): база - HEAD отметки.
+    const profile = runPythonSync(
+      ['tools/change_profile.py', '--repo', ctx.top, '--session', 'stop-commit-1']);
+    assertEq(profile.status, 0, profile.stderr);
+
+    // applied от хука после коммита: diffHash тоже от базы отметки.
+    for (const [tool, check, response] of [
+      ['mcp__1c-edt__code_review', 'code_review@edt', 'Ошибок нет'],
+      ['mcp__naparnik__ask_1c_ai', 'ask_1c_ai@edt', 'Замечаний нет. Код корректен.'],
+    ]) {
+      const r = runHook('evidence-writer.mjs', {
+        hook_event_name: 'PostToolUse', tool_name: tool,
+        tool_input: { modulePath: 'proj/src/Module.bsl' },
+        tool_response: response, tool_use_id: `toolu_commit_${check}`,
+        cwd: ctx.top, session_id: 'stop-commit-1',
+      });
+      assertEq(r.status, 0, r.stderr);
+    }
+    for (const source of ['ai-edt', 'naparnik']) {
+      const probe = runPythonSync(
+        ['tools/evidence.py', 'add', '--repo', ctx.top, '--session', 'stop-commit-1',
+          '--type', 'probe', '--source', source, '--status', 'ok']);
+      assertEq(probe.status, 0, probe.stderr);
+    }
+    const r = stop(ctx.top, 'stop-commit-1');
+    assertEq(r.status, 0, `коммит в сессии не блокирует навсегда: ${r.stderr}`);
   } finally {
     await ctx.cleanup();
   }
