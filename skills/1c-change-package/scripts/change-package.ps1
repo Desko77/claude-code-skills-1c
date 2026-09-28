@@ -1,8 +1,13 @@
 ﻿# change-package v1.0 - Build a manual-change package for 1C modules edited outside the sources
 # Source: https://github.com/Desko77/claude-code-skills-1c
 # Строит пакет ручного внесения правок по двум версиям модулей 1С: блоки "Найти" и
-# "Заменить целиком на" по методам, добавленные и удаленные методы, изменения вне методов
+# "Заменить целиком на" по методам, добавленные и удаленные методы, участки вне методов
 # и список файлов для правки руками в Конфигураторе.
+#
+# Блок "Найти" обязан встречаться в старой версии ровно один раз и быть непрерывным куском
+# модуля. Там, где такой фрагмент построить нельзя - разъехались участки вне методов,
+# метод разобран неоднозначно, добавлять метод не к чему - пакет предлагает замену модуля
+# целиком: один пункт с полным текстом обеих версий.
 param(
 	[string]$Before = "",
 	[string]$After = "",
@@ -80,11 +85,21 @@ $script:rootModuleTitles = @{
 }
 
 # Ключевые слова читаются в обоих написаниях: модуль может быть русским или английским.
-$script:declaration = [regex]'^[ \t]*(Процедура|Procedure|Функция|Function)[ \t]+(\w+)[ \t]*\('
+# Асинхронный метод объявляется словом Асинх (Async) перед ключевым словом метода.
+$script:declaration = [regex]'^[ \t]*(?:(?:Асинх|Async)[ \t]+)?(Процедура|Procedure|Функция|Function)[ \t]+(\w+)[ \t]*\('
 $script:functionWords = @("Функция", "Function")
 $script:endProcWords = @("КонецПроцедуры", "EndProcedure")
 $script:endFuncWords = @("КонецФункции", "EndFunction")
-$script:counters = @("changed", "added", "removed", "outside")
+
+# Директивы препроцессора: ветка #Если охватывает метод и дает ему второе закрывающее слово.
+$script:ifWords = @("#Если", "#If")
+$script:endIfWords = @("#КонецЕсли", "#EndIf")
+
+# Привязка участка вне методов: до первого метода, после последнего, после названного.
+$script:startAnchor = "start"
+$script:endAnchor = "end"
+
+$script:counters = @("changed", "added", "removed", "outside", "replaced")
 
 # --- Чтение файлов ---
 
@@ -159,24 +174,86 @@ function Test-PkgAttachment([string]$line) {
 	return $text.StartsWith("//", [System.StringComparison]::Ordinal)
 }
 
+# Начало метода: примыкающие комментарии, директивы и ветка препроцессора над объявлением.
+# Пустая строка между двумя примыкающими строками границу не рвет: иначе комментарий
+# отрывался бы от метода из-за одной пустой строки и показывался отдельным пунктом.
+function Get-PkgMethodStart($lines, [int]$decl) {
+	$start = $decl
+	$branches = 0
+	while ($start -gt 0) {
+		$previous = [string]$lines[$start - 1]
+		if (Test-PkgAttachment $previous) { $start--; continue }
+		if (Test-PkgOpenWord $previous $script:ifWords) { $branches++; $start--; continue }
+		if ($previous.Trim().Length -eq 0) {
+			$above = $start - 1
+			while ($above -ge 0 -and ([string]$lines[$above]).Trim().Length -eq 0) { $above-- }
+			if ($above -ge 0 -and (Test-PkgOpenWord ([string]$lines[$above]) $script:ifWords)) {
+				$branches++
+				$start = $above
+				continue
+			}
+			if ($above -ge 0 -and (Test-PkgAttachment ([string]$lines[$above]))) {
+				$start = $above
+				continue
+			}
+		}
+		break
+	}
+	return [pscustomobject]@{ Start = $start; Branches = $branches }
+}
+
+# Конец метода: закрывающее слово с учетом веток препроцессора. Ветки #Если/#Иначе дают
+# методу два закрывающих слова, поэтому метод кончается строкой #КонецЕсли, закрывшей
+# последнюю ветку. Resolved = $false - границы метода определить нельзя.
+function Get-PkgMethodEnd($lines, [int]$decl, [int]$branches, [string[]]$endWords, [string[]]$otherWords) {
+	$depth = $branches
+	$inner = -1
+	$index = $decl + 1
+	while ($index -lt $lines.Count) {
+		$line = [string]$lines[$index]
+		if (Test-PkgOpenWord $line $script:ifWords) {
+			$depth++
+		} elseif (Test-PkgOpenWord $line $script:endIfWords) {
+			$depth--
+			if ($depth -lt 0) { return [pscustomobject]@{ End = $lines.Count - 1; Resolved = $false } }
+			if ($depth -eq 0) {
+				if ($inner -lt 0) { return [pscustomobject]@{ End = $lines.Count - 1; Resolved = $false } }
+				return [pscustomobject]@{ End = $index; Resolved = $true }
+			}
+		} elseif (Test-PkgOpenWord $line $endWords) {
+			if ($depth -eq 0) { return [pscustomobject]@{ End = $index; Resolved = $true } }
+			$inner = $index
+		} elseif (Test-PkgOpenWord $line $otherWords) {
+			return [pscustomobject]@{ End = $lines.Count - 1; Resolved = $false }
+		}
+		$index++
+	}
+	return [pscustomobject]@{ End = $lines.Count - 1; Resolved = $false }
+}
+
 # Методы модуля в порядке следования: имя, границы и ключ сопоставления версий.
 # Ключ - имя без учета регистра плюс номер повторения: одноименные методы в BSL
-# невозможны, но битый модуль не должен из-за этого терять методы.
+# невозможны, но битый модуль не должен из-за этого терять методы. Parsed = $false -
+# хоть один метод разобрать не удалось.
 function Get-PkgMethods($lines) {
 	$methods = New-Object System.Collections.Generic.List[psobject]
 	$seen = @{}
 	$index = 0
+	$parsed = $true
 	while ($index -lt $lines.Count) {
 		$match = $script:declaration.Match([string]$lines[$index])
 		if (-not $match.Success) { $index++; continue }
+		$keyword = $match.Groups[1].Value
 		$name = $match.Groups[2].Value
-		$start = $index
-		while ($start -gt 0 -and (Test-PkgAttachment ([string]$lines[$start - 1]))) { $start-- }
+		$startInfo = Get-PkgMethodStart $lines $index
 		$endWords = $script:endProcWords
-		if (Test-PkgWord $match.Groups[1].Value $script:functionWords) { $endWords = $script:endFuncWords }
-		$end = $index + 1
-		while ($end -lt $lines.Count -and -not (Test-PkgOpenWord ([string]$lines[$end]) $endWords)) { $end++ }
-		if ($end -ge $lines.Count) { $end = $lines.Count - 1 }
+		$otherWords = $script:endFuncWords
+		if (Test-PkgWord $keyword $script:functionWords) {
+			$endWords = $script:endFuncWords
+			$otherWords = $script:endProcWords
+		}
+		$endInfo = Get-PkgMethodEnd $lines $index $startInfo.Branches $endWords $otherWords
+		if (-not $endInfo.Resolved) { $parsed = $false }
 		$folded = $name.ToLowerInvariant()
 		$repeat = 0
 		if ($seen.ContainsKey($folded)) { $repeat = $seen[$folded] }
@@ -184,31 +261,89 @@ function Get-PkgMethods($lines) {
 		$methods.Add([pscustomobject]@{
 			Key = $folded + "|" + $repeat
 			Name = $name
-			Start = $start
+			Start = $startInfo.Start
 			Decl = $index
-			End = $end
+			End = $endInfo.End
 		})
-		$index = $end + 1
+		$index = $endInfo.End + 1
 	}
-	return ,$methods.ToArray()
+	return [pscustomobject]@{ Methods = $methods.ToArray(); Parsed = $parsed }
 }
 
 # Текст метода целиком: директивы и комментарий перед объявлением, тело, закрывающее слово.
 function Get-PkgMethodText($method, $lines) {
-	return $lines[$method.Start..$method.End]
+	return @($lines[$method.Start..$method.End])
 }
 
-# Строки модуля, не попавшие ни в один метод: переменные модуля и основной код.
-function Get-PkgOutsideText($lines, $methods) {
+# В модуле есть методы с повторяющимся именем: разбор по именам ненадежен.
+function Test-PkgRepeats($methods) {
+	$names = New-Object System.Collections.Generic.HashSet[string]
+	$total = 0
+	foreach ($method in $methods) {
+		$total++
+		[void]$names.Add($method.Key.Split("|")[0])
+	}
+	return ($names.Count -ne $total)
+}
+
+# Строки без пустых строк в конце: ровно то, что попадает в блок пакета.
+function Format-PkgTrimBlank($lines) {
+	$body = New-Object System.Collections.Generic.List[string]
+	foreach ($line in $lines) { $body.Add([string]$line) }
+	while ($body.Count -gt 0 -and $body[$body.Count - 1].Trim().Length -eq 0) { $body.RemoveAt($body.Count - 1) }
+	return ,$body.ToArray()
+}
+
+# Сколько раз блок встречается в модуле: блок "Найти" обязан быть единственным.
+function Get-PkgCountBlock($lines, $block) {
+	$body = Format-PkgTrimBlank $block
+	if ($body.Count -eq 0) { return 0 }
+	$total = 0
+	for ($start = 0; $start -le $lines.Count - $body.Count; $start++) {
+		$same = $true
+		for ($offset = 0; $offset -lt $body.Count; $offset++) {
+			if ([string]$lines[$start + $offset] -cne [string]$body[$offset]) { $same = $false; break }
+		}
+		if ($same) { $total++ }
+	}
+	return $total
+}
+
+# Привязка участка вне методов: начало модуля, конец модуля или метод перед ним.
+function Get-PkgRunAnchor($start, $methods) {
+	$previous = $null
+	$following = 0
+	foreach ($method in $methods) {
+		if ($method.End -lt $start) { $previous = $method }
+		if ($method.Start -gt $start) { $following++ }
+	}
+	if ($null -eq $previous) { return [pscustomobject]@{ Key = $script:startAnchor; Label = "в начале модуля" } }
+	if ($following -eq 0) { return [pscustomobject]@{ Key = $script:endAnchor; Label = "в конце модуля" } }
+	return [pscustomobject]@{ Key = "after:" + $previous.Key; Label = "после метода " + $previous.Name }
+}
+
+# Смежные участки модуля вне методов, каждый со своей привязкой. Участок - непрерывный
+# кусок модуля: ровно то, что человек найдет в Конфигураторе одним поиском. Пустые участки
+# в список не попадают: перестановка пустых строк правкой не считается, а привязка такого
+# участка меняется от добавления любого метода.
+function Get-PkgOutsideRuns($lines, $methods) {
 	$covered = New-Object System.Collections.Generic.HashSet[int]
 	foreach ($method in $methods) {
 		for ($i = $method.Start; $i -le $method.End; $i++) { [void]$covered.Add($i) }
 	}
-	$out = New-Object System.Collections.Generic.List[string]
-	for ($i = 0; $i -lt $lines.Count; $i++) {
-		if (-not $covered.Contains($i)) { $out.Add([string]$lines[$i]) }
+	$runs = New-Object System.Collections.Generic.List[psobject]
+	$index = 0
+	while ($index -lt $lines.Count) {
+		if ($covered.Contains($index)) { $index++; continue }
+		$first = $index
+		while ($index -lt $lines.Count -and -not $covered.Contains($index)) { $index++ }
+		$block = New-Object System.Collections.Generic.List[string]
+		for ($i = $first; $i -lt $index; $i++) { $block.Add([string]$lines[$i]) }
+		if ((Get-PkgNormalized $block.ToArray()).Count -eq 0) { continue }
+		$anchor = Get-PkgRunAnchor $first $methods
+		$runs.Add([pscustomobject]@{ Key = $anchor.Key; Label = $anchor.Label; Lines = $block.ToArray() })
 	}
-	return ,$out.ToArray()
+	return ,$runs.ToArray()
 }
 
 # --- Описание модуля человеческим языком ---
@@ -310,9 +445,76 @@ function New-PkgSingle([string]$head, [string]$caption, $lines) {
 	return ,$out.ToArray()
 }
 
-# Пункты пакета по одному модулю: измененные методы, добавленные, удаленные, код вне методов.
-function New-PkgModuleSection([string]$rel, $beforeLines, $afterLines, $beforeMethods, $afterMethods) {
+# Заголовок пункта добавления метода: привязка к методу, который есть в старой версии.
+# Заголовок "в начало модуля" поставил бы метод выше переменных модуля и вне веток
+# препроцессора, поэтому место задает соседний метод старой версии. Пустой возврат -
+# привязать не к чему, модуль придется заменять целиком.
+function Get-PkgAddedHead($afterMethods, [int]$position, $beforeKeys) {
+	$name = $afterMethods[$position].Name
+	for ($index = $position + 1; $index -lt $afterMethods.Count; $index++) {
+		if ($beforeKeys.Contains($afterMethods[$index].Key)) {
+			return "### Добавить метод " + $name + " перед методом " + $afterMethods[$index].Name
+		}
+	}
+	for ($index = $position - 1; $index -ge 0; $index--) {
+		if ($beforeKeys.Contains($afterMethods[$index].Key)) {
+			return "### Добавить метод " + $name + " после метода " + $afterMethods[$index].Name
+		}
+	}
+	return ""
+}
+
+# Пункты по участкам вне методов; $null - участки версий друг другу не отвечают.
+function Get-PkgOutsideItems($beforeLines, $afterLines, $beforeMethods, $afterMethods) {
+	$oldByKey = @{}
+	foreach ($run in (Get-PkgOutsideRuns $beforeLines $beforeMethods)) {
+		$oldByKey[$run.Key] = $run
+	}
+	$newRuns = Get-PkgOutsideRuns $afterLines $afterMethods
+	$newRuns = @($newRuns)
+	if ($oldByKey.Count -ne $newRuns.Count) { return $null }
 	$items = New-Object System.Collections.Generic.List[string]
+	foreach ($run in $newRuns) {
+		if (-not $oldByKey.ContainsKey($run.Key)) { return $null }
+		$old = $oldByKey[$run.Key]
+		if (((Get-PkgNormalized $old.Lines) -join "`n") -ceq ((Get-PkgNormalized $run.Lines) -join "`n")) { continue }
+		if ((Get-PkgCountBlock $beforeLines $old.Lines) -ne 1) { return $null }
+		$items.AddRange([string[]](New-PkgChange ("### Изменить код вне методов " + $run.Label) $old.Lines $run.Lines))
+	}
+	return ,$items.ToArray()
+}
+
+# Сообщение о перестановке методов: блоков замены у перестановки нет.
+function Get-PkgReorderNote {
+	return ,([string[]](
+		"### Порядок методов изменен",
+		"",
+		"Методы расположены в другом порядке, чем в старой версии: перенести целиком, без правки текста."))
+}
+
+# Порядок общих методов в новой версии отличается от старой.
+function Test-PkgReordered($beforeMethods, $afterMethods) {
+	$afterKeys = New-Object System.Collections.Generic.HashSet[string]
+	foreach ($method in $afterMethods) { [void]$afterKeys.Add($method.Key) }
+	$beforeKeys = New-Object System.Collections.Generic.HashSet[string]
+	foreach ($method in $beforeMethods) { [void]$beforeKeys.Add($method.Key) }
+	$oldOrder = New-Object System.Collections.Generic.List[string]
+	foreach ($method in $beforeMethods) {
+		if ($afterKeys.Contains($method.Key)) { $oldOrder.Add($method.Key) }
+	}
+	$newOrder = New-Object System.Collections.Generic.List[string]
+	foreach ($method in $afterMethods) {
+		if ($beforeKeys.Contains($method.Key)) { $newOrder.Add($method.Key) }
+	}
+	return (($oldOrder -join "`n") -cne ($newOrder -join "`n"))
+}
+
+# Пункты по одному модулю: измененные методы, добавленные, удаленные, участки вне методов.
+# $null - однозначных фрагментов "Найти" не построить, нужна замена модуля целиком.
+function Get-PkgSectionItems($beforeLines, $afterLines, $beforeMethods, $afterMethods) {
+	$items = New-Object System.Collections.Generic.List[string]
+	$beforeKeys = New-Object System.Collections.Generic.HashSet[string]
+	foreach ($method in $beforeMethods) { [void]$beforeKeys.Add($method.Key) }
 	$afterKeys = New-Object System.Collections.Generic.HashSet[string]
 	foreach ($method in $afterMethods) { [void]$afterKeys.Add($method.Key) }
 	$beforeByKey = @{}
@@ -321,33 +523,65 @@ function New-PkgModuleSection([string]$rel, $beforeLines, $afterLines, $beforeMe
 	for ($position = 0; $position -lt $afterMethods.Count; $position++) {
 		$method = $afterMethods[$position]
 		if (-not $beforeByKey.ContainsKey($method.Key)) {
-			$head = "### Добавить метод " + $method.Name + " в начало модуля"
-			if ($position -gt 0) {
-				$head = "### Добавить метод " + $method.Name + " после метода " + $afterMethods[$position - 1].Name
-			}
-			$items.AddRange((New-PkgSingle $head "Текст метода:" (Get-PkgMethodText $method $afterLines)))
+			$head = Get-PkgAddedHead $afterMethods $position $beforeKeys
+			if (-not $head) { return $null }
+			$items.AddRange([string[]](New-PkgSingle $head "Текст метода:" (Get-PkgMethodText $method $afterLines)))
 			continue
 		}
 		$old = $beforeByKey[$method.Key]
-		$oldText = Get-PkgNormalized (Get-PkgMethodText $old $beforeLines)
-		$newText = Get-PkgNormalized (Get-PkgMethodText $method $afterLines)
-		if (($oldText -join "`n") -cne ($newText -join "`n")) {
-			$items.AddRange((New-PkgChange ("### Изменить метод " + $method.Name) (Get-PkgMethodText $old $beforeLines) (Get-PkgMethodText $method $afterLines)))
-		}
+		$oldText = Get-PkgMethodText $old $beforeLines
+		$newText = Get-PkgMethodText $method $afterLines
+		if (((Get-PkgNormalized $oldText) -join "`n") -ceq ((Get-PkgNormalized $newText) -join "`n")) { continue }
+		if ((Get-PkgCountBlock $beforeLines $oldText) -ne 1) { return $null }
+		$items.AddRange([string[]](New-PkgChange ("### Изменить метод " + $method.Name) $oldText $newText))
 	}
 
 	foreach ($method in $beforeMethods) {
-		if (-not $afterKeys.Contains($method.Key)) {
-			$items.AddRange((New-PkgSingle ("### Удалить метод " + $method.Name) "Удалить целиком:" (Get-PkgMethodText $method $beforeLines)))
-		}
+		if ($afterKeys.Contains($method.Key)) { continue }
+		$text = Get-PkgMethodText $method $beforeLines
+		if ((Get-PkgCountBlock $beforeLines $text) -ne 1) { return $null }
+		$items.AddRange([string[]](New-PkgSingle ("### Удалить метод " + $method.Name) "Удалить целиком:" $text))
 	}
 
-	$oldOutside = Get-PkgOutsideText $beforeLines $beforeMethods
-	$newOutside = Get-PkgOutsideText $afterLines $afterMethods
-	if (((Get-PkgNormalized $oldOutside) -join "`n") -cne ((Get-PkgNormalized $newOutside) -join "`n")) {
-		$items.AddRange((New-PkgChange "### Изменить код вне методов" $oldOutside $newOutside))
-	}
+	$outside = Get-PkgOutsideItems $beforeLines $afterLines $beforeMethods $afterMethods
+	if ($null -eq $outside) { return $null }
+	$items.AddRange([string[]]($outside))
 
+	if (Test-PkgReordered $beforeMethods $afterMethods) { $items.AddRange([string[]](Get-PkgReorderNote)) }
+	return ,$items.ToArray()
+}
+
+# Пункт замены модуля целиком: один блок вместо разрозненных фрагментов.
+function Get-PkgWholeModuleItems($beforeLines, $afterLines) {
+	return ,(New-PkgChange "### Заменить модуль целиком" $beforeLines $afterLines)
+}
+
+# Счетчики пунктов в готовом разделе модуля.
+function Get-PkgCounts($section) {
+	$counts = @{}
+	foreach ($name in $script:counters) { $counts[$name] = 0 }
+	foreach ($line in $section) {
+		if ($line.StartsWith("### Изменить метод", [System.StringComparison]::Ordinal)) { $counts["changed"]++ }
+		elseif ($line.StartsWith("### Добавить метод", [System.StringComparison]::Ordinal)) { $counts["added"]++ }
+		elseif ($line.StartsWith("### Удалить метод", [System.StringComparison]::Ordinal)) { $counts["removed"]++ }
+		elseif ($line.StartsWith("### Изменить код вне методов", [System.StringComparison]::Ordinal)) { $counts["outside"]++ }
+		elseif ($line.StartsWith("### Заменить модуль целиком", [System.StringComparison]::Ordinal)) { $counts["replaced"]++ }
+	}
+	return $counts
+}
+
+# Раздел модуля: разбор методов обеих версий и отрисовка пунктов одним вызовом, чтобы
+# порядок пунктов не разъезжался с подсчетом.
+function New-PkgSection([string]$rel, $beforeLines, $afterLines) {
+	$before = Get-PkgMethods $beforeLines
+	$after = Get-PkgMethods $afterLines
+	$items = $null
+	if ($before.Parsed -and $after.Parsed -and
+		-not (Test-PkgRepeats $before.Methods) -and -not (Test-PkgRepeats $after.Methods)) {
+		$items = Get-PkgSectionItems $beforeLines $afterLines $before.Methods $after.Methods
+	}
+	if ($null -eq $items) { $items = Get-PkgWholeModuleItems $beforeLines $afterLines }
+	$items = @($items)
 	if ($items.Count -eq 0) { return ,([string[]]@()) }
 	$section = New-Object System.Collections.Generic.List[string]
 	$head = "## " + $rel
@@ -355,38 +589,27 @@ function New-PkgModuleSection([string]$rel, $beforeLines, $afterLines, $beforeMe
 	if ($title.Length -gt 0) { $head = $head + " - " + $title }
 	$section.Add($head)
 	$section.Add("")
-	$section.AddRange($items)
+	$section.AddRange([string[]]$items)
 	return ,$section.ToArray()
-}
-
-# Счетчики пунктов в готовом разделе модуля.
-function Get-PkgCounts($section) {
-	$counts = @{ changed = 0; added = 0; removed = 0; outside = 0 }
-	foreach ($line in $section) {
-		if ($line.StartsWith("### Изменить метод", [System.StringComparison]::Ordinal)) { $counts["changed"]++ }
-		elseif ($line.StartsWith("### Добавить метод", [System.StringComparison]::Ordinal)) { $counts["added"]++ }
-		elseif ($line.StartsWith("### Удалить метод", [System.StringComparison]::Ordinal)) { $counts["removed"]++ }
-		elseif ($line.StartsWith("### Изменить код вне методов", [System.StringComparison]::Ordinal)) { $counts["outside"]++ }
-	}
-	return $counts
-}
-
-# Раздел модуля: парсит методы обеих версий и отрисовывает пункты.
-function New-PkgSection([string]$rel, $beforeLines, $afterLines) {
-	$beforeMethods = Get-PkgMethods $beforeLines
-	$afterMethods = Get-PkgMethods $afterLines
-	return ,(New-PkgModuleSection $rel $beforeLines $afterLines $beforeMethods $afterMethods)
 }
 
 # Нулевые счетчики пакета.
 function New-PkgTotals {
-	return @{ modules = 0; changed = 0; added = 0; removed = 0; outside = 0 }
+	$totals = @{ modules = 0 }
+	foreach ($name in $script:counters) { $totals[$name] = 0 }
+	return $totals
 }
 
 # Прибавить счетчики одного модуля к счетчикам пакета.
 function Add-PkgCounts($totals, $counts) {
 	foreach ($name in $script:counters) { $totals[$name] = $totals[$name] + $counts[$name] }
 	return $totals
+}
+
+# Хвост строки счетчиков: модулей, заменяемых целиком. Ноль в отчет не попадает.
+function Format-PkgReplacedPart($totals) {
+	if (-not $totals["replaced"]) { return "" }
+	return ", замен целиком: " + $totals["replaced"]
 }
 
 # Пакет markdown целиком: шапка со счетчиками, разделы модулей, файлы для ручной правки.
@@ -403,7 +626,7 @@ function Format-PkgPackage([string]$beforeArg, [string]$afterArg, $sections, $ma
 	}
 	$out.Add("Модулей с правками: " + $totals["modules"] + ", методов изменено: " + $totals["changed"] +
 		", добавлено: " + $totals["added"] + ", удалено: " + $totals["removed"] +
-		", правок вне методов: " + $totals["outside"])
+		", правок вне методов: " + $totals["outside"] + (Format-PkgReplacedPart $totals))
 	if ($manual.Count -gt 0) { $out.Add("Файлов для правки вручную: " + $manual.Count) }
 	$out.Add("")
 	foreach ($section in $sections) { $out.AddRange($section) }
@@ -523,7 +746,7 @@ function Write-PkgSummary($totals, $manual) {
 	if ($totals["modules"] -gt 0 -or $manual.Count -gt 0) {
 		[Console]::Out.Write("[OK]    Модулей с правками: " + $totals["modules"] + ", методов изменено: " +
 			$totals["changed"] + ", добавлено: " + $totals["added"] + ", удалено: " + $totals["removed"] +
-			", правок вне методов: " + $totals["outside"] + "`n")
+			", правок вне методов: " + $totals["outside"] + (Format-PkgReplacedPart $totals) + "`n")
 	}
 	if ($manual.Count -gt 0) { [Console]::Out.Write("[WARN]  Файлов для правки вручную: " + $manual.Count + "`n") }
 }

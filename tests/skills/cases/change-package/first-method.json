@@ -1,0 +1,43 @@
+{
+  "name": "Пакет правок: новый первый метод привязан к следующему",
+  "setup": "fixture:first-method",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": [
+      "package.md"
+    ],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 0, добавлено: 1, удалено: 0, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Добавить метод ПодготовитьОбмен перед методом ЗагрузитьПорцию",
+          "Текст метода:",
+          "Процедура ПодготовитьОбмен()"
+        ]
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Изменить метод",
+          "### Заменить модуль целиком"
+        ]
+      }
+    ],
+    "preserves": {
+      "file": "package.md",
+      "bom": false,
+      "eol": "lf",
+      "finalNewline": true
+    }
+  }
+}

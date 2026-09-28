@@ -1,0 +1,43 @@
+{
+  "name": "Пакет правок: перестановка методов без правки текста",
+  "setup": "fixture:reordered-methods",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": [
+      "package.md"
+    ],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 0, добавлено: 0, удалено: 0, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Порядок методов изменен",
+          "перенести целиком, без правки текста"
+        ]
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Изменить метод",
+          "Найти:",
+          "### Заменить модуль целиком"
+        ]
+      }
+    ],
+    "preserves": {
+      "file": "package.md",
+      "bom": false,
+      "eol": "lf",
+      "finalNewline": true
+    }
+  }
+}
