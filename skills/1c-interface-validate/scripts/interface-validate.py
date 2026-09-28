@@ -22,16 +22,21 @@ def xml_root_version(path):
         return ""
 
 
+# Сегмент пути сравнивается без учета регистра.
+def same_path_segment(segment, expected):
+    return (segment or "").casefold() == expected.casefold()
+
+
 # Дескриптор командного интерфейса: XML подсистемы или Configuration.xml.
 def command_interface_descriptor(ci_file):
     directory = os.path.dirname(ci_file)
-    if os.path.basename(directory) == "Ext":
+    if same_path_segment(os.path.basename(directory), "Ext"):
         obj_dir = os.path.dirname(directory)
     else:
         obj_dir = directory
     obj_name = os.path.basename(obj_dir)
     parent = os.path.dirname(obj_dir)
-    if parent and os.path.basename(parent) == "Subsystems":
+    if parent and same_path_segment(os.path.basename(parent), "Subsystems"):
         candidate = os.path.join(parent, obj_name + ".xml")
         if os.path.isfile(candidate):
             return candidate
@@ -159,7 +164,7 @@ def main():
     context_name = ''
     parts = re.split(r'[/\\]', resolved_path)
     for i in range(len(parts)):
-        if parts[i] == 'Subsystems' and (i + 1) < len(parts):
+        if same_path_segment(parts[i], 'Subsystems') and (i + 1) < len(parts):
             context_name = parts[i + 1]
     if not context_name:
         context_name = 'Root'

@@ -911,10 +911,45 @@ def main():
                 'ObjFile': fi['ObjFile'], 'ObjName': fi['ObjName'],
             })
 
+    # Общая форма лежит в CommonForms/<Имя>/Ext/Form.xml, без <Form> в ChildObjects объекта.
+    common_baseform_count = 0
+    if child_obj_node is not None:
+        for child in child_obj_node:
+            if not isinstance(child.tag, str):
+                continue
+            if etree.QName(child.tag).localname != 'CommonForm':
+                continue
+            form_name = (child.text or '').strip()
+            if not form_name:
+                continue
+            form_xml_file = os.path.join(config_dir, 'CommonForms', form_name, 'Ext', 'Form.xml')
+            if not os.path.isfile(form_xml_file):
+                continue
+            form_count += 1
+            ctx = f'CommonForm.{form_name}'
+            with open(form_xml_file, 'r', encoding='utf-8-sig') as f:
+                form_raw_text = f.read()
+
+            form_ver_match = re.search(r'<Form\b[^>]*\bversion="([^"]+)"', form_raw_text)
+            if form_ver_match and version and form_ver_match.group(1) != version:
+                r.error(format_version_mismatch_message(
+                    form_ver_match.group(1), version, f'{ctx}/Form.xml', 'Configuration.xml'))
+                check11_ok = False
+            base_ver_match = re.search(r'<BaseForm\b[^>]*\bversion="([^"]+)"', form_raw_text)
+            if base_ver_match and version and base_ver_match.group(1) != version:
+                r.error(format_version_mismatch_message(
+                    base_ver_match.group(1), version, f'{ctx}/BaseForm', 'Configuration.xml'))
+                check11_ok = False
+
+            if '<BaseForm' in form_raw_text:
+                if not re.search(r'<BaseForm[^>]+version=', form_raw_text):
+                    r.warn(f'11. {ctx}: <BaseForm> missing version attribute')
+                common_baseform_count += 1
+
     if form_count == 0:
         r.ok('11. Borrowed forms: none found')
     elif check11_ok:
-        bf_count = len(borrowed_forms_with_tree)
+        bf_count = len(borrowed_forms_with_tree) + common_baseform_count
         r.ok(f'11. Borrowed forms: {form_count} validated ({bf_count} with BaseForm)')
 
     if r.stopped:
