@@ -14,6 +14,9 @@
 .PARAMETER Operation
     status | lock | update | commit | unlock | dump
 
+.PARAMETER AllowProd
+    Разрешить изменяющую операцию против базы, помеченной в .v8-project.json как боевая (role: prod)
+
 .EXAMPLE
     .\storage-ops.ps1 -Operation status -InfoBasePath "C:\Bases\MyDB" -RepositoryPath "C:\Repo" -OutputFile "report.mxl"
 
@@ -38,6 +41,9 @@ param(
 
     [Parameter(Mandatory=$false)]
     [string]$InfoBaseRef,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$AllowProd,
 
     [Parameter(Mandatory=$false)]
     [string]$UserName,
@@ -219,6 +225,164 @@ function Write-PlatformVerdict {
     return $finalCode
 }
 # --- Конец общего блока вердикта платформы ---
+
+# --- Защита боевой базы (общий блок, версия 1) ---
+# База, помеченная в .v8-project.json как боевая (role: prod), отказывает изменяющей
+# операции, пока не передан -AllowProd. Отказ стоит одной команды, а неудачная загрузка в
+# боевую базу необратима. Проверка идет до запуска платформы; когда файла настроек нет,
+# записи базы нет или роль отличается от prod - поведение прежнее.
+
+function Find-V8ProjectFile {
+    param([string]$StartDir)
+    # Относительный путь приводится к полному: подъем по строке "build\db" упирается в пустую
+    # строку раньше, чем доходит до текущего каталога, и настройки в корне проекта теряются.
+    $d = if ([string]::IsNullOrEmpty($StartDir)) {
+        (Get-Location).Path
+    } elseif ([System.IO.Path]::IsPathRooted($StartDir)) {
+        $StartDir
+    } else {
+        Join-Path (Get-Location).Path $StartDir
+    }
+    $d = [System.IO.Path]::GetFullPath($d)
+    for ($i = 0; $i -lt 20 -and $d; $i++) {
+        $pj = Join-Path $d ".v8-project.json"
+        if (Test-Path $pj) { return $pj }
+        $parent = [System.IO.Path]::GetDirectoryName($d)
+        if ($parent -eq $d) { break }
+        $d = $parent
+    }
+    return $null
+}
+
+# Get-InfoBasePathKey - ключ сравнения путей баз.
+#
+# Приводит путь к виду, в котором два написания одной базы совпадают: полный путь, прямые
+# слеши, нижний регистр, без завершающего разделителя. Относительный путь достраивается от
+# BaseDir. Существования каталога не проверяет.
+#
+# Параметры:
+#   Value - путь к файловой базе.
+#   BaseDir - каталог, от которого достраивается относительный путь.
+#
+# Возвращает: строку-ключ; пустая строка означает, что путь не задан.
+function Get-InfoBasePathKey {
+    param([string]$Value, [string]$BaseDir)
+
+    if (-not $Value) { return '' }
+    $text = $Value.Trim()
+    if (-not $text) { return '' }
+    if (-not [System.IO.Path]::IsPathRooted($text) -and $BaseDir) {
+        $text = Join-Path $BaseDir $text
+    }
+    try {
+        $text = [System.IO.Path]::GetFullPath($text)
+    } catch {
+        # Путь со символом, который .NET не разбирает: сравниваем написание как есть.
+    }
+    $text = $text -replace '\\', '/'
+    $text = $text.TrimEnd('/')
+    if (-not $text) { $text = '/' }
+    return $text.ToLowerInvariant()
+}
+
+# Get-InfoBaseRole - роль целевой базы по настройкам проекта.
+#
+# Находит ближайший .v8-project.json и в нем запись, совпадающую с целью: серверная база - по
+# server и ref, файловая - по пути. Сравнение без учета регистра. Читает только имя и роль,
+# остальные поля файла не печатает.
+#
+# Параметры:
+#   InfoBasePath - путь к файловой базе (или пустая строка).
+#   InfoBaseServer - сервер 1С для серверной базы.
+#   InfoBaseRef - имя базы на сервере.
+#
+# Возвращает: хеш с полями Name (имя записи), Role (роль в нижнем регистре) и ConfigPath
+# (путь к файлу настроек). Поля пустые, когда файла нет, запись не найдена или файл не
+# разбирается.
+function Get-InfoBaseRole {
+    param(
+        [string]$InfoBasePath,
+        [string]$InfoBaseServer,
+        [string]$InfoBaseRef
+    )
+
+    $state = @{ Name = ''; Role = ''; ConfigPath = '' }
+    $startDir = (Get-Location).Path
+    $configPath = Find-V8ProjectFile -StartDir $startDir
+    if (-not $configPath) { return $state }
+    $state.ConfigPath = $configPath
+    try {
+        $project = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        # Файл есть, но не разбирается: роль неизвестна. Молчать нельзя - иначе защита не
+        # работает, а причина не видна.
+        [Console]::Error.WriteLine("[warning] project settings not parsed: $configPath ($($_.Exception.Message))")
+        $state.ConfigPath = ''
+        return $state
+    }
+    if (-not $project -or -not $project.databases) { return $state }
+
+    $configDir = Split-Path -Path $configPath -Parent
+    $server = if ($InfoBaseServer) { $InfoBaseServer.Trim().ToLowerInvariant() } else { '' }
+    $ref = if ($InfoBaseRef) { $InfoBaseRef.Trim().ToLowerInvariant() } else { '' }
+    $target = Get-InfoBasePathKey -Value $InfoBasePath -BaseDir $startDir
+
+    foreach ($db in @($project.databases)) {
+        if (-not $db) { continue }
+        # Приоритет тот же, что у платформы: задана пара сервер и имя - целимся в серверную
+        # базу, иначе в файловую.
+        $matched = $false
+        if ($server -and $ref -and $db.server -and $db.ref) {
+            $matched = (("$($db.server)").Trim().ToLowerInvariant() -eq $server) -and
+                       (("$($db.ref)").Trim().ToLowerInvariant() -eq $ref)
+        } elseif ($target -and $db.path) {
+            $matched = (Get-InfoBasePathKey -Value "$($db.path)" -BaseDir $configDir) -eq $target
+        }
+        if (-not $matched) { continue }
+        if ($db.name) { $state.Name = "$($db.name)" }
+        elseif ($db.id) { $state.Name = "$($db.id)" }
+        $state.Role = ("$($db.role)").Trim().ToLowerInvariant()
+        if ($state.Role -eq 'prod') { return $state }
+    }
+    return $state
+}
+
+# Assert-InfoBaseMutable - отказ изменяющей операции на базе, помеченной боевой.
+#
+# Ничего не делает, когда передан -AllowProd, когда записи базы нет и когда роль не prod.
+# При отказе печатает причину в stderr и завершает процесс кодом 1.
+#
+# Параметры:
+#   InfoBasePath, InfoBaseServer, InfoBaseRef - цель операции, как в параметрах скрипта.
+#   AllowProd - явное разрешение работать с боевой базой.
+#
+# Возвращает: ничего; при отказе управление не возвращается.
+function Assert-InfoBaseMutable {
+    param(
+        [string]$InfoBasePath,
+        [string]$InfoBaseServer,
+        [string]$InfoBaseRef,
+        [switch]$AllowProd
+    )
+
+    if ($AllowProd) { return }
+    $state = Get-InfoBaseRole -InfoBasePath $InfoBasePath -InfoBaseServer $InfoBaseServer -InfoBaseRef $InfoBaseRef
+    if ($state.Role -ne 'prod') { return }
+    $name = $state.Name
+    if (-not $name) { $name = '<без имени>' }
+    [Console]::Error.WriteLine(
+        "База '$name' помечена как боевая (role: prod) в $($state.ConfigPath).`n" +
+        "Изменяющая операция отменена. Запуск с -AllowProd - только по явной команде пользователя.")
+    exit 1
+}
+# --- Конец общего блока защиты боевой базы ---
+
+# --- Боевая база ---
+# Изменяющие операции отказывают на базе, помеченной боевой: status и dump только читают.
+if ($Operation -in @("lock", "update", "commit", "unlock")) {
+    Assert-InfoBaseMutable -InfoBasePath $InfoBasePath -InfoBaseServer $InfoBaseServer -InfoBaseRef $InfoBaseRef -AllowProd:$AllowProd
+}
+
 # --- Операции и их отношение к списку объектов ---
 # Платформа без списка применяет операцию ко ВСЕЙ конфигурации, поэтому там, где список
 # обязателен, его отсутствие - отказ, а не работа по умолчанию.
