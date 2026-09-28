@@ -165,6 +165,8 @@ function ConvertTo-RussianDirective {
 		"AtServerNoContext" { return "&НаСервереБезКонтекста" }
 		"НаКлиентеНаСервереБезКонтекста" { return "&НаКлиентеНаСервереБезКонтекста" }
 		"AtClientAtServerNoContext" { return "&НаКлиентеНаСервереБезКонтекста" }
+		"НаКлиентеНаСервере" { return "&НаКлиентеНаСервере" }
+		"AtClientAtServer" { return "&НаКлиентеНаСервере" }
 		default {
 			if ($raw.StartsWith("&")) { return $raw }
 			return "&$body"
