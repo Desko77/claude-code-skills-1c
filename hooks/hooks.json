@@ -67,6 +67,14 @@
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/edt-gate.mjs\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/repeat-failure.mjs\""
+          }
+        ]
       }
     ],
     "SessionStart": [
