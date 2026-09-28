@@ -151,7 +151,7 @@ def write_platform_verdict(exit_code, result_file, log_text, success_message,
     return final_code
 # --- Конец общего блока вердикта платформы ---
 
-# --- Защита боевой базы (общий блок, версия 1) ---
+# --- Защита боевой базы (общий блок, версия 2) ---
 # База, помеченная в .v8-project.json как боевая (role: prod), отказывает изменяющей
 # операции, пока не передан --allow-prod. Отказ стоит одной команды, а неудачная загрузка в
 # боевую базу необратима. Проверка идет до запуска платформы; когда файла настроек нет,
@@ -174,12 +174,42 @@ def find_v8_project_file(start_dir):
     return None
 
 
+def info_base_server_key(value):
+    """Ключ сравнения адреса сервера.
+
+    Порт кластера по умолчанию 1541 отбрасывается: srv01 и srv01:1541 - одна база.
+    Другой порт остается в ключе и отличает базу.
+    """
+    text = str(value or "").strip().lower()
+    suffix = ":1541"
+    if text.endswith(suffix):
+        text = text[: -len(suffix)]
+    return text
+
+
+def info_base_record_kind(db):
+    """Вид записи реестра.
+
+    Поле type учитывается, когда оно задано (server или file). Иначе серверная запись -
+    это пара server и ref, файловая - путь.
+    """
+    declared = str(db.get("type") or "").strip().lower()
+    if declared in ("server", "file"):
+        return declared
+    if str(db.get("server") or "").strip() and str(db.get("ref") or "").strip():
+        return "server"
+    if str(db.get("path") or "").strip():
+        return "file"
+    return ""
+
+
 def info_base_path_key(value, base_dir):
     """Ключ сравнения путей баз.
 
-    Приводит путь к виду, в котором два написания одной базы совпадают: полный путь, прямые
-    слеши, нижний регистр, без завершающего разделителя. Относительный путь достраивается от
-    base_dir. Существования каталога не проверяет.
+    Приводит путь к виду, в котором два написания одной базы совпадают: окончательный
+    каталог (os.path.realpath: junction и символическая ссылка), прямые слеши, нижний
+    регистр, без завершающего разделителя. Относительный путь достраивается от base_dir.
+    Подключенный диск и UNC-путь к тому же каталогу не сводятся.
     """
     if not value:
         return ""
@@ -188,7 +218,10 @@ def info_base_path_key(value, base_dir):
         return ""
     if not os.path.isabs(text) and base_dir:
         text = os.path.join(base_dir, text)
-    text = os.path.abspath(text)
+    try:
+        text = os.path.realpath(text)
+    except (OSError, ValueError):
+        text = os.path.abspath(text)
     text = text.replace("\\", "/").rstrip("/")
     if not text:
         text = "/"
@@ -198,9 +231,11 @@ def info_base_path_key(value, base_dir):
 def info_base_role(info_base_path, info_base_server, info_base_ref):
     """Роль целевой базы по настройкам проекта.
 
-    Находит ближайший .v8-project.json и в нем запись, совпадающую с целью: серверная база - по
-    server и ref, файловая - по пути. Сравнение без учета регистра. Читает только имя и роль,
-    остальные поля файла не печатает.
+    Находит ближайший .v8-project.json и в нем запись того же вида, что и цель. Сервер и имя
+    вместе - цель серверная, путь в этом запуске не сравнивается. Сервер сравнивается без
+    порта 1541. Файловый путь - по окончательному каталогу. Поле type записи учитывается,
+    когда оно задано. Сравнение без учета регистра. Читает только имя и роль, остальные
+    поля файла не печатает.
     """
     # Импорт внутри функции: блок переносится в скилы с разным набором импортов, и обращение
     # к неимпортированному имени попадало бы в except ниже - отказ стал бы тихим.
@@ -225,20 +260,24 @@ def info_base_role(info_base_path, info_base_server, info_base_ref):
         return state
 
     config_dir = os.path.dirname(config_path)
-    server = (info_base_server or "").strip().lower()
+    server_key = info_base_server_key(info_base_server)
     ref = (info_base_ref or "").strip().lower()
     target = info_base_path_key(info_base_path, start_dir)
+    # Заданы сервер и имя - цель серверная, даже если рядом передан путь. Как у платформы.
+    server_target = bool(server_key and ref)
 
     for db in databases:
         if not isinstance(db, dict):
             continue
-        # Приоритет тот же, что у платформы: задана пара сервер и имя - целимся в серверную
-        # базу, иначе в файловую.
-        if server and ref and db.get("server") and db.get("ref"):
-            matched = (str(db["server"]).strip().lower() == server
-                       and str(db["ref"]).strip().lower() == ref)
-        elif target and db.get("path"):
-            matched = info_base_path_key(db["path"], config_dir) == target
+        kind = info_base_record_kind(db)
+        if server_target:
+            matched = (
+                kind == "server"
+                and info_base_server_key(db.get("server")) == server_key
+                and str(db.get("ref") or "").strip().lower() == ref
+            )
+        elif target and kind == "file":
+            matched = info_base_path_key(db.get("path"), config_dir) == target
         else:
             matched = False
         if not matched:
