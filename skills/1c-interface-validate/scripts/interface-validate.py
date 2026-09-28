@@ -5,6 +5,55 @@
 import sys, os, argparse, re
 from lxml import etree
 
+
+# Сообщение о рассинхроне версии формата части и дескриптора.
+def format_version_mismatch_message(part_version, descriptor_version, part_label, descriptor_label):
+    return "Format version '%s' does not match descriptor version '%s' (%s vs %s)" % (part_version, descriptor_version, part_label, descriptor_label)
+
+
+# Версия атрибута version корневого элемента XML.
+def xml_root_version(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        root = etree.parse(path).getroot()
+        return root.get("version") or ""
+    except Exception:
+        return ""
+
+
+# Сегмент пути сравнивается без учета регистра.
+def same_path_segment(segment, expected):
+    return (segment or "").casefold() == expected.casefold()
+
+
+# Дескриптор командного интерфейса: XML подсистемы или Configuration.xml.
+def command_interface_descriptor(ci_file):
+    directory = os.path.dirname(ci_file)
+    if same_path_segment(os.path.basename(directory), "Ext"):
+        obj_dir = os.path.dirname(directory)
+    else:
+        obj_dir = directory
+    obj_name = os.path.basename(obj_dir)
+    parent = os.path.dirname(obj_dir)
+    if parent and same_path_segment(os.path.basename(parent), "Subsystems"):
+        candidate = os.path.join(parent, obj_name + ".xml")
+        if os.path.isfile(candidate):
+            return candidate
+    current = obj_dir
+    for _ in range(15):
+        if not current:
+            break
+        cfg = os.path.join(current, "Configuration.xml")
+        if os.path.isfile(cfg):
+            return cfg
+        nxt = os.path.dirname(current)
+        if not nxt or nxt == current:
+            break
+        current = nxt
+    return ""
+
+
 NS_CI  = 'http://v8.1c.ru/8.3/xcf/extrnprops'
 NS_XR  = 'http://v8.1c.ru/8.3/xcf/readable'
 NS_XSI = 'http://www.w3.org/2001/XMLSchema-instance'
@@ -115,7 +164,7 @@ def main():
     context_name = ''
     parts = re.split(r'[/\\]', resolved_path)
     for i in range(len(parts)):
-        if parts[i] == 'Subsystems' and (i + 1) < len(parts):
+        if same_path_segment(parts[i], 'Subsystems') and (i + 1) < len(parts):
             context_name = parts[i + 1]
     if not context_name:
         context_name = 'Root'
@@ -153,6 +202,11 @@ def main():
                 r.warn('1. Root structure: CommandInterface, namespace valid, but no version attribute')
             else:
                 r.ok(f'1. Root structure: CommandInterface, version {version}, namespace valid')
+                desc_path = command_interface_descriptor(resolved_path)
+                desc_version = xml_root_version(desc_path)
+                if desc_version and version != desc_version:
+                    r.error(format_version_mismatch_message(
+                        version, desc_version, 'CommandInterface.xml', os.path.basename(desc_path)))
 
     # --- 2. Valid child elements ---
     found_sections = []

@@ -1,0 +1,26 @@
+{
+  "name": "Рассинхрон версии формата командного интерфейса при subsystems в нижнем регистре",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "subsystem-compile/scripts/subsystem-compile",
+      "input": { "name": "Store" },
+      "args": { "-DefinitionFile": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "writeFile": {
+        "path": "Subsystems/Store/Ext/CommandInterface.xml",
+        "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CommandInterface xmlns=\"http://v8.1c.ru/8.3/xcf/extrnprops\" xmlns:xr=\"http://v8.1c.ru/8.3/xcf/readable\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.17\">\n</CommandInterface>\n"
+      }
+    }
+  ],
+  "params": { "ciPath": "subsystems/Store/Ext/CommandInterface.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "=== Validation: CommandInterface (Store) ===",
+      "Format version '2.17' does not match descriptor version '2.20' (CommandInterface.xml vs Store.xml)"
+    ]
+  },
+  "skipPlatformVerify": "рассинхрон версии формата отвергается платформой при загрузке"
+}

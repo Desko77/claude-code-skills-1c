@@ -12,6 +12,23 @@ GUID_PATTERN = re.compile(
 
 RIGHTS_NS = 'http://v8.1c.ru/8.2/roles'
 
+
+# Сообщение о рассинхроне версии формата части и дескриптора.
+def format_version_mismatch_message(part_version, descriptor_version, part_label, descriptor_label):
+    return "Format version '%s' does not match descriptor version '%s' (%s vs %s)" % (part_version, descriptor_version, part_label, descriptor_label)
+
+
+# Версия атрибута version корневого элемента XML.
+def xml_root_version(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        root = etree.parse(path).getroot()
+        return root.get("version") or ""
+    except Exception:
+        return ""
+
+
 # --- Known rights per object type ---
 # Типы метаданных, у которых прав в роли нет вовсе (таблица типов, docs/1c-configuration-spec.md).
 # Блок прав на такой тип платформа не примет, поэтому это ошибка, а не предупреждение.
@@ -329,6 +346,12 @@ def main():
         report_warn(f"Namespace is '{root_ns}', expected '{RIGHTS_NS}'")
     else:
         report_ok('Root element: <Rights> with correct namespace')
+
+    rights_version = root.get('version') or ''
+    role_version = xml_root_version(metadata_path)
+    if rights_version and role_version and rights_version != role_version:
+        report_error(format_version_mismatch_message(
+            rights_version, role_version, 'Rights.xml', os.path.basename(metadata_path)))
 
     # 3c. Global flags
     flag_names = ['setForNewObjects', 'setForAttributesByDefault', 'independentRightsOfChildObjects']

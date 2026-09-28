@@ -41,6 +41,21 @@ def format_version_known(version):
     return _format_version_rank(FORMAT_VERIFIED_MIN) <= rank <= _format_version_rank(FORMAT_VERIFIED_MAX)
 
 
+# Сообщение о рассинхроне версии формата части и дескриптора.
+def format_version_mismatch_message(part_version, descriptor_version, part_label, descriptor_label):
+    return "Format version '%s' does not match descriptor version '%s' (%s vs %s)" % (part_version, descriptor_version, part_label, descriptor_label)
+
+
+# Версия атрибута version корневого элемента XML.
+def xml_root_version(path):
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        root = etree.parse(path).getroot()
+        return root.get("version") or ""
+    except Exception:
+        return ""
+
 
 F_NS = "http://v8.1c.ru/8.3/xcf/logform"
 V8_NS = "http://v8.1c.ru/8.1/data/core"
@@ -144,6 +159,7 @@ def main():
 
     # Detect context: config vs EPF/ERF
     is_config_context = False
+    descriptor_path = ""
     walk_dir = os.path.dirname(os.path.abspath(form_path))
     for _ in range(15):
         parent = os.path.dirname(walk_dir)
@@ -157,11 +173,15 @@ def main():
             with open(owner_xml, 'r', encoding='utf-8-sig', errors='replace') as fh:
                 head = fh.read(2000)
             if re.search(r'<(ExternalDataProcessor|ExternalReport)\s', head):
+                descriptor_path = owner_xml
                 break
         if os.path.isfile(os.path.join(walk_dir, 'Configuration.xml')):
             is_config_context = True
+            descriptor_path = os.path.join(walk_dir, 'Configuration.xml')
             break
         walk_dir = parent
+    descriptor_version = xml_root_version(descriptor_path)
+    descriptor_label = os.path.basename(descriptor_path) if descriptor_path else ""
 
     errors = 0
     warnings = 0
@@ -224,6 +244,9 @@ def main():
                             f"{FORMAT_VERIFIED_MIN}-{FORMAT_VERIFIED_MAX}")
         else:
             report_warn("Form version attribute missing")
+        if version and descriptor_version and version != descriptor_version:
+            report_error(format_version_mismatch_message(
+                version, descriptor_version, "Form.xml", descriptor_label))
 
     # --- Check 2: AutoCommandBar ---
     if not stopped:
@@ -625,7 +648,11 @@ def main():
         # 11a. BaseForm version
         bf_version = base_form_node.get("version", "")
         if bf_version:
-            report_ok(f"BaseForm: version={bf_version}")
+            if descriptor_version and bf_version != descriptor_version:
+                report_error(format_version_mismatch_message(
+                    bf_version, descriptor_version, "BaseForm", descriptor_label))
+            else:
+                report_ok(f"BaseForm: version={bf_version}")
         else:
             report_warn("BaseForm: version attribute missing")
 

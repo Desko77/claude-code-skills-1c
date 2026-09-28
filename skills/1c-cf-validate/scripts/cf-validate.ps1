@@ -32,6 +32,27 @@ function Test-FormatVersionKnown {
 	if ($rank -eq 0) { return $false }
 	return ($rank -ge (Get-FormatVersionRank $formatVerifiedMin)) -and ($rank -le (Get-FormatVersionRank $formatVerifiedMax))
 }
+
+# Сообщение о рассинхроне версии формата части и дескриптора.
+function Format-VersionMismatchMessage {
+	param([string]$PartVersion, [string]$DescriptorVersion, [string]$PartLabel, [string]$DescriptorLabel)
+	return "Format version '$PartVersion' does not match descriptor version '$DescriptorVersion' ($PartLabel vs $DescriptorLabel)"
+}
+
+# Версия атрибута version корневого элемента XML.
+function Get-XmlRootVersion {
+	param([string]$Path)
+	if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return "" }
+	try {
+		$doc = New-Object System.Xml.XmlDocument
+		$doc.PreserveWhitespace = $false
+		$doc.Load($Path)
+		if (-not $doc.DocumentElement) { return "" }
+		return [string]$doc.DocumentElement.GetAttribute("version")
+	} catch {
+		return ""
+	}
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # --- Resolve path ---
@@ -552,6 +573,17 @@ if ($childObjNode) {
 	} else {
 		foreach ($md in $missingDirs) {
 			Report-Warn "8. Missing directory: $md"
+		}
+	}
+}
+
+# --- Check 9: Ext/*.xml version matches Configuration.xml ---
+$extDir = Join-Path $configDir "Ext"
+if (Test-Path $extDir -PathType Container) {
+	foreach ($f in (Get-ChildItem -LiteralPath $extDir -Filter *.xml -File | Sort-Object Name)) {
+		$partVersion = Get-XmlRootVersion $f.FullName
+		if ($partVersion -and $version -and ($partVersion -ne $version)) {
+			Report-Error (Format-VersionMismatchMessage $partVersion $version $f.Name "Configuration.xml")
 		}
 	}
 }

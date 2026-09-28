@@ -16,6 +16,27 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Сообщение о рассинхроне версии формата части и дескриптора.
+function Format-VersionMismatchMessage {
+	param([string]$PartVersion, [string]$DescriptorVersion, [string]$PartLabel, [string]$DescriptorLabel)
+	return "Format version '$PartVersion' does not match descriptor version '$DescriptorVersion' ($PartLabel vs $DescriptorLabel)"
+}
+
+# Версия атрибута version корневого элемента XML.
+function Get-XmlRootVersion {
+	param([string]$Path)
+	if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return "" }
+	try {
+		$doc = New-Object System.Xml.XmlDocument
+		$doc.PreserveWhitespace = $false
+		$doc.Load($Path)
+		if (-not $doc.DocumentElement) { return "" }
+		return [string]$doc.DocumentElement.GetAttribute("version")
+	} catch {
+		return ""
+	}
+}
+
 # --- 1. Known rights per object type ---
 
 # Типы метаданных, у которых прав в роли нет вовсе (таблица типов, docs/1c-configuration-spec.md).
@@ -309,6 +330,13 @@ if ($root.LocalName -ne "Rights") {
 	Report-Warn "Namespace is '$($root.NamespaceURI)', expected '$rightsNs'"
 } else {
 	Report-OK "Root element: <Rights> with correct namespace"
+}
+
+$rightsVersion = $root.GetAttribute("version")
+$roleVersion = Get-XmlRootVersion $MetadataPath
+if ($rightsVersion -and $roleVersion -and ($rightsVersion -ne $roleVersion)) {
+	$roleLabel = [System.IO.Path]::GetFileName($MetadataPath)
+	Report-Error (Format-VersionMismatchMessage $rightsVersion $roleVersion "Rights.xml" $roleLabel)
 }
 
 # 3c. Global flags

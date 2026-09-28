@@ -1,0 +1,22 @@
+{
+  "name": "Совпадающие версии формата командного интерфейса подсистемы",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "subsystem-compile/scripts/subsystem-compile",
+      "input": { "name": "Store" },
+      "args": { "-DefinitionFile": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "writeFile": {
+        "path": "Subsystems/Store/Ext/CommandInterface.xml",
+        "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CommandInterface xmlns=\"http://v8.1c.ru/8.3/xcf/extrnprops\" xmlns:xr=\"http://v8.1c.ru/8.3/xcf/readable\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" version=\"2.20\">\n</CommandInterface>\n"
+      }
+    }
+  ],
+  "params": { "ciPath": "Subsystems/Store/Ext/CommandInterface.xml" },
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": "does not match descriptor version"
+  }
+}

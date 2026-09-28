@@ -634,6 +634,20 @@ function runPreSteps(preRun, workDir, runtime, log) {
       log(`preRun: writeFile ${step.writeFile.path}`, true);
       continue;
     }
+    if (step.editFile) {
+      const raw = String(step.editFile).replace('{workDir}', workDir);
+      const abs = (raw.includes(':') || raw.startsWith('/') || raw.startsWith('\\'))
+        ? raw : join(workDir, raw);
+      let txt = readFileSync(abs, 'utf8');
+      const needle = step.replace ?? '';
+      if (!needle || !txt.includes(needle)) {
+        throw new Error(`preRun editFile: pattern not found in ${step.editFile}`);
+      }
+      txt = txt.replace(needle, step.with ?? '');
+      writeFileSync(abs, txt, 'utf8');
+      log(`preRun: editFile ${step.editFile}`, true);
+      continue;
+    }
     const preArgs = [];
     for (const [flag, value] of Object.entries(step.args || {})) {
       preArgs.push(flag);

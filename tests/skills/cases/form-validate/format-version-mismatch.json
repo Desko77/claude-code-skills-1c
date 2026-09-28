@@ -1,0 +1,38 @@
+{
+  "name": "Рассинхрон версии формата формы и Configuration.xml",
+  "setup": "empty-config-220",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Goods" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Catalogs/Goods.xml", "-FormName": "ItemForm" }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Test",
+        "attributes": [{ "name": "Объект", "type": "CatalogObject.Goods", "main": true }],
+        "elements": [{ "type": "InputField", "dataPath": "Объект.Наименование" }]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputPath": "{workDir}/Catalogs/Goods/Forms/ItemForm/Ext/Form.xml"
+      }
+    },
+    {
+      "editFile": "{workDir}/Catalogs/Goods/Forms/ItemForm/Ext/Form.xml",
+      "replace": "version=\"2.20\"",
+      "with": "version=\"2.17\""
+    }
+  ],
+  "params": { "formPath": "Catalogs/Goods/Forms/ItemForm" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": "Format version '2.17' does not match descriptor version '2.20' (Form.xml vs Configuration.xml)"
+  },
+  "skipPlatformVerify": "рассинхрон версии формата отвергается платформой при загрузке"
+}

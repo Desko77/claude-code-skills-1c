@@ -10,6 +10,54 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Сообщение о рассинхроне версии формата части и дескриптора.
+function Format-VersionMismatchMessage {
+	param([string]$PartVersion, [string]$DescriptorVersion, [string]$PartLabel, [string]$DescriptorLabel)
+	return "Format version '$PartVersion' does not match descriptor version '$DescriptorVersion' ($PartLabel vs $DescriptorLabel)"
+}
+
+# Версия атрибута version корневого элемента XML.
+function Get-XmlRootVersion {
+	param([string]$Path)
+	if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return "" }
+	try {
+		$doc = New-Object System.Xml.XmlDocument
+		$doc.PreserveWhitespace = $false
+		$doc.Load($Path)
+		if (-not $doc.DocumentElement) { return "" }
+		return [string]$doc.DocumentElement.GetAttribute("version")
+	} catch {
+		return ""
+	}
+}
+
+# Дескриптор командного интерфейса: XML подсистемы или Configuration.xml.
+function Get-CommandInterfaceDescriptor {
+	param([string]$CIFile)
+	$dir = [System.IO.Path]::GetDirectoryName($CIFile)
+	if ([System.IO.Path]::GetFileName($dir) -eq "Ext") {
+		$objDir = [System.IO.Path]::GetDirectoryName($dir)
+	} else {
+		$objDir = $dir
+	}
+	$objName = [System.IO.Path]::GetFileName($objDir)
+	$parent = [System.IO.Path]::GetDirectoryName($objDir)
+	if ($parent -and ([System.IO.Path]::GetFileName($parent) -eq "Subsystems")) {
+		$candidate = Join-Path $parent ($objName + ".xml")
+		if (Test-Path -LiteralPath $candidate) { return $candidate }
+	}
+	$d = $objDir
+	for ($i = 0; $i -lt 15; $i++) {
+		if (-not $d) { break }
+		$cfg = Join-Path $d "Configuration.xml"
+		if (Test-Path -LiteralPath $cfg) { return $cfg }
+		$next = [System.IO.Path]::GetDirectoryName($d)
+		if (-not $next -or $next -eq $d) { break }
+		$d = $next
+	}
+	return ""
+}
+
 # --- Resolve path ---
 if (-not [System.IO.Path]::IsPathRooted($CIPath)) {
 	$CIPath = Join-Path (Get-Location).Path $CIPath
@@ -102,6 +150,12 @@ if (-not $script:stopped) {
 			Report-Warn "1. Root structure: CommandInterface, namespace valid, but no version attribute"
 		} else {
 			Report-OK "1. Root structure: CommandInterface, version $version, namespace valid"
+			$descPath = Get-CommandInterfaceDescriptor $resolvedPath
+			$descVersion = Get-XmlRootVersion $descPath
+			if ($descVersion -and ($version -ne $descVersion)) {
+				$descLabel = [System.IO.Path]::GetFileName($descPath)
+				Report-Error (Format-VersionMismatchMessage $version $descVersion "CommandInterface.xml" $descLabel)
+			}
 		}
 	}
 }
