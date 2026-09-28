@@ -161,6 +161,32 @@ function Get-BslFiles {
 	return $bslFiles
 }
 
+# Совпадает ли слово с одним из написаний, без учета регистра.
+function Test-SameWord {
+	param([string]$Text, [string[]]$Words)
+	if ([string]::IsNullOrEmpty($Text)) { return $false }
+	foreach ($w in $Words) {
+		if ($Text.Equals($w, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+	}
+	return $false
+}
+
+# Русское имя аннотации перехвата. Неизвестное написание остается как в модуле.
+function ConvertTo-RussianAnnotation {
+	param([string]$Word)
+	switch ($Word) {
+		"Перед" { return "Перед" }
+		"Before" { return "Перед" }
+		"После" { return "После" }
+		"After" { return "После" }
+		"ИзменениеИКонтроль" { return "ИзменениеИКонтроль" }
+		"ChangeAndValidate" { return "ИзменениеИКонтроль" }
+		"Вместо" { return "Вместо" }
+		"Around" { return "Вместо" }
+		default { return $Word }
+	}
+}
+
 # --- Helper: parse interceptors from .bsl ---
 function Get-Interceptors {
 	param([string]$bslPath)
@@ -171,14 +197,14 @@ function Get-Interceptors {
 	$i = 0
 	while ($i -lt $lines.Count) {
 		$line = $lines[$i].Trim()
-		if ($line -match '^&(Перед|После|ИзменениеИКонтроль|Вместо)\("([^"]+)"\)') {
-			$type = $Matches[1]
+		if ($line -match '^&(Перед|После|ИзменениеИКонтроль|Вместо|Before|After|ChangeAndValidate|Around)\("([^"]+)"\)') {
+			$type = ConvertTo-RussianAnnotation $Matches[1]
 			$method = $Matches[2]
 			$interceptors += @{ Type = $type; Method = $method; Line = $i + 1; File = $bslPath }
 		}
 		$i++
 	}
-	return $interceptors
+	return ,$interceptors
 }
 
 # --- Helper: extract #Вставка blocks from .bsl ---
@@ -194,11 +220,11 @@ function Get-InsertionBlocks {
 
 	for ($i = 0; $i -lt $lines.Count; $i++) {
 		$line = $lines[$i].Trim()
-		if ($line -eq "#Вставка") {
+		if (Test-SameWord $line @("#Вставка", "#Insert")) {
 			$inBlock = $true
 			$blockLines = @()
 			$startLine = $i + 1
-		} elseif ($line -eq "#КонецВставки" -and $inBlock) {
+		} elseif ((Test-SameWord $line @("#КонецВставки", "#EndInsert")) -and $inBlock) {
 			$inBlock = $false
 			$blocks += @{
 				StartLine = $startLine
@@ -210,7 +236,7 @@ function Get-InsertionBlocks {
 			$blockLines += $lines[$i]
 		}
 	}
-	return $blocks
+	return ,$blocks
 }
 
 # --- Helper: analyze form for callType events and commands ---

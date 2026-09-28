@@ -93,13 +93,94 @@ function Get-Meaningful {
 	return ,$out
 }
 
+# Совпадает ли слово с одним из написаний, без учета регистра.
+function Test-SameWord {
+	param([string]$Text, [string[]]$Words)
+	if ([string]::IsNullOrEmpty($Text)) { return $false }
+	foreach ($w in $Words) {
+		if ($Text.Equals($w, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+	}
+	return $false
+}
+
+# Строка начинается с ключевого слова. Дальше допустимы пробел или комментарий.
+function Test-LineOpensWith {
+	param([string]$Line, [string[]]$Words)
+	$folded = $Line.Trim()
+	foreach ($w in $Words) {
+		if ($folded.Equals($w, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+		if ($folded.StartsWith($w, [System.StringComparison]::OrdinalIgnoreCase)) {
+			if ($folded.Length -eq $w.Length) { return $true }
+			$nxt = $folded.Substring($w.Length, 1)
+			if ($nxt -eq " " -or $nxt -eq "`t" -or $nxt -eq "/") { return $true }
+		}
+	}
+	return $false
+}
+
+# Слово объявляет функцию, а не процедуру.
+function Test-FunctionWord {
+	param([string]$Word)
+	return (Test-SameWord $Word @("Функция", "Function"))
+}
+
+# Вид маркера правки: insert-start, insert-end, delete-start, delete-end или пусто.
+function Get-MarkerKind {
+	param([string]$Line)
+	$t = $Line.Trim()
+	if (Test-SameWord $t @("#Вставка", "#Insert")) { return "insert-start" }
+	if (Test-SameWord $t @("#КонецВставки", "#EndInsert")) { return "insert-end" }
+	if (Test-SameWord $t @("#Удаление", "#Delete")) { return "delete-start" }
+	if (Test-SameWord $t @("#КонецУдаления", "#EndDelete")) { return "delete-end" }
+	return ""
+}
+
+# Условие строки #Если/#If. Пустая строка, если строка не открывает условие.
+function Get-PreprocCondition {
+	param([string]$Line)
+	$t = $Line.Trim()
+	if ($t -match '^(#Если|#If)\s+(.+?)\s+(Тогда|Then)$') { return $Matches[2] }
+	return ""
+}
+
+# Имя области. Пустая строка, если строка не открывает область.
+function Get-RegionTitle {
+	param([string]$Line)
+	$t = $Line.Trim()
+	if ($t -match '^(#Область|#Region)\s+(.+)$') { return $Matches[2].Trim() }
+	return ""
+}
+
+# Русское написание директивы компиляции. Неизвестная строка возвращается как есть.
+function ConvertTo-RussianDirective {
+	param([string]$Directive)
+	$raw = $Directive.Trim()
+	$body = if ($raw.StartsWith("&")) { $raw.Substring(1) } else { $raw }
+	switch ($body) {
+		"НаСервере" { return "&НаСервере" }
+		"AtServer" { return "&НаСервере" }
+		"НаКлиенте" { return "&НаКлиенте" }
+		"AtClient" { return "&НаКлиенте" }
+		"НаСервереБезКонтекста" { return "&НаСервереБезКонтекста" }
+		"AtServerNoContext" { return "&НаСервереБезКонтекста" }
+		"НаКлиентеНаСервереБезКонтекста" { return "&НаКлиентеНаСервереБезКонтекста" }
+		"AtClientAtServerNoContext" { return "&НаКлиентеНаСервереБезКонтекста" }
+		"НаКлиентеНаСервере" { return "&НаКлиентеНаСервере" }
+		"AtClientAtServer" { return "&НаКлиентеНаСервере" }
+		default {
+			if ($raw.StartsWith("&")) { return $raw }
+			return "&$body"
+		}
+	}
+}
+
 # Ищет метод в тексте модуля. Возвращает сигнатуру, тело, директиву компиляции и
 # охватывающее условие препроцессора - все, что перехватчик обязан повторить.
 function Find-Method {
 	param([string]$Text, [string]$Name)
 
 	$lines = Split-Lines $Text
-	$headPattern = "^[ `t]*(Процедура|Функция)\s+" + [regex]::Escape($Name) + "\s*\("
+	$headPattern = "^[ `t]*(Процедура|Procedure|Функция|Function)\s+" + [regex]::Escape($Name) + "\s*\("
 	$startIdx = -1
 	$declEnd = -1
 	$isFunc = $false
@@ -120,16 +201,16 @@ function Find-Method {
 		$openIdx = $decl.IndexOf("(")
 		$startIdx = $i
 		$declEnd = $j
-		$isFunc = ($m.Groups[1].Value -match "^Ф")
+		$isFunc = Test-FunctionWord $m.Groups[1].Value
 		$params = $decl.Substring($openIdx + 1, $closeIdx - $openIdx - 1).Trim()
 		break
 	}
 	if ($startIdx -lt 0) { return $null }
 
-	$endWord = if ($isFunc) { "КонецФункции" } else { "КонецПроцедуры" }
+	$endWords = if ($isFunc) { @("КонецФункции", "EndFunction") } else { @("КонецПроцедуры", "EndProcedure") }
 	$endIdx = -1
 	for ($i = $declEnd + 1; $i -lt $lines.Count; $i++) {
-		if ($lines[$i].Trim() -like "$endWord*") { $endIdx = $i; break }
+		if (Test-LineOpensWith $lines[$i] $endWords) { $endIdx = $i; break }
 	}
 	if ($endIdx -lt 0) { $endIdx = $lines.Count }
 
@@ -150,10 +231,10 @@ function Find-Method {
 	$preproc = ""
 	for ($i = $startIdx - 1; $i -ge 0; $i--) {
 		$t = $lines[$i].Trim()
-		if ($t -match "^#Если\s+(.+?)\s+Тогда$") {
-			$cond = $Matches[1]
+		$cond = Get-PreprocCondition $t
+		if ($cond) {
 			for ($j = $endIdx + 1; $j -lt $lines.Count; $j++) {
-				if ($lines[$j].Trim() -eq "#КонецЕсли") { $preproc = $cond; break }
+				if (Test-SameWord $lines[$j].Trim() @("#КонецЕсли", "#EndIf")) { $preproc = $cond; break }
 			}
 			break
 		}
@@ -181,14 +262,14 @@ function Split-InterceptorBody {
 	$segments = @()
 	$current = @{ Kind = "base"; Lines = @() }
 	foreach ($line in $Lines) {
-		$t = $line.Trim()
-		if ($t -eq $MARK_INS_START -or $t -eq $MARK_DEL_START) {
+		$marker = Get-MarkerKind $line
+		if ($marker -eq "insert-start" -or $marker -eq "delete-start") {
 			if ($current.Lines.Count -gt 0) { $segments += $current }
-			$kind = if ($t -eq $MARK_INS_START) { "insert" } else { "delete" }
+			$kind = if ($marker -eq "insert-start") { "insert" } else { "delete" }
 			$current = @{ Kind = $kind; Lines = @() }
 			continue
 		}
-		if ($t -eq $MARK_INS_END -or $t -eq $MARK_DEL_END) {
+		if ($marker -eq "insert-end" -or $marker -eq "delete-end") {
 			$segments += $current
 			$current = @{ Kind = "base"; Lines = @() }
 			continue
@@ -439,7 +520,7 @@ function Get-ControlledMethods {
 	$found = @()
 	foreach ($file in (Get-ChildItem -Path $Root -Recurse -Filter "*.bsl" -File)) {
 		$text = Read-Bsl $file.FullName
-		foreach ($m in [regex]::Matches($text, '&ИзменениеИКонтроль\("([^"]+)"\)\s*\r?\n\s*(?:&[^\r\n]+\r?\n\s*)?(?:Процедура|Функция)\s+([^\s(]+)')) {
+		foreach ($m in [regex]::Matches($text, '(?i)&(?:ИзменениеИКонтроль|ChangeAndValidate)\("([^"]+)"\)\s*\r?\n\s*(?:&[^\r\n]+\r?\n\s*)?(?:Процедура|Функция|Procedure|Function)\s+([^\s(]+)')) {
 			$found += @{
 				File     = $file.FullName
 				Method   = $m.Groups[1].Value
@@ -645,7 +726,7 @@ $procName = "${namePrefix}${MethodName}"
 # --- Ресинк, если перехватчик уже стоит ---
 if ((Test-Path $bslFile) -and $InterceptorType -eq "ModificationAndControl") {
 	$existingText = Read-Bsl $bslFile
-	if ($existingText -match ([regex]::Escape("$decorator(`"$MethodName`")"))) {
+	if ($existingText -match ('(?i)&(?:ИзменениеИКонтроль|ChangeAndValidate)\("' + [regex]::Escape($MethodName) + '"\)')) {
 		$res = Resync-Interceptor -ExtFile $bslFile -OrigFile $origFile -Method $MethodName -ProcName $procName -Apply
 		switch ($res.Status) {
 			"actual" {
@@ -685,13 +766,13 @@ if ((Test-Path $bslFile) -and $InterceptorType -eq "ModificationAndControl") {
 # не свяжется. У прочих модулей директива не пишется вовсе.
 if ($isFormModule) {
 	if ($origDirective) {
-		$contextAnnotation = $origDirective
+		$contextAnnotation = ConvertTo-RussianDirective $origDirective
 	} else {
 		if (-not $PSBoundParameters.ContainsKey('Context')) { $Context = "НаКлиенте" }
-		$contextAnnotation = if ($Context.StartsWith("&")) { $Context } else { "&$Context" }
+		$contextAnnotation = ConvertTo-RussianDirective $Context
 	}
 } else {
-	$contextAnnotation = if ($Context.StartsWith("&")) { $Context } else { "&$Context" }
+	$contextAnnotation = ConvertTo-RussianDirective $Context
 }
 
 # --- Тело перехватчика ---
@@ -709,7 +790,7 @@ switch ($InterceptorType) {
 	"Instead" {
 		# Оригинал вызывается явно: платформа передает его через ПродолжитьВызов.
 		$callArgs = if ($origParams) {
-			(($origParams -split ",") | ForEach-Object { ($_ -split "=")[0].Trim() -replace "^Знач\s+", "" }) -join ", "
+			(($origParams -split ",") | ForEach-Object { ($_ -split "=")[0].Trim() -replace "^(Знач|Val)\s+", "" }) -join ", "
 		} else { "" }
 		if ($origIsFunction) {
 			$bodyLines += "`tРезультат = ПродолжитьВызов($callArgs);"
@@ -781,7 +862,8 @@ if ($hasContent) {
 
 	$regionIdx = -1
 	for ($i = 0; $i -lt $lines.Count; $i++) {
-		if ($lines[$i].Trim() -eq "#Область $regionName") { $regionIdx = $i; break }
+		$title = Get-RegionTitle $lines[$i]
+		if ($title -and ($title -eq $regionName)) { $regionIdx = $i; break }
 	}
 
 	# Условие препроцессора вокруг оригинала должно охватывать и перехватчик. Если файл
@@ -789,7 +871,7 @@ if ($hasContent) {
 	$fileHasPreproc = $false
 	if ($origPreproc) {
 		foreach ($l in $lines) {
-			if ($l.Trim() -eq "#Если $origPreproc Тогда") { $fileHasPreproc = $true; break }
+			if ((Get-PreprocCondition $l) -eq $origPreproc) { $fileHasPreproc = $true; break }
 		}
 		if (-not $fileHasPreproc) {
 			$bslCode = @("#Если $origPreproc Тогда", "") + $bslCode + @("", "#КонецЕсли")
@@ -799,7 +881,7 @@ if ($hasContent) {
 	if ($regionIdx -ge 0) {
 		$endIdx = -1
 		for ($i = $regionIdx + 1; $i -lt $lines.Count; $i++) {
-			if ($lines[$i].Trim() -eq "#КонецОбласти") { $endIdx = $i; break }
+			if (Test-SameWord $lines[$i].Trim() @("#КонецОбласти", "#EndRegion")) { $endIdx = $i; break }
 		}
 		if ($endIdx -lt 0) { $endIdx = $lines.Count }
 		while ($endIdx -gt $regionIdx + 1 -and $lines[$endIdx - 1].Trim() -eq "") { $endIdx-- }
@@ -811,7 +893,7 @@ if ($hasContent) {
 		# Внутри условия препроцессора регион ставится до его закрытия.
 		$closeIdx = -1
 		for ($i = $lines.Count - 1; $i -ge 0; $i--) {
-			if ($lines[$i].Trim() -eq "#КонецЕсли") { $closeIdx = $i; break }
+			if (Test-SameWord $lines[$i].Trim() @("#КонецЕсли", "#EndIf")) { $closeIdx = $i; break }
 		}
 		if ($closeIdx -ge 0) {
 			$lines.InsertRange($closeIdx, [string[]]$block)

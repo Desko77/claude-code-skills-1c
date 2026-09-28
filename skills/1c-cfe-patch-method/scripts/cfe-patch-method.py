@@ -30,6 +30,41 @@ DECORATORS = {
     "ModificationAndControl": "&ИзменениеИКонтроль",
 }
 
+# Вход читается в любом из двух написаний и без учета регистра.
+# В новый модуль по-прежнему пишутся русские константы выше.
+PROC_WORDS = ("Процедура", "Procedure")
+FUNC_WORDS = ("Функция", "Function")
+END_PROC_WORDS = ("КонецПроцедуры", "EndProcedure")
+END_FUNC_WORDS = ("КонецФункции", "EndFunction")
+INS_START_WORDS = ("#Вставка", "#Insert")
+INS_END_WORDS = ("#КонецВставки", "#EndInsert")
+DEL_START_WORDS = ("#Удаление", "#Delete")
+DEL_END_WORDS = ("#КонецУдаления", "#EndDelete")
+END_REGION_WORDS = ("#КонецОбласти", "#EndRegion")
+END_IF_WORDS = ("#КонецЕсли", "#EndIf")
+
+_PREPROC_RE = re.compile(r"^(?:#Если|#If)\s+(.+?)\s+(?:Тогда|Then)$", re.IGNORECASE)
+_REGION_RE = re.compile(r"^(?:#Область|#Region)\s+(.+)$", re.IGNORECASE)
+_VAL_RE = re.compile(r"^(?:Знач|Val)\s+", re.IGNORECASE)
+_MAC_RE = re.compile(
+    r'&(?:ИзменениеИКонтроль|ChangeAndValidate)\("([^"]+)"\)'
+    r'\s*\r?\n\s*(?:&[^\r\n]+\r?\n\s*)?'
+    r'(?:Процедура|Функция|Procedure|Function)\s+([^\s(]+)',
+    re.IGNORECASE,
+)
+_DIRECTIVE_RU = {
+    "насервере": "&НаСервере",
+    "atserver": "&НаСервере",
+    "наклиенте": "&НаКлиенте",
+    "atclient": "&НаКлиенте",
+    "насерверебезконтекста": "&НаСервереБезКонтекста",
+    "atservernocontext": "&НаСервереБезКонтекста",
+    "наклиентенасерверебезконтекста": "&НаКлиентеНаСервереБезКонтекста",
+    "atclientatservernocontext": "&НаКлиентеНаСервереБезКонтекста",
+    "наклиентенасервере": "&НаКлиентеНаСервере",
+    "atclientatserver": "&НаКлиентеНаСервере",
+}
+
 TYPE_DIR_MAP = {
     "Catalog": "Catalogs", "Document": "Documents", "Enum": "Enums",
     "CommonModule": "CommonModules", "Report": "Reports", "DataProcessor": "DataProcessors",
@@ -74,6 +109,76 @@ def split_lines(text):
     return re.split(r"\r?\n", text) if text else []
 
 
+# Совпадает ли слово с одним из написаний, без учета регистра.
+def same_word(text, words):
+    folded = text.casefold()
+    return any(folded == word.casefold() for word in words)
+
+
+# Строка начинается с ключевого слова. Дальше допустимы пробел или комментарий.
+def line_opens_with(line, words):
+    folded = line.strip().casefold()
+    for word in words:
+        head = word.casefold()
+        if folded == head:
+            return True
+        if not folded.startswith(head):
+            continue
+        nxt = folded[len(head):len(head) + 1]
+        if nxt in (" ", "\t", "/"):
+            return True
+    return False
+
+
+# Слово объявляет функцию, а не процедуру.
+def is_function_word(word):
+    return same_word(word, FUNC_WORDS)
+
+
+# Вид маркера правки: insert-start, insert-end, delete-start, delete-end или пусто.
+def marker_kind(text):
+    if same_word(text, INS_START_WORDS):
+        return "insert-start"
+    if same_word(text, INS_END_WORDS):
+        return "insert-end"
+    if same_word(text, DEL_START_WORDS):
+        return "delete-start"
+    if same_word(text, DEL_END_WORDS):
+        return "delete-end"
+    return ""
+
+
+# Условие строки #Если/#If. Пустая строка, если строка не открывает условие.
+def preproc_condition(line):
+    match = _PREPROC_RE.match(line.strip())
+    return match.group(1) if match else ""
+
+
+# Имя области. Пустая строка, если строка не открывает область.
+def region_title(line):
+    match = _REGION_RE.match(line.strip())
+    return match.group(1).strip() if match else ""
+
+
+# Русское написание директивы компиляции. Неизвестная строка возвращается как есть.
+def russian_directive(directive):
+    raw = directive.strip()
+    body = raw[1:] if raw.startswith("&") else raw
+    known = _DIRECTIVE_RU.get(body.casefold())
+    if known:
+        return known
+    return raw if raw.startswith("&") else "&" + raw
+
+
+# Есть ли в модуле перехватчик ИзменениеИКонтроль этого метода.
+def has_mac(text, method_name):
+    pattern = (
+        r'&(?:ИзменениеИКонтроль|ChangeAndValidate)\("'
+        + re.escape(method_name) + r'"\)'
+    )
+    return re.search(pattern, text, re.IGNORECASE) is not None
+
+
 def meaningful(lines, keep_comments=False):
     out = []
     for line in lines:
@@ -90,7 +195,7 @@ def find_method(text, name):
     """Сигнатура, тело, директива компиляции и охватывающее условие препроцессора."""
     lines = split_lines(text)
     head_pattern = re.compile(
-        r"^[ 	]*(" + PROC + "|" + FUNC + r")\s+" + re.escape(name) + r"\s*\(",
+        r"^[ 	]*(Процедура|Procedure|Функция|Function)\s+" + re.escape(name) + r"\s*\(",
         re.IGNORECASE,
     )
     start = -1
@@ -111,16 +216,16 @@ def find_method(text, name):
         if ")" not in decl:
             continue
         start, decl_end = i, j
-        is_func = m.group(1).lower().startswith(FUNC[0].lower())
+        is_func = is_function_word(m.group(1))
         params = decl[decl.index("(") + 1:decl.index(")")].strip()
         break
     if start < 0:
         return None
 
-    end_word = END_FUNC if is_func else END_PROC
+    end_words = END_FUNC_WORDS if is_func else END_PROC_WORDS
     end = -1
     for i in range(decl_end + 1, len(lines)):
-        if lines[i].strip().startswith(end_word):
+        if line_opens_with(lines[i], end_words):
             end = i
             break
     if end < 0:
@@ -138,13 +243,12 @@ def find_method(text, name):
         break
 
     preproc = ""
-    cond_re = re.compile(r"^" + IF_START + r"\s+(.+?)\s+" + THEN + r"$")
     for i in range(start - 1, -1, -1):
-        m = cond_re.match(lines[i].strip())
-        if m:
+        cond = preproc_condition(lines[i])
+        if cond:
             for j in range(end + 1, len(lines)):
-                if lines[j].strip() == END_IF:
-                    preproc = m.group(1)
+                if same_word(lines[j].strip(), END_IF_WORDS):
+                    preproc = cond
                     break
             break
 
@@ -166,12 +270,13 @@ def split_interceptor_body(lines):
     current = {"kind": "base", "lines": []}
     for line in lines:
         t = line.strip()
-        if t in (MARK_INS_START, MARK_DEL_START):
+        kind = marker_kind(t)
+        if kind in ("insert-start", "delete-start"):
             if current["lines"]:
                 segments.append(current)
-            current = {"kind": "insert" if t == MARK_INS_START else "delete", "lines": []}
+            current = {"kind": "insert" if kind == "insert-start" else "delete", "lines": []}
             continue
-        if t in (MARK_INS_END, MARK_DEL_END):
+        if kind in ("insert-end", "delete-end"):
             segments.append(current)
             current = {"kind": "base", "lines": []}
             continue
@@ -367,16 +472,13 @@ def resync_interceptor(ext_file, orig_file, method, proc_name, apply_changes):
 
 def controlled_methods(root):
     """Перехватчики ИзменениеИКонтроль во всех модулях расширения."""
-    pattern = re.compile(
-        re.escape(DECORATORS["ModificationAndControl"]) +
-        r'\("([^"]+)"\)\s*\r?\n\s*(?:&[^\r\n]+\r?\n\s*)?(?:' + PROC + "|" + FUNC + r')\s+([^\s(]+)')
     found = []
     for dirpath, _dirs, files in os.walk(root):
         for name in files:
             if not name.lower().endswith(".bsl"):
                 continue
             path = os.path.join(dirpath, name)
-            for m in pattern.finditer(read_bsl(path)):
+            for m in _MAC_RE.finditer(read_bsl(path)):
                 found.append({"file": path, "method": m.group(1), "proc": m.group(2)})
     return found
 
@@ -556,7 +658,7 @@ def main():
 
     # --- Ресинк, если перехватчик уже стоит ---
     if os.path.isfile(bsl_file) and interceptor_type == "ModificationAndControl":
-        if f'{decorator}("{method_name}")' in read_bsl(bsl_file):
+        if has_mac(read_bsl(bsl_file), method_name):
             res = resync_interceptor(bsl_file, orig_file, method_name, proc_name, True)
             fqn = f"{obj_type}.{obj_name}.{method_name}"
             status = res["status"]
@@ -594,9 +696,9 @@ def main():
         # Обработчики формы по умолчанию клиентские: серверная директива оборвала бы вызов.
         context = "НаКлиенте"
     if is_form_module and orig_directive:
-        context_annotation = orig_directive
+        context_annotation = russian_directive(orig_directive)
     else:
-        context_annotation = context if context.startswith("&") else "&" + context
+        context_annotation = russian_directive(context)
 
     # --- Тело перехватчика ---
     keyword = FUNC if orig_is_function else PROC
@@ -614,7 +716,7 @@ def main():
             names = []
             for p in orig_params.split(","):
                 name = p.split("=")[0].strip()
-                name = re.sub(r"^Знач\s+", "", name)
+                name = _VAL_RE.sub("", name)
                 names.append(name)
             call_args = ", ".join(names)
         cont = "ПродолжитьВызов"  # ПродолжитьВызов
@@ -677,19 +779,20 @@ def main():
 
         # Условие препроцессора вокруг оригинала должно охватывать и перехватчик. Если файл
         # такого условия не содержит, метод оборачивается отдельно.
-        if orig_preproc and not any(l.strip() == f"{IF_START} {orig_preproc} {THEN}" for l in lines):
+        if orig_preproc and not any(preproc_condition(l) == orig_preproc for l in lines):
             bsl_code = [f"{IF_START} {orig_preproc} {THEN}", ""] + bsl_code + ["", END_IF]
 
         region_idx = -1
         for i, line in enumerate(lines):
-            if line.strip() == f"{REGION} {region_name}":
+            title = region_title(line)
+            if title and title.casefold() == region_name.casefold():
                 region_idx = i
                 break
 
         if region_idx >= 0:
             end_idx = -1
             for i in range(region_idx + 1, len(lines)):
-                if lines[i].strip() == END_REGION:
+                if same_word(lines[i].strip(), END_REGION_WORDS):
                     end_idx = i
                     break
             if end_idx < 0:
@@ -702,7 +805,7 @@ def main():
             block = ["", f"{REGION} {region_name}", ""] + bsl_code + ["", END_REGION]
             close_idx = -1
             for i in range(len(lines) - 1, -1, -1):
-                if lines[i].strip() == END_IF:
+                if same_word(lines[i].strip(), END_IF_WORDS):
                     close_idx = i
                     break
             if close_idx >= 0:
