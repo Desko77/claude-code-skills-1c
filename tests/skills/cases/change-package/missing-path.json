@@ -1,0 +1,15 @@
+{
+  "name": "Пакет правок: отсутствующий путь дает отказ",
+  "setup": "fixture:changed-method",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "нет-такого-каталога",
+    "outFile": "package.md"
+  },
+  "expectError": "Путь не найден",
+  "expect": {
+    "filesAbsent": ["package.md"],
+    "stderrContains": ["[ERROR] Путь не найден:"],
+    "stderrNotContains": ["Traceback"]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "Пакет правок: добавленный метод",
+  "setup": "fixture:added-method",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": ["package.md"],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 0, добавлено: 1, удалено: 0, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "## CommonModules/ПакетСервер/Ext/Module.bsl - Общий модуль ПакетСервер",
+          "### Добавить метод ВторойШаг перед методом ТретийШаг",
+          "Текст метода:",
+          "Процедура ВторойШаг(Значение)"
+        ]
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Изменить метод",
+          "### Удалить метод",
+          "### Изменить код вне методов",
+          "### Заменить модуль целиком"
+        ]
+      }
+    ],
+    "preserves": { "file": "package.md", "bom": false, "eol": "lf", "finalNewline": true }
+  }
+}

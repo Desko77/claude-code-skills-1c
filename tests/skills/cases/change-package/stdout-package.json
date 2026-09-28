@@ -1,0 +1,19 @@
+{
+  "name": "Пакет правок без -OutFile печатается в stdout",
+  "setup": "fixture:changed-method",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after"
+  },
+  "noSnapshot": "без -OutFile файла нет, пакет сверяется по тексту stdout",
+  "idempotent": true,
+  "expect": {
+    "filesAbsent": ["package.md"],
+    "stdoutContains": [
+      "# Пакет ручного внесения изменений",
+      "## Catalogs/Товары/Ext/ObjectModule.bsl - Справочник Товары, модуль объекта",
+      "### Изменить метод ЗаполнитьПоУмолчанию"
+    ],
+    "stdoutNotContains": ["[OK]    Пакет записан:"]
+  }
+}

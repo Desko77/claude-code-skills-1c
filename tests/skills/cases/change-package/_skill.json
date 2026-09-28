@@ -1,0 +1,14 @@
+{
+  "script": "change-package/scripts/change-package",
+  "setup": "none",
+  "cwd": "workDir",
+  "args": [
+    { "flag": "-Before", "from": "case.beforePath" },
+    { "flag": "-After", "from": "case.afterPath" },
+    { "flag": "-OutFile", "from": "case.outFile" }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": false
+  }
+}

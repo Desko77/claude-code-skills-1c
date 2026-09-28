@@ -1,0 +1,45 @@
+{
+  "name": "Пакет правок: метод с ветками препроцессора и двумя закрывающими словами",
+  "setup": "fixture:preprocessor-branches",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": [
+      "package.md"
+    ],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 1, добавлено: 0, удалено: 0, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Изменить метод Подготовить",
+          "#Если Сервер Тогда",
+          "#КонецЕсли",
+          "Результат = 3;"
+        ]
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Добавить метод",
+          "### Удалить метод",
+          "### Заменить модуль целиком"
+        ]
+      }
+    ],
+    "preserves": {
+      "file": "package.md",
+      "bom": false,
+      "eol": "lf",
+      "finalNewline": true
+    }
+  }
+}

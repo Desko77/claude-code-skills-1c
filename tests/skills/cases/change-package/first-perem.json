@@ -1,0 +1,41 @@
+{
+  "name": "Пакет правок: переменная модуля при отсутствии кода вне методов в старой версии",
+  "setup": "fixture:first-perem",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": [
+      "package.md"
+    ],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 0, добавлено: 0, удалено: 0, правок вне методов: 0, замен целиком: 1"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Заменить модуль целиком",
+          "Перем КэшЗначений;"
+        ]
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "### Изменить код вне методов"
+        ]
+      }
+    ],
+    "preserves": {
+      "file": "package.md",
+      "bom": false,
+      "eol": "lf",
+      "finalNewline": true
+    }
+  }
+}

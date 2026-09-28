@@ -1,0 +1,28 @@
+{
+  "name": "Пакет правок: одинаковые версии дают пустой пакет",
+  "setup": "fixture:changed-method",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "before",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": ["package.md"],
+    "stdoutContains": ["[OK]    Пакет записан:"],
+    "stdoutNotContains": ["Модулей с правками"],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": ["Различий между версиями нет."]
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "package.md",
+        "text": ["### Изменить метод", "## Файлы для правки вручную"]
+      }
+    ],
+    "preserves": { "file": "package.md", "bom": false, "eol": "lf", "finalNewline": true }
+  }
+}
