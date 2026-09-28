@@ -295,6 +295,20 @@ function createWorkspace(fixturePath, readOnly) {
   return { path: tmp, readOnly: false };
 }
 
+// cwd "workDir" - корень рабочего каталога, "workDir/<путь>" - его подкаталог.
+// Подкаталог нужен кейсу, где в имени каталога есть символы маски.
+function resolveExecCwd(cwdSpec, workDir) {
+  if (!cwdSpec || !workDir) return undefined;
+  if (cwdSpec === 'workDir') return workDir;
+  let rel = null;
+  if (cwdSpec.startsWith('workDir/')) rel = cwdSpec.slice('workDir/'.length);
+  else if (cwdSpec.startsWith('workDir\\')) rel = cwdSpec.slice('workDir\\'.length);
+  if (!rel) return undefined;
+  const full = join(workDir, rel);
+  mkdirSync(full, { recursive: true });
+  return full;
+}
+
 function cleanupWorkspace(ws) {
   if (ws.readOnly) return;
   // --keep-work оставляет рабочий каталог на диске. Нужен, когда снапшот и вывод расходятся
@@ -863,7 +877,7 @@ async function runCaseAsync(testCase, opts) {
     const { scriptPath, args } = buildArgs(skillConfig, caseData, workDir, inputFile, opts.runtime);
     let stdout = '', stderr = '', exitCode = 0;
     try {
-      const execCwd = (caseData.cwd || skillConfig.cwd) === 'workDir' ? workDir : undefined;
+      const execCwd = resolveExecCwd(caseData.cwd || skillConfig.cwd, workDir);
       ({ stdout, stderr } = await execSkillAsync(opts.runtime, scriptPath, args, execCwd));
     } catch (e) {
       exitCode = e.status ?? 1;
@@ -978,7 +992,7 @@ async function runCaseAsync(testCase, opts) {
       if (errors.length === 0 && caseData.idempotent && !workspace.readOnly) {
         const before = snapshotWorkDirBytes(workDir);
         try {
-          const execCwd = (caseData.cwd || skillConfig.cwd) === 'workDir' ? workDir : undefined;
+          const execCwd = resolveExecCwd(caseData.cwd || skillConfig.cwd, workDir);
           await execSkillAsync(opts.runtime, scriptPath, args, execCwd);
         } catch (e) {
           errors.push(`Idempotency rerun failed: exitCode=${e.status}\nstderr: ${(e.stderr || '').substring(0, 300)}`);
@@ -1100,7 +1114,7 @@ function runCase(testCase, opts) {
     let stdout = '', stderr = '', exitCode = 0;
 
     try {
-      const execCwd = (caseData.cwd || skillConfig.cwd) === 'workDir' ? workDir : undefined;
+      const execCwd = resolveExecCwd(caseData.cwd || skillConfig.cwd, workDir);
       stdout = execSkillRaw(opts.runtime, scriptPath, args, execCwd);
     } catch (e) {
       exitCode = e.status ?? 1;
@@ -1224,7 +1238,7 @@ function runCase(testCase, opts) {
       if (errors.length === 0 && caseData.idempotent && !workspace.readOnly) {
         const before = snapshotWorkDirBytes(workDir);
         try {
-          const execCwd = (caseData.cwd || skillConfig.cwd) === 'workDir' ? workDir : undefined;
+          const execCwd = resolveExecCwd(caseData.cwd || skillConfig.cwd, workDir);
           execSkillRaw(opts.runtime, scriptPath, args, execCwd);
         } catch (e) {
           errors.push(`Idempotency rerun failed: exitCode=${e.status}\nstderr: ${(e.stderr || '').substring(0, 300)}`);

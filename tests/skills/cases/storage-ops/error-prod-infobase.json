@@ -1,0 +1,42 @@
+{
+  "name": "Отказ: изменяющая операция над базой, помеченной боевой",
+  "runtimeOnly": "powershell",
+  "cwd": "workDir",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": ".v8-project.json",
+        "content": {
+          "databases": [
+            {
+              "id": "prod",
+              "name": "Рабочая",
+              "type": "server",
+              "server": "srv01",
+              "ref": "myapp_prod",
+              "role": "prod"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "args_extra": [
+    "-Operation",
+    "commit",
+    "-V8Path",
+    "{workDir}\\missing\\1cv8.exe",
+    "-RepositoryPath",
+    "{workDir}\\repo",
+    "-InfoBaseServer",
+    "srv01",
+    "-InfoBaseRef",
+    "myapp_prod"
+  ],
+  "expectError": "помечена как боевая (role: prod)",
+  "expect": {
+    "stderrContains": "База 'Рабочая'",
+    "stdoutNotContains": "Running: 1cv8.exe"
+  },
+  "noSnapshot": "негативный кейс: отказ до записи в рабочий каталог"
+}

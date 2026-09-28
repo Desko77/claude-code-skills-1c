@@ -1,0 +1,53 @@
+{
+  "name": "Ключ -AllowProd: гард пропускает боевую базу, отказ приходит от запуска платформы",
+  "osOnly": "win32",
+  "cwd": "workDir",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": ".v8-project.json",
+        "content": {
+          "databases": [
+            {
+              "id": "prod",
+              "name": "Рабочая",
+              "type": "server",
+              "server": "srv01",
+              "ref": "myapp_prod",
+              "role": "prod"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "writeFile": {
+        "path": "fake.cmd",
+        "content": "@echo off\r\nexit /b 1\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "cfg.cf",
+        "content": "fake configuration\n"
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\fake.cmd",
+    "-InfoBaseServer",
+    "srv01",
+    "-InfoBaseRef",
+    "myapp_prod",
+    "-InputFile",
+    "{workDir}\\cfg.cf",
+    "-AllowProd"
+  ],
+  "expectError": true,
+  "expect": {
+    "stdoutContains": "Running: 1cv8.exe",
+    "stderrNotContains": "помечена как боевая"
+  },
+  "noSnapshot": "негативный кейс: фейк платформы завершается кодом 1, навык ничего не пишет"
+}

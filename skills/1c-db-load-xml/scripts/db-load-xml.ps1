@@ -20,6 +20,9 @@
 .PARAMETER InfoBaseRef
     Имя базы на сервере
 
+.PARAMETER AllowProd
+    Разрешить изменяющую операцию против базы, помеченной в .v8-project.json как боевая (role: prod)
+
 .PARAMETER UserName
     Имя пользователя 1С
 
@@ -67,6 +70,9 @@ param(
 
     [Parameter(Mandatory=$false)]
     [string]$InfoBaseRef,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$AllowProd,
 
     [Parameter(Mandatory=$false)]
     [string]$UserName,
@@ -223,6 +229,281 @@ function Write-PlatformVerdict {
     return $finalCode
 }
 # --- Конец общего блока вердикта платформы ---
+
+# --- Защита боевой базы (общий блок, версия 2) ---
+# База, помеченная в .v8-project.json как боевая (role: prod), отказывает изменяющей
+# операции, пока не передан -AllowProd. Отказ стоит одной команды, а неудачная загрузка в
+# боевую базу необратима. Проверка идет до запуска платформы; когда файла настроек нет,
+# записи базы нет или роль отличается от prod - поведение прежнее.
+
+function Get-InfoBaseStartDir {
+    # Провайдер PowerShell читает [ ] в имени каталога как маску и не входит в него:
+    # Get-Location тогда указывает не на каталог процесса, и файл настроек не находится.
+    try {
+        $osDir = [System.IO.Directory]::GetCurrentDirectory()
+        if ($osDir) { return $osDir }
+    } catch {}
+    return (Get-Location).Path
+}
+
+function Find-GuardProjectFile {
+    param([string]$StartDir)
+    # Относительный путь приводится к полному: подъем по строке "build\db" упирается в пустую
+    # строку раньше, чем доходит до текущего каталога, и настройки в корне проекта теряются.
+    $d = if ([string]::IsNullOrEmpty($StartDir)) {
+        Get-InfoBaseStartDir
+    } elseif ([System.IO.Path]::IsPathRooted($StartDir)) {
+        $StartDir
+    } else {
+        Join-Path (Get-InfoBaseStartDir) $StartDir
+    }
+    $d = [System.IO.Path]::GetFullPath($d)
+    for ($i = 0; $i -lt 20 -and $d; $i++) {
+        $pj = Join-Path $d ".v8-project.json"
+        # LiteralPath: квадратные скобки в имени каталога иначе читаются как маска.
+        if (Test-Path -LiteralPath $pj) { return $pj }
+        $parent = [System.IO.Path]::GetDirectoryName($d)
+        if ($parent -eq $d) { break }
+        $d = $parent
+    }
+    return $null
+}
+
+# Get-InfoBaseServerKey - ключ сравнения адреса сервера.
+#
+# Порт кластера по умолчанию 1541 отбрасывается: srv01 и srv01:1541 - одна база.
+# Другой порт остается в ключе и отличает базу.
+function Get-InfoBaseServerKey {
+    param([string]$Value)
+
+    if (-not $Value) { return '' }
+    $text = $Value.Trim().ToLowerInvariant()
+    $suffix = ':1541'
+    if ($text.EndsWith($suffix)) {
+        $text = $text.Substring(0, $text.Length - $suffix.Length)
+    }
+    return $text
+}
+
+# Get-InfoBaseRecordKind - вид записи реестра.
+#
+# Поле type учитывается, когда оно задано (server или file). Иначе серверная запись -
+# это пара server и ref, файловая - путь.
+function Get-InfoBaseRecordKind {
+    param($Db)
+
+    $declared = ("$($Db.type)").Trim().ToLowerInvariant()
+    if ($declared -eq 'server' -or $declared -eq 'file') { return $declared }
+    if (("$($Db.server)").Trim() -and ("$($Db.ref)").Trim()) { return 'server' }
+    if (("$($Db.path)").Trim()) { return 'file' }
+    return ''
+}
+
+# Get-InfoBaseFinalPath - окончательный путь каталога.
+#
+# Junction и символическая ссылка приводятся к цели, в том числе в середине пути и когда
+# последнего каталога еще нет. Подключенный диск и UNC-путь к тому же каталогу не сводятся.
+function Get-InfoBaseFinalPath {
+    param([string]$Path)
+
+    if (-not $Path) { return '' }
+    $full = $Path
+    try {
+        $full = [System.IO.Path]::GetFullPath($Path)
+    } catch {
+        return $Path
+    }
+    try {
+        $rootPath = [System.IO.Path]::GetPathRoot($full)
+        if (-not $rootPath) { return $full }
+        $rest = $full.Substring($rootPath.Length)
+        $current = $rootPath
+        foreach ($part in @($rest -split '[\\/]' | Where-Object { $_ })) {
+            if ($current.EndsWith('\') -or $current.EndsWith('/')) {
+                $next = $current + $part
+            } else {
+                $next = Join-Path $current $part
+            }
+            if (-not (Test-Path -LiteralPath $next)) {
+                $current = $next
+                continue
+            }
+            $current = $next
+            for ($hop = 0; $hop -lt 8; $hop++) {
+                try {
+                    $item = Get-Item -LiteralPath $next -Force -ErrorAction Stop
+                } catch {
+                    break
+                }
+                $reparse = $false
+                try {
+                    $reparse = [bool]($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+                } catch {
+                    $reparse = $false
+                }
+                if (-not $reparse) {
+                    $current = $item.FullName
+                    break
+                }
+                $target = $item.Target
+                if ($target -is [System.Array]) { $target = $target[0] }
+                if (-not $target) {
+                    $current = $item.FullName
+                    break
+                }
+                $target = "$target".Trim()
+                if (-not $target) {
+                    $current = $item.FullName
+                    break
+                }
+                if (-not [System.IO.Path]::IsPathRooted($target)) {
+                    $parent = [System.IO.Path]::GetDirectoryName($item.FullName)
+                    if ($parent) { $target = Join-Path $parent $target }
+                }
+                try { $target = [System.IO.Path]::GetFullPath($target) } catch {}
+                if ($target -eq $next) {
+                    $current = $item.FullName
+                    break
+                }
+                $current = $target
+                $next = $target
+                if (-not (Test-Path -LiteralPath $next)) { break }
+            }
+        }
+        return $current
+    } catch {
+        return $full
+    }
+}
+
+# Get-InfoBasePathKey - ключ сравнения путей баз.
+#
+# Приводит путь к виду, в котором два написания одной базы совпадают: окончательный
+# каталог (junction и символическая ссылка), прямые слеши, нижний регистр, без
+# завершающего разделителя. Относительный путь достраивается от BaseDir.
+# Подключенный диск и UNC-путь к тому же каталогу не сводятся.
+#
+# Параметры:
+#   Value - путь к файловой базе.
+#   BaseDir - каталог, от которого достраивается относительный путь.
+#
+# Возвращает: строку-ключ; пустая строка означает, что путь не задан.
+function Get-InfoBasePathKey {
+    param([string]$Value, [string]$BaseDir)
+
+    if (-not $Value) { return '' }
+    $text = $Value.Trim()
+    if (-not $text) { return '' }
+    if (-not [System.IO.Path]::IsPathRooted($text) -and $BaseDir) {
+        $text = Join-Path $BaseDir $text
+    }
+    $text = Get-InfoBaseFinalPath -Path $text
+    $text = $text -replace '\\', '/'
+    $text = $text.TrimEnd('/')
+    if (-not $text) { $text = '/' }
+    return $text.ToLowerInvariant()
+}
+
+# Get-InfoBaseRole - роль целевой базы по настройкам проекта.
+#
+# Находит ближайший .v8-project.json и в нем запись того же вида, что и цель. Сервер и имя
+# вместе - цель серверная, путь в этом запуске не сравнивается. Сервер сравнивается без
+# порта 1541. Файловый путь - по окончательному каталогу. Поле type записи учитывается,
+# когда оно задано. Сравнение без учета регистра. Читает только имя и роль, остальные
+# поля файла не печатает.
+#
+# Параметры:
+#   InfoBasePath - путь к файловой базе (или пустая строка).
+#   InfoBaseServer - сервер 1С для серверной базы.
+#   InfoBaseRef - имя базы на сервере.
+#
+# Возвращает: хеш с полями Name (имя записи), Role (роль в нижнем регистре) и ConfigPath
+# (путь к файлу настроек). Поля пустые, когда файла нет, запись не найдена или файл не
+# разбирается.
+function Get-InfoBaseRole {
+    param(
+        [string]$InfoBasePath,
+        [string]$InfoBaseServer,
+        [string]$InfoBaseRef
+    )
+
+    $state = @{ Name = ''; Role = ''; ConfigPath = '' }
+    $startDir = Get-InfoBaseStartDir
+    $configPath = Find-GuardProjectFile -StartDir $startDir
+    if (-not $configPath) { return $state }
+    $state.ConfigPath = $configPath
+    try {
+        $project = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        # Файл есть, но не разбирается: роль неизвестна. Молчать нельзя - иначе защита не
+        # работает, а причина не видна.
+        [Console]::Error.WriteLine("[warning] project settings not parsed: $configPath ($($_.Exception.Message))")
+        $state.ConfigPath = ''
+        return $state
+    }
+    if (-not $project -or -not $project.databases) { return $state }
+
+    $configDir = Split-Path -Path $configPath -Parent
+    $serverKey = Get-InfoBaseServerKey $InfoBaseServer
+    $ref = if ($InfoBaseRef) { $InfoBaseRef.Trim().ToLowerInvariant() } else { '' }
+    $target = Get-InfoBasePathKey -Value $InfoBasePath -BaseDir $startDir
+    # Заданы сервер и имя - цель серверная, даже если рядом передан путь. Как у платформы.
+    $serverTarget = [bool]($serverKey -and $ref)
+
+    foreach ($db in @($project.databases)) {
+        if (-not $db) { continue }
+        $kind = Get-InfoBaseRecordKind -Db $db
+        $matched = $false
+        if ($serverTarget) {
+            if ($kind -eq 'server') {
+                $matched = ((Get-InfoBaseServerKey "$($db.server)") -eq $serverKey) -and
+                           (("$($db.ref)").Trim().ToLowerInvariant() -eq $ref)
+            }
+        } elseif ($target -and $kind -eq 'file') {
+            $matched = (Get-InfoBasePathKey -Value "$($db.path)" -BaseDir $configDir) -eq $target
+        }
+        if (-not $matched) { continue }
+        if ($db.name) { $state.Name = "$($db.name)" }
+        elseif ($db.id) { $state.Name = "$($db.id)" }
+        $state.Role = ("$($db.role)").Trim().ToLowerInvariant()
+        if ($state.Role -eq 'prod') { return $state }
+    }
+    return $state
+}
+
+# Assert-InfoBaseMutable - отказ изменяющей операции на базе, помеченной боевой.
+#
+# Ничего не делает, когда передан -AllowProd, когда записи базы нет и когда роль не prod.
+# При отказе печатает причину в stderr и завершает процесс кодом 1.
+#
+# Параметры:
+#   InfoBasePath, InfoBaseServer, InfoBaseRef - цель операции, как в параметрах скрипта.
+#   AllowProd - явное разрешение работать с боевой базой.
+#
+# Возвращает: ничего; при отказе управление не возвращается.
+function Assert-InfoBaseMutable {
+    param(
+        [string]$InfoBasePath,
+        [string]$InfoBaseServer,
+        [string]$InfoBaseRef,
+        [switch]$AllowProd
+    )
+
+    if ($AllowProd) { return }
+    $state = Get-InfoBaseRole -InfoBasePath $InfoBasePath -InfoBaseServer $InfoBaseServer -InfoBaseRef $InfoBaseRef
+    if ($state.Role -ne 'prod') { return }
+    $name = $state.Name
+    if (-not $name) { $name = '<без имени>' }
+    [Console]::Error.WriteLine(
+        "База '$name' помечена как боевая (role: prod) в $($state.ConfigPath).`n" +
+        "Изменяющая операция отменена. Запуск с -AllowProd - только по явной команде пользователя.")
+    exit 1
+}
+# --- Конец общего блока защиты боевой базы ---
+
+# --- Боевая база ---
+Assert-InfoBaseMutable -InfoBasePath $InfoBasePath -InfoBaseServer $InfoBaseServer -InfoBaseRef $InfoBaseRef -AllowProd:$AllowProd
+
 # --- Resolve V8Path ---
 if (-not $V8Path) {
     $found = Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1

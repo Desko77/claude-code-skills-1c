@@ -1,0 +1,42 @@
+{
+  "name": "Порт 1541 по умолчанию: запись srv01 и запуск srv01:1541 - одна боевая база",
+  "cwd": "workDir",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": ".v8-project.json",
+        "content": {
+          "databases": [
+            {
+              "id": "prod",
+              "name": "Рабочая",
+              "type": "server",
+              "server": "srv01",
+              "ref": "myapp_prod",
+              "role": "prod"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\missing\\1cv8.exe",
+    "-InfoBaseServer",
+    "srv01:1541",
+    "-InfoBaseRef",
+    "myapp_prod",
+    "-InputFile",
+    "{workDir}\\cfg.cf"
+  ],
+  "expectError": "помечена как боевая (role: prod)",
+  "expect": {
+    "stderrContains": [
+      "База 'Рабочая'",
+      "Изменяющая операция отменена. Запуск с"
+    ],
+    "stdoutNotContains": "Running: 1cv8.exe"
+  },
+  "noSnapshot": "негативный кейс: отказ до записи в рабочий каталог"
+}

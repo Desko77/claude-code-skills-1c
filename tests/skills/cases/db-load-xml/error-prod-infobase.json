@@ -1,0 +1,39 @@
+{
+  "name": "Отказ: целевая база помечена боевой",
+  "cwd": "workDir",
+  "preRun": [
+    {
+      "writeFile": {
+        "path": ".v8-project.json",
+        "content": {
+          "databases": [
+            {
+              "id": "prod",
+              "name": "Рабочая",
+              "type": "server",
+              "server": "srv01",
+              "ref": "myapp_prod",
+              "role": "prod"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "args_extra": [
+    "-V8Path",
+    "{workDir}\\missing\\1cv8.exe",
+    "-InfoBaseServer",
+    "srv01",
+    "-InfoBaseRef",
+    "myapp_prod",
+    "-ConfigDir",
+    "{workDir}\\src"
+  ],
+  "expectError": "помечена как боевая (role: prod)",
+  "expect": {
+    "stderrContains": "База 'Рабочая'",
+    "stdoutNotContains": "Running: 1cv8.exe"
+  },
+  "noSnapshot": "негативный кейс: отказ до записи в рабочий каталог"
+}

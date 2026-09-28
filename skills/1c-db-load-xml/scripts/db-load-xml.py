@@ -150,6 +150,163 @@ def write_platform_verdict(exit_code, result_file, log_text, success_message,
 
     return final_code
 # --- Конец общего блока вердикта платформы ---
+
+# --- Защита боевой базы (общий блок, версия 2) ---
+# База, помеченная в .v8-project.json как боевая (role: prod), отказывает изменяющей
+# операции, пока не передан --allow-prod. Отказ стоит одной команды, а неудачная загрузка в
+# боевую базу необратима. Проверка идет до запуска платформы; когда файла настроек нет,
+# записи базы нет или роль отличается от prod - поведение прежнее.
+def find_v8_project_file(start_dir):
+    """Файл настроек проекта вверх по дереву от целевого каталога.
+
+    Существование каталога не требуется: подъем идет по строке пути, а целевого каталога
+    на момент создания базы еще нет.
+    """
+    d = os.path.abspath(start_dir)
+    for _ in range(20):
+        candidate = os.path.join(d, ".v8-project.json")
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return None
+
+
+def info_base_server_key(value):
+    """Ключ сравнения адреса сервера.
+
+    Порт кластера по умолчанию 1541 отбрасывается: srv01 и srv01:1541 - одна база.
+    Другой порт остается в ключе и отличает базу.
+    """
+    text = str(value or "").strip().lower()
+    suffix = ":1541"
+    if text.endswith(suffix):
+        text = text[: -len(suffix)]
+    return text
+
+
+def info_base_record_kind(db):
+    """Вид записи реестра.
+
+    Поле type учитывается, когда оно задано (server или file). Иначе серверная запись -
+    это пара server и ref, файловая - путь.
+    """
+    declared = str(db.get("type") or "").strip().lower()
+    if declared in ("server", "file"):
+        return declared
+    if str(db.get("server") or "").strip() and str(db.get("ref") or "").strip():
+        return "server"
+    if str(db.get("path") or "").strip():
+        return "file"
+    return ""
+
+
+def info_base_path_key(value, base_dir):
+    """Ключ сравнения путей баз.
+
+    Приводит путь к виду, в котором два написания одной базы совпадают: окончательный
+    каталог (os.path.realpath: junction и символическая ссылка), прямые слеши, нижний
+    регистр, без завершающего разделителя. Относительный путь достраивается от base_dir.
+    Подключенный диск и UNC-путь к тому же каталогу не сводятся.
+    """
+    if not value:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    if not os.path.isabs(text) and base_dir:
+        text = os.path.join(base_dir, text)
+    try:
+        text = os.path.realpath(text)
+    except (OSError, ValueError):
+        text = os.path.abspath(text)
+    text = text.replace("\\", "/").rstrip("/")
+    if not text:
+        text = "/"
+    return text.lower()
+
+
+def info_base_role(info_base_path, info_base_server, info_base_ref):
+    """Роль целевой базы по настройкам проекта.
+
+    Находит ближайший .v8-project.json и в нем запись того же вида, что и цель. Сервер и имя
+    вместе - цель серверная, путь в этом запуске не сравнивается. Сервер сравнивается без
+    порта 1541. Файловый путь - по окончательному каталогу. Поле type записи учитывается,
+    когда оно задано. Сравнение без учета регистра. Читает только имя и роль, остальные
+    поля файла не печатает.
+    """
+    # Импорт внутри функции: блок переносится в скилы с разным набором импортов, и обращение
+    # к неимпортированному имени попадало бы в except ниже - отказ стал бы тихим.
+    import json as _pg_json
+    state = {"name": "", "role": "", "config_path": ""}
+    start_dir = os.getcwd()
+    config_path = find_v8_project_file(start_dir)
+    if not config_path:
+        return state
+    state["config_path"] = config_path
+    try:
+        with open(config_path, "r", encoding="utf-8-sig") as handle:
+            project = _pg_json.load(handle)
+    except Exception as exc:
+        # Файл есть, но не разбирается: роль неизвестна. Молчать нельзя - иначе защита не
+        # работает, а причина не видна.
+        print(f"[warning] project settings not parsed: {config_path} ({exc})", file=sys.stderr)
+        state["config_path"] = ""
+        return state
+    databases = project.get("databases") if isinstance(project, dict) else None
+    if not isinstance(databases, list):
+        return state
+
+    config_dir = os.path.dirname(config_path)
+    server_key = info_base_server_key(info_base_server)
+    ref = (info_base_ref or "").strip().lower()
+    target = info_base_path_key(info_base_path, start_dir)
+    # Заданы сервер и имя - цель серверная, даже если рядом передан путь. Как у платформы.
+    server_target = bool(server_key and ref)
+
+    for db in databases:
+        if not isinstance(db, dict):
+            continue
+        kind = info_base_record_kind(db)
+        if server_target:
+            matched = (
+                kind == "server"
+                and info_base_server_key(db.get("server")) == server_key
+                and str(db.get("ref") or "").strip().lower() == ref
+            )
+        elif target and kind == "file":
+            matched = info_base_path_key(db.get("path"), config_dir) == target
+        else:
+            matched = False
+        if not matched:
+            continue
+        state["name"] = str(db.get("name") or db.get("id") or "")
+        state["role"] = str(db.get("role") or "").strip().lower()
+        if state["role"] == "prod":
+            return state
+    return state
+
+
+def assert_info_base_mutable(info_base_path, info_base_server, info_base_ref, allow_prod):
+    """Отказ изменяющей операции на базе, помеченной боевой.
+
+    Ничего не делает, когда передан allow_prod, когда записи базы нет и когда роль не prod.
+    При отказе печатает причину в stderr и завершает процесс кодом 1.
+    """
+    if allow_prod:
+        return
+    state = info_base_role(info_base_path, info_base_server, info_base_ref)
+    if state["role"] != "prod":
+        return
+    name = state["name"] or "<без имени>"
+    print(f"База '{name}' помечена как боевая (role: prod) в {state['config_path']}.\n"
+          "Изменяющая операция отменена. Запуск с --allow-prod - только по явной команде пользователя.",
+          file=sys.stderr)
+    sys.exit(1)
+# --- Конец общего блока защиты боевой базы ---
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -161,6 +318,8 @@ def main():
     parser.add_argument("-InfoBasePath", default="", help="Path to file infobase")
     parser.add_argument("-InfoBaseServer", default="", help="1C server (for server infobase)")
     parser.add_argument("-InfoBaseRef", default="", help="Infobase name on server")
+    parser.add_argument("-AllowProd", "--allow-prod", dest="AllowProd", action="store_true",
+                        help="Allow a modifying operation against an infobase marked role: prod")
     parser.add_argument("-UserName", default="", help="1C user name")
     parser.add_argument("-Password", default="", help="1C user password")
     parser.add_argument("-ConfigDir", required=True, help="Directory with XML configuration sources")
@@ -187,6 +346,9 @@ def main():
         help="Treat silent rejection warnings in the log as errors (elevate exit code to 1)",
     )
     args = parser.parse_args()
+
+    # --- Боевая база ---
+    assert_info_base_mutable(args.InfoBasePath, args.InfoBaseServer, args.InfoBaseRef, args.AllowProd)
 
     # --- Resolve V8Path ---
     v8path = resolve_v8path(args.V8Path)

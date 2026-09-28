@@ -1,0 +1,9 @@
+{
+  "script": "storage-ops/scripts/storage-ops",
+  "setup": "none",
+  "args": [],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": false
+  }
+}

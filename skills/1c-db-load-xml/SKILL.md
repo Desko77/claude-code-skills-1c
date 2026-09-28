@@ -35,6 +35,7 @@ allowed-tools:
 Если `v8path` не задан - автоопределение: `Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort -Desc | Select -First 1`
 Если файла нет - предложи `/db-list add`.
 Если использованная база не зарегистрирована - после выполнения предложи добавить через `/db-list add`.
+База с ролью `prod` в `.v8-project.json` отказывает изменяющей операции: скрипт завершается кодом 1, пока не передан `-AllowProd`.
 Если в записи базы указан `configSrc` - используй как каталог загрузки по умолчанию.
 
 ## Команда
@@ -53,6 +54,7 @@ powershell.exe -NoProfile -File skills/1c-db-load-xml/scripts/db-load-xml.ps1 <�
 | `-InfoBaseRef <имя>` | * | Имя базы на сервере |
 | `-UserName <имя>` | нет | Имя пользователя |
 | `-Password <пароль>` | нет | Пароль |
+| `-AllowProd` | нет | Разрешить операцию над базой, помеченной боевой (`role: prod` в `.v8-project.json`) |
 | `-ConfigDir <путь>` | да | Каталог XML-исходников |
 | `-Mode <режим>` | нет | `Full` (по умолч.) / `Partial` |
 | `-Files <список>` | для Partial | Относительные пути файлов через запятую |

@@ -34,6 +34,7 @@ allowed-tools:
       "id": "dev",
       "name": "Разработка",
       "type": "file",
+      "role": "dev",
       "path": "C:\\Bases\\MyApp_Dev",
       "user": "Admin",
       "password": "",
@@ -45,6 +46,7 @@ allowed-tools:
       "id": "test",
       "name": "Тестовая",
       "type": "server",
+      "role": "test",
       "server": "srv01",
       "ref": "MyApp_Test",
       "user": "Admin",
@@ -71,6 +73,7 @@ allowed-tools:
 | `id` | string | да | Уникальный идентификатор (латиница, без пробелов) |
 | `name` | string | да | Человекочитаемое имя |
 | `type` | `"file"` / `"server"` | да | Тип подключения |
+| `role` | `"dev"` / `"test"` / `"prod"` | нет | Роль базы. Нет поля - то же, что `dev`. `prod` включает защиту боевой базы |
 | `path` | string | для file | Путь к каталогу файловой базы |
 | `server` | string | для server | Адрес сервера 1С |
 | `ref` | string | для server | Имя базы на сервере |
@@ -110,23 +113,24 @@ $v8 = Get-ChildItem "C:\Program Files\1cv8\*\bin\1cv8.exe" | Sort-Object -Descen
 
 ### Показать список баз
 
-Прочитай `.v8-project.json`, выведи таблицу:
+Прочитай `.v8-project.json`, выведи таблицу. Колонка Роль - поле `role`; если поля нет, выводи `dev`.
 
 ```
-ID      Имя           Тип      Путь/Сервер              По умолч.
-dev     Разработка    file     C:\Bases\MyApp_Dev       ✓
-test    Тестовая      server   srv01/MyApp_Test
+ID      Имя           Тип      Роль    Путь/Сервер              По умолч.
+dev     Разработка    file     dev     C:\Bases\MyApp_Dev       ✓
+test    Тестовая      server   test    srv01/MyApp_Test
 ```
 
 ### Добавить базу
 
 Спроси у пользователя через AskUserQuestion:
 - id, name, type (file/server)
+- role: `dev`, `test` или `prod`
 - path (для file) или server + ref (для server)
 - user, password (необязательно)
 - aliases, branches (необязательно)
 
-Добавь в массив `databases`. Если это первая база - установи как `default`.
+Если пользователь не выбрал роль, поле `role` не записывай: это то же, что `dev`. Добавь в массив `databases`. Если это первая база - установи как `default`.
 
 ### Удалить базу
 
@@ -134,7 +138,7 @@ test    Тестовая      server   srv01/MyApp_Test
 
 ### Подробности по базе
 
-Выведи все поля конкретной базы.
+Выведи все поля конкретной базы. Роль показывай всегда: нет поля `role` - это `dev`.
 
 ## Формирование строки подключения
 
