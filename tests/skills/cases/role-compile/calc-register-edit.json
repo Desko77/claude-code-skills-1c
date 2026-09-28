@@ -1,0 +1,42 @@
+{
+  "name": "Регистр расчета с правом Edit (замыкание Read, Update, View)",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "ChartOfCalculationTypes",
+        "name": "ВидыРасчетов"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "CalculationRegister",
+        "name": "Начисления",
+        "chartOfCalculationTypes": "ChartOfCalculationTypes.ВидыРасчетов",
+        "resources": ["Сумма: Number(15,2)"]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "input": {
+    "name": "Расчетчик",
+    "objects": [
+      "CalculationRegister.Начисления: Edit"
+    ]
+  },
+  "validatePath": "Roles/Расчетчик",
+  "expect": {
+    "files": [
+      "Roles/Расчетчик.xml",
+      "Roles/Расчетчик/Ext/Rights.xml"
+    ]
+  }
+}

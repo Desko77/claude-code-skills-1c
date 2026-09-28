@@ -56,11 +56,11 @@
 	<object>
 		<name>ExternalDataSource.Источник</name>
 		<right>
-			<name>Use</name>
+			<name>Administration</name>
 			<value>true</value>
 		</right>
 		<right>
-			<name>Administration</name>
+			<name>Use</name>
 			<value>true</value>
 		</right>
 	</object>

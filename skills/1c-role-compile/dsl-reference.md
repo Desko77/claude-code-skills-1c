@@ -82,15 +82,70 @@
 | Document | Read, Insert, Update, Delete, View, Edit, InputByString, Posting, UndoPosting, InteractiveInsert, InteractiveSetDeletionMark, InteractiveClearDeletionMark, InteractivePosting, InteractivePostingRegular, InteractiveUndoPosting, InteractiveChangeOfPosted |
 | BusinessProcess | Read, Insert, Update, Delete, View, Edit, InputByString, Start, InteractiveInsert, InteractiveSetDeletionMark, InteractiveClearDeletionMark, InteractiveActivate, InteractiveStart |
 | Task | Read, Insert, Update, Delete, View, Edit, InputByString, Execute, InteractiveInsert, InteractiveSetDeletionMark, InteractiveClearDeletionMark, InteractiveActivate, InteractiveExecute |
-| InformationRegister, AccumulationRegister, AccountingRegister, Constant | Read, Update, View, Edit |
+| InformationRegister, AccumulationRegister, AccountingRegister, CalculationRegister, Constant | Read, Update, View, Edit |
 | DocumentJournal | Read, View |
 | Sequence | Read, Update |
 | SessionParameter | Get, Set |
 | CommonAttribute | View, Edit |
 
-Для сервисов (WebService, HTTPService, IntegrationService) пресеты не определены - используй явные права: `"WebService.Имя: Use"`.
+Пресеты не определены для сервисов (WebService, HTTPService, IntegrationService) и простых типов
+с одним правом: CommonForm, CommonCommand, Subsystem, FilterCriterion.
 
 Если пресет не определен для типа объекта - предупреждение с подсказкой доступных.
+
+## Замыкание прав
+
+Набор включенных прав замыкается по зависимостям - платформа при загрузке роли дописывает те же
+права, поэтому собранный файл совпадает с выгрузкой после первой загрузки. Замыкание одноименных
+прав объединяется: пересечение прав двух ролей равно роли с пересечением наборов.
+
+| Заданное право | Дописывает |
+|----------------|-----------|
+| Insert, Update, Delete, View | Read |
+| Edit | Read, Update, View |
+| InputByString | Read, View |
+| InteractiveInsert | Read, Insert, Update, View, Edit |
+| InteractiveDelete, InteractiveDeleteMarked | Read, Update, Delete, View, Edit |
+| InteractiveSetDeletionMark, InteractiveClearDeletionMark | Read, Update, View, Edit |
+| Posting, UndoPosting | Read, Update |
+| InteractivePosting | Read, Update, Posting, View, Edit |
+| InteractivePostingRegular | InteractivePosting (+ его замыкание) |
+| InteractiveUndoPosting | Read, Update, UndoPosting, View, Edit |
+| InteractiveChangeOfPosted | Read, Update, View, Edit |
+| ReadDataHistory | Read |
+| ReadDataHistoryOfMissingData, UpdateDataHistory | Read, ReadDataHistory |
+| UpdateDataHistoryOfMissingData | Read, ReadDataHistory, ReadDataHistoryOfMissingData, UpdateDataHistory |
+| UpdateDataHistoryVersionComment | Read, ReadDataHistory |
+| ViewDataHistory | Read, View, ReadDataHistory |
+| EditDataHistoryVersionComment | Read, View, ReadDataHistory, UpdateDataHistoryVersionComment |
+| SwitchToDataHistoryVersion | Read, View |
+| Start, InteractiveActivate, Execute | Read, Update |
+| InteractiveStart | Read, Update, Start |
+| InteractiveExecute | Read, Update, Execute |
+| InteractiveDeletePredefinedData | Read, Update, Delete, View, Edit, InteractiveDelete |
+| InteractiveSetDeletionMarkPredefinedData | Read, Update, View, Edit, InteractiveSetDeletionMark |
+| InteractiveClearDeletionMarkPredefinedData | Read, Update, View, Edit, InteractiveClearDeletionMark |
+| InteractiveDeleteMarkedPredefinedData | Read, Update, Delete, View, Edit, InteractiveDeleteMarked |
+| View (у DataProcessor, Report) | Use |
+| Administration (у Configuration) | DataAdministration |
+
+Импликация действует только на права, существующие у типа. Отклонения по типам (замер 8.3.27):
+у ChartOfAccounts блок `*DataHistory*` не тянет Read; у InformationRegister право
+UpdateDataHistoryOfMissingData не влечет ReadDataHistoryOfMissingData.
+
+Права в файле идут в порядке выгрузки платформы, а не в порядке ввода.
+
+## Права сервисов
+
+У самих WebService и HTTPService прав нет - платформа отбрасывает такой блок при загрузке.
+Право Use дается операции веб-сервиса и методу HTTP-сервиса:
+
+```json
+"objects": [
+  "WebService.Обмен.Operation.Загрузить: Use",
+  "HTTPService.Сервис.URLTemplate.Файлы.Method.get: Use"
+]
+```
 
 ## Русские синонимы
 

@@ -434,7 +434,8 @@ KNOWN_RIGHTS = {
     ],
     "AccumulationRegister": ["Read", "Update", "View", "Edit", "TotalsControl"],
     "AccountingRegister": ["Read", "Update", "View", "Edit", "TotalsControl"],
-    "CalculationRegister": ["Read", "View"],
+    # Замер 8.3.27: у регистра расчета есть Update и Edit, а TotalsControl - нет.
+    "CalculationRegister": ["Read", "Update", "View", "Edit"],
     "Constant": [
         "Read", "Update", "View", "Edit",
         "ReadDataHistory", "ViewDataHistory", "UpdateDataHistory",
@@ -444,12 +445,13 @@ KNOWN_RIGHTS = {
     "ChartOfAccounts": [
         "Read", "Insert", "Update", "Delete", "View", "Edit", "InputByString",
         "InteractiveInsert", "InteractiveSetDeletionMark", "InteractiveClearDeletionMark",
-        "InteractiveDelete",
+        "InteractiveDelete", "InteractiveDeleteMarked",
         "InteractiveDeletePredefinedData", "InteractiveSetDeletionMarkPredefinedData",
         "InteractiveClearDeletionMarkPredefinedData", "InteractiveDeleteMarkedPredefinedData",
         "ReadDataHistory", "ReadDataHistoryOfMissingData",
         "UpdateDataHistory", "UpdateDataHistoryOfMissingData",
         "UpdateDataHistorySettings", "UpdateDataHistoryVersionComment",
+        "ViewDataHistory", "EditDataHistoryVersionComment", "SwitchToDataHistoryVersion",
     ],
     "ChartOfCharacteristicTypes": [
         "Read", "Insert", "Update", "Delete", "View", "Edit", "InputByString",
@@ -465,9 +467,13 @@ KNOWN_RIGHTS = {
     "ChartOfCalculationTypes": [
         "Read", "Insert", "Update", "Delete", "View", "Edit", "InputByString",
         "InteractiveInsert", "InteractiveSetDeletionMark", "InteractiveClearDeletionMark",
-        "InteractiveDelete",
+        "InteractiveDelete", "InteractiveDeleteMarked",
         "InteractiveDeletePredefinedData", "InteractiveSetDeletionMarkPredefinedData",
         "InteractiveClearDeletionMarkPredefinedData", "InteractiveDeleteMarkedPredefinedData",
+        "ReadDataHistory", "ViewDataHistory", "UpdateDataHistory",
+        "ReadDataHistoryOfMissingData", "UpdateDataHistoryOfMissingData",
+        "UpdateDataHistorySettings", "UpdateDataHistoryVersionComment",
+        "EditDataHistoryVersionComment", "SwitchToDataHistoryVersion",
     ],
     "ExchangePlan": [
         "Read", "Insert", "Update", "Delete", "View", "Edit", "InputByString",
@@ -481,12 +487,20 @@ KNOWN_RIGHTS = {
     "BusinessProcess": [
         "Read", "Insert", "Update", "Delete", "View", "Edit", "InputByString",
         "Start", "InteractiveInsert", "InteractiveSetDeletionMark", "InteractiveClearDeletionMark",
-        "InteractiveDelete", "InteractiveActivate", "InteractiveStart",
+        "InteractiveDelete", "InteractiveDeleteMarked", "InteractiveActivate", "InteractiveStart",
+        "ReadDataHistory", "ReadDataHistoryOfMissingData",
+        "UpdateDataHistory", "UpdateDataHistoryOfMissingData",
+        "UpdateDataHistorySettings", "UpdateDataHistoryVersionComment",
+        "ViewDataHistory", "EditDataHistoryVersionComment", "SwitchToDataHistoryVersion",
     ],
     "Task": [
         "Read", "Insert", "Update", "Delete", "View", "Edit", "InputByString",
         "Execute", "InteractiveInsert", "InteractiveSetDeletionMark", "InteractiveClearDeletionMark",
-        "InteractiveDelete", "InteractiveActivate", "InteractiveExecute",
+        "InteractiveDelete", "InteractiveDeleteMarked", "InteractiveActivate", "InteractiveExecute",
+        "ReadDataHistory", "ReadDataHistoryOfMissingData",
+        "UpdateDataHistory", "UpdateDataHistoryOfMissingData",
+        "UpdateDataHistorySettings", "UpdateDataHistoryVersionComment",
+        "ViewDataHistory", "EditDataHistoryVersionComment", "SwitchToDataHistoryVersion",
     ],
     "DataProcessor": ["Use", "View"],
     "Report": ["Use", "View"],
@@ -496,8 +510,13 @@ KNOWN_RIGHTS = {
     "FilterCriterion": ["View"],
     "DocumentJournal": ["Read", "View"],
     "Sequence": ["Read", "Update"],
-    "WebService": ["Use"],
-    "HTTPService": ["Use"],
+    # Замер 8.3.27: у самих веб- и HTTP-сервисов прав нет - платформа отбрасывает блок
+    # при загрузке. Право Use живет на операции (WebService...Operation.*) и методе
+    # (HTTPService...URLTemplate.*.Method.*).
+    "WebService": [],
+    "HTTPService": [],
+    # Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
+    # платформа требует непустой InternalInfo, который известен только ей.
     "IntegrationService": ["Use"],
     "SessionParameter": ["Get", "Set"],
     "CommonAttribute": ["View", "Edit"],
@@ -505,6 +524,149 @@ KNOWN_RIGHTS = {
 
 NESTED_RIGHTS = ["View", "Edit"]
 COMMAND_RIGHTS = ["View"]
+
+# --- Замыкание прав по зависимостям ---
+#
+# Платформа при загрузке роли дописывает права, без которых заданные не действуют:
+# после первой загрузки файл роли и база расходятся, если писать ровно заданный набор.
+# Замер круговым прогоном на 8.3.27.2214: роль с единственным правом R загружается в
+# пустую базу и выгружается обратно; в выгрузке - полный набор, который держит R.
+# Замыкание одноименных прав объединяется (проверено сверкой с выгрузкой полного набора).
+
+GLOBAL_RIGHT_IMPL = {
+    "Insert": ["Read"],
+    "Update": ["Read"],
+    "Delete": ["Read"],
+    "View": ["Read"],
+    "Edit": ["Read", "Update", "View"],
+    "InputByString": ["Read", "View"],
+    "InteractiveInsert": ["Read", "Insert", "Update", "View", "Edit"],
+    "InteractiveDelete": ["Read", "Update", "Delete", "View", "Edit"],
+    "InteractiveDeleteMarked": ["Read", "Update", "Delete", "View", "Edit"],
+    "InteractiveSetDeletionMark": ["Read", "Update", "View", "Edit"],
+    "InteractiveClearDeletionMark": ["Read", "Update", "View", "Edit"],
+    "InteractiveDeletePredefinedData":
+        ["Read", "Update", "Delete", "View", "Edit", "InteractiveDelete"],
+    "InteractiveSetDeletionMarkPredefinedData":
+        ["Read", "Update", "View", "Edit", "InteractiveSetDeletionMark"],
+    "InteractiveClearDeletionMarkPredefinedData":
+        ["Read", "Update", "View", "Edit", "InteractiveClearDeletionMark"],
+    "InteractiveDeleteMarkedPredefinedData":
+        ["Read", "Update", "Delete", "View", "Edit", "InteractiveDeleteMarked"],
+    "Posting": ["Read", "Update"],
+    "UndoPosting": ["Read", "Update"],
+    "InteractivePosting": ["Read", "Update", "Posting", "View", "Edit"],
+    "InteractivePostingRegular": ["InteractivePosting"],
+    "InteractiveUndoPosting": ["Read", "Update", "UndoPosting", "View", "Edit"],
+    "InteractiveChangeOfPosted": ["Read", "Update", "View", "Edit"],
+    "ReadDataHistory": ["Read"],
+    "ReadDataHistoryOfMissingData": ["Read", "ReadDataHistory"],
+    "UpdateDataHistory": ["Read", "ReadDataHistory"],
+    "UpdateDataHistoryOfMissingData":
+        ["Read", "ReadDataHistory", "ReadDataHistoryOfMissingData", "UpdateDataHistory"],
+    "UpdateDataHistoryVersionComment": ["Read", "ReadDataHistory"],
+    "ViewDataHistory": ["Read", "View", "ReadDataHistory"],
+    "EditDataHistoryVersionComment": ["Read", "View", "ReadDataHistory", "UpdateDataHistoryVersionComment"],
+    "SwitchToDataHistoryVersion": ["Read", "View"],
+    "Start": ["Read", "Update"],
+    "InteractiveStart": ["Read", "Update", "Start"],
+    "InteractiveActivate": ["Read", "Update"],
+    "Execute": ["Read", "Update"],
+    "InteractiveExecute": ["Read", "Update", "Execute"],
+    "Administration": ["DataAdministration"],
+}
+
+# Отклонения от глобальных правил, снятые тем же замером.
+RIGHT_IMPL_BY_TYPE = {
+    # У плана счетов блок истории данных не тянет за собой Read.
+    "ChartOfAccounts": {
+        "ReadDataHistory": [],
+        "ReadDataHistoryOfMissingData": ["ReadDataHistory"],
+        "UpdateDataHistory": ["ReadDataHistory"],
+        "UpdateDataHistoryOfMissingData":
+            ["ReadDataHistory", "ReadDataHistoryOfMissingData", "UpdateDataHistory"],
+        "UpdateDataHistoryVersionComment": ["ReadDataHistory"],
+        "ViewDataHistory": ["View", "ReadDataHistory"],
+        "EditDataHistoryVersionComment": ["View", "ReadDataHistory", "UpdateDataHistoryVersionComment"],
+        "SwitchToDataHistoryVersion": ["View"],
+    },
+    # У регистра сведений история отсутствующих данных не входит в замыкание.
+    "InformationRegister": {
+        "UpdateDataHistoryOfMissingData": ["Read", "ReadDataHistory", "UpdateDataHistory"],
+    },
+    # У обработки и отчета просмотр требует использования, а не чтения.
+    "DataProcessor": {"View": ["Use"]},
+    "Report": {"View": ["Use"]},
+}
+
+
+def impl_for(object_type, right):
+    """Импликации права у конкретного типа: переопределение или глобальные,
+    пересеченные с правами типа (импликация имеет смысл только для существующих прав)."""
+    override = RIGHT_IMPL_BY_TYPE.get(object_type, {}).get(right)
+    if override is not None:
+        return list(override)
+    type_rights = KNOWN_RIGHTS.get(object_type)
+    implied = GLOBAL_RIGHT_IMPL.get(right, [])
+    if type_rights is None:
+        return list(implied)
+    return [r for r in implied if r in type_rights]
+
+
+def close_rights(object_type, right_names):
+    """Транзитивное замыкание включенных прав по зависимостям.
+
+    Возвращает замкнутый набор: платформа при загрузке дописывает те же права, поэтому
+    файл, собранный этим замыканием, совпадает с выгрузкой после первой загрузки.
+    """
+    result = set(right_names)
+    frontier = list(right_names)
+    while frontier:
+        r = frontier.pop()
+        for imp in impl_for(object_type, r):
+            if imp not in result:
+                result.add(imp)
+                frontier.append(imp)
+    return result
+
+
+# --- Канонический порядок прав ---
+#
+# Платформа выгружает права объекта в одном порядке по всем типам. Порядок снят с
+# выгрузки полного набора и сверен: порядок каждого типа - подпоследовательность этого
+# списка. Права вне списка (незамеренные вложенные виды) идут в конце в порядке ввода.
+RIGHT_ORDER = [
+    # Configuration
+    "Administration", "DataAdministration", "UpdateDataBaseConfiguration",
+    "ExclusiveMode", "ActiveUsers", "EventLog",
+    "ThinClient", "WebClient", "MobileClient", "ThickClient", "ExternalConnection",
+    "Automation", "TechnicalSpecialistMode", "CollaborationSystemInfoBaseRegistration",
+    "MainWindowModeNormal", "MainWindowModeWorkplace", "MainWindowModeEmbeddedWorkplace",
+    "MainWindowModeFullscreenWorkplace", "MainWindowModeKiosk", "AnalyticsSystemClient",
+    "SaveUserData", "ConfigurationExtensionsAdministration",
+    "InteractiveOpenExtDataProcessors", "InteractiveOpenExtReports", "Output",
+    # объектные
+    "Read", "Insert", "Update", "Delete", "Posting", "UndoPosting",
+    "Use", "View", "Get", "Set",
+    "InteractiveInsert", "Edit", "InteractiveDelete", "InteractiveSetDeletionMark",
+    "InteractiveClearDeletionMark", "InteractiveDeleteMarked",
+    "InteractivePosting", "InteractivePostingRegular", "InteractiveUndoPosting",
+    "InteractiveChangeOfPosted", "InputByString",
+    "InteractiveActivate", "Start", "InteractiveStart", "Execute", "InteractiveExecute",
+    "InteractiveDeletePredefinedData", "InteractiveSetDeletionMarkPredefinedData",
+    "InteractiveClearDeletionMarkPredefinedData", "InteractiveDeleteMarkedPredefinedData",
+    "TotalsControl",
+    "ReadDataHistory", "ReadDataHistoryOfMissingData", "UpdateDataHistory",
+    "UpdateDataHistoryOfMissingData", "UpdateDataHistorySettings",
+    "UpdateDataHistoryVersionComment", "ViewDataHistory", "EditDataHistoryVersionComment",
+    "SwitchToDataHistoryVersion",
+]
+_RIGHT_ORDER_POS = {r: i for i, r in enumerate(RIGHT_ORDER)}
+
+
+def right_sort_key(name):
+    """Ключ сортировки права по каноническому порядку; незнакомое право - в конец."""
+    return (_RIGHT_ORDER_POS.get(name, len(RIGHT_ORDER)),)
 
 # --- Presets ---
 
@@ -547,6 +709,7 @@ PRESETS = {
         "InformationRegister": ["Read", "Update", "View", "Edit"],
         "AccumulationRegister": ["Read", "Update", "View", "Edit"],
         "AccountingRegister": ["Read", "Update", "View", "Edit"],
+        "CalculationRegister": ["Read", "Update", "View", "Edit"],
         "Constant": ["Read", "Update", "View", "Edit"],
         "DocumentJournal": ["Read", "View"],
         "Sequence": ["Read", "Update"],
@@ -758,6 +921,32 @@ def validate_right_name(object_name, right_name):
     return True
 
 
+def finish_rights(obj_name, rights_map, rights_order):
+    """Замыкание включенных прав и канонический порядок выдачи.
+
+    Замыкание применяется только к объектам верхнего уровня с замеренным набором прав:
+    у вложенных видов платформа зависимостей не дописывает (замер 8.3.27).
+    """
+    object_type = get_object_type(obj_name)
+    if not is_nested_object(obj_name) and object_type in KNOWN_RIGHTS:
+        enabled = [r for r in rights_order if rights_map[r]['Value'] == 'true']
+        closed = close_rights(object_type, enabled)
+        for r in closed:
+            if r not in rights_map:
+                rights_order.append(r)
+                rights_map[r] = {'Value': 'true', 'Condition': None}
+        for r in rights_order:
+            if rights_map[r]['Value'] == 'false' and r in closed:
+                holders = sorted(p for p in closed
+                                 if p != r and r in impl_for(object_type, p))
+                print(f"WARNING: {obj_name}: право '{r}' выключено явно, но право "
+                      f"{'/'.join(holders)} требует его включенным - платформа отбросит "
+                      f"весь блок объекта при загрузке", file=sys.stderr)
+    rights_order.sort(key=right_sort_key)
+    return [{'Name': k, 'Value': rights_map[k]['Value'], 'Condition': rights_map[k]['Condition']}
+            for k in rights_order]
+
+
 def parse_object_entry(entry):
     # --- String shorthand ---
     if isinstance(entry, str):
@@ -780,9 +969,13 @@ def parse_object_entry(entry):
             for r in right_names:
                 validate_right_name(obj_name, r)
 
-        rights = []
+        rights_map = {}
+        rights_order = []
         for r in right_names:
-            rights.append({'Name': r, 'Value': 'true', 'Condition': None})
+            if r not in rights_map:
+                rights_order.append(r)
+            rights_map[r] = {'Value': 'true', 'Condition': None}
+        rights = finish_rights(obj_name, rights_map, rights_order)
         return {'Name': obj_name, 'Rights': rights}
 
     # --- Object form ---
@@ -835,15 +1028,8 @@ def parse_object_entry(entry):
             else:
                 print(f"WARNING: {obj_name}: RLS for '{rls_right}' but this right is not in the rights list", file=sys.stderr)
 
-    # Convert to array
-    rights = []
-    for k in rights_order:
-        rights.append({
-            'Name': k,
-            'Value': rights_map[k]['Value'],
-            'Condition': rights_map[k]['Condition'],
-        })
-
+    # Convert to array (замыкание включенных прав + канонический порядок)
+    rights = finish_rights(obj_name, rights_map, rights_order)
     return {'Name': obj_name, 'Rights': rights}
 
 

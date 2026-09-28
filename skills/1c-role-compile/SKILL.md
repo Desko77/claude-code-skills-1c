@@ -60,7 +60,24 @@ powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 
 
 `@` обязателен в shorthand. В объектной форме - `"preset": "view"` без `@`.
 
-Для сервисов (WebService, HTTPService, IntegrationService) пресеты не определены - используй явные права: `"WebService.Имя: Use"`.
+### Замыкание прав
+
+Навык дописывает права, которые платформа добавляет сама при загрузке роли (замер 8.3.27):
+`Edit` влечет `Read`, `Update`, `View`; `View` у обработки влечет `Use`; `InteractivePostingRegular`
+влечет `InteractivePosting`, а тот - `Posting`, и далее по зависимостям. Полный набор правил - в
+`scripts/role-compile.py` (`GLOBAL_RIGHT_IMPL` и `RIGHT_IMPL_BY_TYPE`). Файл роли после сборки
+совпадает с выгрузкой после первой загрузки в базу.
+
+Права выдаются в порядке выгрузки платформы (`RIGHT_ORDER`), а не в порядке ввода.
+
+Явное `false` конфликтует с замыканием (`Edit` включен, `Read` выключен) - платформа отбрасывает
+весь блок объекта при загрузке; навык предупреждает об этом в stderr.
+
+### Права сервисов
+
+У самих WebService и HTTPService прав нет - платформа отбрасывает такой блок при загрузке.
+Право `Use` дается операции и методу: `"WebService.Обмен.Operation.Загрузить: Use"`,
+`"HTTPService.Сервис.URLTemplate.Файлы.Method.get: Use"`.
 
 ### Русские синонимы
 

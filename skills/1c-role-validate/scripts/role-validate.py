@@ -65,7 +65,8 @@ KNOWN_RIGHTS = {
     ],
     'AccumulationRegister': ['Read', 'Update', 'View', 'Edit', 'TotalsControl'],
     'AccountingRegister': ['Read', 'Update', 'View', 'Edit', 'TotalsControl'],
-    'CalculationRegister': ['Read', 'View'],
+    # Замер 8.3.27: у регистра расчета есть Update и Edit, а TotalsControl - нет.
+    'CalculationRegister': ['Read', 'Update', 'View', 'Edit'],
     'Constant': [
         'Read', 'Update', 'View', 'Edit',
         'ReadDataHistory', 'ViewDataHistory', 'UpdateDataHistory',
@@ -75,12 +76,13 @@ KNOWN_RIGHTS = {
     'ChartOfAccounts': [
         'Read', 'Insert', 'Update', 'Delete', 'View', 'Edit', 'InputByString',
         'InteractiveInsert', 'InteractiveSetDeletionMark', 'InteractiveClearDeletionMark',
-        'InteractiveDelete',
+        'InteractiveDelete', 'InteractiveDeleteMarked',
         'InteractiveDeletePredefinedData', 'InteractiveSetDeletionMarkPredefinedData',
         'InteractiveClearDeletionMarkPredefinedData', 'InteractiveDeleteMarkedPredefinedData',
         'ReadDataHistory', 'ReadDataHistoryOfMissingData',
         'UpdateDataHistory', 'UpdateDataHistoryOfMissingData',
         'UpdateDataHistorySettings', 'UpdateDataHistoryVersionComment',
+        'ViewDataHistory', 'EditDataHistoryVersionComment', 'SwitchToDataHistoryVersion',
     ],
     'ChartOfCharacteristicTypes': [
         'Read', 'Insert', 'Update', 'Delete', 'View', 'Edit', 'InputByString',
@@ -96,9 +98,13 @@ KNOWN_RIGHTS = {
     'ChartOfCalculationTypes': [
         'Read', 'Insert', 'Update', 'Delete', 'View', 'Edit', 'InputByString',
         'InteractiveInsert', 'InteractiveSetDeletionMark', 'InteractiveClearDeletionMark',
-        'InteractiveDelete',
+        'InteractiveDelete', 'InteractiveDeleteMarked',
         'InteractiveDeletePredefinedData', 'InteractiveSetDeletionMarkPredefinedData',
         'InteractiveClearDeletionMarkPredefinedData', 'InteractiveDeleteMarkedPredefinedData',
+        'ReadDataHistory', 'ViewDataHistory', 'UpdateDataHistory',
+        'ReadDataHistoryOfMissingData', 'UpdateDataHistoryOfMissingData',
+        'UpdateDataHistorySettings', 'UpdateDataHistoryVersionComment',
+        'EditDataHistoryVersionComment', 'SwitchToDataHistoryVersion',
     ],
     'ExchangePlan': [
         'Read', 'Insert', 'Update', 'Delete', 'View', 'Edit', 'InputByString',
@@ -112,12 +118,20 @@ KNOWN_RIGHTS = {
     'BusinessProcess': [
         'Read', 'Insert', 'Update', 'Delete', 'View', 'Edit', 'InputByString',
         'Start', 'InteractiveInsert', 'InteractiveSetDeletionMark', 'InteractiveClearDeletionMark',
-        'InteractiveDelete', 'InteractiveActivate', 'InteractiveStart',
+        'InteractiveDelete', 'InteractiveDeleteMarked', 'InteractiveActivate', 'InteractiveStart',
+        'ReadDataHistory', 'ReadDataHistoryOfMissingData',
+        'UpdateDataHistory', 'UpdateDataHistoryOfMissingData',
+        'UpdateDataHistorySettings', 'UpdateDataHistoryVersionComment',
+        'ViewDataHistory', 'EditDataHistoryVersionComment', 'SwitchToDataHistoryVersion',
     ],
     'Task': [
         'Read', 'Insert', 'Update', 'Delete', 'View', 'Edit', 'InputByString',
         'Execute', 'InteractiveInsert', 'InteractiveSetDeletionMark', 'InteractiveClearDeletionMark',
-        'InteractiveDelete', 'InteractiveActivate', 'InteractiveExecute',
+        'InteractiveDelete', 'InteractiveDeleteMarked', 'InteractiveActivate', 'InteractiveExecute',
+        'ReadDataHistory', 'ReadDataHistoryOfMissingData',
+        'UpdateDataHistory', 'UpdateDataHistoryOfMissingData',
+        'UpdateDataHistorySettings', 'UpdateDataHistoryVersionComment',
+        'ViewDataHistory', 'EditDataHistoryVersionComment', 'SwitchToDataHistoryVersion',
     ],
     'DataProcessor': ['Use', 'View'],
     'Report': ['Use', 'View'],
@@ -127,8 +141,13 @@ KNOWN_RIGHTS = {
     'FilterCriterion': ['View'],
     'DocumentJournal': ['Read', 'View'],
     'Sequence': ['Read', 'Update'],
-    'WebService': ['Use'],
-    'HTTPService': ['Use'],
+    # Замер 8.3.27: у самих веб- и HTTP-сервисов прав нет - платформа отбрасывает блок
+    # при загрузке. Право Use живет на операции (WebService...Operation.*) и методе
+    # (HTTPService...URLTemplate.*.Method.*).
+    'WebService': [],
+    'HTTPService': [],
+    # Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
+    # платформа требует непустой InternalInfo, который известен только ей.
     'IntegrationService': ['Use'],
     'SessionParameter': ['Get', 'Set'],
     'CommonAttribute': ['View', 'Edit'],

@@ -1,0 +1,29 @@
+{
+  "name": "План счетов с ViewDataHistory (замыкание без Read у истории данных)",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "ChartOfAccounts",
+        "name": "Управленческий"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "input": {
+    "name": "ИсторикПланаСчетов",
+    "objects": [
+      "ChartOfAccounts.Управленческий: ViewDataHistory"
+    ]
+  },
+  "validatePath": "Roles/ИсторикПланаСчетов",
+  "expect": {
+    "files": [
+      "Roles/ИсторикПланаСчетов.xml",
+      "Roles/ИсторикПланаСчетов/Ext/Rights.xml"
+    ]
+  }
+}
