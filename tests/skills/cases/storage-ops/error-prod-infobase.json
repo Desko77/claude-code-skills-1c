@@ -1,5 +1,6 @@
 {
   "name": "Отказ: изменяющая операция над базой, помеченной боевой",
+  "runtimeOnly": "powershell",
   "cwd": "workDir",
   "preRun": [
     {
