@@ -1,0 +1,29 @@
+{
+  "name": "Пакет правок: английский модуль",
+  "setup": "fixture:english-module",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": ["package.md"],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 1, добавлено: 0, удалено: 0, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "## CommonModules/АнглМодуль/Ext/Module.bsl - Общий модуль АнглМодуль",
+          "### Изменить метод GetValue",
+          "Function GetValue(Param) Export",
+          "Result = Param * 2;",
+          "EndFunction"
+        ]
+      }
+    ],
+    "preserves": { "file": "package.md", "bom": false, "eol": "lf", "finalNewline": true }
+  }
+}

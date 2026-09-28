@@ -1,0 +1,28 @@
+{
+  "name": "Пакет правок: два одиночных файла модуля",
+  "setup": "fixture:single-file",
+  "params": {
+    "beforePath": "before.bsl",
+    "afterPath": "after.bsl",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": ["package.md"],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 1, добавлено: 0, удалено: 0, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "## before.bsl",
+          "### Изменить метод КурсВалюты",
+          "Функция КурсВалюты(Код, НаДату)",
+          "Возврат ЗапроситьКурс(Код, НаДату);"
+        ]
+      }
+    ],
+    "preserves": { "file": "package.md", "bom": false, "eol": "lf", "finalNewline": true }
+  }
+}

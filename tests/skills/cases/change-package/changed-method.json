@@ -1,0 +1,31 @@
+{
+  "name": "Пакет правок: измененный метод",
+  "setup": "fixture:changed-method",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": ["package.md"],
+    "stdoutContains": [
+      "[OK]    Пакет записан:",
+      "Модулей с правками: 1, методов изменено: 1, добавлено: 0, удалено: 0, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "# Пакет ручного внесения изменений",
+          "## Catalogs/Товары/Ext/ObjectModule.bsl - Справочник Товары, модуль объекта",
+          "### Изменить метод ЗаполнитьПоУмолчанию",
+          "Найти:",
+          "Заменить целиком на:",
+          "Строка = \"новое\";"
+        ]
+      }
+    ],
+    "preserves": { "file": "package.md", "bom": false, "eol": "lf", "finalNewline": true }
+  }
+}

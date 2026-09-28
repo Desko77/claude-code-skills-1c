@@ -1,0 +1,34 @@
+{
+  "name": "Пакет правок: удаленный метод",
+  "setup": "fixture:removed-method",
+  "params": {
+    "beforePath": "before",
+    "afterPath": "after",
+    "outFile": "package.md"
+  },
+  "idempotent": true,
+  "expect": {
+    "files": ["package.md"],
+    "stdoutContains": [
+      "Модулей с правками: 1, методов изменено: 0, добавлено: 0, удалено: 1, правок вне методов: 0"
+    ],
+    "fileContains": [
+      {
+        "file": "package.md",
+        "text": [
+          "## Documents/Заказ/Ext/ObjectModule.bsl - Документ Заказ, модуль объекта",
+          "### Удалить метод УстаревшаяПроверка",
+          "Удалить целиком:",
+          "Процедура УстаревшаяПроверка(Отказ)"
+        ]
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "package.md",
+        "text": ["### Изменить метод ПередЗаписью"]
+      }
+    ],
+    "preserves": { "file": "package.md", "bom": false, "eol": "lf", "finalNewline": true }
+  }
+}
