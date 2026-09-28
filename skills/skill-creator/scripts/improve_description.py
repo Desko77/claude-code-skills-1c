@@ -120,10 +120,7 @@ Please respond with only the new description text in <new_description> tags, not
     response = client.messages.create(
         model=model,
         max_tokens=16000,
-        thinking={
-            "type": "enabled",
-            "budget_tokens": 10000,
-        },
+        thinking={"type": "adaptive"},
         messages=[{"role": "user", "content": prompt}],
     )
 
@@ -157,10 +154,7 @@ Please respond with only the new description text in <new_description> tags, not
         shorten_response = client.messages.create(
             model=model,
             max_tokens=16000,
-            thinking={
-                "type": "enabled",
-                "budget_tokens": 10000,
-            },
+            thinking={"type": "adaptive"},
             messages=[
                 {"role": "user", "content": prompt},
                 {"role": "assistant", "content": text},
