@@ -1,0 +1,61 @@
+{
+  "name": "Перехватчик Перед по английскому модулю формы",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары", "attributes": [ { "name": "Артикул", "type": "String", "length": 25 } ] },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/Catalogs/Товары.xml", "-FormName": "ФормаЭлемента" }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Тест",
+        "elements": [ { "input": "Артикул", "path": "Объект.Артикул" } ],
+        "attributes": [ { "name": "Объект", "type": "CatalogObject.Товары", "main": true } ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputPath": "{workDir}/Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form.xml" }
+    },
+    {
+      "writeFile": {
+        "path": "Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form/Module.bsl",
+        "content": "#Region ОбработчикиСобытийФормы\n\n&AtClient\nprocedure ОбработкаОповещения(ИмяСобытия, Параметр, Источник)\n\tReturn;\nEndProcedure\n\n#EndRegion\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": { "-Name": "Тест", "-OutputDir": "{workDir}/ext", "-ConfigPath": "{workDir}" }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": { "-ExtensionPath": "{workDir}/ext", "-ConfigPath": "{workDir}", "-Object": "Catalog.Товары.Form.ФормаЭлемента" }
+    }
+  ],
+  "params": {
+    "extensionPath": "ext",
+    "modulePath": "Catalog.Товары.Form.ФормаЭлемента",
+    "methodName": "ОбработкаОповещения",
+    "interceptorType": "Before"
+  },
+  "noSnapshot": "проверяется разбор английского модуля и русский текст перехватчика, а не каталог cfe-init",
+  "expect": {
+    "stdoutContains": ["&Перед(\"ОбработкаОповещения\")", "Контекст:   &НаКлиенте"],
+    "fileContains": {
+      "file": "ext/Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form/Module.bsl",
+      "text": [
+        "&НаКлиенте",
+        "&Перед(\"ОбработкаОповещения\")",
+        "Процедура Тест_ОбработкаОповещения(ИмяСобытия, Параметр, Источник)",
+        "КонецПроцедуры",
+        "#Область ОбработчикиСобытийФормы"
+      ]
+    },
+    "fileNotContains": {
+      "file": "ext/Catalogs/Товары/Forms/ФормаЭлемента/Ext/Form/Module.bsl",
+      "text": ["&AtClient", "procedure", "EndProcedure"]
+    }
+  }
+}

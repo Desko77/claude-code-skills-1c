@@ -1,0 +1,41 @@
+{
+  "name": "Дифф английского модуля с Insert и Delete",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "CommonModule", "name": "АнглДифф", "properties": { "Server": true } },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "writeFile": {
+        "path": "CommonModules/АнглДифф/Ext/Module.bsl",
+        "content": "#Region ПрограммныйИнтерфейс\n\nFunction ПолучитьДанные(Параметр) Export\n\tРезультат = Новый Массив;\n\tРезультат.Добавить(Параметр);\n\tReturn Результат;\nEndFunction\n\n#EndRegion\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": { "-Name": "Тест", "-OutputDir": "{workDir}/ext", "-ConfigPath": "{workDir}" }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": { "-ExtensionPath": "{workDir}/ext", "-ConfigPath": "{workDir}", "-Object": "CommonModule.АнглДифф" }
+    },
+    {
+      "writeFile": {
+        "path": "ext/CommonModules/АнглДифф/Ext/Module.bsl",
+        "content": "#Region ПрограммныйИнтерфейс\n\n&Before(\"ПередМетод\")\nProcedure Тест_ПередМетод()\nEndProcedure\n\n&Around(\"ВместоМетод\")\nProcedure Тест_ВместоМетод()\nEndProcedure\n\n&ChangeAndValidate(\"ПолучитьДанные\")\nProcedure Тест_ПолучитьДанные(Параметр)\n\tРезультат = Новый Массив;\n\t#Insert\n\tРезультат.Добавить(Параметр);\n\t#EndInsert\n\t#Delete\n\tУдаленныйФрагмент();\n\t#EndDelete\n\tReturn Результат;\nEndProcedure\n\n#EndRegion\n"
+      }
+    }
+  ],
+  "params": { "extensionPath": "ext" },
+  "args_extra": ["-Mode", "B"],
+  "noSnapshot": "cfe-diff только читает, проверка через stdout",
+  "expect": {
+    "stdoutContains": [
+      "[TRANSFERRED]",
+      "&ИзменениеИКонтроль(\"ПолучитьДанные\")",
+      "1 block(s)",
+      "1 transferred, 0 not transferred, 0 needs review"
+    ]
+  }
+}

@@ -144,6 +144,34 @@ def get_bsl_files(obj_type, obj_name, extension_path):
 
 # --- Helper: parse interceptors from .bsl ---
 
+_ANNOTATION_RU = {
+    "перед": "Перед",
+    "before": "Перед",
+    "после": "После",
+    "after": "После",
+    "изменениеиконтроль": "ИзменениеИКонтроль",
+    "changeandvalidate": "ИзменениеИКонтроль",
+    "вместо": "Вместо",
+    "around": "Вместо",
+}
+_INTERCEPTOR_RE = re.compile(
+    r'^&(Перед|После|ИзменениеИКонтроль|Вместо|Before|After|ChangeAndValidate|Around)\("([^"]+)"\)',
+    re.IGNORECASE,
+)
+_MAC_TYPE = "ИзменениеИКонтроль"
+
+
+# Совпадает ли слово с одним из написаний, без учета регистра.
+def same_word(text, words):
+    folded = text.casefold()
+    return any(folded == word.casefold() for word in words)
+
+
+# Русское имя аннотации перехвата. Неизвестное написание остается как в модуле.
+def russian_annotation(word):
+    return _ANNOTATION_RU.get(word.casefold(), word)
+
+
 def get_interceptors(bsl_path):
     if not os.path.isfile(bsl_path):
         return []
@@ -152,15 +180,13 @@ def get_interceptors(bsl_path):
         lines = fh.readlines()
 
     interceptors = []
-    pattern = re.compile(r'^&(\u041f\u0435\u0440\u0435\u0434|\u041f\u043e\u0441\u043b\u0435|\u0418\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0435\u0418\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c|\u0412\u043c\u0435\u0441\u0442\u043e)\("([^"]+)"\)')
-    # The above is: ^&(Перед|После|ИзменениеИКонтроль|Вместо)\("([^"]+)"\)
 
     for i, line in enumerate(lines):
         stripped = line.strip()
-        m = pattern.match(stripped)
+        m = _INTERCEPTOR_RE.match(stripped)
         if m:
             interceptors.append({
-                "Type": m.group(1),
+                "Type": russian_annotation(m.group(1)),
                 "Method": m.group(2),
                 "Line": i + 1,
                 "File": bsl_path,
@@ -185,12 +211,12 @@ def get_insertion_blocks(bsl_path):
 
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped == "\u0023\u0412\u0441\u0442\u0430\u0432\u043a\u0430":
+        if same_word(stripped, ("#Вставка", "#Insert")):
             # #Вставка
             in_block = True
             block_lines = []
             start_line = i + 1
-        elif stripped == "\u0023\u041a\u043e\u043d\u0435\u0446\u0412\u0441\u0442\u0430\u0432\u043a\u0438" and in_block:
+        elif same_word(stripped, ("#КонецВставки", "#EndInsert")) and in_block:
             # #КонецВставки
             in_block = False
             blocks.append({
@@ -412,7 +438,7 @@ def mode_b(objects, extension_path, config_path):
         bsl_files = get_bsl_files(obj["Type"], obj["Name"], extension_path)
         for bsl in bsl_files:
             interceptor_list = get_interceptors(bsl)
-            mac_interceptors = [ic for ic in interceptor_list if ic["Type"] == "\u0418\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0435\u0418\u041a\u043e\u043d\u0442\u0440\u043e\u043b\u044c"]
+            mac_interceptors = [ic for ic in interceptor_list if ic["Type"] == _MAC_TYPE]
 
             if len(mac_interceptors) == 0:
                 continue

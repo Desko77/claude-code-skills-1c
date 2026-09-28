@@ -1,0 +1,27 @@
+{
+  "name": "Валидация расширения с английским модулем",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": { "-Name": "Тест", "-OutputDir": "{workDir}/ext", "-ConfigPath": "{workDir}" }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": { "-ExtensionPath": "{workDir}/ext", "-ConfigPath": "{workDir}", "-Object": "Catalog.Товары" }
+    },
+    {
+      "writeFile": {
+        "path": "ext/Catalogs/Товары/Ext/ObjectModule.bsl",
+        "content": "#Region ОбработчикиСобытий\n\n&AtServer\n&Before(\"ПриЗаписи\")\nProcedure Тест_ПриЗаписи(Val Отказ)\n\tIf Отказ Then\n\t\tReturn;\n\tEndIf;\nEndProcedure\n\n&Around(\"ПередЗаписью\")\nProcedure Тест_ПередЗаписью(Отказ)\n\t#Insert\n\tСообщить(Отказ);\n\t#EndInsert\n\t#Delete\n\tОтказ = True;\n\t#EndDelete\nEndProcedure\n\n#EndRegion\n"
+      }
+    }
+  ],
+  "params": { "extensionPath": "ext" },
+  "noSnapshot": "валидатор только читает, проверка через stdout",
+  "expect": { "stdoutContains": "Validation OK" }
+}
