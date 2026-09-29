@@ -1,0 +1,27 @@
+{
+  "script": "report-issue/scripts/issue-draft",
+  "setup": "fixture:drafts",
+  "cwd": "workDir",
+  "args": [
+    {
+      "flag": "-Repo",
+      "from": "case.repo"
+    },
+    {
+      "flag": "-Title",
+      "from": "case.title"
+    },
+    {
+      "flag": "-BodyFile",
+      "from": "case.bodyFile"
+    },
+    {
+      "flag": "-Labels",
+      "from": "case.labels"
+    }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": false
+  }
+}

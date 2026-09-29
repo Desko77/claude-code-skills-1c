@@ -1,0 +1,21 @@
+{
+  "setup": "fixture:drafts",
+  "params": {
+    "repo": "Desko77/claude-code-skills-1c",
+    "labels": "bug,from-agent",
+    "title": "Длинный отчет",
+    "bodyFile": "long.md"
+  },
+  "noSnapshot": "скрипт файлов не пишет, проверяется вывод",
+  "name": "Длинный текст: ссылка без тела и указание вставить текст вручную",
+  "expect": {
+    "stdoutContains": [
+      "Текст длиннее, чем принимает ссылка GitHub",
+      "issues/new?title=",
+      "&labels=bug%2Cfrom-agent"
+    ],
+    "stdoutNotContains": [
+      "&body="
+    ]
+  }
+}

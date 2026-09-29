@@ -1,0 +1,29 @@
+{
+  "setup": "fixture:drafts",
+  "params": {
+    "repo": "Desko77/claude-code-skills-1c",
+    "labels": "bug,from-agent",
+    "title": "Ошибка у клиента",
+    "bodyFile": "private.md"
+  },
+  "noSnapshot": "скрипт файлов не пишет, проверяется вывод",
+  "name": "Приватные данные: перечень находок, код 1, ссылки нет",
+  "expectError": "Находок: 9",
+  "expect": {
+    "stderrContains": [
+      "строка 1: путь - E:\\Work\\Klient\\src",
+      "строка 1: домашний каталог - /home/ivan",
+      "строка 2: строка соединения - Srvr=\"srv-1c",
+      "строка 2: строка соединения - Ref=\"erp_prod",
+      "строка 2: IP-адрес - 10.20.30.40",
+      "строка 2: адрес почты - ivan.petrov@example.org",
+      "строка 3: секрет - token=abcdef1234567890",
+      "строка 3: ссылка - http://intranet.local/wiki",
+      "строка 4: UUID - 1b2c3d4e-5f60-7182-93a4-b5c6d7e8f901",
+      "Черновик не отправлять"
+    ],
+    "stdoutNotContains": [
+      "https://github.com"
+    ]
+  }
+}

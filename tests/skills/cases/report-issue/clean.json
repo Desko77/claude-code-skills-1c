@@ -1,0 +1,22 @@
+{
+  "setup": "fixture:drafts",
+  "params": {
+    "repo": "Desko77/claude-code-skills-1c",
+    "labels": "bug,from-agent",
+    "title": "meta-compile: Неизвестный тип у Number(15,2)",
+    "bodyFile": "clean.md"
+  },
+  "noSnapshot": "скрипт файлов не пишет, проверяется вывод",
+  "name": "Чистый черновик: ссылка с заголовком, текстом и метками",
+  "expect": {
+    "stdoutContains": [
+      "Проверка на приватные данные: находок нет.",
+      "https://github.com/Desko77/claude-code-skills-1c/issues/new?title=meta-compile%3A%20",
+      "&body=%23%23%20",
+      "&labels=bug%2Cfrom-agent"
+    ],
+    "stdoutNotContains": [
+      "Текст длиннее"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "setup": "fixture:drafts",
+  "params": {
+    "repo": "claude-code-skills-1c",
+    "labels": "bug,from-agent",
+    "title": "x",
+    "bodyFile": "clean.md"
+  },
+  "noSnapshot": "скрипт файлов не пишет, проверяется вывод",
+  "name": "Отказ: репозиторий не в виде владелец/имя",
+  "expectError": "Неверный репозиторий"
+}
