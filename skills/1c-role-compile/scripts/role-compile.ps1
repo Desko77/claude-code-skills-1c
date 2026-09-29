@@ -176,6 +176,7 @@ function Esc-Xml {
 	return $s.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace('"','&quot;')
 }
 
+# --- Таблица прав и замыкание (общий блок, версия 1) ---
 # --- 3. Russian synonyms → canonical English names ---
 
 $script:typeAliases = @{
@@ -552,6 +553,7 @@ $script:rightOrder = @(
 $script:rightOrderPos = @{}
 for ($i = 0; $i -lt $script:rightOrder.Count; $i++) { $script:rightOrderPos[$script:rightOrder[$i]] = $i }
 
+# --- Конец общего блока таблицы прав и замыкания ---
 # Nested objects: Attribute, StandardAttribute, TabularSection, Dimension, Resource, AddressingAttribute
 $script:nestedRights = @("View","Edit")
 $script:commandRights = @("View")

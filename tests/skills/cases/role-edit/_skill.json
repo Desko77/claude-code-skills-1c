@@ -1,0 +1,18 @@
+{
+  "script": "role-edit/scripts/role-edit",
+  "setup": "empty-config",
+  "args": [
+    { "flag": "-RolePath", "from": "workPath", "field": "rolePath" },
+    { "flag": "-DefinitionFile", "from": "inputFile" },
+    { "flag": "-NoValidate", "from": "switch" }
+  ],
+  "snapshot": {
+    "root": "workDir",
+    "normalizeUuids": true
+  },
+  "postValidate": {
+    "script": "role-validate/scripts/role-validate",
+    "flag": "-RightsPath",
+    "pathFrom": "validatePath"
+  }
+}

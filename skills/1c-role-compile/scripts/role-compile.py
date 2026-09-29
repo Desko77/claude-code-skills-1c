@@ -309,6 +309,7 @@ def write_utf8_bom(path, content, eol='\r\n'):
         f.write(content)
 
 
+# --- Таблица прав и замыкание (общий блок, версия 1) ---
 # --- Russian synonyms -> canonical English names ---
 
 TYPE_ALIASES = {
@@ -668,6 +669,7 @@ def right_sort_key(name):
     """Ключ сортировки права по каноническому порядку; незнакомое право - в конец."""
     return (_RIGHT_ORDER_POS.get(name, len(RIGHT_ORDER)),)
 
+# --- Конец общего блока таблицы прав и замыкания ---
 # --- Presets ---
 
 PRESETS = {

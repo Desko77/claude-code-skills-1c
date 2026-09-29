@@ -94,6 +94,7 @@ allowed-tools:
 | Создать макет из JSON | `/mxl-compile` |
 | Анализ макета | `/mxl-info` |
 | Создать роль | `/role-compile` |
+| Изменить права существующей роли | `/role-edit` |
 | Анализ роли | `/role-info` |
 | Изменить СКД | `/skd-edit` |
 | Анализ СКД | `/skd-info` |

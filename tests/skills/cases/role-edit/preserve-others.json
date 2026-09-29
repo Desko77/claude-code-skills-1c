@@ -1,0 +1,43 @@
+{
+  "name": "Правка одного объекта не переписывает блок другого",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Контрагенты" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "ЧтениеСправочников",
+        "objects": ["Catalog.Товары: @view", "Catalog.Контрагенты: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "editFile": "{workDir}/Roles/ЧтениеСправочников/Ext/Rights.xml",
+      "replace": "<name>Catalog.Товары</name>",
+      "with": "<name>Catalog.Товары</name><!-- keep -->"
+    }
+  ],
+  "params": { "rolePath": "Roles/ЧтениеСправочников.xml" },
+  "validatePath": "Roles/ЧтениеСправочников/Ext/Rights.xml",
+  "input": {
+    "operation": "add-rights",
+    "object": "Catalog.Контрагенты",
+    "rights": "Edit"
+  },
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": [
+      { "file": "Roles/ЧтениеСправочников/Ext/Rights.xml", "text": "<!-- keep -->" },
+      { "file": "Roles/ЧтениеСправочников/Ext/Rights.xml", "text": "<name>Catalog.Контрагенты</name>" },
+      { "file": "Roles/ЧтениеСправочников/Ext/Rights.xml", "text": "<name>Update</name>" }
+    ]
+  }
+}

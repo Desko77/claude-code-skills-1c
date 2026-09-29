@@ -1,0 +1,33 @@
+{
+  "name": "set-rls: условие на Read",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": {
+    "operation": "set-rls",
+    "object": "Catalog.Товары",
+    "right": "Read",
+    "condition": "#ПоОрганизации(\"\")"
+  },
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": {
+      "file": "Roles/Кладовщик/Ext/Rights.xml",
+      "text": "<condition>#ПоОрганизации(&quot;&quot;)</condition>"
+    }
+  }
+}

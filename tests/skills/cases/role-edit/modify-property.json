@@ -1,0 +1,56 @@
+{
+  "name": "modify-property: синоним, комментарий и признак новых объектов",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "synonym": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": [
+    { "operation": "modify-property", "property": "synonym", "value": "Кладовщик склада" },
+    { "operation": "modify-property", "property": "comment", "value": "Склад" },
+    { "operation": "modify-property", "property": "setForNewObjects", "value": true }
+  ],
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": [
+      { "file": "Roles/Кладовщик.xml", "text": "<v8:content>Кладовщик склада</v8:content>" },
+      { "file": "Roles/Кладовщик.xml", "text": "<Comment>Склад</Comment>" },
+      { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<setForNewObjects>true</setForNewObjects>" }
+    ],
+    "preserves": [
+      {
+        "file": "Roles/Кладовщик.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      },
+      {
+        "file": "Roles/Кладовщик/Ext/Rights.xml",
+        "bom": true,
+        "eol": "crlf",
+        "encoding": "UTF-8",
+        "finalNewline": false,
+        "noCR13": true,
+        "selfClose": "tight",
+        "noEmptyPairs": true
+      }
+    ]
+  }
+}

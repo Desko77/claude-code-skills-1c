@@ -1,0 +1,42 @@
+{
+  "name": "add-rights: Edit дописывает Update замыканием",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": {
+    "operation": "add-rights",
+    "object": "Catalog.Товары",
+    "rights": "Edit"
+  },
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": [
+      { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<name>Edit</name>" },
+      { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<name>Update</name>" }
+    ],
+    "preserves": {
+      "file": "Roles/Кладовщик/Ext/Rights.xml",
+      "bom": true,
+      "eol": "crlf",
+      "encoding": "UTF-8",
+      "finalNewline": false,
+      "noCR13": true,
+      "selfClose": "tight",
+      "noEmptyPairs": true
+    }
+  }
+}

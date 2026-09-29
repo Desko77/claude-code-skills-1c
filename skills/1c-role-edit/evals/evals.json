@@ -1,0 +1,36 @@
+{
+  "skill_name": "1c-role-edit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "В роли Кладовщик добавь справочнику Товары право Edit. Файл роли: src/Roles/Кладовщик.xml. Остальные объекты роли не меняй.",
+      "expected_output": "Вызван role-edit с операцией add-rights для Catalog.Товары. В блоке объекта появились Edit и права, которые замыкание добавляет вместе с ним. Блоки других объектов не переписаны.",
+      "expectations": [
+        "Скрипт role-edit вызван с -RolePath на Roles/Кладовщик.xml",
+        "Операция add-rights, объект Catalog.Товары, право Edit",
+        "Права других объектов в Rights.xml не изменены",
+        "UUID в Roles/Кладовщик.xml не изменен"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "У роли ЧтениеДокументов сними ограничение RLS с права Read документа Реализация и удали шаблон ПоОрганизации. Путь: src/Roles/ЧтениеДокументов.xml.",
+      "expected_output": "Две операции role-edit: remove-rls для Document.Реализация и Read, затем remove-template для ПоОрганизации.",
+      "expectations": [
+        "Операция remove-rls сняла restrictionByCondition у Read, само право Read осталось",
+        "Операция remove-template удалила шаблон ПоОрганизации",
+        "Скрипт role-edit завершился с кодом 0"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Поставь роли Кладовщик синоним Кладовщик склада и признак устанавливать права для новых объектов. Конфигурация в D:/cfg/src.",
+      "expected_output": "modify-property записал синоним в Roles/Кладовщик.xml и setForNewObjects=true в Rights.xml.",
+      "expectations": [
+        "Свойство synonym записано в русский v8:content, uuid роли тот же",
+        "В Rights.xml setForNewObjects стал true",
+        "Для новой роли скрипт role-edit не предлагался: новую роль создает role-compile"
+      ]
+    }
+  ]
+}
