@@ -6,6 +6,7 @@
 [![Лицензия MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 [![Релиз](https://img.shields.io/github/v/release/Desko77/claude-code-skills-1c)](https://github.com/Desko77/claude-code-skills-1c/releases)
 [![Тесты](https://github.com/Desko77/claude-code-skills-1c/actions/workflows/tests.yml/badge.svg)](https://github.com/Desko77/claude-code-skills-1c/actions/workflows/tests.yml)
+[![Telegram](https://img.shields.io/badge/Telegram-%D0%BE%D0%B1%D1%81%D1%83%D0%B6%D0%B4%D0%B5%D0%BD%D0%B8%D0%B5-26A5E4?logo=telegram)](https://t.me/AI_EDT_1c/25)
 
 Скилы дают агенту готовые операции над исходниками: собрать объект метаданных, форму, роль, схему
 компоновки, расширение, внешнюю обработку - и разобрать их обратно. Правила задают, как он это
@@ -626,6 +627,12 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
 Формат следа - `skills/1c-code-review/references/evidence-format.md`, валидатор -
 `tools/evidence.py`. Требуется Node.js 18+. Автоматически не подключаются: порядок ручного
 включения и настройки - в `hooks/README.md`.
+
+## Обсуждение
+
+Вопросы, идеи и опыт применения - в Telegram: тема [Скилы и правила](https://t.me/AI_EDT_1c/25), по
+плагину AI-EDT - тема [Плагин](https://t.me/AI_EDT_1c/23). Дефект скила или правила с шагами
+воспроизведения - в [Issues](https://github.com/Desko77/claude-code-skills-1c/issues).
 
 ## История версий
 
