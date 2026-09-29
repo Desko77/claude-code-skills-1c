@@ -17,6 +17,7 @@
 - `yaxunit_tests`: `suites` / `tags` / `contexts` отвергаются (не фильтры), `reuseRecent` возвращает прогон последних пяти минут (`cached`), квитанции прогонов `receiptPath` (у `vanessa` - с `blockingWindows` при таймауте).
 - `write_module_source normalizeInvalidCharacters` (по умолчанию true): тире - в дефис, неразрывный пробел - в пробел, вне строковых литералов; `invalidCharactersReplaced`, `invalidCharactersPositions`.
 - Запись прав читает `Rights.rights` без DOCTYPE и внешних сущностей и отказывает до записи; `sensitive_data_scan` проверяет `checks` и `customPatterns` со списками допустимого.
+- `ai-edt-tools`: дефект плагина или пожелание к нему - issue в `Desko77/ai-edt` через скил `report-issue` (`SKILL.md`, раздел "Обработка ошибок"; `references/gotchas-and-errors.md`, ссылка на раздел правила "Троттлинг и ошибки"); из предупреждения о пресете Read-only в `references/project-tags-agent-helpers.md` удалено последнее предложение.
 
 ## Обновление плагина AI-EDT до 0.2.55 - 2026-09-24
 
