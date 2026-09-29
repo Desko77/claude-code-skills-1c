@@ -57,6 +57,16 @@ if ($content -match '<name>Enum\.[^<]+</name>') {
 
 Остальные формы (в том числе `Configuration` целиком) не трогаются. Тяжесть - предупреждение.
 
+## Стандарт #std532
+
+Предупреждения, код возврата от них не меняется:
+
+- `setForNewObjects=true` у роли, имя которой не `ПолныеПрава` и не `FullAccess`;
+- права на реквизиты или табличные части объекта без прав на сам объект при `independentRightsOfChildObjects=false`;
+- права только на такие поля при `setForAttributesByDefault=true`.
+
+В тексте предупреждения есть `#std532`.
+
 ```bash
 python skills/1c-config-index/scripts/config-index.py -ConfigPath src -OutFile .cache/index.json
 python skills/1c-role-validate/scripts/role-validate.py -RightsPath src/Roles/Кладовщик -IndexPath .cache/index.json

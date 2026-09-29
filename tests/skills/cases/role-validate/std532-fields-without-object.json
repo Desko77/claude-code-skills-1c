@@ -1,0 +1,26 @@
+{
+  "name": "Предупреждение #std532: права на поля без прав на объект при independentRightsOfChildObjects=false",
+  "preRun": [
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "setForAttributesByDefault": false,
+        "independentRightsOfChildObjects": false,
+        "objects": [
+          { "name": "Catalog.Товары.Attribute.Цена", "rights": { "View": true, "Edit": true } }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": { "rightsPath": "Roles/Кладовщик/Ext/Rights.xml" },
+  "noSnapshot": "валидатор не пишет файлов, проверяется текст предупреждения #std532",
+  "expect": {
+    "stdoutContains": "Catalog.Товары: права на поля без прав на объект при independentRightsOfChildObjects=false (#std532)",
+    "stdoutNotContains": "setForAttributesByDefault=true (#std532)"
+  }
+}

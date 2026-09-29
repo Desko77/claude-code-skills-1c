@@ -1,0 +1,38 @@
+{
+  "name": "Нормализация: при умолчании реквизитов явный true пропадает, false остается",
+  "input": {
+    "name": "НормаРеквизитов",
+    "objects": [
+      "Catalog.Товары: Read",
+      { "name": "Catalog.Товары.Attribute.Цена", "rights": { "View": true, "Edit": true } },
+      { "name": "Catalog.Товары.Attribute.Артикул", "rights": { "View": true, "Edit": false } },
+      { "name": "Catalog.Товары.TabularSection.Состав", "rights": { "View": true, "Edit": false } },
+      { "name": "Catalog.Товары.StandardAttribute.Description", "rights": { "View": false, "Edit": false } }
+    ]
+  },
+  "noSnapshot": "эталон - фрагменты Rights.xml по выгрузке платформы 8.3.27; полный снимок пустой конфигурации к правилу не относится",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "Roles/НормаРеквизитов/Ext/Rights.xml",
+        "text": "<setForAttributesByDefault>true</setForAttributesByDefault>"
+      },
+      {
+        "file": "Roles/НормаРеквизитов/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.Attribute.Артикул</name>\r\n\t\t<right>\r\n\t\t\t<name>Edit</name>\r\n\t\t\t<value>false</value>"
+      },
+      {
+        "file": "Roles/НормаРеквизитов/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.TabularSection.Состав</name>\r\n\t\t<right>\r\n\t\t\t<name>Edit</name>\r\n\t\t\t<value>false</value>"
+      },
+      {
+        "file": "Roles/НормаРеквизитов/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.StandardAttribute.Description</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>false</value>\r\n\t\t</right>\r\n\t\t<right>\r\n\t\t\t<name>Edit</name>\r\n\t\t\t<value>false</value>"
+      }
+    ],
+    "fileNotContains": {
+      "file": "Roles/НормаРеквизитов/Ext/Rights.xml",
+      "text": "Catalog.Товары.Attribute.Цена"
+    }
+  }
+}

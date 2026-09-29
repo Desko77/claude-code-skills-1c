@@ -1,0 +1,33 @@
+{
+  "name": "deny-rights на реквизит без прав объекта предупреждает по #std532",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары",
+        "attributes": ["Цена: Number(15,2)"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": { "name": "Кладовщик" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "input": {
+    "operation": "deny-rights",
+    "object": "Catalog.Товары.Attribute.Цена",
+    "rights": "Edit"
+  },
+  "noSnapshot": "проверка предупреждения stderr и оставшегося запрета реквизита по выгрузке платформы",
+  "expect": {
+    "stderrContains": "Catalog.Товары: права на поля без прав на объект при setForAttributesByDefault=true и independentRightsOfChildObjects=false (#std532)",
+    "fileContains": {
+      "file": "Roles/Кладовщик/Ext/Rights.xml",
+      "text": "<name>Catalog.Товары.Attribute.Цена</name>\r\n\t\t<right>\r\n\t\t\t<name>Edit</name>\r\n\t\t\t<value>false</value>"
+    }
+  }
+}

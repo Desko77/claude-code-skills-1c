@@ -176,7 +176,7 @@ function Esc-Xml {
 	return $s.Replace('&','&amp;').Replace('<','&lt;').Replace('>','&gt;').Replace('"','&quot;')
 }
 
-# --- Таблица прав и замыкание (общий блок, версия 1) ---
+# --- Таблица прав и замыкание (общий блок, версия 2) ---
 # --- 3. Russian synonyms → canonical English names ---
 
 $script:typeAliases = @{
@@ -410,9 +410,10 @@ $script:knownRights = @{
 	# (HTTPService...URLTemplate.*.Method.*).
 	"WebService" = @()
 	"HTTPService" = @()
-	# Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
-	# платформа требует непустой InternalInfo, который известен только ей.
-	"IntegrationService" = @("Use")
+	# Замер 8.3.27: у самого сервиса интеграции прав нет - платформа отбрасывает блок
+	# при загрузке. Право Use живет на канале
+	# (IntegrationService...IntegrationServiceChannel.*).
+	"IntegrationService" = @()
 	"SessionParameter" = @("Get","Set")
 	"CommonAttribute" = @("View","Edit")
 }
@@ -553,6 +554,23 @@ $script:rightOrder = @(
 $script:rightOrderPos = @{}
 for ($i = 0; $i -lt $script:rightOrder.Count; $i++) { $script:rightOrderPos[$script:rightOrder[$i]] = $i }
 
+# Виды, у которых View и Edit подчиняются флажку setForAttributesByDefault.
+# Замер 8.3.27.2214: выгрузка оставляет право, только если оно не совпадает с умолчанием.
+# setForAttributesByDefault=true - умолчание true (явный true пропадает, false остается).
+# setForAttributesByDefault=false - умолчание false (явный false пропадает, true остается).
+# independentRightsOfChildObjects и наличие прав на сам объект выгрузку не меняют.
+$script:nestedDefaultKinds = @("Attribute", "TabularSection", "StandardAttribute")
+
+function Test-NestedDefaultRightKept {
+	# Вложенное право остается в выгрузке, если не дублирует умолчание реквизитов.
+	param([string]$Kind, [string]$RightName, [string]$Value, [bool]$SetForAttributesByDefault)
+	if ($Kind -notin $script:nestedDefaultKinds -or $RightName -notin @("View", "Edit")) {
+		return $true
+	}
+	$defaultValue = if ($SetForAttributesByDefault) { "true" } else { "false" }
+	return ($Value.ToLower() -ne $defaultValue)
+}
+
 # --- Конец общего блока таблицы прав и замыкания ---
 # Nested objects: Attribute, StandardAttribute, TabularSection, Dimension, Resource, AddressingAttribute
 $script:nestedRights = @("View","Edit")
@@ -563,6 +581,7 @@ $script:commandRights = @("View")
 $script:nestedRightsByKind = @{
 	"Attribute" = @("View","Edit")
 	"TabularSection" = @("View","Edit")
+	"StandardAttribute" = @("View","Edit")
 	"Field" = @("View","Edit")
 	"Command" = @("View")
 	"Subsystem" = @("View")
@@ -590,7 +609,7 @@ $script:typesRightsNotChecked = @("ExternalDataSource")
 
 # Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
 # внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
-$script:defaultNestedKinds = @("Attribute","TabularSection","Command")
+$script:defaultNestedKinds = @("Attribute","TabularSection","StandardAttribute","Command")
 $script:nestedKindsByOwner = @{
 	"WebService" = @("Operation")
 	"HTTPService" = @("URLTemplate")
@@ -860,6 +879,45 @@ function Finish-Rights {
 	return $rights
 }
 
+function Filter-NestedDefaults($Objects, [bool]$SetForAttributesByDefault) {
+	# Убирает вложенные права, которые выгрузка платформы не содержит.
+	# Замер 8.3.27: право View или Edit реквизита, табличной части или стандартного
+	# реквизита остается, только если не совпадает с setForAttributesByDefault.
+	# Пустой блок объекта не пишется.
+	# Вызов передает массив вторым уровнем (, $parsedObjects): один элемент-массив
+	# разворачивается, одиночный словарь остается одним объектом.
+	$items = New-Object System.Collections.ArrayList
+	if ($Objects -is [System.Collections.IDictionary]) {
+		[void]$items.Add($Objects)
+	} elseif ($Objects -is [System.Array]) {
+		$source = $Objects
+		if ($Objects.Count -eq 1 -and $Objects[0] -is [System.Array]) { $source = $Objects[0] }
+		foreach ($item in @($source)) {
+			if ($null -ne $item -and $item -is [System.Collections.IDictionary]) { [void]$items.Add($item) }
+		}
+	}
+	$result = @()
+	foreach ($obj in $items) {
+		if (-not (Is-NestedObject "$($obj.Name)")) {
+			$result += ,$obj
+			continue
+		}
+		$parts = "$($obj.Name)".Split('.')
+		$kind = $parts[$parts.Count - 2]
+		$rights = @()
+		foreach ($right in @($obj.Rights)) {
+			if ($null -eq $right -or $right -isnot [System.Collections.IDictionary]) { continue }
+			if (Test-NestedDefaultRightKept -Kind $kind -RightName "$($right.Name)" -Value "$($right.Value)" -SetForAttributesByDefault $SetForAttributesByDefault) {
+				$rights += ,$right
+			}
+		}
+		if ($rights.Count -gt 0) {
+			$result += ,@{ Name = $obj.Name; Rights = $rights }
+		}
+	}
+	return ,$result
+}
+
 function Parse-ObjectEntry {
 	param($entry)
 
@@ -1075,10 +1133,17 @@ X '<?xml version="1.0" encoding="UTF-8"?>'
 # Шапка файла прав тоже идет одной строкой; палитры в ней нет - у файла своя схема.
 X "<Rights xmlns=`"http://v8.1c.ru/8.2/roles`" xmlns:xs=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`" xsi:type=`"Rights`" version=`"$formatVersion`">"
 
-# Global flags (defaults match typical 1C roles)
-$sfno = if ($null -ne $def.setForNewObjects) { "$($def.setForNewObjects)".ToLower() } else { "false" }
+# Global flags. У роли ПолныеПрава и FullAccess флажок новых объектов по умолчанию включен.
+if ($null -ne $def.setForNewObjects) {
+	$sfno = "$($def.setForNewObjects)".ToLower()
+} elseif ($roleName -in @('ПолныеПрава', 'FullAccess')) {
+	$sfno = 'true'
+} else {
+	$sfno = 'false'
+}
 $sfab = if ($null -ne $def.setForAttributesByDefault) { "$($def.setForAttributesByDefault)".ToLower() } else { "true" }
 $irco = if ($null -ne $def.independentRightsOfChildObjects) { "$($def.independentRightsOfChildObjects)".ToLower() } else { "false" }
+$parsedObjects = Filter-NestedDefaults -Objects (, $parsedObjects) -SetForAttributesByDefault ($sfab -eq 'true')
 
 X "	<setForNewObjects>$sfno</setForNewObjects>"
 X "	<setForAttributesByDefault>$sfab</setForAttributesByDefault>"

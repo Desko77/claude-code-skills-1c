@@ -1,0 +1,28 @@
+{
+  "name": "Нормализация: independentRightsOfChildObjects выгрузку вложенных прав не меняет",
+  "input": {
+    "name": "Независимые",
+    "independentRightsOfChildObjects": true,
+    "objects": [
+      "Catalog.Товары: Read",
+      { "name": "Catalog.Товары.Attribute.Цена", "rights": { "View": true, "Edit": false } }
+    ]
+  },
+  "noSnapshot": "эталон - фрагменты Rights.xml по выгрузке платформы 8.3.27; полный снимок пустой конфигурации к правилу не относится",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "Roles/Независимые/Ext/Rights.xml",
+        "text": "<independentRightsOfChildObjects>true</independentRightsOfChildObjects>"
+      },
+      {
+        "file": "Roles/Независимые/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.Attribute.Цена</name>\r\n\t\t<right>\r\n\t\t\t<name>Edit</name>\r\n\t\t\t<value>false</value>"
+      }
+    ],
+    "fileNotContains": {
+      "file": "Roles/Независимые/Ext/Rights.xml",
+      "text": "<name>View</name>"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Явный setForNewObjects=false у FullAccess перекрывает умолчание",
+  "input": { "name": "FullAccess", "setForNewObjects": false },
+  "noSnapshot": "проверка явного флага, полный снимок пустой конфигурации к умолчанию не относится",
+  "expect": {
+    "fileContains": {
+      "file": "Roles/FullAccess/Ext/Rights.xml",
+      "text": "<setForNewObjects>false</setForNewObjects>"
+    }
+  }
+}

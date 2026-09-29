@@ -1,0 +1,21 @@
+{
+  "name": "Нормализация: нет прав на объект, при умолчании true пропадает и false остается",
+  "input": {
+    "name": "ТолькоЗапретПолей",
+    "objects": [
+      { "name": "Catalog.Услуги.Attribute.Цена", "rights": { "View": true, "Edit": true } },
+      { "name": "Catalog.Услуги.Attribute.Скрыто", "rights": { "View": false, "Edit": false } }
+    ]
+  },
+  "noSnapshot": "эталон - фрагменты Rights.xml по выгрузке платформы 8.3.27; полный снимок пустой конфигурации к правилу не относится",
+  "expect": {
+    "fileContains": {
+      "file": "Roles/ТолькоЗапретПолей/Ext/Rights.xml",
+      "text": "<name>Catalog.Услуги.Attribute.Скрыто</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>false</value>\r\n\t\t</right>\r\n\t\t<right>\r\n\t\t\t<name>Edit</name>\r\n\t\t\t<value>false</value>"
+    },
+    "fileNotContains": {
+      "file": "Roles/ТолькоЗапретПолей/Ext/Rights.xml",
+      "text": "Catalog.Услуги.Attribute.Цена"
+    }
+  }
+}

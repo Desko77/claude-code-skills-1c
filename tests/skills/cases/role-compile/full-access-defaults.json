@@ -1,0 +1,11 @@
+{
+  "name": "Умолчание setForNewObjects у роли ПолныеПрава",
+  "input": { "name": "ПолныеПрава" },
+  "noSnapshot": "проверка флага setForNewObjects, полный снимок пустой конфигурации к умолчанию не относится",
+  "expect": {
+    "fileContains": {
+      "file": "Roles/ПолныеПрава/Ext/Rights.xml",
+      "text": "<setForNewObjects>true</setForNewObjects>"
+    }
+  }
+}

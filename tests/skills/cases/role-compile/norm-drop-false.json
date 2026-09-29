@@ -1,0 +1,49 @@
+{
+  "name": "Нормализация: без умолчания реквизитов явный false пропадает, true остается",
+  "input": {
+    "name": "БезУмолчания",
+    "setForAttributesByDefault": false,
+    "objects": [
+      "Catalog.Товары: Read",
+      { "name": "Catalog.Товары.Attribute.Цена", "rights": { "View": true, "Edit": true } },
+      { "name": "Catalog.Товары.Attribute.Артикул", "rights": { "View": true, "Edit": false } },
+      { "name": "Catalog.Товары.Attribute.Скрыто", "rights": { "View": false, "Edit": false } },
+      { "name": "Catalog.Товары.TabularSection.Состав", "rights": { "View": true, "Edit": false } }
+    ]
+  },
+  "noSnapshot": "эталон - фрагменты Rights.xml по выгрузке платформы 8.3.27; полный снимок пустой конфигурации к правилу не относится",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "Roles/БезУмолчания/Ext/Rights.xml",
+        "text": "<setForAttributesByDefault>false</setForAttributesByDefault>"
+      },
+      {
+        "file": "Roles/БезУмолчания/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.Attribute.Цена</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>true</value>\r\n\t\t</right>\r\n\t\t<right>\r\n\t\t\t<name>Edit</name>\r\n\t\t\t<value>true</value>"
+      },
+      {
+        "file": "Roles/БезУмолчания/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.Attribute.Артикул</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>true</value>"
+      },
+      {
+        "file": "Roles/БезУмолчания/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.TabularSection.Состав</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>true</value>"
+      }
+    ],
+    "fileNotContains": [
+      {
+        "file": "Roles/БезУмолчания/Ext/Rights.xml",
+        "text": "Catalog.Товары.Attribute.Скрыто"
+      },
+      {
+        "file": "Roles/БезУмолчания/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.Attribute.Артикул</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>true</value>\r\n\t\t</right>\r\n\t\t<right>"
+      },
+      {
+        "file": "Roles/БезУмолчания/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.TabularSection.Состав</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>true</value>\r\n\t\t</right>\r\n\t\t<right>"
+      }
+    ]
+  }
+}

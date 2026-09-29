@@ -149,7 +149,7 @@ function Assert-EditAllowed([string]$targetPath, [string]$require) {
 }
 # --- Конец общего блока гарда поддержки ---
 
-# --- Таблица прав и замыкание (общий блок, версия 1) ---
+# --- Таблица прав и замыкание (общий блок, версия 2) ---
 # --- 3. Russian synonyms → canonical English names ---
 
 $script:typeAliases = @{
@@ -383,9 +383,10 @@ $script:knownRights = @{
 	# (HTTPService...URLTemplate.*.Method.*).
 	"WebService" = @()
 	"HTTPService" = @()
-	# Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
-	# платформа требует непустой InternalInfo, который известен только ей.
-	"IntegrationService" = @("Use")
+	# Замер 8.3.27: у самого сервиса интеграции прав нет - платформа отбрасывает блок
+	# при загрузке. Право Use живет на канале
+	# (IntegrationService...IntegrationServiceChannel.*).
+	"IntegrationService" = @()
 	"SessionParameter" = @("Get","Set")
 	"CommonAttribute" = @("View","Edit")
 }
@@ -526,6 +527,23 @@ $script:rightOrder = @(
 $script:rightOrderPos = @{}
 for ($i = 0; $i -lt $script:rightOrder.Count; $i++) { $script:rightOrderPos[$script:rightOrder[$i]] = $i }
 
+# Виды, у которых View и Edit подчиняются флажку setForAttributesByDefault.
+# Замер 8.3.27.2214: выгрузка оставляет право, только если оно не совпадает с умолчанием.
+# setForAttributesByDefault=true - умолчание true (явный true пропадает, false остается).
+# setForAttributesByDefault=false - умолчание false (явный false пропадает, true остается).
+# independentRightsOfChildObjects и наличие прав на сам объект выгрузку не меняют.
+$script:nestedDefaultKinds = @("Attribute", "TabularSection", "StandardAttribute")
+
+function Test-NestedDefaultRightKept {
+	# Вложенное право остается в выгрузке, если не дублирует умолчание реквизитов.
+	param([string]$Kind, [string]$RightName, [string]$Value, [bool]$SetForAttributesByDefault)
+	if ($Kind -notin $script:nestedDefaultKinds -or $RightName -notin @("View", "Edit")) {
+		return $true
+	}
+	$defaultValue = if ($SetForAttributesByDefault) { "true" } else { "false" }
+	return ($Value.ToLower() -ne $defaultValue)
+}
+
 # --- Конец общего блока таблицы прав и замыкания ---
 
 # Nested objects: Attribute, StandardAttribute, TabularSection, Dimension, Resource, AddressingAttribute
@@ -537,6 +555,7 @@ $script:commandRights = @("View")
 $script:nestedRightsByKind = @{
 	"Attribute" = @("View","Edit")
 	"TabularSection" = @("View","Edit")
+	"StandardAttribute" = @("View","Edit")
 	"Field" = @("View","Edit")
 	"Command" = @("View")
 	"Subsystem" = @("View")
@@ -564,7 +583,7 @@ $script:typesRightsNotChecked = @("ExternalDataSource")
 
 # Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
 # внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
-$script:defaultNestedKinds = @("Attribute","TabularSection","Command")
+$script:defaultNestedKinds = @("Attribute","TabularSection","StandardAttribute","Command")
 $script:nestedKindsByOwner = @{
 	"WebService" = @("Operation")
 	"HTTPService" = @("URLTemplate")
@@ -1491,6 +1510,63 @@ function Apply-PropertyOp([string]$Rights, [string]$Meta, $Op) {
     return @{ Rights = $updated; Meta = $Meta }
 }
 
+function Update-NestedDefaults([string]$Text) {
+	# Приводит вложенные права к тому, что оставляет выгрузка платформы.
+	$sfab = $true
+	$flag = [regex]::Match($Text, '<setForAttributesByDefault>(.*?)</setForAttributesByDefault>')
+	if ($flag.Success) { $sfab = $flag.Groups[1].Value.Trim().ToLower() -eq 'true' }
+	$unit = Get-IndentUnit $Text
+	$objects = Find-RoleObjects $Text
+	for ($i = $objects.Count - 1; $i -ge 0; $i--) {
+		$obj = $objects[$i]
+		if (-not (Is-NestedObject $obj.name)) { continue }
+		$parts = @($obj.name -split '\.')
+		$kind = $parts[$parts.Length - 2]
+		$kept = New-Object System.Collections.ArrayList
+		foreach ($right in @($obj.rights)) {
+			if (Test-NestedDefaultRightKept -Kind $kind -RightName $right.Name -Value "$($right.Value)" -SetForAttributesByDefault $sfab) {
+				[void]$kept.Add($right)
+			}
+		}
+		if ($kept.Count -eq @($obj.rights).Count) { continue }
+		$block = $null
+		if ($kept.Count -gt 0) { $block = Render-RoleObject $obj.name $kept $unit }
+		$Text = Splice-Span $Text ([int]$obj.start) ([int]$obj.end) $block
+	}
+	return $Text
+}
+
+function Write-FieldWithoutObjectWarning([string]$Text) {
+	# Предупреждает, если при обычных флажках остались права на поля без прав на объект.
+	$sfab = $true
+	$irco = $false
+	$sfabMatch = [regex]::Match($Text, '<setForAttributesByDefault>(.*?)</setForAttributesByDefault>')
+	$ircoMatch = [regex]::Match($Text, '<independentRightsOfChildObjects>(.*?)</independentRightsOfChildObjects>')
+	if ($sfabMatch.Success) { $sfab = $sfabMatch.Groups[1].Value.Trim().ToLower() -eq 'true' }
+	if ($ircoMatch.Success) { $irco = $ircoMatch.Groups[1].Value.Trim().ToLower() -eq 'true' }
+	if (-not $sfab -or $irco) { return }
+	$objects = Find-RoleObjects $Text
+	$parents = @{}
+	foreach ($obj in $objects) {
+		if (-not (Is-NestedObject $obj.name)) { $parents[$obj.name] = $true }
+	}
+	$seen = @{}
+	$fieldKinds = @('Attribute', 'TabularSection', 'StandardAttribute')
+	foreach ($obj in $objects) {
+		$parts = @($obj.name -split '\.')
+		if ($parts.Count -lt 4) { continue }
+		$isField = $false
+		for ($i = 2; $i -lt $parts.Count; $i += 2) {
+			if ($parts[$i] -in $fieldKinds) { $isField = $true }
+		}
+		if (-not $isField) { continue }
+		$parent = "$($parts[0]).$($parts[1])"
+		if ($parents.ContainsKey($parent) -or $seen.ContainsKey($parent)) { continue }
+		$seen[$parent] = $true
+		[Console]::Error.WriteLine("WARNING: ${parent}: права на поля без прав на объект при setForAttributesByDefault=true и independentRightsOfChildObjects=false (#std532)")
+	}
+}
+
 # Применяет операции по порядку.
 function Apply-RoleOps([string]$Rights, [string]$Meta, $Ops) {
     foreach ($op in $Ops) {
@@ -1538,6 +1614,10 @@ Assert-EditAllowed -targetPath $paths.Meta -require 'editable'
 $rightsFile = Read-RoleText $paths.Rights
 $metaFile = Read-RoleText $paths.Meta
 $edited = Apply-RoleOps $rightsFile.Text $metaFile.Text $ops
+if ($script:inputErrors.Count -eq 0) {
+	$edited.Rights = Update-NestedDefaults $edited.Rights
+	Write-FieldWithoutObjectWarning $edited.Rights
+}
 Exit-InputErrors
 
 if ($edited.Rights -ne $rightsFile.Text) {

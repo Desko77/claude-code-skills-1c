@@ -1,0 +1,23 @@
+{
+  "name": "Предупреждение #std532: setForNewObjects у роли не ПолныеПрава",
+  "preRun": [
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "setForNewObjects": true,
+        "objects": ["Catalog.Товары: Read"]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": { "rightsPath": "Roles/Кладовщик/Ext/Rights.xml" },
+  "noSnapshot": "валидатор не пишет файлов, проверяется текст предупреждения #std532",
+  "expect": {
+    "stdoutContains": "Кладовщик: setForNewObjects=true, стандарт #std532 допускает этот флажок только у роли ПолныеПрава или FullAccess",
+    "stdoutNotContains": "права на поля"
+  }
+}

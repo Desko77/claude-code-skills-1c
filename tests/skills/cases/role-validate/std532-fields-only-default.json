@@ -1,0 +1,26 @@
+{
+  "name": "Предупреждение #std532: права только на поля при setForAttributesByDefault=true",
+  "preRun": [
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "setForAttributesByDefault": true,
+        "independentRightsOfChildObjects": true,
+        "objects": [
+          { "name": "Catalog.Товары.Attribute.Цена", "rights": { "View": false, "Edit": false } }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": { "rightsPath": "Roles/Кладовщик/Ext/Rights.xml" },
+  "noSnapshot": "валидатор не пишет файлов, проверяется текст предупреждения #std532",
+  "expect": {
+    "stdoutContains": "Catalog.Товары: права только на поля при setForAttributesByDefault=true (#std532)",
+    "stdoutNotContains": "independentRightsOfChildObjects=false (#std532)"
+  }
+}

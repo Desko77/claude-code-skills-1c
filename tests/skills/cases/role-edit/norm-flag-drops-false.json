@@ -1,0 +1,39 @@
+{
+  "name": "Смена setForAttributesByDefault убирает запрет реквизита, совпавший с новым умолчанием",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары", "attributes": ["Цена: Number(15,2)"] },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": [
+          "Catalog.Товары: Read",
+          { "name": "Catalog.Товары.Attribute.Цена", "rights": { "Edit": false } }
+        ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "input": {
+    "operation": "modify-property",
+    "property": "setForAttributesByDefault",
+    "value": false
+  },
+  "noSnapshot": "проверка, что после смены флажка файл совпадает с выгрузкой: явный false пропадает",
+  "expect": {
+    "stderrNotContains": "#std532",
+    "fileContains": {
+      "file": "Roles/Кладовщик/Ext/Rights.xml",
+      "text": "<setForAttributesByDefault>false</setForAttributesByDefault>"
+    },
+    "fileNotContains": {
+      "file": "Roles/Кладовщик/Ext/Rights.xml",
+      "text": "Catalog.Товары.Attribute.Цена"
+    }
+  }
+}

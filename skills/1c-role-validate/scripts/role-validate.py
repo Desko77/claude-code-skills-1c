@@ -163,9 +163,10 @@ KNOWN_RIGHTS = {
     # (HTTPService...URLTemplate.*.Method.*).
     'WebService': [],
     'HTTPService': [],
-    # Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
-    # платформа требует непустой InternalInfo, который известен только ей.
-    'IntegrationService': ['Use'],
+    # Замер 8.3.27: у самого сервиса интеграции прав нет - платформа отбрасывает блок
+    # при загрузке. Право Use живет на канале
+    # (IntegrationService...IntegrationServiceChannel.*).
+    'IntegrationService': [],
     'SessionParameter': ['Get', 'Set'],
     'CommonAttribute': ['View', 'Edit'],
 }
@@ -177,6 +178,7 @@ NESTED_RIGHTS = ['View', 'Edit']
 NESTED_RIGHTS_BY_KIND = {
     'Attribute': ['View', 'Edit'],
     'TabularSection': ['View', 'Edit'],
+    'StandardAttribute': ['View', 'Edit'],
     'Field': ['View', 'Edit'],
     'Command': ['View'],
     'Subsystem': ['View'],
@@ -205,6 +207,54 @@ def get_object_type(name):
 
 def is_nested_object(name):
     return name.count('.') >= 2
+
+
+FULL_ACCESS_ROLE_NAMES = ('ПолныеПрава', 'FullAccess')
+
+
+def field_parent_name(object_name):
+    """Имя объекта-владельца, если блок прав относится к реквизиту или табличной части."""
+    parts = object_name.split('.')
+    if len(parts) < 4:
+        return ''
+    for index in range(2, len(parts), 2):
+        if parts[index] in ('Attribute', 'TabularSection', 'StandardAttribute'):
+            return parts[0] + '.' + parts[1]
+    return ''
+
+
+def report_std532(role_name, flag_values, object_names, report_warn):
+    """Предупреждения стандарта #std532 по флажкам роли и правам на поля."""
+    if flag_values.get('setForNewObjects') == 'true' and role_name not in FULL_ACCESS_ROLE_NAMES:
+        report_warn(
+            f"{role_name}: setForNewObjects=true, стандарт #std532 допускает этот флажок "
+            "только у роли ПолныеПрава или FullAccess"
+        )
+    parents = set()
+    field_parents = []
+    for name in object_names:
+        parts = name.split('.')
+        parent = field_parent_name(name)
+        if parent:
+            field_parents.append(parent)
+        elif len(parts) <= 2:
+            parents.add(name)
+    seen = set()
+    irco = flag_values.get('independentRightsOfChildObjects')
+    sfab = flag_values.get('setForAttributesByDefault')
+    for parent in field_parents:
+        if parent in parents or parent in seen:
+            continue
+        seen.add(parent)
+        if irco == 'false':
+            report_warn(
+                f"{parent}: права на поля без прав на объект при "
+                "independentRightsOfChildObjects=false (#std532)"
+            )
+        if sfab == 'true':
+            report_warn(
+                f"{parent}: права только на поля при setForAttributesByDefault=true (#std532)"
+            )
 
 
 def find_similar(needle, haystack):
@@ -355,11 +405,13 @@ def main():
 
     # 3c. Global flags
     flag_names = ['setForNewObjects', 'setForAttributesByDefault', 'independentRightsOfChildObjects']
+    flag_values = {}
     flags_found = 0
     for fn in flag_names:
         nodes = root.findall(f'{{{RIGHTS_NS}}}{fn}')
         if len(nodes) > 0:
             val = nodes[0].text or ''
+            flag_values[fn] = val
             if val not in ('true', 'false'):
                 report_warn(f"{fn} = '{val}' (expected 'true' or 'false')")
             flags_found += 1
@@ -650,6 +702,9 @@ def main():
             if missing_rights_objects == 0:
                 report_ok("7. Right objects: %d checked against index, all exist"
                           % checked_rights_objects)
+
+    # --- 5b. Стандарт #std532 ---
+    report_std532(inferred_role_name, flag_values, rights_object_names, report_warn)
 
     # --- 6. Summary ---
 

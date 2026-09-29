@@ -509,7 +509,7 @@ Subsystem.Администрирование.Subsystem.Пользователи
 | `CommonAttribute` | View, Edit |
 | `WebService` | прав нет; Use - только на операции `WebService.*.Operation.*` |
 | `HTTPService` | прав нет; Use - только на методе `HTTPService.*.URLTemplate.*.Method.*` |
-| `IntegrationService` | не замерено; Use на канале `IntegrationService.*.IntegrationServiceChannel.*` |
+| `IntegrationService` | прав нет; Use на канале `IntegrationService.*.IntegrationServiceChannel.*` |
 
 #### Типы объектов БЕЗ прав в ролях
 
@@ -642,9 +642,12 @@ View влечет Use. Полные таблицы правил - в `skills/1c-
 - Противоречие (`Edit=true` и `Read=false` в одном блоке) - платформа отбрасывает весь блок
   объекта при загрузке.
 - Блок из одних явных запретов (`Read=false` без включенных прав) платформа тоже отбрасывает.
-- Вложенные права (реквизиты, измерения) замыкания не имеют. Включенное вложенное право,
-  дублирующее умолчание родителя (`setForAttributesByDefault=true`), платформа исключает из
-  выгрузки; явный запрет (`Edit=false`) сохраняется.
+- Вложенные права (реквизиты, измерения) замыкания не имеют.
+- Замер 8.3.27.2214, права `View` и `Edit` у `Attribute`, `TabularSection` и `StandardAttribute`:
+  выгрузка оставляет право, только если оно не совпадает с `setForAttributesByDefault`.
+  При `true` явный `true` пропадает, `false` остается. При `false` явный `false` пропадает,
+  `true` остается. Пустой блок не пишется. `independentRightsOfChildObjects` и наличие прав
+  на сам объект состав выгрузки не меняют. Незаданное право в выгрузке не появляется.
 
 ---
 

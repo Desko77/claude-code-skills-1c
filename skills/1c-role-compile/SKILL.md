@@ -34,7 +34,7 @@ powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 
 { "name": "ИмяРоли", "synonym": "Отображаемое имя", "objects": [...], "templates": [...] }
 ```
 
-Необязательные: `comment` (""), `setForNewObjects` (false), `setForAttributesByDefault` (true), `independentRightsOfChildObjects` (false).
+Необязательные: `comment` (""), `setForNewObjects` (false; у роли `ПолныеПрава` и `FullAccess` - true), `setForAttributesByDefault` (true), `independentRightsOfChildObjects` (false).
 
 ### Shorthand-строки и объектная форма
 
@@ -73,11 +73,17 @@ powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 
 Явное `false` конфликтует с замыканием (`Edit` включен, `Read` выключен) - платформа отбрасывает
 весь блок объекта при загрузке; навык предупреждает об этом в stderr.
 
+`View` и `Edit` реквизита, табличной части и стандартного реквизита пишутся только если не
+совпадают с `setForAttributesByDefault` (замер 8.3.27): при флажке `true` явный `true` не
+попадает в файл, `false` остается; при флажке `false` наоборот. Пустой блок не пишется.
+
 ### Права сервисов
 
-У самих WebService и HTTPService прав нет - платформа отбрасывает такой блок при загрузке.
-Право `Use` дается операции и методу: `"WebService.Обмен.Operation.Загрузить: Use"`,
-`"HTTPService.Сервис.URLTemplate.Файлы.Method.get: Use"`.
+У самих WebService, HTTPService и IntegrationService прав нет - платформа отбрасывает такой блок
+при загрузке. Право `Use` дается операции, методу и каналу:
+`"WebService.Обмен.Operation.Загрузить: Use"`,
+`"HTTPService.Сервис.URLTemplate.Файлы.Method.get: Use"`,
+`"IntegrationService.Канал.IntegrationServiceChannel.Основной: Use"`.
 
 ### Русские синонимы
 

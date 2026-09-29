@@ -1,0 +1,25 @@
+{
+  "name": "Без замечаний #std532: обычная роль с правом на объект и запретом реквизита",
+  "preRun": [
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": [
+          "Catalog.Товары: Read",
+          { "name": "Catalog.Товары.Attribute.Цена", "rights": { "Edit": false } }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": { "rightsPath": "Roles/Кладовщик/Ext/Rights.xml" },
+  "noSnapshot": "валидатор не пишет файлов, проверяется чистый вывод",
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": ["#std532", "[WARN]", "[ERROR]"]
+  }
+}

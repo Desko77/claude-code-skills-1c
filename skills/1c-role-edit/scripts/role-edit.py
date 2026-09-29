@@ -194,7 +194,7 @@ def assert_edit_allowed(target_path, require):
         return
 # --- Конец общего блока гарда поддержки ---
 
-# --- Таблица прав и замыкание (общий блок, версия 1) ---
+# --- Таблица прав и замыкание (общий блок, версия 2) ---
 # --- Russian synonyms -> canonical English names ---
 
 TYPE_ALIASES = {
@@ -401,9 +401,10 @@ KNOWN_RIGHTS = {
     # (HTTPService...URLTemplate.*.Method.*).
     "WebService": [],
     "HTTPService": [],
-    # Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
-    # платформа требует непустой InternalInfo, который известен только ей.
-    "IntegrationService": ["Use"],
+    # Замер 8.3.27: у самого сервиса интеграции прав нет - платформа отбрасывает блок
+    # при загрузке. Право Use живет на канале
+    # (IntegrationService...IntegrationServiceChannel.*).
+    "IntegrationService": [],
     "SessionParameter": ["Get", "Set"],
     "CommonAttribute": ["View", "Edit"],
 }
@@ -554,6 +555,22 @@ def right_sort_key(name):
     """Ключ сортировки права по каноническому порядку; незнакомое право - в конец."""
     return (_RIGHT_ORDER_POS.get(name, len(RIGHT_ORDER)),)
 
+
+# Виды, у которых View и Edit подчиняются флажку setForAttributesByDefault.
+# Замер 8.3.27.2214: выгрузка оставляет право, только если оно не совпадает с умолчанием.
+# setForAttributesByDefault=true - умолчание true (явный true пропадает, false остается).
+# setForAttributesByDefault=false - умолчание false (явный false пропадает, true остается).
+# independentRightsOfChildObjects и наличие прав на сам объект выгрузку не меняют.
+NESTED_DEFAULT_KINDS = ("Attribute", "TabularSection", "StandardAttribute")
+
+
+def nested_default_right_kept(kind, right_name, value, set_for_attributes_by_default):
+    """Вложенное право остается в выгрузке, если не дублирует умолчание реквизитов."""
+    if kind not in NESTED_DEFAULT_KINDS or right_name not in ("View", "Edit"):
+        return True
+    default_value = "true" if set_for_attributes_by_default else "false"
+    return str(value).lower() != default_value
+
 # --- Конец общего блока таблицы прав и замыкания ---
 
 def translate_object_name(name):
@@ -597,7 +614,7 @@ TYPES_RIGHTS_NOT_CHECKED = ["ExternalDataSource"]
 
 # Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
 # внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
-DEFAULT_NESTED_KINDS = ["Attribute", "TabularSection", "Command"]
+DEFAULT_NESTED_KINDS = ["Attribute", "TabularSection", "StandardAttribute", "Command"]
 NESTED_KINDS_BY_OWNER = {
     "WebService": ["Operation"],
     "HTTPService": ["URLTemplate"],
@@ -615,6 +632,7 @@ NESTED_KINDS_BY_OWNER = {
 NESTED_RIGHTS_BY_KIND = {
     "Attribute": ["View", "Edit"],
     "TabularSection": ["View", "Edit"],
+    "StandardAttribute": ["View", "Edit"],
     "Field": ["View", "Edit"],
     "Command": ["View"],
     "Subsystem": ["View"],
@@ -1362,6 +1380,62 @@ def apply_property_op(rights, meta, op):
     return updated, meta
 
 
+def field_parent_name(object_name):
+    """Имя объекта-владельца, если блок прав относится к реквизиту или табличной части."""
+    parts = object_name.split('.')
+    if len(parts) < 4:
+        return ''
+    for index in range(2, len(parts), 2):
+        if parts[index] in ('Attribute', 'TabularSection', 'StandardAttribute'):
+            return parts[0] + '.' + parts[1]
+    return ''
+
+
+def normalize_nested_defaults(text):
+    """Приводит вложенные права к тому, что оставляет выгрузка платформы."""
+    match = re.search(r'<setForAttributesByDefault>(.*?)</setForAttributesByDefault>', text)
+    sfab = True if match is None else match.group(1).strip().lower() == 'true'
+    unit = indent_unit(text)
+    objects = find_objects(text)
+    for obj in reversed(objects):
+        if not is_nested_object(obj['name']):
+            continue
+        kind = obj['name'].split('.')[-2]
+        kept = [
+            right for right in obj['rights']
+            if nested_default_right_kept(kind, right['Name'], right['Value'], sfab)
+        ]
+        if len(kept) == len(obj['rights']):
+            continue
+        block = render_object(obj['name'], kept, unit) if kept else None
+        text = splice_span(text, obj['start'], obj['end'], block)
+    return text
+
+
+def warn_fields_without_object(text):
+    """Предупреждает, если при обычных флажках остались права на поля без прав на объект."""
+    sfab_match = re.search(r'<setForAttributesByDefault>(.*?)</setForAttributesByDefault>', text)
+    irco_match = re.search(
+        r'<independentRightsOfChildObjects>(.*?)</independentRightsOfChildObjects>', text)
+    sfab = True if sfab_match is None else sfab_match.group(1).strip().lower() == 'true'
+    irco = False if irco_match is None else irco_match.group(1).strip().lower() == 'true'
+    if not sfab or irco:
+        return
+    objects = find_objects(text)
+    parents = {obj['name'] for obj in objects if not is_nested_object(obj['name'])}
+    seen = set()
+    for obj in objects:
+        parent = field_parent_name(obj['name'])
+        if not parent or parent in parents or parent in seen:
+            continue
+        seen.add(parent)
+        print(
+            f"WARNING: {parent}: права на поля без прав на объект при "
+            "setForAttributesByDefault=true и independentRightsOfChildObjects=false (#std532)",
+            file=sys.stderr,
+        )
+
+
 def apply_ops(rights, meta, ops):
     """Применяет операции по порядку. При ошибке тексты не считаются годными к записи."""
     for op in ops:
@@ -1444,6 +1518,9 @@ def main():
     rights, rights_bom, rights_crlf = read_role_file(rights_path)
     meta, meta_bom, meta_crlf = read_role_file(meta_path)
     new_rights, new_meta = apply_ops(rights, meta, ops)
+    if not INPUT_ERRORS:
+        new_rights = normalize_nested_defaults(new_rights)
+        warn_fields_without_object(new_rights)
     flush_errors()
 
     if new_rights != rights:

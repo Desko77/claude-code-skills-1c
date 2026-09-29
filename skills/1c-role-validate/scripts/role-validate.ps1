@@ -172,9 +172,10 @@ $script:knownRights = @{
 	# (HTTPService...URLTemplate.*.Method.*).
 	"WebService" = @()
 	"HTTPService" = @()
-	# Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
-	# платформа требует непустой InternalInfo, который известен только ей.
-	"IntegrationService" = @("Use")
+	# Замер 8.3.27: у самого сервиса интеграции прав нет - платформа отбрасывает блок
+	# при загрузке. Право Use живет на канале
+	# (IntegrationService...IntegrationServiceChannel.*).
+	"IntegrationService" = @()
 	"SessionParameter" = @("Get","Set")
 	"CommonAttribute" = @("View","Edit")
 }
@@ -186,6 +187,7 @@ $script:nestedRights = @("View","Edit")
 $script:nestedRightsByKind = @{
 	"Attribute" = @("View","Edit")
 	"TabularSection" = @("View","Edit")
+	"StandardAttribute" = @("View","Edit")
 	"Field" = @("View","Edit")
 	"Command" = @("View")
 	"Subsystem" = @("View")
@@ -229,6 +231,47 @@ function Report-Error {
 	Out-Line "[ERROR] $msg"
 	if ($script:errors -ge $MaxErrors) {
 		$script:stopped = $true
+	}
+}
+
+function Get-FieldParentName([string]$ObjectName) {
+	# Имя объекта-владельца, если блок прав относится к реквизиту или табличной части.
+	$parts = @($ObjectName -split '\.')
+	if ($parts.Count -lt 4) { return '' }
+	$fieldKinds = @('Attribute', 'TabularSection', 'StandardAttribute')
+	for ($i = 2; $i -lt $parts.Count; $i += 2) {
+		if ($parts[$i] -in $fieldKinds) { return "$($parts[0]).$($parts[1])" }
+	}
+	return ''
+}
+
+function Report-Std532([string]$RoleName, $FlagValues, $ObjectNames) {
+	# Предупреждения стандарта #std532 по флажкам роли и правам на поля.
+	$fullAccess = @('ПолныеПрава', 'FullAccess')
+	if ($FlagValues['setForNewObjects'] -eq 'true' -and $RoleName -notin $fullAccess) {
+		Report-Warn "${RoleName}: setForNewObjects=true, стандарт #std532 допускает этот флажок только у роли ПолныеПрава или FullAccess"
+	}
+	$parents = @{}
+	$fieldParents = New-Object System.Collections.Generic.List[string]
+	foreach ($name in @($ObjectNames)) {
+		$parent = Get-FieldParentName $name
+		if ($parent) {
+			$fieldParents.Add($parent)
+		} else {
+			$parts = @($name -split '\.')
+			if ($parts.Count -le 2) { $parents[$name] = $true }
+		}
+	}
+	$seen = @{}
+	foreach ($parent in $fieldParents) {
+		if ($parents.ContainsKey($parent) -or $seen.ContainsKey($parent)) { continue }
+		$seen[$parent] = $true
+		if ($FlagValues['independentRightsOfChildObjects'] -eq 'false') {
+			Report-Warn "${parent}: права на поля без прав на объект при independentRightsOfChildObjects=false (#std532)"
+		}
+		if ($FlagValues['setForAttributesByDefault'] -eq 'true') {
+			Report-Warn "${parent}: права только на поля при setForAttributesByDefault=true (#std532)"
+		}
 	}
 }
 
@@ -341,11 +384,13 @@ if ($rightsVersion -and $roleVersion -and ($rightsVersion -ne $roleVersion)) {
 
 # 3c. Global flags
 $flagNames = @("setForNewObjects","setForAttributesByDefault","independentRightsOfChildObjects")
+$flagValues = @{}
 $flagsFound = 0
 foreach ($fn in $flagNames) {
 	$node = $root.GetElementsByTagName($fn, $rightsNs)
 	if ($node.Count -gt 0) {
 		$val = $node[0].InnerText
+		$flagValues[$fn] = $val
 		if ($val -ne "true" -and $val -ne "false") {
 			Report-Warn "$fn = '$val' (expected 'true' or 'false')"
 		}
@@ -645,6 +690,9 @@ if ($IndexPath) {
 		}
 	}
 }
+
+# --- 5b. Стандарт #std532 ---
+Report-Std532 $inferredRoleName $flagValues $rightsObjectNames
 
 # --- 6. Summary ---
 

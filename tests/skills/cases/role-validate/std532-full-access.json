@@ -1,0 +1,22 @@
+{
+  "name": "Без замечаний #std532: ПолныеПрава с setForNewObjects",
+  "preRun": [
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "ПолныеПрава",
+        "objects": ["Catalog.Товары: Read"]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": { "rightsPath": "Roles/ПолныеПрава/Ext/Rights.xml" },
+  "noSnapshot": "валидатор не пишет файлов, проверяется отсутствие предупреждения #std532",
+  "expect": {
+    "stdoutContains": "Validation OK",
+    "stdoutNotContains": ["#std532", "[WARN]", "[ERROR]"]
+  }
+}

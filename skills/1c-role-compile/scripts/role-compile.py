@@ -309,7 +309,7 @@ def write_utf8_bom(path, content, eol='\r\n'):
         f.write(content)
 
 
-# --- Таблица прав и замыкание (общий блок, версия 1) ---
+# --- Таблица прав и замыкание (общий блок, версия 2) ---
 # --- Russian synonyms -> canonical English names ---
 
 TYPE_ALIASES = {
@@ -516,9 +516,10 @@ KNOWN_RIGHTS = {
     # (HTTPService...URLTemplate.*.Method.*).
     "WebService": [],
     "HTTPService": [],
-    # Не замерено: конфигурацию с сервисом интеграции не собирает ни один навык, а
-    # платформа требует непустой InternalInfo, который известен только ей.
-    "IntegrationService": ["Use"],
+    # Замер 8.3.27: у самого сервиса интеграции прав нет - платформа отбрасывает блок
+    # при загрузке. Право Use живет на канале
+    # (IntegrationService...IntegrationServiceChannel.*).
+    "IntegrationService": [],
     "SessionParameter": ["Get", "Set"],
     "CommonAttribute": ["View", "Edit"],
 }
@@ -669,6 +670,22 @@ def right_sort_key(name):
     """Ключ сортировки права по каноническому порядку; незнакомое право - в конец."""
     return (_RIGHT_ORDER_POS.get(name, len(RIGHT_ORDER)),)
 
+
+# Виды, у которых View и Edit подчиняются флажку setForAttributesByDefault.
+# Замер 8.3.27.2214: выгрузка оставляет право, только если оно не совпадает с умолчанием.
+# setForAttributesByDefault=true - умолчание true (явный true пропадает, false остается).
+# setForAttributesByDefault=false - умолчание false (явный false пропадает, true остается).
+# independentRightsOfChildObjects и наличие прав на сам объект выгрузку не меняют.
+NESTED_DEFAULT_KINDS = ("Attribute", "TabularSection", "StandardAttribute")
+
+
+def nested_default_right_kept(kind, right_name, value, set_for_attributes_by_default):
+    """Вложенное право остается в выгрузке, если не дублирует умолчание реквизитов."""
+    if kind not in NESTED_DEFAULT_KINDS or right_name not in ("View", "Edit"):
+        return True
+    default_value = "true" if set_for_attributes_by_default else "false"
+    return str(value).lower() != default_value
+
 # --- Конец общего блока таблицы прав и замыкания ---
 # --- Presets ---
 
@@ -778,7 +795,7 @@ TYPES_RIGHTS_NOT_CHECKED = ["ExternalDataSource"]
 
 # Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
 # внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
-DEFAULT_NESTED_KINDS = ["Attribute", "TabularSection", "Command"]
+DEFAULT_NESTED_KINDS = ["Attribute", "TabularSection", "StandardAttribute", "Command"]
 NESTED_KINDS_BY_OWNER = {
     "WebService": ["Operation"],
     "HTTPService": ["URLTemplate"],
@@ -796,6 +813,7 @@ NESTED_KINDS_BY_OWNER = {
 NESTED_RIGHTS_BY_KIND = {
     "Attribute": ["View", "Edit"],
     "TabularSection": ["View", "Edit"],
+    "StandardAttribute": ["View", "Edit"],
     "Field": ["View", "Edit"],
     "Command": ["View"],
     "Subsystem": ["View"],
@@ -947,6 +965,30 @@ def finish_rights(obj_name, rights_map, rights_order):
     rights_order.sort(key=right_sort_key)
     return [{'Name': k, 'Value': rights_map[k]['Value'], 'Condition': rights_map[k]['Condition']}
             for k in rights_order]
+
+
+def filter_nested_defaults(parsed_objects, set_for_attributes_by_default):
+    """Убирает вложенные права, которые выгрузка платформы не содержит.
+
+    Замер 8.3.27: право View или Edit реквизита, табличной части или стандартного
+    реквизита остается, только если не совпадает с setForAttributesByDefault.
+    Пустой блок объекта не пишется.
+    """
+    kept_objects = []
+    for obj in parsed_objects:
+        name = obj['Name']
+        if not is_nested_object(name):
+            kept_objects.append(obj)
+            continue
+        kind = name.split('.')[-2]
+        rights = [
+            right for right in obj['Rights']
+            if nested_default_right_kept(
+                kind, right['Name'], right['Value'], set_for_attributes_by_default)
+        ]
+        if rights:
+            kept_objects.append({'Name': name, 'Rights': rights})
+    return kept_objects
 
 
 def parse_object_entry(entry):
@@ -1152,10 +1194,16 @@ def main():
                  'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
                  f'xsi:type="Rights" version="{format_version}">')
 
-    # Global flags
-    sfno = str(defn['setForNewObjects']).lower() if defn.get('setForNewObjects') is not None else 'false'
+    # Global flags. У роли ПолныеПрава и FullAccess флажок новых объектов по умолчанию включен.
+    if defn.get('setForNewObjects') is not None:
+        sfno = str(defn['setForNewObjects']).lower()
+    elif role_name in ('ПолныеПрава', 'FullAccess'):
+        sfno = 'true'
+    else:
+        sfno = 'false'
     sfab = str(defn['setForAttributesByDefault']).lower() if defn.get('setForAttributesByDefault') is not None else 'true'
     irco = str(defn['independentRightsOfChildObjects']).lower() if defn.get('independentRightsOfChildObjects') is not None else 'false'
+    parsed_objects = filter_nested_defaults(parsed_objects, sfab == 'true')
 
     lines.append(f'	<setForNewObjects>{sfno}</setForNewObjects>')
     lines.append(f'	<setForAttributesByDefault>{sfab}</setForAttributesByDefault>')
