@@ -411,7 +411,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     # База diffHash без явного --base - HEAD отметки сессии: единая база с хуками
     # и гейтом завершения хода (tools/quality_events.py, resolve_base).
-    args.base = quality_events.resolve_base(args.repo, args.session, args.base)
+    try:
+        args.base = quality_events.resolve_base(args.repo, args.session, args.base)
+    except (quality_events.EventsError, OSError) as exc:
+        print(f"ошибка: {exc}", file=sys.stderr)
+        return 2
     return args.func(args)
 
 
