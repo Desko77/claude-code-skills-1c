@@ -202,7 +202,7 @@ EDT (у каждой базы в `status` указан `store`), и читает
 Инкрементальное обновление решается по хранимой копии `ConfigDumpInfo.xml`; рядом с ней лежит
 сопроводительный файл `ConfigDumpInfo.record.properties` - для какой базы копия записана и ее отпечаток.
 Инкрементальное обновление отказывает с `infobaseChanged` и `nextStep`
-(`sync_control syncOperation=rebuild_dump_info confirm=true`), когда копия записана для другой базы
+(`infobase_admin operation=sync_control syncOperation=rebuild_dump_info confirm=true`), когда копия записана для другой базы
 (`recordedInfobase`, `currentInfobase`) и когда базу заменила загрузка `restore_database_snapshot`
 (`loadedFrom`, `loadedAt`); `rebuild_dump_info` этот отказ снимает, `fullUpdate=true` копию не читает.
 `verifyInfobaseContent=true` (по умолчанию выключен) перед инкрементальным обновлением читает
