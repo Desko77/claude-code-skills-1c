@@ -17,7 +17,7 @@
 не занимает.
 
 `update_database` отказывает на файле `ConfigDumpInfo.xml` чужого формата и называет
-`sync_control syncOperation=rebuild_dump_info` - это и есть следующий шаг, а не `ignoreDumpInfoFormat`:
+`infobase_admin operation=sync_control syncOperation=rebuild_dump_info confirm=true` - это и есть следующий шаг, а не `ignoreDumpInfoFormat`:
 обход проверки ведет к полной загрузке.
 
 ## Реакция на сигналы в ответе

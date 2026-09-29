@@ -195,7 +195,7 @@ EDT (у каждой базы в `status` указан `store`), и читает
 
 `update_database` перед запуском сверяет формат хранимого `ConfigDumpInfo.xml` с форматом, который
 записала для этой базы перестройка, и при расхождении отказывает, называя
-`sync_control syncOperation=rebuild_dump_info`: на файл чужого формата платформа отвечает `FullDump`, и
+`infobase_admin operation=sync_control syncOperation=rebuild_dump_info confirm=true`: на файл чужого формата платформа отвечает `FullDump`, и
 обновление становится полной загрузкой. `rebuild_dump_info` (`confirm=true`) перестраивает файл
 выгрузкой Конфигуратора самой базы и сохраняет прежний копией; `ignoreDumpInfoFormat=true` пропускает
 сверку, `dryRun` сообщает расхождение в `dumpInfoFormatCheck`.
