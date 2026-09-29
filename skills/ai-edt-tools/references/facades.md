@@ -207,8 +207,8 @@ EDT (у каждой базы в `status` указан `store`), и читает
 (`loadedFrom`, `loadedAt`); `rebuild_dump_info` этот отказ снимает, `fullUpdate=true` копию не читает.
 `verifyInfobaseContent=true` (по умолчанию выключен) перед инкрементальным обновлением читает
 `ConfigDumpInfo` самой базы запуском Конфигуратора и сравнивает с копией: расхождение - отказ
-`infobaseChanged` с `infobaseRecords` и `copyRecords`, неудавшееся чтение - отказ с причиной и тегом сбоя (`busy`, `infobaseNotReleased`, `thickClientFailed`,
-`resolveFailed`); копия не
+`infobaseChanged` с `infobaseRecords` и `copyRecords`, неудавшееся чтение - отказ с причиной и тегом сбоя чтения или запуска Конфигуратора (например, `busy`, `infobaseNotReleased`,
+`thickClientFailed`, `resolveFailed`); копия не
 заменяется. Исход сверки - `infobaseChangeCheck` в ответе обновления, `dryRun` и `inspect_database_sync`. `dryRun` отвечает на месте, без
 `runKey`: готовность базы и проверку выгрузки он не выполняет и перечисляет в `notCheckedInDryRun`.
 

@@ -86,7 +86,7 @@ MCP-сервер **ai-edt** дает прямой доступ к семанти
 
 **Конфигурация и изменения самой базы** (0.2.56): `config_io operation=export_database_configuration` /
 `export_database_extension` выгружают конфигурацию или расширение из базы в `.cf` / `.cfe`;
-`sync_control syncOperation=retrieve_database_changes` подтягивает сделанные в базе изменения в проект -
+`sync_control operation=retrieve_database_changes` подтягивает сделанные в базе изменения в проект -
 направление, обратное `update_database`; `export_database_snapshot` / `restore_database_snapshot` выгружают
 и загружают всю базу одним `.dt`, загрузка не начинается без резервной копии и помечает хранимую копию `ConfigDumpInfo.xml`: инкрементальное
 `update_database` отказывает до `rebuild_dump_info`. Доводы и отказы -
