@@ -164,9 +164,14 @@ export async function processPayload(payload) {
   // База валидатора - HEAD отметки сессии, а не текущий HEAD: коммит по ходу сессии сдвигает
   // HEAD, и прогон, снятый до коммита, перестал бы совпадать по diffHash (а пустое множество
   // после коммита пропускало бы непроверенные правки).
+  // Журнал сессии уходит валидатору: снятие засчитывается только с командой снятия в
+  // сообщении пользователя, а не по одной записи release в каталоге следа
+  // (transcript_path приходит в данных хука Stop).
+  const transcript = typeof payload.transcript_path === 'string' && payload.transcript_path
+    ? ['--transcript', payload.transcript_path] : [];
   const run = spawnSync(pythonBin(),
     ['-X', 'utf8', evidencePy, 'check', '--strict', '--session', session, '--repo', cwd,
-      '--base', baseline.head],
+      '--base', baseline.head, ...transcript],
     { encoding: 'utf8', timeout: VALIDATOR_TIMEOUT_MS });
   if (run.error) {
     return { code: 0, stderr: `[quality-stop] валидатор следа не запущен (${run.error.message}), гейт пропущен`, stdout: '' };
