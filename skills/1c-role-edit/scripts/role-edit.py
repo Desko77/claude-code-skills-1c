@@ -1127,6 +1127,19 @@ def close_object(obj_name, rights):
     return finish_rights(obj_name, mapping, order)
 
 
+def restore_conditions(current, new_rights):
+    """Возвращает прежние условия RLS правам, которые после замыкания остались включенными.
+
+    Замыкание дописывает недостающее право с пустым условием; если это право в роли уже было
+    с условием, ограничение сохраняется, а не снимается молча.
+    """
+    old = {right['Name']: right.get('Condition') for right in current}
+    for right in new_rights:
+        if right['Value'] == 'true' and not right.get('Condition') and old.get(right['Name']):
+            right['Condition'] = old[right['Name']]
+    return new_rights
+
+
 def splice_span(text, start, end, block):
     """Подменяет отрезок текста. block None удаляет отрезок вместе с переводом перед ним."""
     if block is None:
@@ -1160,7 +1173,7 @@ def apply_rights_op(text, op):
             return text
         drop = {pair[0] for pair in right_pairs(op_rights_spec(op))}
         kept = [right for right in current if right['Name'] not in drop]
-        new_rights = close_object(obj_name, kept)
+        new_rights = restore_conditions(current, close_object(obj_name, kept))
         for removed in drop:
             if any(right['Name'] == removed and right['Value'] == 'true' for right in new_rights):
                 print(
@@ -1197,7 +1210,7 @@ def apply_rights_op(text, op):
                 order.append(right_name)
                 cond = old[right_name]['Condition'] if right_name in old else None
                 mapping[right_name] = {'Value': value, 'Condition': cond}
-        new_rights = finish_rights(obj_name, mapping, order)
+        new_rights = restore_conditions(current, finish_rights(obj_name, mapping, order))
     elif name == 'set-rls':
         mapping = {}
         order = []

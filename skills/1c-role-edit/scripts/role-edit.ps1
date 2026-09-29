@@ -1231,6 +1231,20 @@ function Complete-RoleRights([string]$ObjectName, $Rights) {
     return @(Finish-Rights -ObjectName $ObjectName -RightsMap $map)
 }
 
+# Возвращает прежние условия RLS правам, которые после замыкания остались включенными.
+# Замыкание дописывает недостающее право с пустым условием; если это право в роли уже было
+# с условием, ограничение сохраняется, а не снимается молча.
+function Restore-RoleConditions($Current, $NewRights) {
+    $old = @{}
+    foreach ($right in @($Current)) { $old[$right.Name] = $right.Condition }
+    foreach ($right in @($NewRights)) {
+        if ($right.Value -eq 'true' -and -not $right.Condition -and $old[$right.Name]) {
+            $right.Condition = $old[$right.Name]
+        }
+    }
+    return @($NewRights)
+}
+
 # Подменяет отрезок. Пустой Block удаляет отрезок вместе с переводом перед ним.
 function Splice-Span([string]$Text, [int]$Start, [int]$End, $Block) {
     if ($null -eq $Block) {
@@ -1272,7 +1286,7 @@ function Apply-RightsOp([string]$Text, $Op) {
         foreach ($right in $current) {
             if (-not $drop.ContainsKey($right.Name)) { [void]$kept.Add($right) }
         }
-        $newRights = @(Complete-RoleRights $objName $kept)
+        $newRights = @(Restore-RoleConditions $current @(Complete-RoleRights $objName $kept))
         foreach ($removed in @($drop.Keys)) {
             $back = $false
             foreach ($right in $newRights) {
@@ -1317,7 +1331,7 @@ function Apply-RightsOp([string]$Text, $Op) {
                 $map[$pair.Name] = @{ Value = $pair.Value; Condition = $cond }
             }
         }
-        $newRights = @(Finish-Rights -ObjectName $objName -RightsMap $map)
+        $newRights = @(Restore-RoleConditions $current @(Finish-Rights -ObjectName $objName -RightsMap $map))
     } elseif ($name -eq 'set-rls') {
         $map = [ordered]@{}
         foreach ($right in $current) {
