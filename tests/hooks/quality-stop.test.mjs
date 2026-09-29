@@ -7,7 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
-import { git, makeTmpRepo, readEvents, runHook, runPythonSync, writeRepoFile } from './helpers.mjs';
+import { git, HOOKS, makeTmpRepo, readEvents, runHook, runPythonSync, writeRepoFile } from './helpers.mjs';
 import { computeChangeset } from '../../hooks/_changeset.mjs';
 import { formatIso, nowIso, writeEvent } from '../../hooks/common/quality-events.mjs';
 import { is1cFile } from '../../hooks/common/quality-gate.mjs';
@@ -119,13 +119,81 @@ test('Stop с правкой .bsl без прогона: код 2, перече�
     await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 2, `stderr: ${r.stderr}`);
-    assert(r.stderr.includes('правки сессии (файлы 1С):'), 'перечень правок в stderr');
+    assert(r.stderr.includes('правки сессии (файлы 1С), всего 1:'), 'перечень правок в stderr');
     assert(r.stderr.includes('modified proj/src/Module.bsl'), 'файл правки в перечне');
     assert(r.stderr.includes('нет scope с текущим diffHash'), 'причина из вывода валидатора');
-    assert(r.stderr.includes(`python tools/change_profile.py --session stop-session-1 --repo ${ctx.top}`),
-      'прямой путь с командой профиля');
+    // Команды прямого пути - абсолютные пути инструментов и база diffHash = HEAD отметки.
+    const head = git(ctx.top, 'rev-parse', 'HEAD').trim();
+    assert(r.stderr.includes(`"${join(HOOKS, '..', 'tools', 'change_profile.py')}"`),
+      'абсолютный путь change_profile.py');
+    assert(r.stderr.includes(`"${join(HOOKS, '..', 'tools', 'evidence.py')}"`),
+      'абсолютный путь evidence.py');
+    assert(r.stderr.includes(`--session stop-session-1 --repo "${ctx.top}" --base ${head}`),
+      'полная команда с --base от HEAD отметки');
     assert(r.stderr.includes('/quality release gate'), 'команда снятия в прямом пути');
     assert(!r.stderr.includes('повторная попытка завершения'), 'без строки повторной попытки');
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('перечень правок ограничен 20 путями, остальные - числом', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    // Имена с ведущими нулями: порядок множества лексикографический, без нулей он
+    // не совпадает с числовым и границы перечня зависят от сортировки.
+    for (let i = 1; i <= 25; i++) {
+      const name = `Gen${String(i).padStart(2, '0')}.bsl`;
+      await writeRepoFile(ctx.top, `proj/src/${name}`, `Процедура М${i}()\nКонецПроцедуры\n`);
+      await arm(ctx.top, 'stop-session-1', `proj/src/${name}`);
+    }
+    const r = stop(ctx.top, 'stop-session-1');
+    assertEq(r.status, 2, `stderr: ${r.stderr}`);
+    assert(r.stderr.includes('всего 25:'), 'общее число правок');
+    assert(r.stderr.includes('added proj/src/Gen20.bsl'), 'двадцатый путь в перечне');
+    assert(!r.stderr.includes('Gen21.bsl'), 'двадцать первый путь не перечисляется');
+    assert(r.stderr.includes('... еще 5 файлов не перечислены'), 'число неперечисленных');
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('после 2 блоков подряд без новых событий - выход 0 и systemMessage', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
+    assertEq(stop(ctx.top, 'stop-session-1').status, 2, 'первый блок');
+    assertEq(stop(ctx.top, 'stop-session-1').status, 2, 'второй блок');
+    const third = stop(ctx.top, 'stop-session-1');
+    assertEq(third.status, 0, `третья попытка без событий прогона завершает ход: ${third.stderr}`);
+    const message = JSON.parse(third.stdout.trim());
+    assert(message.systemMessage && message.systemMessage.includes('гейт не снят, проверки не выполнены'),
+      `systemMessage пользователю: ${third.stdout}`);
+    // Новое событие следа сбрасывает серию: следующий ход снова блокируется.
+    await writeEvent(ctx.top, 'stop-session-1', {
+      type: 'probe', at: nowIso(), session: 'stop-session-1', producer: 'cli',
+      diffHash: await currentDiffHash(ctx.top), source: 'ai-edt', status: 'ok', detail: 'тест',
+    });
+    assertEq(stop(ctx.top, 'stop-session-1').status, 2, 'после события прогона серия начинается заново');
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('QUALITY_STOP_OFF отключает гейт', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
+    const r = runHook('quality-stop.mjs', {
+      hook_event_name: 'Stop', session_id: 'stop-session-1', cwd: ctx.top, stop_hook_active: false,
+    }, { env: { QUALITY_STOP_OFF: '1' } });
+    assertEq(r.status, 0, `гейт отключен переменной: ${r.stderr}`);
+    assert(r.stderr.includes('QUALITY_STOP_OFF'), 'причина отключения в stderr');
   } finally {
     await ctx.cleanup();
   }
