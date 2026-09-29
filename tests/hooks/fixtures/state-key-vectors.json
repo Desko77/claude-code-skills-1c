@@ -1,15 +1,15 @@
 [
   {
     "platform": "win32",
-    "input": "E:\\Python projects\\claude-code-skills-1c",
-    "normalized": "e:/python projects/claude-code-skills-1c",
-    "key": "claude-code-skills-1c-153f401f6fbf"
+    "input": "C:\\Projects\\my-project",
+    "normalized": "c:/projects/my-project",
+    "key": "my-project-d32773b1c79d"
   },
   {
     "platform": "win32",
-    "input": "E:/Python Projects/Claude-Code-Skills-1C/",
-    "normalized": "e:/python projects/claude-code-skills-1c",
-    "key": "claude-code-skills-1c-153f401f6fbf"
+    "input": "C:/Projects/My-Project/",
+    "normalized": "c:/projects/my-project",
+    "key": "my-project-d32773b1c79d"
   },
   {
     "platform": "win32",
