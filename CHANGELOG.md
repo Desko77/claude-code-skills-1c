@@ -21,7 +21,8 @@
 
 ### Инструменты
 
-- `tools/convert_from_claude.py` переносит `.github/ISSUE_TEMPLATE/` в зеркало.
+- `tools/convert_from_claude.py` переносит `.github/ISSUE_TEMPLATE/` в зеркало; из `docs/` переносятся только
+  файлы под контролем git.
 
 ### Документация
 

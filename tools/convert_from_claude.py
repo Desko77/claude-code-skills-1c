@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -399,7 +400,15 @@ def convert_docs(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]
     if not dry_run:
         target_dir.mkdir(parents=True, exist_ok=True)
 
-    for item in sorted(source_dir.rglob("*")):
+    # Переносятся только файлы под контролем git: локальные заметки в docs/ (заметки выпуска,
+    # исключенные через .git/info/exclude) в зеркало не попадают.
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=source_dir,
+                             capture_output=True)
+    if tracked.returncode == 0:
+        items = [source_dir / name for name in tracked.stdout.decode("utf-8").split(chr(0)) if name]
+    else:
+        items = [item for item in source_dir.rglob("*") if item.is_file()]
+    for item in sorted(items):
         if not item.is_file():
             continue
         rel = item.relative_to(source_dir)
