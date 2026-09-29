@@ -923,4 +923,54 @@ test('битый .mcp.json: пропуск и диагностика в stderr',
   }
 });
 
+test('параллельные /health с неотвечающими серверами: выход без аварийного завершения', async () => {
+  const g = await makeGate();
+  try {
+    // Несколько серверов, большинство не отвечает, кэш пуст: немедленный process.exit
+    // после параллельных fetch обрывает открытые соединения и роняет процесс Node
+    // (Assertion failed, код не 0 и не 2) - вызов проходит без проверки ворот.
+    await writeRepoFile(g.ctx.top, '.mcp.json', JSON.stringify({
+      mcpServers: {
+        'ai-edt': { type: 'http', url: g.stub.mcpUrl },
+        dead1: { type: 'http', url: 'http://127.0.0.1:1/mcp' },
+        dead2: { type: 'http', url: 'http://127.0.0.1:2/mcp' },
+        dead3: { type: 'http', url: 'http://127.0.0.1:3/mcp' },
+      },
+    }));
+    await writeRepoFile(g.ctx.top, '.claude/settings.local.json', JSON.stringify({
+      enabledMcpjsonServers: ['ai-edt', 'dead1', 'dead2', 'dead3'],
+    }));
+    const r = await g.run(readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'));
+    assertEq(r.status, 0, `код процесса: ${r.stderr}`);
+    assert(!r.stderr.toLowerCase().includes('assertion'),
+      `нет аварийного выхода Node: ${r.stderr}`);
+    const out = JSON.parse(r.stdout);
+    assertEq(out.hookSpecificOutput.permissionDecision, 'deny', 'отказ от живого сервера');
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('снятие release gate: ответ /health предшествует решению по множеству изменений', async () => {
+  const g = await makeGate();
+  const session = 'rel-order-session';
+  try {
+    const rel = runHook('release-writer.mjs', {
+      hook_event_name: 'UserPromptSubmit',
+      prompt: '/quality release gate проверка вручную --for 1h',
+      session_id: session,
+      cwd: g.ctx.top,
+    }, { cwd: g.ctx.top });
+    assertEq(rel.status, 0, rel.stderr);
+    // Кэш /health пуст. Множество изменений для diffHash снятия считается только
+    // после ответа /health: на большом репозитории computeChangeset занимает
+    // секунды, а при неживом AI-EDT отказа нет и считать нечего.
+    passed(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session }));
+    assertEq(g.stub.hits(), 1, 'запрос /health при решении');
+    await readFile(join(stateRoot(g.ctx.top), 'edt-health.json'), 'utf8');
+  } finally {
+    await g.cleanup();
+  }
+});
+
 await run();

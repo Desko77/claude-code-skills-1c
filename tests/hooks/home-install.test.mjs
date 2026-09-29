@@ -148,6 +148,16 @@ test('домашняя копия: quality-stop доходит до evidence.py'
     }, env, ctx.top);
     assertEq(baseline.status, 0, baseline.stderr);
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', 'Процедура Новая()\nКонецПроцедуры\n');
+    // Правка сессии обязана нести событие armed - иначе гейт ее не видит.
+    const armed = runCopy(join(layout.hooks, 'quality-arm.mjs'), {
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Write',
+      tool_input: { file_path: join(ctx.top, 'proj/src/Module.bsl') },
+      tool_use_id: 'toolu_home_arm',
+      session_id: session,
+      cwd: ctx.top,
+    }, env, ctx.top);
+    assertEq(armed.status, 0, armed.stderr);
     const r = runCopy(join(layout.hooks, 'quality-stop.mjs'), {
       hook_event_name: 'Stop', session_id: session, cwd: ctx.top, stop_hook_active: false,
     }, env, ctx.top);

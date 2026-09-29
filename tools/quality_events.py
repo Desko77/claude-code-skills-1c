@@ -219,6 +219,32 @@ def read_events(repo_dir: Path | str, session: str) -> list[dict]:
     return events
 
 
+def session_base_head(repo_dir: Path | str, session: str) -> str | None:
+    """HEAD последнего события baseline сессии.
+
+    Единая база diffHash для CLI и хуков: коммит по ходу сессии не расщепляет
+    соответствие прогона и множества изменений. Нет отметки или отметка без HEAD -
+    None (вызывающий берет текущий HEAD).
+    """
+    head = None
+    for event in read_events(repo_dir, session):
+        if event.get("type") == "baseline" and isinstance(event.get("head"), str) and event["head"]:
+            head = event["head"]
+    return head
+
+
+def resolve_base(repo_dir: Path | str, session: str | None, requested: str | None) -> str:
+    """Базовый коммит для diffHash: явный запрос, иначе HEAD отметки сессии, иначе HEAD.
+
+    Сессия не задана (профиль без --session) - текущий HEAD.
+    """
+    if requested:
+        return requested
+    if not session:
+        return "HEAD"
+    return session_base_head(repo_dir, session) or "HEAD"
+
+
 def select_run(events: list[dict], diff_hash: str) -> dict | None:
     """Отобрать прогон: последнее scope с diffHash и события с тем же хешем после него.
 

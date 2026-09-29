@@ -4,10 +4,11 @@
 
 Фикстуры - каталоги событий сессии во временном чистом git-репозитории
 (diffHash прогона стабилен). Каждая ветка вердикта check
---strict - отдельный тест: clean, with_gaps (пропуск и снятие), blocked (нет scope,
-устаревший хеш, обязательная без события, critical - в том числе с пропуском и с
-поздним applied без critical, без toolUseId, чужое и просроченное снятие,
-поврежденный файл, пропуск без класса, пропуск с битой ссылкой, нет probe).
+--strict - отдельный тест: clean, with_gaps (пропуск, снятие, снятие gate без
+scope), blocked (нет scope, устаревший хеш, обязательная без события, critical -
+в том числе с пропуском и с поздним applied без critical, без toolUseId,
+поврежденный файл, пропуск без класса, пропуск с битой ссылкой, нет probe);
+чужое и просроченное снятие игнорируются и вердикт не блокируют.
 Подкоманды add и render проверяются на запись и формат отчета.
 """
 
@@ -318,8 +319,8 @@ class EvidenceCheckTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 3)
         self.assertIn("toolUseId", proc.stdout.decode("utf-8"))
 
-    def test_blocked_foreign_release(self):
-        """release с чужим diffHash: код 3 независимо от остального прогона."""
+    def test_foreign_release_ignored(self):
+        """release с чужим diffHash игнорируется: код 0, на вердикт не влияет."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json", scope([]))
         self.trace.directory.mkdir(parents=True, exist_ok=True)
         event = {"type": "release", "session": SESSION, "producer": "hook",
@@ -330,18 +331,43 @@ class EvidenceCheckTests(unittest.TestCase):
             json.dumps(event, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
             encoding="utf-8", newline="\n")
         proc = check(self.repo)
-        self.assertEqual(proc.returncode, 3)
-        self.assertIn("чужим diffHash", proc.stdout.decode("utf-8"))
+        self.assertEqual(proc.returncode, 0, proc.stdout.decode("utf-8"))
+        self.assertNotIn("чужим diffHash", proc.stdout.decode("utf-8"))
 
-    def test_blocked_expired_release(self):
-        """Просроченное release с текущим хешем: код 3."""
+    def test_foreign_release_closes_nothing(self):
+        """Чужое снятие не закрывает обязательную проверку: блокировка из-за нее."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100100-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "code_review@edt",
+                        "reason": "снятие", "source": "user_prompt", "diffHash": "1" * 64,
+                        "expiresAt": FUTURE})
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 3)
+        out = proc.stdout.decode("utf-8")
+        self.assertIn("обязательная проверка без события: code_review@edt", out)
+        self.assertNotIn("чужим diffHash", out)
+
+    def test_expired_release_ignored(self):
+        """Просроченное release с текущим хешем игнорируется: код 0."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json", scope([]))
         self.trace.put("2026-09-22T100100-000-hook-r1.json",
                        {"type": "release", "scope": "check", "check": "code_review@edt",
                         "reason": "снятие", "source": "user_prompt", "expiresAt": PAST})
         proc = check(self.repo)
-        self.assertEqual(proc.returncode, 3)
-        self.assertIn("просроченное", proc.stdout.decode("utf-8"))
+        self.assertEqual(proc.returncode, 0, proc.stdout.decode("utf-8"))
+        self.assertNotIn("просроченное", proc.stdout.decode("utf-8"))
+
+    def test_gate_release_without_scope(self):
+        """Действующее снятие gate без scope: код 1, вердикт с пробелами."""
+        self.trace.put("2026-09-22T100100-000-hook-r1.json",
+                       {"type": "release", "scope": "gate", "reason": "проверки после мержа",
+                        "source": "user_prompt", "expiresAt": FUTURE})
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 1, proc.stdout.decode("utf-8"))
+        out = proc.stdout.decode("utf-8")
+        self.assertIn("с пробелами", out)
+        self.assertNotIn("нет scope", out)
+        self.assertIn("пробел: gate", out)
 
     def test_blocked_corrupt_file(self):
         """Поврежденный файл события: код 3, не исключение."""

@@ -10,6 +10,7 @@
 
 import { computeChangeset } from './_changeset.mjs';
 import { formatIso, repoTop, writeEvent } from './common/quality-events.mjs';
+import { sessionBase } from './common/quality-gate.mjs';
 import { scopeStatus } from './common/scope.mjs';
 
 const RELEASE_PREFIX = '/quality release ';
@@ -76,7 +77,9 @@ export async function processPayload(payload, now = () => new Date()) {
   let diffHash = null;
   let diffWarn = '';
   try {
-    diffHash = (await computeChangeset(cwd, 'HEAD')).diffHash;
+    // База - HEAD отметки сессии (sessionBase): коммит по ходу сессии не
+    // расщепляет соответствие снятия и множества изменений.
+    diffHash = (await computeChangeset(cwd, await sessionBase(cwd, top, session))).diffHash;
   } catch (err) {
     // Предупреждение возвращается для печати CLI-блоком; запись в process.stderr
     // из processPayload дублировала бы его.

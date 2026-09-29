@@ -99,27 +99,26 @@ def evaluate(repo_dir: Path | str, session: str, base: str = "HEAD") -> dict:
             reasons.append(f"поврежденный файл события: {event.get('file')}: "
                            f"{event.get('error')}")
     run = quality_events.select_run(events, current)
-    if run is None:
-        reasons.append("нет scope с текущим diffHash: прогон устарел или не создан")
 
-    # Снятия сканируются по всему каталогу сессии: чужой diffHash и просроченность -
-    # невалидный прогон независимо от отбора прогона.
+    # Снятия сканируются по всему каталогу сессии. Действующее снятие - текущий
+    # diffHash и не истекший expiresAt; снятия с чужим хешем и просроченные
+    # относятся к прежним множествам изменений: на вердикт не влияют.
     released_checks: set[str] = set()
     gate_released = False
     for event in events:
         if event.get("type") != "release":
             continue
         if event.get("diffHash") != current:
-            reasons.append(f"release с чужим diffHash: {event.get('_file')}")
             continue
         expires = _parse_moment(event.get("expiresAt"))
         if expires is None or expires <= datetime.now().astimezone():
-            reasons.append(f"просроченное release: {event.get('_file')}")
             continue
         if event.get("scope") == "gate":
             gate_released = True
         elif event.get("scope") == "check" and event.get("check"):
             released_checks.add(event["check"])
+    if run is None and not gate_released:
+        reasons.append("нет scope с текущим diffHash: прогон устарел или не создан")
 
     applied_ok: dict[str, dict] = {}
     applied_critical: dict[str, dict] = {}
@@ -182,6 +181,10 @@ def evaluate(repo_dir: Path | str, session: str, base: str = "HEAD") -> dict:
     required = run["scope"].get("required", []) if run else []
     checks: dict[str, dict] = {}
     gaps: list[str] = []
+    if run is None and gate_released:
+        # Снятие гейта человеком закрывает ход и без прогона: обязательный состав
+        # неизвестен, вердикт - с пробелами, а не блокировка.
+        gaps.append("gate")
     for check in required:
         # Неснятый applied с critical проверяется первым: пропуск или позднее
         # applied без critical ту же проверку не закрывают (evidence-format.md).
@@ -374,8 +377,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="каталог репозитория (по умолчанию текущий)")
         sp.add_argument("--session", required=True, metavar="ИД",
                         help="идентификатор сессии следа")
-        sp.add_argument("--base", default="HEAD", metavar="КОММИТ",
-                        help="базовый коммит (по умолчанию HEAD)")
+        sp.add_argument("--base", default=None, metavar="КОММИТ",
+                        help="базовый коммит (по умолчанию HEAD отметки сессии, иначе HEAD)")
 
     add_parser = sub.add_parser("add", help="записать событие skipped, not_verified, probe")
     common(add_parser)
@@ -406,6 +409,13 @@ def main(argv: list[str] | None = None) -> int:
     render_parser.set_defaults(func=cmd_render)
 
     args = parser.parse_args(argv)
+    # База diffHash без явного --base - HEAD отметки сессии: единая база с хуками
+    # и гейтом завершения хода (tools/quality_events.py, resolve_base).
+    try:
+        args.base = quality_events.resolve_base(args.repo, args.session, args.base)
+    except (quality_events.EventsError, OSError) as exc:
+        print(f"ошибка: {exc}", file=sys.stderr)
+        return 2
     return args.func(args)
 
 

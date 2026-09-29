@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { computeChangeset } from './_changeset.mjs';
 import { claudeHome } from './common/home.mjs';
 import { nowIso, repoTop, sha256Hex, sortKeysDeep, writeEvent } from './common/quality-events.mjs';
+import { sessionBase } from './common/quality-gate.mjs';
 import { scopeStatus } from './common/scope.mjs';
 
 // Заякоренный матчер инструментов проверки: ключ MCP-сервера содержит дефисы, точки и
@@ -443,10 +444,11 @@ export async function outcomeFor(base, text) {
   return PASS_RE.test(text || '') ? { status: 'pass', critical: 0, major: 0, minor: 0 } : unknown;
 }
 
-// diffHash на момент записи; отказ (не репозиторий, git недоступен) - null.
-async function currentDiffHash(cwd) {
+// diffHash на момент записи от базы сессии (HEAD отметки, hooks/common/quality-gate.mjs
+// sessionBase); отказ (не репозиторий, git недоступен) - null.
+async function currentDiffHash(cwd, top, session) {
   try {
-    const cs = await computeChangeset(cwd, 'HEAD');
+    const cs = await computeChangeset(cwd, await sessionBase(cwd, top, session));
     return { diffHash: cs.diffHash };
   } catch (err) {
     return { diffHash: null, diffError: err instanceof Error ? err.message : String(err) };
@@ -474,7 +476,7 @@ export async function processPayload(payload, log = () => {}) {
     // из processPayload дублировала бы ее.
     return { written: null, reason: 'каталог не является git-репозиторием' };
   }
-  const { diffHash, diffError } = await currentDiffHash(cwd);
+  const { diffHash, diffError } = await currentDiffHash(cwd, top, session);
   if (diffError) log(`[evidence-writer] diffHash не вычислен: ${diffError}`);
   const event = {
     type: isFailure ? 'failed' : 'applied',
