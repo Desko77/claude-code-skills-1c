@@ -1,5 +1,22 @@
 # История версий
 
+## Обновление плагина AI-EDT до 0.2.56 - 2026-09-29
+
+Изменилась работа плагина, набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.
+
+- `update_database` с включенной по умолчанию защитой данных (`protectData`) не начинает обновление, которое удалило бы таблицу с данными: `confirmationRequired` с `dataLossTables`; `acceptDataLoss=true` - решение пользователя. `inspect_database_sync` отвечает тем же сравнением без запуска.
+- `sync_control syncOperation=retrieve_database_changes` подтягивает изменения, сделанные в базе, в проект - направление, обратное `update_database`; `replaceLocal=true` для проекта с собственными правками, отказ по имени запуска при живом толстом клиенте (`heldBy`).
+- `infobase_admin operation=export_database_snapshot` / `restore_database_snapshot` - вся база одним `.dt`; загрузка не начинается без резервной копии (`backupTo`), монополия на базу на время прогона.
+- `config_io operation=export_database_configuration` / `export_database_extension` - конфигурация или расширение из самой базы в `.cf` / `.cfe` (занятый путь и база не в `EQUAL` - отказ без `overwrite` / `allowOutOfSync`); `list_registered_infobases` - весь список баз EDT; `baseProjectName` у импорта расширения; `outputMissing` у `export_object`.
+- `git`: `show_file_changes` (diff файла, `granularity=method`), `revert_file` (возврат одного файла с концами строк по `.gitattributes`), `create_merge_restore_point` / `restore_merge_point` (точка восстановления перед объединением; `compare_three_way` записывает ее сам); запись `git_revert_file` гасится пресетами; `commit` отвергает шаблоны путей и отвечает `changes` / `unchanged`.
+- `compare_three_way` записывает точку восстановления до объединения и перепроверяет затронутые объекты после (`revalidationNote`); решения с неизвестными именами отклоняют объединение (`decisionsRefused`); `compare_configurations mode=files` сравнивает два дампа на диске (`failed`, `failedCount`).
+- Формы: заготовки обработчиков пишутся в области модуля (`stubRegion`, `existingProcedureMismatch`), условное оформление формы (`add_form_appearance_rule` и пара к ней, `ConditionalAppearance.dcssca`), `add_form_command_interface_item` с разрешением адреса команды, `list_pictures` со стандартными картинками платформы; `get_form_screenshot` отказывает при несохраненных правках редактора.
+- Метаданные: `set_task_addressing`, `create_route_map`, `add_predefined_item`, `qualifierIgnored` у непригодного квалификатора, `cascadeForms` снимает элементы форм в той же транзакции (`formItemsRemoved`), `install_extension updateDatabase`; запись в объект, закрытый поддержкой, - отказ `supportLock`.
+- Отладка: `pause_thread`, `set_breakpoint_state`, `replaceModuleSet` у `set_breakpoint`, `catchAll=false` без `message` отвергается; запуск с обновлением отказывает до состояния `UPDATED`; ссылка на кадр не переразрешается после новой остановки.
+- `yaxunit_tests`: `suites` / `tags` / `contexts` отвергаются (не фильтры), `reuseRecent` возвращает прогон последних пяти минут (`cached`), квитанции прогонов `receiptPath` (у `vanessa` - с `blockingWindows` при таймауте).
+- `write_module_source normalizeInvalidCharacters` (по умолчанию true): тире - в дефис, неразрывный пробел - в пробел, вне строковых литералов; `invalidCharactersReplaced`, `invalidCharactersPositions`.
+- Запись прав читает `Rights.rights` без DOCTYPE и внешних сущностей и отказывает до записи; `sensitive_data_scan` проверяет `checks` и `customPatterns` со списками допустимого.
+
 ## Обновление плагина AI-EDT до 0.2.55 - 2026-09-24
 
 Изменилась работа плагина (выпуски 0.2.54 и 0.2.55), набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.
