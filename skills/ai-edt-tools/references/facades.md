@@ -198,7 +198,17 @@ EDT (у каждой базы в `status` указан `store`), и читает
 `sync_control syncOperation=rebuild_dump_info`: на файл чужого формата платформа отвечает `FullDump`, и
 обновление становится полной загрузкой. `rebuild_dump_info` (`confirm=true`) перестраивает файл
 выгрузкой Конфигуратора самой базы и сохраняет прежний копией; `ignoreDumpInfoFormat=true` пропускает
-сверку, `dryRun` сообщает расхождение в `dumpInfoFormatCheck`. `dryRun` отвечает на месте, без
+сверку, `dryRun` сообщает расхождение в `dumpInfoFormatCheck`.
+Инкрементальное обновление решается по хранимой копии `ConfigDumpInfo.xml`; рядом с ней лежит
+сопроводительный файл `ConfigDumpInfo.record.properties` - для какой базы копия записана и ее отпечаток.
+Инкрементальное обновление отказывает с `infobaseChanged` и `nextStep`
+(`sync_control syncOperation=rebuild_dump_info confirm=true`), когда копия записана для другой базы
+(`recordedInfobase`, `currentInfobase`) и когда базу заменила загрузка `restore_database_snapshot`
+(`loadedFrom`, `loadedAt`); `rebuild_dump_info` этот отказ снимает, `fullUpdate=true` копию не читает.
+`verifyInfobaseContent=true` (по умолчанию выключен) перед инкрементальным обновлением читает
+`ConfigDumpInfo` самой базы запуском Конфигуратора и сравнивает с копией: расхождение - отказ
+`infobaseChanged` с `infobaseRecords` и `copyRecords`, неудавшееся чтение - отказ с причиной; копия не
+заменяется. Исход сверки - `infobaseChangeCheck` в ответе обновления, `dryRun` и `inspect_database_sync`. `dryRun` отвечает на месте, без
 `runKey`: готовность базы и проверку выгрузки он не выполняет и перечисляет в `notCheckedInDryRun`.
 
 С `protectData=true` (по умолчанию) `update_database` до захвата базы сверяет базовую линию синхронизации
@@ -227,7 +237,10 @@ EDT (у каждой базы в `status` указан `store`), и читает
 очереди), отказ `busy` несет `infobaseHolders`. `timeoutSeconds` 5-120, по умолчанию 30 (псевдоним
 `waitSeconds`): дольше - `Pending` с `runKey`; `cancel=true` снимает отслеживание, не прерывая запуск,
 ушедший в платформу. Ответ успеха несет `status` (`Exported` / `Loaded`), `path`, `sizeBytes`,
-`durationMs`, у загрузки - `backup` с `backupSizeBytes`; прогон, брошенный по бюджету в 600 секунд при
+`durationMs`, у загрузки - `backup` с `backupSizeBytes`;
+успешная загрузка помечает хранимую копию `ConfigDumpInfo.xml` (`copyMarked: true`,
+`infobaseChangeCheck`, `nextStep`), и инкрементальное `update_database` отказывает, пока копию не
+перестроит `rebuild_dump_info`; незаписанная пометка - `copyMarked: false` с причиной; прогон, брошенный по бюджету в 600 секунд при
 живом процессе, держит блокировку базы - ответ называет `leftBehind` и `lockHeldForProcess`.
 
 `sync_control syncOperation=retrieve_database_changes` (0.2.56) подтягивает изменения базы в проект через
