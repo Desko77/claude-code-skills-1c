@@ -26,6 +26,13 @@ async function prepareStop(top, session) {
   });
   assertEq(b.status, 0, b.stderr);
   await writeRepoFile(top, 'proj/src/Module.bsl', 'Процедура Новая()\nКонецПроцедуры\n');
+  // Правка сессии обязана нести событие armed - иначе гейт ее не видит.
+  const a = runHook('quality-arm.mjs', {
+    hook_event_name: 'PostToolUse', tool_name: 'Write',
+    tool_input: { file_path: join(top, 'proj/src/Module.bsl') },
+    tool_use_id: 'toolu_scope_arm_stop', session_id: session, cwd: top,
+  });
+  assertEq(a.status, 0, a.stderr);
 }
 
 const CASES = [

@@ -1,9 +1,11 @@
 // quality-gate.mjs - общий код гейта завершения хода: базовая отметка, правки сессии,
-// файлы 1С, путь к валидатору следа. Пользователи - hooks/quality-baseline.mjs и
-// hooks/quality-stop.mjs; спецификация - skills/1c-code-review/references/evidence-format.md
-// (типы baseline и armed). Правка сессии = файл канонического множества (hooks/_changeset.mjs),
-// чей хеш отличается от хеша в отметке или которого в отметке нет; учитываются только
-// файлы 1С.
+// файлы 1С, база diffHash сессии, путь к валидатору следа. Пользователи -
+// hooks/quality-baseline.mjs, hooks/quality-stop.mjs и писатели событий; спецификация -
+// skills/1c-code-review/references/evidence-format.md (типы baseline и armed).
+// Правка сессии = файл канонического множества (hooks/_changeset.mjs), чей хеш
+// отличается от хеша в отметке или которого в отметке нет, и на который есть
+// событие этой сессии (armed либо applied/failed с целью-файлом); учитываются
+// только файлы 1С.
 
 import { access, readFile } from 'node:fs/promises';
 import { execFile as execFileCb } from 'node:child_process';
@@ -59,22 +61,73 @@ export async function findLastScope(top, session) {
   return null;
 }
 
-// Правки сессии в файлах 1С: каноническое множество относительно базового коммита отметки
-// против хешей отметки. Возвращает [{ path, status, changed }]; пустой список - правок нет
-// или отметка неприменима (head null). Изменение с сеансом коммитов не скрывает: множество
-// считается от того же base, закоммиченный за сессию файл остается в множестве.
-export async function sessionEdits(cwd, baseline) {
+// Ключ сравнения путей события и множества: на Windows без учета регистра -
+// инструмент и выгрузка дают один и тот же файл в разном регистре.
+function pathKey(p) {
+  return process.platform === 'win32' ? p.toLowerCase() : p;
+}
+
+// Приведение пути события (абсолютный либо относительный корню репозитория) к виду
+// путей канонического множества: прямые слеши, NFC. Путь вне репозитория - null.
+function toChangesetPath(file, top) {
+  const p = String(file).replace(/\\/g, '/');
+  const isAbsolute = /^[A-Za-z]:\//.test(p) || p.startsWith('/');
+  if (!isAbsolute) return p.normalize('NFC');
+  const topNorm = String(top).replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!pathKey(p).startsWith(`${pathKey(topNorm)}/`)) return null;
+  return p.slice(topNorm.length + 1).normalize('NFC');
+}
+
+// Файлы, названные событиями сессии: armed (правка инструментом записи) и
+// applied/failed (проверка с целью в target). Правка человека в EDT и правка
+// другой сессии в том же репозитории событий здесь не имеют и правками сессии
+// не считаются.
+async function sessionTouchedPaths(top, session) {
+  const keys = new Set();
+  let names;
+  try {
+    names = await listEventFiles(top, session);
+  } catch {
+    return keys;
+  }
+  const dir = eventsDir(top, session);
+  for (const name of names) {
+    let event;
+    try {
+      event = JSON.parse(await readFile(join(dir, name), 'utf8'));
+    } catch {
+      continue;
+    }
+    const type = event && event.type;
+    const file = type === 'armed' ? event.file
+      : (type === 'applied' || type === 'failed') ? event.target : null;
+    if (typeof file !== 'string' || !file) continue;
+    const rel = toChangesetPath(file, top);
+    if (rel) keys.add(pathKey(rel));
+  }
+  return keys;
+}
+
+// Правки сессии в файлах 1С: каноническое множество относительно базового коммита
+// отметки против хешей отметки, ограниченное файлами со событиями сессии (armed,
+// applied/failed). Возвращает [{ path, status }]; пустой список - правок нет
+// или отметка неприменима (head null). Изменение с сеансом коммитов не скрывает:
+// множество считается от того же base, закоммиченный за сессию файл остается
+// в множестве.
+export async function sessionEdits(cwd, baseline, top, session) {
   if (!baseline || typeof baseline !== 'object' || !baseline.head
       || !baseline.changeset || !Array.isArray(baseline.changeset.files)) {
     return null; // отметка без HEAD: гейт не применяется
   }
   const current = await computeChangeset(cwd, baseline.head);
+  const touched = top && session ? await sessionTouchedPaths(top, session) : null;
   const marked = new Map(baseline.changeset.files.map((f) => [f.path, f.sha256]));
   const edits = [];
   for (const file of current.files) {
     if (!is1cFile(file.path)) continue;
     const was = marked.get(file.path);
     if (was === undefined || was !== file.sha256) {
+      if (touched && !touched.has(pathKey(file.path))) continue;
       edits.push({ path: file.path, status: file.status });
     }
   }

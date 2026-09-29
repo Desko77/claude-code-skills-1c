@@ -79,7 +79,7 @@ export async function processPayload(payload) {
   }
   let edits;
   try {
-    edits = await sessionEdits(cwd, baseline);
+    edits = await sessionEdits(cwd, baseline, top, session);
   } catch (err) {
     return { code: 0, stderr: `[quality-stop] правки не посчитаны: ${err.message}` };
   }

@@ -225,6 +225,8 @@ AI-EDT), `naparnik` (1c-naparnik), `script` (скрипты набора). Ве�
 
 Хуки спринта 6: `baseline` (`head`, `changeset`) - базовая отметка сессии; `armed`
 (`file`, `tool`, `toolUseId`) - атрибуция правки. Валидатору достаточно знать тип.
+Гейт завершения хода (`hooks/quality-stop.mjs`) считает правками сессии только файлы
+1С со событиями сессии: `file` события `armed` либо `target` событий `applied`/`failed`.
 
 ## Прогон
 

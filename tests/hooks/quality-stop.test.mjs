@@ -116,6 +116,7 @@ test('Stop с правкой .bsl без прогона: код 2, перече�
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 2, `stderr: ${r.stderr}`);
     assert(r.stderr.includes('правки сессии (файлы 1С):'), 'перечень правок в stderr');
@@ -142,13 +143,27 @@ test('грязный до старта файл без изменений пос
   }
 });
 
-test('грязный до старта файл, измененный после отметки, - правка сессии', async () => {
+test('правка файла без событий сессии (человек в EDT) ход не блокирует', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    // Правка без инструмента записи и без событий сессии: как правка человека
+    // в EDT или постороннего процесса.
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Чужая()\nКонецПроцедуры\n');
+    const r = stop(ctx.top, 'stop-session-1');
+    assertEq(r.status, 0, `правка без событий сессии - не правка сессии: ${r.stderr}`);
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('грязный до старта файл, измененный после отметки с armed - правка сессии', async () => {
   const ctx = await repoWithModule();
   try {
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Грязная()\nКонецПроцедуры\n');
     await startSession(ctx.top, 'stop-session-1');
-    // Правка без инструмента записи (как через Bash): armed-события нет, множество видит.
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Грязрая2()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 2, 'изменение грязного файла после отметки блокирует');
   } finally {
@@ -161,6 +176,7 @@ test('staged-правка .bsl - правка сессии', async () => {
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     git(ctx.top, 'add', 'proj/src/Module.bsl');
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 2, 'staged-файл входит в каноническое множество');
@@ -174,6 +190,7 @@ test('untracked-файл .bsl - правка сессии', async () => {
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/New.bsl', MODULE);
+    await arm(ctx.top, 'stop-session-1', 'proj/src/New.bsl');
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 2, 'untracked-файл входит в каноническое множество');
     assert(r.stderr.includes('added proj/src/New.bsl'), 'статус added в перечне');
@@ -190,6 +207,7 @@ test('переименование .mdo - правка сессии по нов�
     git(ctx.top, 'commit', '-q', '-m', 'mdo', '--no-gpg-sign', '--no-verify');
     await startSession(ctx.top, 'stop-session-1');
     git(ctx.top, 'mv', 'Catalogs/Контрагенты.mdo', 'Catalogs/Партнеры.mdo');
+    await arm(ctx.top, 'stop-session-1', 'Catalogs/Партнеры.mdo');
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 2, 'переименованный файл - правка сессии');
     assert(r.stderr.includes('Catalogs/Партнеры.mdo'), 'новый путь в перечне');
@@ -219,6 +237,7 @@ test('правка XML выгрузки Конфигуратора под Ext/ -
     git(ctx.top, 'commit', '-q', '-m', 'ext', '--no-gpg-sign', '--no-verify');
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'Ext/CommandInterface.xml', '<ci><commands/></ci>\n');
+    await arm(ctx.top, 'stop-session-1', 'Ext/CommandInterface.xml');
     const r = stop(ctx.top, 'stop-session-1');
     assertEq(r.status, 2, 'XML выгрузки Конфигуратора учитывается гейтом');
   } finally {
@@ -231,6 +250,7 @@ test('Stop после scope, applied и probe: код 0', async () => {
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     await writeRun(ctx.top, 'stop-session-1', {
       required: ['code_review@edt'],
       applied: { check: 'code_review@edt', outcome: { status: 'pass', critical: 0, major: 0, minor: 0 } },
@@ -248,6 +268,7 @@ test('Stop после scope и applied с findings без critical: код 0', a
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     await writeRun(ctx.top, 'stop-session-1', {
       required: ['code_review@edt'],
       applied: { check: 'code_review@edt', outcome: { status: 'findings', critical: 0, major: 2, minor: 1 } },
@@ -265,6 +286,7 @@ test('applied с critical без снятия: код 2, причина в те�
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     await writeRun(ctx.top, 'stop-session-1', {
       required: ['code_review@edt'],
       applied: { check: 'code_review@edt', outcome: { status: 'findings', critical: 2, major: 0, minor: 0 } },
@@ -284,6 +306,7 @@ test('действующее снятие gate: код 0', async () => {
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     const diffHash = await currentDiffHash(ctx.top);
     await writeRun(ctx.top, 'stop-session-1', { required: ['code_review@edt'] });
     await writeEvent(ctx.top, 'stop-session-1', {
@@ -351,6 +374,7 @@ test('stop_hook_active: блок сохраняется, текст дополн
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     const r = stop(ctx.top, 'stop-session-1', { stop_hook_active: true });
     assertEq(r.status, 2, 'повторная попытка не снимает блок');
     assert(r.stderr.includes('повторная попытка завершения; блок снимает только прогон проверок или команда снятия'),
@@ -378,11 +402,35 @@ test('валидатор недоступен (несуществующий PYTH
   try {
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
     const r = runHook('quality-stop.mjs', {
       hook_event_name: 'Stop', session_id: 'stop-session-1', cwd: ctx.top, stop_hook_active: false,
     }, { env: { PYTHON: 'python-no-such-binary-xyz' } });
     assertEq(r.status, 0, 'недоступный валидатор не блокирует работу (fail-open)');
     assert(r.stderr.includes('валидатор следа не запущен'), `диагностика в stderr: ${r.stderr}`);
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('applied с целью-файлом: файл считается правкой сессии', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    // Правки инструментом записи не было, но проверка с целью-файлом уже бежала:
+    // событие applied метит файл как затронутый сессией.
+    await writeEvent(ctx.top, 'stop-session-1', {
+      type: 'applied', at: nowIso(), session: 'stop-session-1', producer: 'hook',
+      diffHash: await currentDiffHash(ctx.top), check: 'code_review@edt',
+      detector: 'code_review', env: 'edt', level: 'static',
+      target: join(ctx.top, 'proj/src/Module.bsl'), toolUseId: 'toolu_stop_target',
+      inputHash: 'a'.repeat(64), responseHash: 'b'.repeat(64),
+      outcome: { status: 'pass', critical: 0, major: 0, minor: 0 },
+    });
+    const r = stop(ctx.top, 'stop-session-1');
+    assertEq(r.status, 2, 'файл с событием applied входит в правки сессии');
+    assert(r.stderr.includes('нет scope с текущим diffHash'), 'без прогона - блок');
   } finally {
     await ctx.cleanup();
   }
@@ -403,6 +451,22 @@ test('параллельная сессия с правками в другом 
   } finally {
     await ctx.cleanup();
     await other.cleanup();
+  }
+});
+
+test('параллельная сессия в том же репозитории: ее armed не блокируют эту сессию', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-main');
+    await startSession(ctx.top, 'stop-neighbor');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Чужая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-neighbor', 'proj/src/Module.bsl');
+    const mine = stop(ctx.top, 'stop-main');
+    assertEq(mine.status, 0, `правка соседней сессии не блокирует ход этой: ${mine.stderr}`);
+    const neighbor = stop(ctx.top, 'stop-neighbor');
+    assertEq(neighbor.status, 2, 'своя непроверенная правка блокирует свою сессию');
+  } finally {
+    await ctx.cleanup();
   }
 });
 
