@@ -228,14 +228,8 @@ AI-EDT консолидирует инструменты в **фасады**; о
 `action=add_breakpoint`, `evaluate_expression` -> `action=evaluate`, `terminate_launch` -> `action=terminate`) -
 таблица в `skills/ai-edt-tools/references/workflows.md`, полный список - `launch_debugger action=help`.
 
-`sync_control` - особый случай: у него собственный набор `operation` (`status`, `diagnose`, `suppress`,
-`mark_synchronized`, `reseed_baseline`), который сталкивается с routing-параметром фасада. Через фасад он
-доступен, но действие передается ОТДЕЛЬНЫМ параметром: `infobase_admin operation=sync_control
-syncOperation=status`. Прямой вызов `sync_control operation=status` проще и потому предпочтителен.
-
-**Когда фасад не подходит.** Фасады (`infobase_admin`, `code_search`, `diagnostics`) отвечают markdown-текстом.
-Нужен типизированный JSON (`structuredContent`) для программного разбора - вызывать standalone-инструмент
-напрямую; это осознанный размен, заложенный в самом плагине.
+Вызов `sync_control` через фасад и выбор между фасадом и standalone-инструментом (markdown против
+`structuredContent`) - `skills/ai-edt-tools/references/facades.md`, раздел "Вызов через фасад".
 
 Поглощены НЕ все: `write_module_source`, `validate_query`, `get_edt_version`, `read_module_source`,
 `read_method_source`, `get_module_structure`, `list_modules`, `ai_context`, `diff_module`, `get_form_structure`,
@@ -249,13 +243,9 @@ syncOperation=status`. Прямой вызов `sync_control operation=status` �
 (`get_variables`, `set_variable`, `evaluate_expression`), то есть переменные и выражения, а не таблицы базы -
 подменять этим запрос к данным нельзя.
 
-**Но ЖУРНАЛ РЕГИСТРАЦИИ файловой базы читается прямо из плагина** (с 0.2.27):
-`infobase_admin operation=read_event_log` - кто входил, что проводилось, какие обновления платформа
-отвергла, с отбором по `from` / `to` / `event` / `user` / `severity`. Это не запрос к данным: журнал лежит
-файлами рядом с базой и читается без платформы. Серверная база (журнал на сервере) и однофайловый
-SQLite-формат `1Cv8.lgd` отвечают ИМЕНОВАННЫМ отказом, а не пустым списком, - пустой список над базой,
-полной событий, читался бы как "событий нет". Свободный текст проходит через маскирование, и ответ прямо
-говорит, что маскируется только то, на что у библиотеки есть образец.
+**Журнал регистрации файловой базы читается из плагина**: `infobase_admin operation=read_event_log`
+(с 0.2.27). Это не запрос к данным: журнал лежит файлами рядом с базой. Отборы, отказы и маскирование -
+`references/facades.md`.
 
 ## Перед ручным обходом - проверить, что фича уже есть
 
