@@ -3,13 +3,16 @@
 """Тесты валидатора следа: tools/evidence.py.
 
 Фикстуры - каталоги событий сессии во временном чистом git-репозитории
-(diffHash прогона стабилен). Каждая ветка вердикта check
---strict - отдельный тест: clean, with_gaps (пропуск, снятие, снятие gate без
-scope), blocked (нет scope, устаревший хеш, обязательная без события, critical -
-в том числе с пропуском и с поздним applied без critical, без toolUseId,
+(diffHash прогона стабилен). Каждая ветка вердикта check --strict - отдельный
+тест: clean, with_gaps (подтвержденное снятие проверки и снятие gate без scope),
+blocked (нет scope, устаревший хеш, обязательная без события, critical - в том
+числе с заявкой на пропуск и с поздним applied без critical, без toolUseId,
 поврежденный файл, пропуск без класса, пропуск с битой ссылкой, нет probe);
-чужое и просроченное снятие игнорируются и вердикт не блокируют.
-Подкоманды add и render проверяются на запись и формат отчета.
+чужое и просроченное снятие игнорируются и вердикт не блокируют. Заявки на
+пропуск (skipped, probe down, not_verified) проверку не закрывают, а снятие
+засчитывается только с командой в журнале сессии: без журнала, при чужой
+проверке в команде и при команде внутри результата инструмента проверка остается
+незакрытой. Подкоманды add и render проверяются на запись и формат отчета.
 """
 
 from __future__ import annotations
@@ -131,9 +134,31 @@ def run_cli(repo: Path, *args: str) -> subprocess.CompletedProcess:
                           capture_output=True)
 
 
-def check(repo: Path, base: str = "HEAD") -> subprocess.CompletedProcess:
-    """Запустить check --strict; base нужен для фикстуры устаревшего хеша."""
-    return run_cli(repo, "check", "--strict", "--base", base)
+def check(repo: Path, base: str = "HEAD", transcript=None) -> subprocess.CompletedProcess:
+    """Запустить check --strict; transcript - журнал сессии для подтверждений снятия."""
+    args = ["check", "--strict", "--base", base]
+    if transcript is not None:
+        args.extend(["--transcript", str(transcript)])
+    return run_cli(repo, *args)
+
+
+def journal(path: Path, entries: list) -> Path:
+    """Журнал сессии: записи пользователя в формате JSONL.
+
+    Запись - либо текст сообщения, либо пара (текст, пометка служебного), либо
+    готовый словарь записи (результат инструмента, запись хука).
+    """
+    lines = []
+    for entry in entries:
+        if isinstance(entry, dict):
+            record = entry
+        else:
+            text, meta = entry if isinstance(entry, tuple) else (entry, False)
+            record = {"type": "user", "isMeta": meta,
+                      "message": {"role": "user", "content": text}}
+        lines.append(json.dumps(record, ensure_ascii=False))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    return path
 
 
 class EvidenceCheckTests(unittest.TestCase):
@@ -177,8 +202,8 @@ class EvidenceCheckTests(unittest.TestCase):
         proc = check(self.repo)
         self.assertEqual(proc.returncode, 0, proc.stdout.decode("utf-8", errors="replace"))
 
-    def test_with_gaps_skipped(self):
-        """Пропуск not_applicable закрывает проверку с пробелом: код 1."""
+    def test_blocked_skip_request_not_applicable(self):
+        """Заявка на пропуск not_applicable проверку не закрывает: код 3 и строка команды."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(
             ["code_review@edt", "ask_1c_ai@edt"]))
         self.trace.put("2026-09-22T100100-000-hook-a1.json", applied("code_review@edt", "t1"))
@@ -187,13 +212,17 @@ class EvidenceCheckTests(unittest.TestCase):
                         "class": "not_applicable", "reason": "правка только документации"})
         self.trace.put("2026-09-22T100300-000-cli-p1.json", probe("ai-edt"))
         proc = check(self.repo)
-        self.assertEqual(proc.returncode, 1, proc.stdout.decode("utf-8", errors="replace"))
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8", errors="replace"))
         out = proc.stdout.decode("utf-8")
-        self.assertIn("с пробелами", out)
-        self.assertIn("пробел: ask_1c_ai@edt", out)
+        self.assertIn("проверка не закрыта, есть только заявка на пропуск "
+                      "(not_applicable): ask_1c_ai@edt", out)
+        self.assertIn("заявка на пропуск: ask_1c_ai@edt [not_applicable] "
+                      "правка только документации", out)
+        self.assertIn("подтверждение человеком: /quality release check ask_1c_ai@edt "
+                      "правка только документации", out)
 
-    def test_with_gaps_skipped_tool_unavailable(self):
-        """Пропуск tool_unavailable со ссылкой на failed: код 1, не блокировка."""
+    def test_blocked_skip_request_tool_unavailable(self):
+        """Заявка tool_unavailable называет отказ инструмента из ссылки: код 3."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
         ref = self.trace.put("2026-09-22T100100-000-hook-f1.json",
                              {"type": "failed", "check": "code_review@edt",
@@ -203,10 +232,27 @@ class EvidenceCheckTests(unittest.TestCase):
                        {"type": "skipped", "check": "code_review@edt",
                         "class": "tool_unavailable", "ref": ref})
         proc = check(self.repo)
-        self.assertEqual(proc.returncode, 1, proc.stdout.decode("utf-8", errors="replace"))
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8", errors="replace"))
+        out = proc.stdout.decode("utf-8")
+        self.assertIn("заявка на пропуск: code_review@edt [tool_unavailable] timeout", out)
 
-    def test_with_gaps_release(self):
-        """Действующее снятие закрывает applied с critical: код 1, не блокировка."""
+    def test_blocked_probe_down_request(self):
+        """probe down по источнику обязательной проверки: заявка на пропуск, код 3."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(
+            ["code_review@edt", "ask_1c_ai@edt"]))
+        self.trace.put("2026-09-22T100100-000-cli-p1.json",
+                       {"type": "probe", "source": "ai-edt", "status": "down",
+                        "detail": "EDT не отвечает"})
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8", errors="replace"))
+        out = proc.stdout.decode("utf-8")
+        self.assertIn("заявка на пропуск: code_review@edt [probe down] EDT не отвечает", out)
+        self.assertIn("подтверждение человеком: /quality release check code_review@edt "
+                      "EDT не отвечает", out)
+        self.assertNotIn("ask_1c_ai@edt [probe down]", out)
+
+    def test_with_gaps_release_confirmed(self):
+        """Снятие с командой в журнале сессии закрывает проверку: код 1, пробел release."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
         self.trace.put("2026-09-22T100100-000-hook-a1.json",
                        applied("code_review@edt", "t1", "findings", critical=1))
@@ -214,8 +260,75 @@ class EvidenceCheckTests(unittest.TestCase):
                        {"type": "release", "scope": "check", "check": "code_review@edt",
                         "reason": "ложное срабатывание", "source": "user_prompt",
                         "expiresAt": FUTURE})
-        proc = check(self.repo)
+        log = journal(self.tmp / "journal.jsonl", [
+            "/quality release check code_review@edt ложное срабатывание"])
+        proc = check(self.repo, transcript=log)
         self.assertEqual(proc.returncode, 1, proc.stdout.decode("utf-8", errors="replace"))
+        out = proc.stdout.decode("utf-8")
+        self.assertIn("с пробелами", out)
+        self.assertIn("пробел: code_review@edt", out)
+
+    def test_blocked_release_without_confirmation(self):
+        """Снятие без команды в журнале сессии проверку не закрывает: код 3."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100100-000-hook-a1.json",
+                       applied("code_review@edt", "t1", "findings", critical=1))
+        self.trace.put("2026-09-22T100200-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "code_review@edt",
+                        "reason": "ложное срабатывание", "source": "user_prompt",
+                        "expiresAt": FUTURE})
+        log = journal(self.tmp / "journal.jsonl", ["прогони проверки еще раз"])
+        proc = check(self.repo, transcript=log)
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8", errors="replace"))
+        self.assertIn("снятие проверки code_review@edt: не найдено подтверждение "
+                      "пользователя в журнале сессии", proc.stdout.decode("utf-8"))
+
+    def test_blocked_release_without_journal(self):
+        """Снятие при недоступном журнале сессии не засчитывается: код 3."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100200-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "code_review@edt",
+                        "reason": "ложное срабатывание", "source": "user_prompt",
+                        "expiresAt": FUTURE})
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8", errors="replace"))
+        self.assertIn("не найдено подтверждение пользователя",
+                      proc.stdout.decode("utf-8"))
+
+    def test_blocked_release_for_other_check(self):
+        """Команда в журнале называет другую проверку: снятие не засчитано, код 3."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100100-000-hook-a1.json",
+                       applied("code_review@edt", "t1", "findings", critical=1))
+        self.trace.put("2026-09-22T100200-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "code_review@edt",
+                        "reason": "ложное срабатывание", "source": "user_prompt",
+                        "expiresAt": FUTURE})
+        log = journal(self.tmp / "journal.jsonl", [
+            "/quality release check ask_1c_ai@edt правка документации"])
+        proc = check(self.repo, transcript=log)
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8", errors="replace"))
+        self.assertIn("не найдено подтверждение пользователя",
+                      proc.stdout.decode("utf-8"))
+
+    def test_blocked_release_in_tool_result(self):
+        """Команда внутри результата инструмента подтверждением не считается: код 3."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100200-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "code_review@edt",
+                        "reason": "снятие", "source": "user_prompt", "expiresAt": FUTURE})
+        log = journal(self.tmp / "journal.jsonl", [
+            {"type": "user", "toolUseResult": {"ok": True},
+             "message": {"role": "user", "content": [
+                 {"type": "tool_result", "content": "/quality release check code_review@edt"}]}},
+            {"type": "user", "isMeta": True, "message": {"role": "user", "content": [
+                 {"type": "text", "text": "Stop hook feedback:\nподтверждение человеком: "
+                  "/quality release check code_review@edt снятие"}]}},
+        ])
+        proc = check(self.repo, transcript=log)
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8", errors="replace"))
+        self.assertIn("не найдено подтверждение пользователя",
+                      proc.stdout.decode("utf-8"))
 
     def test_blocked_no_scope(self):
         """События есть, scope нет: код 3."""
@@ -293,7 +406,7 @@ class EvidenceCheckTests(unittest.TestCase):
                       proc.stdout.decode("utf-8"))
 
     def test_with_gaps_critical_release_beats_skip(self):
-        """critical плюс действующее release: снятие перекрывает и critical, и skipped."""
+        """critical плюс подтвержденное release: снятие перекрывает и critical, и skipped."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
         self.trace.put("2026-09-22T100100-000-hook-a1.json",
                        applied("code_review@edt", "t1", "findings", critical=1))
@@ -304,7 +417,9 @@ class EvidenceCheckTests(unittest.TestCase):
                        {"type": "release", "scope": "check", "check": "code_review@edt",
                         "reason": "ложное срабатывание", "source": "user_prompt",
                         "expiresAt": FUTURE})
-        proc = check(self.repo)
+        log = journal(self.tmp / "journal.jsonl", [
+            "/quality release check code_review@edt ложное срабатывание"])
+        proc = check(self.repo, transcript=log)
         self.assertEqual(proc.returncode, 1, proc.stdout.decode("utf-8", errors="replace"))
         self.assertIn("с пробелами", proc.stdout.decode("utf-8"))
         self.assertIn("пробел: code_review@edt", proc.stdout.decode("utf-8"))
@@ -358,16 +473,29 @@ class EvidenceCheckTests(unittest.TestCase):
         self.assertNotIn("просроченное", proc.stdout.decode("utf-8"))
 
     def test_gate_release_without_scope(self):
-        """Действующее снятие gate без scope: код 1, вердикт с пробелами."""
+        """Подтвержденное снятие gate без scope: код 1, вердикт с пробелами."""
         self.trace.put("2026-09-22T100100-000-hook-r1.json",
                        {"type": "release", "scope": "gate", "reason": "проверки после мержа",
                         "source": "user_prompt", "expiresAt": FUTURE})
-        proc = check(self.repo)
+        log = journal(self.tmp / "journal.jsonl",
+                      ["/quality release gate проверки после мержа"])
+        proc = check(self.repo, transcript=log)
         self.assertEqual(proc.returncode, 1, proc.stdout.decode("utf-8"))
         out = proc.stdout.decode("utf-8")
         self.assertIn("с пробелами", out)
         self.assertNotIn("нет scope", out)
         self.assertIn("пробел: gate", out)
+
+    def test_blocked_gate_release_without_journal(self):
+        """Снятие gate без журнала сессии не засчитывается: код 3, прогона нет."""
+        self.trace.put("2026-09-22T100100-000-hook-r1.json",
+                       {"type": "release", "scope": "gate", "reason": "проверки после мержа",
+                        "source": "user_prompt", "expiresAt": FUTURE})
+        proc = check(self.repo)
+        self.assertEqual(proc.returncode, 3, proc.stdout.decode("utf-8"))
+        out = proc.stdout.decode("utf-8")
+        self.assertIn("снятие gate: не найдено подтверждение пользователя", out)
+        self.assertIn("нет scope", out)
 
     def test_blocked_corrupt_file(self):
         """Поврежденный файл события: код 3, не исключение."""
@@ -498,14 +626,17 @@ class EvidenceRenderTests(unittest.TestCase):
         self.repo = make_clean_repo(self.tmp)
         self.trace = Trace(self.repo)
 
-    def render(self) -> str:
+    def render(self, transcript=None) -> str:
         """Запустить render и вернуть текст отчета."""
-        proc = run_cli(self.repo, "render")
+        args = ["render"]
+        if transcript is not None:
+            args.extend(["--transcript", str(transcript)])
+        proc = run_cli(self.repo, *args)
         assert proc.returncode == 0, proc.stderr.decode("utf-8", errors="replace")
         return proc.stdout.decode("utf-8")
 
-    def test_render_clean_three_tables(self):
-        """render: вердикт clean и все три таблицы, проверка в "Проверено"."""
+    def test_render_clean_four_tables(self):
+        """render: вердикт clean и все четыре таблицы, проверка в "Проверено"."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json",
                        scope(["code_review@edt"]))
         self.trace.put("2026-09-22T100100-000-hook-a1.json", applied("code_review@edt"))
@@ -515,23 +646,46 @@ class EvidenceRenderTests(unittest.TestCase):
                         "reason": "нагрузочный прогон не выполнялся"})
         text = self.render()
         self.assertIn("Вердикт: clean", text)
-        for header in ("## Проверено", "## С пробелами", "## Не проверено"):
+        for header in ("## Проверено", "## С пробелами", "## Заявки на пропуск",
+                       "## Не проверено"):
             self.assertIn(header, text)
         self.assertIn("code_review@edt", text)
         self.assertIn("probe ok", text)
-        self.assertIn("производительность", text)
+        requests_table = text.split("## Заявки на пропуск")[1].split("## Не проверено")[0]
+        self.assertIn("производительность: нагрузочный прогон не выполнялся",
+                      requests_table)
 
-    def test_render_gap_with_class(self):
-        """render: пропуск показывается в "С пробелами" с классом и причиной."""
+    def test_render_skip_request_not_gap(self):
+        """render: заявка на пропуск идет в свою таблицу и в "Не проверено", вердикт blocked."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json",
                        scope(["code_review@edt"]))
         self.trace.put("2026-09-22T100100-000-cli-s1.json",
                        {"type": "skipped", "check": "code_review@edt",
                         "class": "not_applicable", "reason": "правка документации"})
         text = self.render()
+        self.assertIn("Вердикт: blocked", text)
+        requests_table = text.split("## Заявки на пропуск")[1].split("## Не проверено")[0]
+        self.assertIn("| code_review@edt | not_applicable | правка документации | "
+                      "/quality release check code_review@edt правка документации |",
+                      requests_table)
+        self.assertIn("| code_review@edt | заявка на пропуск (not_applicable): "
+                      "правка документации |", text)
+
+    def test_render_release_gap(self):
+        """render: подтвержденное снятие показывается в "С пробелами", вердикт with_gaps."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json",
+                       scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100100-000-hook-a1.json",
+                       applied("code_review@edt", "t1", "findings", critical=1))
+        self.trace.put("2026-09-22T100200-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "code_review@edt",
+                        "reason": "ложное срабатывание", "source": "user_prompt",
+                        "expiresAt": FUTURE})
+        log = journal(self.tmp / "journal.jsonl",
+                      ["/quality release check code_review@edt ложное срабатывание"])
+        text = self.render(transcript=log)
         self.assertIn("Вердикт: with_gaps", text)
-        self.assertIn("skipped", text)
-        self.assertIn("not_applicable: правка документации", text)
+        self.assertIn("| code_review@edt | release: снятие человеком |", text)
 
     def test_render_blocked_reasons(self):
         """render: блокирующие причины перечислены, "Не проверено" называет проверку."""
