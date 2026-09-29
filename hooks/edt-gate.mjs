@@ -19,7 +19,7 @@ import { claudeHome } from './common/home.mjs';
 import { sessionBase } from './common/quality-gate.mjs';
 import { scopeStatus } from './common/scope.mjs';
 import {
-  eventsDir, formatIso, listEventFiles, nowIso, repoTop, sessionDir, stateRoot, writeEvent,
+  eventsDir, formatIso, gateReleaseConfirmed, listEventFiles, nowIso, repoTop, sessionDir, stateRoot, writeEvent,
 } from './common/quality-events.mjs';
 
 export { claudeHome };
@@ -602,7 +602,7 @@ async function activeWindow(top, session, now) {
   return Number.isFinite(until) && until > now;
 }
 
-async function activeReleaseGate(top, session, diffHash, now) {
+async function activeReleaseGate(top, session, diffHash, now, transcriptPath) {
   if (!session || !diffHash) return false;
   let names;
   try {
@@ -621,7 +621,9 @@ async function activeReleaseGate(top, session, diffHash, now) {
     if (!event || event.type !== 'release' || event.scope !== 'gate') continue;
     if (event.diffHash !== diffHash) continue;
     const exp = Date.parse(event.expiresAt);
-    if (Number.isFinite(exp) && exp > now) return true;
+    // Снятие засчитывается с командой пользователя в журнале сессии, как в гейте
+    // завершения хода: файл события без нее снятием не считается.
+    if (Number.isFinite(exp) && exp > now) return gateReleaseConfirmed(transcriptPath);
   }
   return false;
 }
@@ -695,7 +697,7 @@ export async function processGate(payload) {
   if (session && await activeWindow(top, session, now)) return allow();
   if (session) {
     const diffHash = await currentDiff(cwd, top, session);
-    if (await activeReleaseGate(top, session, diffHash, now)) return allow();
+    if (await activeReleaseGate(top, session, diffHash, now, payload.transcript_path)) return allow();
   }
 
   if (candidate.hit.launch) {

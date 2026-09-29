@@ -246,16 +246,23 @@ def resolve_base(repo_dir: Path | str, session: str | None, requested: str | Non
 
 
 def select_run(events: list[dict], diff_hash: str) -> dict | None:
-    """Отобрать прогон: последнее scope с diffHash и события с тем же хешем после него.
+    """Отобрать прогон по diffHash: состав - последнее scope, события - после первого scope.
 
-    Возвращает {"scope": событие, "events": [события после него с тем же diffHash]}
-    либо None, когда scope с таким хешем в каталоге нет. Порядок берется по позициям
-    в списке (он же порядок имен файлов).
+    Повторный профиль того же множества изменений пишет новое scope с тем же хешем;
+    события, записанные после прежнего scope, остаются в прогоне. Возвращает
+    {"scope": последнее scope, "events": [события кроме scope с тем же diffHash после
+    первого scope]} либо None, когда scope с таким хешем в каталоге нет. Порядок
+    берется по позициям в списке (он же порядок имен файлов).
     """
-    run = None
+    first = None
+    last = None
     for index, event in enumerate(events):
         if event.get("type") == "scope" and event.get("diffHash") == diff_hash:
-            run = {"scope": event,
-                   "events": [e for e in events[index + 1:]
-                              if e.get("diffHash") == diff_hash]}
-    return run
+            if first is None:
+                first = index
+            last = event
+    if last is None:
+        return None
+    return {"scope": last,
+            "events": [e for e in events[first + 1:]
+                       if e.get("diffHash") == diff_hash and e.get("type") != "scope"]}

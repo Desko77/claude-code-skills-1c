@@ -217,8 +217,8 @@ def evaluate(repo_dir: Path | str, session: str, base: str = "HEAD",
              transcript=None) -> dict:
     """Строгий вердикт прогона: clean, with_gaps либо blocked с причинами.
 
-    Прогон - последнее scope с текущим diffHash и события с тем же хешем после него
-    (quality_events.select_run). Проверку закрывает выполненное событие applied либо
+    Прогон - последнее scope с текущим diffHash и события с тем же хешем после первого
+    такого scope (quality_events.select_run). Проверку закрывает выполненное событие applied либо
     действующее снятие от человека: release с текущим diffHash, не истекшим сроком и
     командой в журнале сессии (transcript). skipped, probe down и not_verified - заявки
     на пропуск, проверку они не закрывают и возвращаются ключом skipRequests. Журнал не
@@ -266,9 +266,6 @@ def evaluate(repo_dir: Path | str, session: str, base: str = "HEAD",
             gate_released = True
         else:
             released_checks.add(check)
-    for what in sorted(unconfirmed):
-        reasons.append(f"снятие {what}: не найдено подтверждение пользователя "
-                       f"в журнале сессии")
     if run is None and not gate_released:
         reasons.append("нет scope с текущим diffHash: прогон устарел или не создан")
 
@@ -399,6 +396,12 @@ def evaluate(repo_dir: Path | str, session: str, base: str = "HEAD",
     for source in sorted(needed_sources - probes_ok):
         reasons.append(f"нет probe ok по источнику: {source}")
 
+    # Неподтвержденное снятие само ход не блокирует: оно поясняет, почему проверка,
+    # которую оно должно было закрыть, осталась открытой.
+    if reasons:
+        for what in sorted(unconfirmed):
+            reasons.append(f"снятие {what}: не найдено подтверждение пользователя "
+                           f"в журнале сессии")
     verdict = "blocked" if reasons else ("with_gaps" if gaps else "clean")
     return {"verdict": verdict, "reasons": reasons, "gaps": gaps, "checks": checks,
             "required": required, "probes": sorted(probes_ok),

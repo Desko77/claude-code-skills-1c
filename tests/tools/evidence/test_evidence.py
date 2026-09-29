@@ -283,6 +283,18 @@ class EvidenceCheckTests(unittest.TestCase):
         self.assertIn("снятие проверки code_review@edt: не найдено подтверждение "
                       "пользователя в журнале сессии", proc.stdout.decode("utf-8"))
 
+    def test_unconfirmed_release_does_not_block_closed_run(self):
+        """Лишнее неподтвержденное снятие при закрытых проверках прогон не блокирует: код 0."""
+        self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))
+        self.trace.put("2026-09-22T100100-000-hook-a1.json", applied("code_review@edt", "t1"))
+        self.trace.put("2026-09-22T100200-000-cli-p1.json", probe("ai-edt"))
+        self.trace.put("2026-09-22T100300-000-hook-r1.json",
+                       {"type": "release", "scope": "check", "check": "ask_1c_ai@edt",
+                        "reason": "не нужна", "source": "user_prompt", "expiresAt": FUTURE})
+        log = journal(self.tmp / "journal.jsonl", ["продолжай"])
+        proc = check(self.repo, transcript=log)
+        self.assertEqual(proc.returncode, 0, proc.stdout.decode("utf-8", errors="replace"))
+
     def test_blocked_release_without_journal(self):
         """Снятие при недоступном журнале сессии не засчитывается: код 3."""
         self.trace.put("2026-09-22T100000-000-profile-scope.json", scope(["code_review@edt"]))

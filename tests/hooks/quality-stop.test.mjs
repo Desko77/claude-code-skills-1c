@@ -195,6 +195,28 @@ test('после 2 блоков подряд без новых событий - 
   }
 });
 
+test('scope и заявка на пропуск между блоками серию не прерывают', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
+    await writeRun(ctx.top, 'stop-session-1', { required: ['code_review@edt'] });
+    assertEq(stop(ctx.top, 'stop-session-1').status, 2, 'первый блок');
+    await writeRun(ctx.top, 'stop-session-1', { required: ['code_review@edt'] });
+    await writeEvent(ctx.top, 'stop-session-1', {
+      type: 'skipped', at: nowIso(), session: 'stop-session-1', producer: 'cli',
+      diffHash: await currentDiffHash(ctx.top), check: 'code_review@edt',
+      class: 'not_applicable', reason: 'правка только документации',
+    });
+    assertEq(stop(ctx.top, 'stop-session-1').status, 2, 'второй блок');
+    const third = stop(ctx.top, 'stop-session-1');
+    assertEq(third.status, 0, `третья попытка завершает ход: ${third.stderr}`);
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
 test('QUALITY_STOP_OFF отключает гейт', async () => {
   const ctx = await repoWithModule();
   try {

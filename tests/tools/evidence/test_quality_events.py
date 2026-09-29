@@ -94,6 +94,18 @@ class QualityEventsOrderTests(unittest.TestCase):
         self.assertEqual(run["scope"]["type"], "scope")
         self.assertEqual([e.get("type") for e in run["events"]], ["applied"])
 
+    def test_repeated_scope_keeps_run_events(self):
+        """Повторное scope того же хеша задает состав, прежние события остаются в прогоне."""
+        self.write({"type": "scope", "producer": "profile", "required": ["code_review@edt"]})
+        self.write({"type": "applied", "producer": "hook", "check": "code_review@edt",
+                    "toolUseId": "t1", "outcome": {"status": "pass"}})
+        self.write({"type": "scope", "producer": "profile",
+                    "required": ["code_review@edt", "ask_1c_ai@edt"]})
+        events = self.mod.read_events(self.repo, SESSION)
+        run = self.mod.select_run(events, self.diff_hash)
+        self.assertEqual(run["scope"]["required"], ["code_review@edt", "ask_1c_ai@edt"])
+        self.assertEqual([e.get("type") for e in run["events"]], ["applied"])
+
     def test_filename_sequence_and_locks(self):
         """Имя несет номер последовательности; lock-файлы занимают номера в каталоге сессии."""
         first = self.write({"type": "probe", "producer": "cli", "source": "ai-edt",

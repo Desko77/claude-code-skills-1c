@@ -8,7 +8,7 @@
 // hooks/evidence-writer.mjs, hooks/release-writer.mjs и hooks/edt-gate.mjs.
 
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, open, rm, readdir, stat } from 'node:fs/promises';
+import { mkdir, open, rm, readdir, readFile, stat } from 'node:fs/promises';
 import { execFile as execFileCb } from 'node:child_process';
 import { constants, realpathSync } from 'node:fs';
 import { promisify } from 'node:util';
@@ -287,6 +287,54 @@ export async function sweepStaleSessions(ttlMs) {
 }
 
 // sha256 строки в hex (хеши inputHash/responseHash).
+// Подтверждение снятия гейта в журнале сессии - тот же образец команды, что у
+// tools/evidence.py (confirmed_by_user): команда в начале сообщения засчитывается
+// при любой длине и пометке, в середине - только в коротком сообщении без isMeta.
+const USER_MESSAGE_LIMIT = 400;
+const GATE_TAIL = String.raw`gate(?![\p{L}\p{N}_.@:-])`;
+const GATE_BODY = String.raw`(?:/quality[ \t]+release[ \t]+${GATE_TAIL}`
+  + String.raw`|<command-args>[ \t]*release[ \t]+${GATE_TAIL})`;
+const GATE_LOOSE = new RegExp(String.raw`(?<![\p{L}\p{N}_./-])${GATE_BODY}`, 'u');
+const GATE_STRICT = new RegExp(String.raw`^(?:<command-message>[^<]*</command-message>[ \t\r\n]*`
+  + String.raw`(?:<command-name>/quality</command-name>[ \t\r\n]*)?)?${GATE_BODY}`, 'u');
+
+function journalText(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return null;
+  const parts = [];
+  for (const item of content) {
+    if (typeof item === 'string') parts.push(item);
+    else if (item && typeof item === 'object' && item.type === 'text') parts.push(String(item.text ?? ''));
+  }
+  return parts.length ? parts.join('\n') : null;
+}
+
+export async function gateReleaseConfirmed(transcriptPath) {
+  if (typeof transcriptPath !== 'string' || !transcriptPath) return false;
+  let raw;
+  try {
+    raw = await readFile(transcriptPath, 'utf8');
+  } catch {
+    return false;
+  }
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let entry;
+    try {
+      entry = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+    if (!entry || typeof entry !== 'object' || entry.type !== 'user' || entry.toolUseResult) continue;
+    const text = journalText(entry.message && typeof entry.message === 'object' ? entry.message.content : null);
+    if (text === null || !GATE_LOOSE.test(text)) continue;
+    if (GATE_STRICT.test(text)) return true;
+    if (!entry.isMeta && [...text].length <= USER_MESSAGE_LIMIT) return true;
+  }
+  return false;
+}
+
 export function sha256Hex(text) {
   return createHash('sha256').update(String(text), 'utf8').digest('hex');
 }

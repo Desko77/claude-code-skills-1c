@@ -19,7 +19,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { listEventFiles, repoTop, sessionDir } from './common/quality-events.mjs';
+import { eventsDir, listEventFiles, repoTop, sessionDir } from './common/quality-events.mjs';
 import { findBaseline, findLastScope, resolveEvidencePy, sessionEdits } from './common/quality-gate.mjs';
 import { scopeStatus } from './common/scope.mjs';
 
@@ -178,6 +178,25 @@ async function writeBlockState(top, session, state) {
 // Основная логика, отделенная от чтения stdin для тестов. Возвращает { code, stderr,
 // stdout }; stdout - JSON с systemMessage для пользователя (код 0 после серии блоков),
 // иначе пуст.
+
+// Последнее событие следа, которое продвигает прогон. scope и заявки на пропуск
+// (skipped, not_verified) проверку не закрывают: их запись серию блоков не прерывает.
+const NON_PROGRESS_TYPES = new Set(['scope', 'skipped', 'not_verified']);
+
+async function lastProgressEvent(top, session) {
+  const dir = eventsDir(top, session);
+  for (const name of [...await listEventFiles(top, session)].reverse()) {
+    try {
+      const data = JSON.parse(await readFile(join(dir, name), 'utf8'));
+      if (data && NON_PROGRESS_TYPES.has(data.type)) continue;
+    } catch {
+      // поврежденный файл считается событием: его появление прерывает серию
+    }
+    return name;
+  }
+  return '';
+}
+
 export async function processPayload(payload) {
   if (gateDisabled()) {
     return { code: 0, stderr: '[quality-stop] гейт отключен переменной QUALITY_STOP_OFF', stdout: '' };
@@ -236,13 +255,12 @@ export async function processPayload(payload) {
   if (run.status === 3) {
     // Серия блоков без новых событий следа: после MAX_CONSECUTIVE_BLOCKS повторов гейт
     // завершает ход сам, иначе цикл дойдет до предохранителя платформы (9 блоков).
-    let names = [];
+    let lastEvent = '';
     try {
-      names = await listEventFiles(top, session);
+      lastEvent = await lastProgressEvent(top, session);
     } catch {
       // каталог событий недоступен - серия считается первой
     }
-    const lastEvent = names.length ? names[names.length - 1] : '';
     const prev = await readBlockState(top, session);
     const reasons = validatorReasons(run.stdout + run.stderr);
     if (prev && prev.lastEvent === lastEvent && prev.count >= MAX_CONSECUTIVE_BLOCKS) {

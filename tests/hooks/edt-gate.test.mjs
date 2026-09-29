@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { assert, assertEq, run, test } from './harness.mjs';
-import { HOOKS, REPO_ROOT, git, makeTmpRepo, readEvents, runHook, writeRepoFile } from './helpers.mjs';
+import { HOOKS, REPO_ROOT, git, makeTmpRepo, readEvents, runHook, writeJournal, writeRepoFile } from './helpers.mjs';
 import { FAIL_MATCHER, GATE_MATCHER } from '../../hooks/edt-gate.mjs';
 import { sessionDir, stateRoot } from '../../hooks/common/quality-events.mjs';
 
@@ -608,7 +608,28 @@ test('действующее release gate пропускает Read', async () =
       cwd: g.ctx.top,
     }, { cwd: g.ctx.top });
     assertEq(rel.status, 0, rel.stderr);
-    passed(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session }));
+    const journal = await writeJournal(join(dirname(g.ctx.top), 'journal.jsonl'), ['/quality release gate проверка вручную --for 1h']);
+    passed(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session, transcript_path: journal }));
+  } finally {
+    await g.cleanup();
+  }
+});
+
+test('release gate без команды в журнале сессии Read не пропускает', async () => {
+  const g = await makeGate();
+  const session = 'rel-forged';
+  try {
+    const rel = runHook('release-writer.mjs', {
+      hook_event_name: 'UserPromptSubmit',
+      prompt: '/quality release gate проверка вручную --for 1h',
+      session_id: session,
+      cwd: g.ctx.top,
+    }, { cwd: g.ctx.top });
+    assertEq(rel.status, 0, rel.stderr);
+    const journal = await writeJournal(join(dirname(g.ctx.top), 'journal.jsonl'), ['прочитай модуль']);
+    reasonOf(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session,
+      transcript_path: journal }));
+    reasonOf(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session }));
   } finally {
     await g.cleanup();
   }
@@ -830,7 +851,8 @@ test('действующее release gate пропускает запуск кл
       cwd: g.ctx.top,
     }, { cwd: g.ctx.top });
     assertEq(rel.status, 0, rel.stderr);
-    passed(await g.run({ ...launchCall(clientCommand(g.ctx.top)), session_id: session }));
+    const journal = await writeJournal(join(dirname(g.ctx.top), 'journal.jsonl'), ['/quality release gate запуск вручную --for 1h']);
+    passed(await g.run({ ...launchCall(clientCommand(g.ctx.top)), session_id: session, transcript_path: journal }));
   } finally {
     await g.cleanup();
   }
@@ -965,7 +987,10 @@ test('снятие release gate: ответ /health предшествует р�
     // Кэш /health пуст. Множество изменений для diffHash снятия считается только
     // после ответа /health: на большом репозитории computeChangeset занимает
     // секунды, а при неживом AI-EDT отказа нет и считать нечего.
-    passed(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session }));
+    const journal = await writeJournal(join(dirname(g.ctx.top), 'journal.jsonl'),
+      ['/quality release gate проверка вручную --for 1h']);
+    passed(await g.run({ ...readCall(g.ctx.top, 'src/Catalogs/Goods/Goods.mdo'), session_id: session,
+      transcript_path: journal }));
     assertEq(g.stub.hits(), 1, 'запрос /health при решении');
     await readFile(join(stateRoot(g.ctx.top), 'edt-health.json'), 'utf8');
   } finally {
