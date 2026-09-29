@@ -1,0 +1,31 @@
+{
+  "name": "remove-template: шаблон удален",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"],
+        "templates": [
+          { "name": "ПоОрганизации(Мод)", "condition": "ГДЕ Организация = &ТекущаяОрганизация" }
+        ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": {
+    "operation": "remove-template",
+    "template": "ПоОрганизации(Мод)"
+  },
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileNotContains": { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "ПоОрганизации(Мод)" }
+  }
+}

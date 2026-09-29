@@ -1,0 +1,29 @@
+{
+  "name": "deny-rights: явное false у InteractiveDelete",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": {
+    "operation": "deny-rights",
+    "object": "Catalog.Товары",
+    "rights": "InteractiveDelete"
+  },
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<name>InteractiveDelete</name>" }
+  }
+}

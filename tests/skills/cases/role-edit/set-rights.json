@@ -1,0 +1,33 @@
+{
+  "name": "set-rights: набор прав объекта заменяется",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": {
+    "operation": "set-rights",
+    "object": "Catalog.Товары",
+    "rights": "Read"
+  },
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<name>Read</name>" },
+    "fileNotContains": [
+      { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<name>View</name>" },
+      { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<name>InputByString</name>" }
+    ]
+  }
+}

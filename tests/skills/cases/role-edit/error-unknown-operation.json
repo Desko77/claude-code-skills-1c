@@ -1,0 +1,26 @@
+{
+  "name": "Отказ: неизвестная операция",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "input": {
+    "operation": "explode",
+    "object": "Catalog.Товары",
+    "rights": "Read"
+  },
+  "expectError": "неизвестная операция 'explode'",
+  "noSnapshot": "отказ до записи: эталон выгрузки не нужен"
+}

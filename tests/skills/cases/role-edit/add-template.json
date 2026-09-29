@@ -1,0 +1,32 @@
+{
+  "name": "add-template: новый шаблон ограничения",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": {
+    "operation": "add-template",
+    "template": "ПоОрганизации(Мод)",
+    "condition": "ГДЕ Организация = &ТекущаяОрганизация"
+  },
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": [
+      { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<name>ПоОрганизации(Мод)</name>" },
+      { "file": "Roles/Кладовщик/Ext/Rights.xml", "text": "<condition>ГДЕ Организация = &amp;ТекущаяОрганизация</condition>" }
+    ]
+  }
+}
