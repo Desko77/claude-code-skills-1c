@@ -536,6 +536,20 @@ def convert_workflows(source_dir: Path, target_dir: Path, dry_run: bool) -> list
     return results
 
 
+def convert_issue_templates(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]:
+    """Перенести формы issues и ссылки на обсуждение без изменений: поля у репозиториев общие."""
+    results = []
+    if not source_dir.is_dir():
+        return ["  SKIP: no .github/ISSUE_TEMPLATE/"]
+    if not dry_run:
+        target_dir.mkdir(parents=True, exist_ok=True)
+    for item in sorted(source_dir.glob("*.yml")):
+        if not dry_run:
+            shutil.copy2(item, target_dir / item.name)
+        results.append(f"  {'[DRY] ' if dry_run else ''}issue template: {item.name}")
+    return results
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -649,6 +663,9 @@ def main():
     print("\n=== CI ===")
     for msg in convert_workflows(source / ".github" / "workflows",
                                  target / ".github" / "workflows", dry_run):
+        print(msg)
+    for msg in convert_issue_templates(source / ".github" / "ISSUE_TEMPLATE",
+                                       target / ".github" / "ISSUE_TEMPLATE", dry_run):
         print(msg)
 
     # Summary

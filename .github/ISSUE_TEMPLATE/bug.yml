@@ -1,0 +1,58 @@
+name: Дефект
+description: Скрипт скила или правило работает не так, как описано
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Не прикладывайте выгрузки, логи целиком, пути и имена объектов заказчика: замените их на `Catalog.Товары`, `C:/Projects/my-project`."
+  - type: input
+    id: skill
+    attributes:
+      label: Скил или правило
+      placeholder: 1c-meta-compile
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Что произошло
+      description: Фактический результат, текст ошибки и код выхода дословно
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      description: Команда и вход на обобщенных именах
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидалось
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия набора
+      placeholder: 1.11.0
+  - type: dropdown
+    id: client
+    attributes:
+      label: Клиент
+      options:
+        - Claude Code
+        - Cursor
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Рантайм скриптов
+      options:
+        - PowerShell
+        - Python
+  - type: input
+    id: platform
+    attributes:
+      label: Платформа 1С и ОС
+      placeholder: 8.3.27, Windows 11

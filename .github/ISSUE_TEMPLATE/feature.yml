@@ -1,0 +1,21 @@
+name: Пожелание
+description: Новый скил, операция или правило
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: Задача
+      description: Что нужно сделать в проекте 1С
+    validations:
+      required: true
+  - type: textarea
+    id: missing
+    attributes:
+      label: Чего не хватает
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Как могло бы работать

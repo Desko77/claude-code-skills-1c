@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Вопросы по скилам и правилам - Telegram
+    url: https://t.me/AI_EDT_1c/25
+    about: Вопросы, идеи и опыт применения
+  - name: Плагин AI-EDT - Telegram
+    url: https://t.me/AI_EDT_1c/23
+    about: Вопросы по MCP-серверу AI-EDT
