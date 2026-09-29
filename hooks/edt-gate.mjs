@@ -652,6 +652,20 @@ function targetsOf(payload, cwd) {
   return [];
 }
 
+// Первый кандидат на отказ: цель в EDT-проекте, который загружен в живом AI-EDT.
+// null - отказа не будет, и множество изменений можно не считать.
+function findDenyHit(hits, rows) {
+  for (const hit of hits) {
+    for (const row of rows) {
+      const health = classifyHealth(row.result);
+      if (health.kind === 'ready' && health.projects.includes(hit.project.name)) {
+        return { hit, server: row.server };
+      }
+    }
+  }
+  return null;
+}
+
 export async function processGate(payload) {
   const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
   const targets = targetsOf(payload, cwd);
@@ -664,8 +678,17 @@ export async function processGate(payload) {
   }
   if (!hits.length) return allow();
 
-  const session = typeof payload.session_id === 'string' ? payload.session_id : '';
+  // Живой AI-EDT проверяется до множества изменений: ответ /health кэшируется,
+  // а computeChangeset на большом репозитории занимает секунды и не нужен, когда
+  // живого сервера с проектом нет - отказа не будет.
   const top = await stateTop(cwd);
+  const servers = await collectServers(cwd);
+  if (!servers.length) return allow();
+  const rows = await loadHealth(servers, top, false);
+  const candidate = findDenyHit(hits, rows);
+  if (!candidate) return allow();
+
+  const session = typeof payload.session_id === 'string' ? payload.session_id : '';
   const unavailable = await ensureSessionStore(top, session);
   if (unavailable) return allow(unavailable);
   const now = Date.now();
@@ -675,30 +698,19 @@ export async function processGate(payload) {
     if (await activeReleaseGate(top, session, diffHash, now)) return allow();
   }
 
-  const servers = await collectServers(cwd);
-  if (!servers.length) return allow();
-  const rows = await loadHealth(servers, top, false);
-  for (const hit of hits) {
-    for (const row of rows) {
-      const health = classifyHealth(row.result);
-      if (health.kind === 'ready' && health.projects.includes(hit.project.name)) {
-        if (hit.launch) {
-          return deny(denyLaunchReason({
-            file: hit.file,
-            serverKey: row.server.key,
-            projectName: hit.project.name,
-          }));
-        }
-        return deny(denyReason({
-          file: hit.file,
-          serverKey: row.server.key,
-          replacement: replacementFor(hit.tool, hit.file),
-          shell: hit.shell,
-        }));
-      }
-    }
+  if (candidate.hit.launch) {
+    return deny(denyLaunchReason({
+      file: candidate.hit.file,
+      serverKey: candidate.server.key,
+      projectName: candidate.hit.project.name,
+    }));
   }
-  return allow();
+  return deny(denyReason({
+    file: candidate.hit.file,
+    serverKey: candidate.server.key,
+    replacement: replacementFor(candidate.hit.tool, candidate.hit.file),
+    shell: candidate.hit.shell,
+  }));
 }
 
 async function writeProbe(top, session, cwd, status, detail) {
@@ -816,9 +828,12 @@ if (process.argv[1]?.endsWith('edt-gate.mjs')) {
     const { stdout, stderr, exitCode } = await processPayload(payload);
     if (stdout) process.stdout.write(stdout.endsWith('\n') ? stdout : `${stdout}\n`);
     if (stderr) process.stderr.write(stderr.endsWith('\n') ? stderr : `${stderr}\n`);
-    process.exit(exitCode);
+    // Не process.exit: параллельные fetch оставляют открытые keep-alive соединения,
+    // и немедленный выход обрывает обработчики libuv - аварийный код процесса вместо
+    // решения ворот. exitCode завершает процесс после опустения цикла событий.
+    process.exitCode = exitCode;
   } catch (err) {
     process.stderr.write(`[edt-gate] ${err instanceof Error ? err.message : String(err)}\n`);
-    process.exit(0);
+    process.exitCode = 0;
   }
 }
