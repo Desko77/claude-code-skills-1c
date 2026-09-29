@@ -1,0 +1,27 @@
+{
+  "name": "Отказ: условие RLS на реквизит платформа не хранит",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары", "attributes": ["Цена: Number(15,2)"] },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "input": {
+    "operation": "set-rls",
+    "object": "Catalog.Товары.Attribute.Цена",
+    "right": "View",
+    "condition": "ГДЕ Ложь"
+  },
+  "expectError": "платформа не хранит условие ограничения доступа у вида 'Attribute'",
+  "noSnapshot": "отказ до записи: эталон выгрузки не нужен"
+}

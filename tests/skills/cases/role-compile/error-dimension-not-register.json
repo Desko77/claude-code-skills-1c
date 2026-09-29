@@ -1,0 +1,12 @@
+{
+  "name": "Отказ: измерение у справочника",
+  "input": {
+    "name": "Кладовщик",
+    "objects": ["Catalog.Товары.Dimension.Склад: View"]
+  },
+  "expectError": "бывает только у AccountingRegister, AccumulationRegister, CalculationRegister, ExternalDataSource (внутри Cube), InformationRegister",
+  "noSnapshot": "негативный кейс: навык не должен создать ни одного файла",
+  "expect": {
+    "filesAbsent": ["Roles/Кладовщик/Ext/Rights.xml"]
+  }
+}

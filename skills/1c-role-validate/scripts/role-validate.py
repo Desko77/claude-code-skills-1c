@@ -179,6 +179,7 @@ NESTED_RIGHTS_BY_KIND = {
     'Attribute': ['View', 'Edit'],
     'TabularSection': ['View', 'Edit'],
     'StandardAttribute': ['View', 'Edit'],
+    'Resource': ['View', 'Edit'],
     'Field': ['View', 'Edit'],
     'Command': ['View'],
     'Subsystem': ['View'],

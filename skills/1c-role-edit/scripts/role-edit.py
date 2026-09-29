@@ -561,15 +561,53 @@ def right_sort_key(name):
 # setForAttributesByDefault=true - умолчание true (явный true пропадает, false остается).
 # setForAttributesByDefault=false - умолчание false (явный false пропадает, true остается).
 # independentRightsOfChildObjects и наличие прав на сам объект выгрузку не меняют.
-NESTED_DEFAULT_KINDS = ("Attribute", "TabularSection", "StandardAttribute")
+# Измерения и ресурсы регистров подчиняются тому же правилу; измерения куба внешнего источника не замерены.
+NESTED_DEFAULT_KINDS = ("Attribute", "TabularSection", "StandardAttribute", "Dimension", "Resource")
+
+# Условие ограничения доступа на вложенном праве, замер 8.3.27.2214: у стандартного реквизита
+# выгрузка сохраняет условие и право с ним при любом значении; у реквизита, измерения и ресурса
+# условие не сохраняется.
+NESTED_CONDITION_KEPT_KINDS = ("StandardAttribute",)
+NESTED_CONDITION_DROPPED_KINDS = ("Attribute", "Dimension", "Resource")
 
 
-def nested_default_right_kept(kind, right_name, value, set_for_attributes_by_default):
-    """Вложенное право остается в выгрузке, если не дублирует умолчание реквизитов."""
-    if kind not in NESTED_DEFAULT_KINDS or right_name not in ("View", "Edit"):
+def nested_default_right_kept(object_name, right_name, value, set_for_attributes_by_default, condition=None):
+    """Вложенное право остается в выгрузке, если несет сохраняемое условие или не дублирует умолчание."""
+    parts = object_name.split(".")
+    kind = parts[-2]
+    if parts[0] == "ExternalDataSource" or kind not in NESTED_DEFAULT_KINDS or right_name not in ("View", "Edit"):
+        return True
+    if condition and kind in NESTED_CONDITION_KEPT_KINDS:
         return True
     default_value = "true" if set_for_attributes_by_default else "false"
     return str(value).lower() != default_value
+
+
+def close_nested_view_edit(object_name, rights, set_for_attributes_by_default):
+    """Согласует View и Edit вложенного права так, как их приводит загрузка платформы.
+
+    Замер 8.3.27.2214: явный Edit=true при View=false дает View=true; View=false при Edit
+    по умолчанию дает Edit=false. Возвращает новый список, исходный не меняется.
+    """
+    parts = object_name.split(".")
+    rights = [dict(right) for right in rights]
+    if parts[0] == "ExternalDataSource" or parts[-2] not in NESTED_DEFAULT_KINDS:
+        return rights
+    default_value = "true" if set_for_attributes_by_default else "false"
+    view_right = next((r for r in rights if r['Name'] == 'View'), None)
+    edit_right = next((r for r in rights if r['Name'] == 'Edit'), None)
+    view = str(view_right['Value']).lower() if view_right else default_value
+    edit = str(edit_right['Value']).lower() if edit_right else default_value
+    if view != 'false' or edit != 'true':
+        return rights
+    if edit_right:
+        if view_right:
+            view_right['Value'] = 'true'
+        else:
+            rights.insert(rights.index(edit_right), {'Name': 'View', 'Value': 'true', 'Condition': None})
+    else:
+        rights.append({'Name': 'Edit', 'Value': 'false', 'Condition': None})
+    return rights
 
 # --- Конец общего блока таблицы прав и замыкания ---
 
@@ -615,13 +653,17 @@ TYPES_RIGHTS_NOT_CHECKED = ["ExternalDataSource"]
 # Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
 # внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
 DEFAULT_NESTED_KINDS = ["Attribute", "TabularSection", "StandardAttribute", "Command"]
+REGISTER_NESTED_KINDS = ["Dimension", "Resource", "Attribute", "StandardAttribute", "Command"]
 NESTED_KINDS_BY_OWNER = {
     "WebService": ["Operation"],
     "HTTPService": ["URLTemplate"],
     "URLTemplate": ["Method"],
     "IntegrationService": ["IntegrationServiceChannel"],
     "Subsystem": ["Subsystem"],
-    "CalculationRegister": ["Recalculation"],
+    "InformationRegister": REGISTER_NESTED_KINDS,
+    "AccumulationRegister": REGISTER_NESTED_KINDS,
+    "AccountingRegister": REGISTER_NESTED_KINDS,
+    "CalculationRegister": REGISTER_NESTED_KINDS + ["Recalculation"],
     "ExternalDataSource": ["Table", "Cube", "Function"],
     "Table": ["Field"],
     "Cube": ["Dimension", "ResourceField"],
@@ -633,6 +675,7 @@ NESTED_RIGHTS_BY_KIND = {
     "Attribute": ["View", "Edit"],
     "TabularSection": ["View", "Edit"],
     "StandardAttribute": ["View", "Edit"],
+    "Resource": ["View", "Edit"],
     "Field": ["View", "Edit"],
     "Command": ["View"],
     "Subsystem": ["View"],
@@ -691,11 +734,8 @@ def test_object_type_known(object_name):
     return False
 
 
-def find_kind_owner(kind):
-    for owner, kinds in NESTED_KINDS_BY_OWNER.items():
-        if kind in kinds:
-            return owner
-    return None
+def find_kind_owners(kind):
+    return [owner for owner, kinds in NESTED_KINDS_BY_OWNER.items() if kind in kinds]
 
 
 def test_nested_kind(object_name):
@@ -708,19 +748,21 @@ def test_nested_kind(object_name):
         if kind in allowed:
             continue
 
-        real_owner = find_kind_owner(kind)
-        if real_owner:
+        real_owners = [] if kind in DEFAULT_NESTED_KINDS else find_kind_owners(kind)
+        if real_owners:
             # Владелец вида сам бывает видом: поле лежит в таблице, а таблица - во внешнем
             # источнике данных. В сообщении называется корень цепочки, он же тип объекта.
-            root_owner = real_owner
-            for _ in range(10):
-                upper = find_kind_owner(root_owner)
-                if not upper:
-                    break
-                root_owner = upper
-            chain = f" (внутри {real_owner})" if root_owner != real_owner else ""
+            places = []
+            for real_owner in real_owners:
+                root_owner = real_owner
+                for _ in range(10):
+                    upper = find_kind_owners(root_owner)
+                    if not upper:
+                        break
+                    root_owner = upper[0]
+                places.append(f"{root_owner} (внутри {real_owner})" if root_owner != real_owner else root_owner)
             add_input_error(f"{object_name}: вид вложенности '{kind}' бывает только у "
-                            f"{root_owner}{chain}, а здесь владелец '{owner}'")
+                            f"{', '.join(sorted(places))}, а здесь владелец '{owner}'")
         else:
             add_input_error(f"{object_name}: неизвестный вид вложенности '{kind}' у '{owner}'")
         return False
@@ -1016,6 +1058,9 @@ def validate_ops(ops):
                 add_input_error('set-rls: не задано право')
             else:
                 validate_right_name(obj, right_name)
+            rls_kind = obj.split('.')[-2] if is_nested_object(obj) else None
+            if rls_kind in NESTED_CONDITION_DROPPED_KINDS:
+                add_input_error(f"{obj}: платформа не хранит условие ограничения доступа у вида '{rls_kind}'")
             if op_condition(op) is None:
                 add_input_error('set-rls: не задано условие')
         elif name == 'remove-rls':
@@ -1400,12 +1445,11 @@ def normalize_nested_defaults(text):
     for obj in reversed(objects):
         if not is_nested_object(obj['name']):
             continue
-        kind = obj['name'].split('.')[-2]
         kept = [
-            right for right in obj['rights']
-            if nested_default_right_kept(kind, right['Name'], right['Value'], sfab)
+            right for right in close_nested_view_edit(obj['name'], obj['rights'], sfab)
+            if nested_default_right_kept(obj['name'], right['Name'], right['Value'], sfab, right.get('Condition'))
         ]
-        if len(kept) == len(obj['rights']):
+        if kept == obj['rights']:
             continue
         block = render_object(obj['name'], kept, unit) if kept else None
         text = splice_span(text, obj['start'], obj['end'], block)

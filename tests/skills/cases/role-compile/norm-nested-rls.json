@@ -1,0 +1,32 @@
+{
+  "name": "Нормализация: условие RLS остается у стандартного реквизита и не пишется у реквизита",
+  "input": {
+    "name": "ОграничениеПолей",
+    "objects": [
+      "Catalog.Товары: Read",
+      {
+        "name": "Catalog.Товары.StandardAttribute.Description",
+        "rights": { "View": true },
+        "rls": { "View": "ГДЕ Ложь" }
+      },
+      {
+        "name": "Catalog.Товары.Attribute.Цена",
+        "rights": { "View": false },
+        "rls": { "View": "ГДЕ Ложь" }
+      }
+    ]
+  },
+  "noSnapshot": "эталон - фрагменты Rights.xml по выгрузке платформы 8.3.27; полный снимок пустой конфигурации к правилу не относится",
+  "expect": {
+    "fileContains": [
+      {
+        "file": "Roles/ОграничениеПолей/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.StandardAttribute.Description</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>true</value>\r\n\t\t\t<restrictionByCondition>\r\n\t\t\t\t<condition>ГДЕ Ложь</condition>"
+      },
+      {
+        "file": "Roles/ОграничениеПолей/Ext/Rights.xml",
+        "text": "<name>Catalog.Товары.Attribute.Цена</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>false</value>\r\n\t\t</right>"
+      }
+    ]
+  }
+}

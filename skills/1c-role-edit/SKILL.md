@@ -70,7 +70,7 @@ python skills/1c-role-edit/scripts/role-edit.py -RolePath "Roles/Кладовщ�
 
 Замыкание включенных прав совпадает с `1c-role-compile`: `Edit` влечет `Read`, `Update`, `View`, и дальше по зависимостям, замер платформы 8.3.27. У вложенного объекта (`Catalog.Товары.Attribute.Код`) зависимости не дописываются.
 
-`View` и `Edit` реквизита, табличной части и стандартного реквизита после операции совпадают с выгрузкой: право, равное `setForAttributesByDefault`, из файла уходит. Если при `setForAttributesByDefault=true` и `independentRightsOfChildObjects=false` остаются права на поля объекта без прав на сам объект, в stderr предупреждение со ссылкой на стандарт #std532.
+`View` и `Edit` реквизита, табличной части, стандартного реквизита, измерения и ресурса регистра после операции совпадают с выгрузкой: `Edit=true` при `View=false` дает `View=true`, `View=false` без явного `Edit` дает `Edit=false`, право, равное `setForAttributesByDefault`, из файла уходит. Право стандартного реквизита с условием RLS остается при любом значении; `set-rls` на реквизит, измерение или ресурс - ошибка ввода. Если при `setForAttributesByDefault=true` и `independentRightsOfChildObjects=false` остаются права на поля объекта без прав на сам объект, в stderr предупреждение со ссылкой на стандарт #std532.
 
 ## Примеры
 

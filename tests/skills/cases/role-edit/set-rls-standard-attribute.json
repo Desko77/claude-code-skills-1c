@@ -1,0 +1,34 @@
+{
+  "name": "set-rls: условие на стандартный реквизит при умолчании true сохраняется",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "role-compile/scripts/role-compile",
+      "input": {
+        "name": "Кладовщик",
+        "objects": ["Catalog.Товары: @view"]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "rolePath": "Roles/Кладовщик.xml" },
+  "validatePath": "Roles/Кладовщик/Ext/Rights.xml",
+  "input": {
+    "operation": "set-rls",
+    "object": "Catalog.Товары.StandardAttribute.Description",
+    "right": "View",
+    "condition": "ГДЕ Ложь"
+  },
+  "noSnapshot": "проверяется фрагмент Rights.xml по выгрузке платформы 8.3.27",
+  "expect": {
+    "stdoutContains": "role-edit:",
+    "fileContains": {
+      "file": "Roles/Кладовщик/Ext/Rights.xml",
+      "text": "<name>Catalog.Товары.StandardAttribute.Description</name>\r\n\t\t<right>\r\n\t\t\t<name>View</name>\r\n\t\t\t<value>true</value>\r\n\t\t\t<restrictionByCondition>\r\n\t\t\t\t<condition>ГДЕ Ложь</condition>"
+    }
+  }
+}

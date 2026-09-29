@@ -559,16 +559,64 @@ for ($i = 0; $i -lt $script:rightOrder.Count; $i++) { $script:rightOrderPos[$scr
 # setForAttributesByDefault=true - умолчание true (явный true пропадает, false остается).
 # setForAttributesByDefault=false - умолчание false (явный false пропадает, true остается).
 # independentRightsOfChildObjects и наличие прав на сам объект выгрузку не меняют.
-$script:nestedDefaultKinds = @("Attribute", "TabularSection", "StandardAttribute")
+# Измерения и ресурсы регистров подчиняются тому же правилу; измерения куба внешнего источника не замерены.
+$script:nestedDefaultKinds = @("Attribute", "TabularSection", "StandardAttribute", "Dimension", "Resource")
+
+# Условие ограничения доступа на вложенном праве, замер 8.3.27.2214: у стандартного реквизита
+# выгрузка сохраняет условие и право с ним при любом значении; у реквизита, измерения и ресурса
+# условие не сохраняется.
+$script:nestedConditionKeptKinds = @("StandardAttribute")
+$script:nestedConditionDroppedKinds = @("Attribute", "Dimension", "Resource")
 
 function Test-NestedDefaultRightKept {
-	# Вложенное право остается в выгрузке, если не дублирует умолчание реквизитов.
-	param([string]$Kind, [string]$RightName, [string]$Value, [bool]$SetForAttributesByDefault)
-	if ($Kind -notin $script:nestedDefaultKinds -or $RightName -notin @("View", "Edit")) {
+	# Вложенное право остается в выгрузке, если несет сохраняемое условие или не дублирует умолчание.
+	param([string]$ObjectName, [string]$RightName, [string]$Value, [bool]$SetForAttributesByDefault, [string]$Condition)
+	$parts = $ObjectName.Split(".")
+	$kind = $parts[$parts.Count - 2]
+	if ($parts[0] -eq "ExternalDataSource" -or $kind -notin $script:nestedDefaultKinds -or $RightName -notin @("View", "Edit")) {
+		return $true
+	}
+	if ($Condition -and $kind -in $script:nestedConditionKeptKinds) {
 		return $true
 	}
 	$defaultValue = if ($SetForAttributesByDefault) { "true" } else { "false" }
 	return ($Value.ToLower() -ne $defaultValue)
+}
+
+function Close-NestedViewEdit {
+	# Согласует View и Edit вложенного права так, как их приводит загрузка платформы.
+	# Замер 8.3.27.2214: явный Edit=true при View=false дает View=true; View=false при Edit
+	# по умолчанию дает Edit=false. Возвращает новый список, исходный не меняется.
+	param([string]$ObjectName, $Rights, [bool]$SetForAttributesByDefault)
+	$result = New-Object System.Collections.ArrayList
+	foreach ($right in @($Rights)) {
+		if ($null -eq $right) { continue }
+		[void]$result.Add(@{ Name = "$($right.Name)"; Value = "$($right.Value)"; Condition = $right.Condition })
+	}
+	$parts = $ObjectName.Split(".")
+	if ($parts[0] -eq "ExternalDataSource" -or $parts[$parts.Count - 2] -notin $script:nestedDefaultKinds) {
+		return $result.ToArray()
+	}
+	$defaultValue = if ($SetForAttributesByDefault) { "true" } else { "false" }
+	$viewRight = $null
+	$editRight = $null
+	foreach ($right in $result) {
+		if ($right.Name -eq "View") { $viewRight = $right }
+		if ($right.Name -eq "Edit") { $editRight = $right }
+	}
+	$view = if ($viewRight) { $viewRight.Value.ToLower() } else { $defaultValue }
+	$edit = if ($editRight) { $editRight.Value.ToLower() } else { $defaultValue }
+	if ($view -ne "false" -or $edit -ne "true") { return $result.ToArray() }
+	if ($editRight) {
+		if ($viewRight) {
+			$viewRight.Value = "true"
+		} else {
+			$result.Insert($result.IndexOf($editRight), @{ Name = "View"; Value = "true"; Condition = $null })
+		}
+	} else {
+		[void]$result.Add(@{ Name = "Edit"; Value = "false"; Condition = $null })
+	}
+	return $result.ToArray()
 }
 
 # --- Конец общего блока таблицы прав и замыкания ---
@@ -582,6 +630,7 @@ $script:nestedRightsByKind = @{
 	"Attribute" = @("View","Edit")
 	"TabularSection" = @("View","Edit")
 	"StandardAttribute" = @("View","Edit")
+	"Resource" = @("View","Edit")
 	"Field" = @("View","Edit")
 	"Command" = @("View")
 	"Subsystem" = @("View")
@@ -610,13 +659,17 @@ $script:typesRightsNotChecked = @("ExternalDataSource")
 # Виды вложенности по владельцу. Ключ - тип объекта или вид предыдущего уровня: у HTTP-сервиса
 # внутри шаблона URL лежит метод, у таблицы внешнего источника - поле, у куба - измерение.
 $script:defaultNestedKinds = @("Attribute","TabularSection","StandardAttribute","Command")
+$script:registerNestedKinds = @("Dimension","Resource","Attribute","StandardAttribute","Command")
 $script:nestedKindsByOwner = @{
 	"WebService" = @("Operation")
 	"HTTPService" = @("URLTemplate")
 	"URLTemplate" = @("Method")
 	"IntegrationService" = @("IntegrationServiceChannel")
 	"Subsystem" = @("Subsystem")
-	"CalculationRegister" = @("Recalculation")
+	"InformationRegister" = $script:registerNestedKinds
+	"AccumulationRegister" = $script:registerNestedKinds
+	"AccountingRegister" = $script:registerNestedKinds
+	"CalculationRegister" = $script:registerNestedKinds + @("Recalculation")
 	"ExternalDataSource" = @("Table","Cube","Function")
 	"Table" = @("Field")
 	"Cube" = @("Dimension","ResourceField")
@@ -668,13 +721,12 @@ function Test-ObjectTypeKnown {
 	return $false
 }
 
-# Владелец, у которого такой вид вложенности законен, - для подсказки в сообщении об ошибке.
-function Find-KindOwner {
+# Владельцы, у которых такой вид вложенности законен, - для подсказки в сообщении об ошибке.
+function Find-KindOwners {
 	param([string]$Kind)
 	foreach ($owner in $script:nestedKindsByOwner.Keys) {
-		if ($Kind -in $script:nestedKindsByOwner[$owner]) { return $owner }
+		if ($Kind -in $script:nestedKindsByOwner[$owner]) { $owner }
 	}
-	return $null
 }
 
 function Test-NestedKind {
@@ -693,18 +745,23 @@ function Test-NestedKind {
 		}
 		if ($kind -in $allowed) { continue }
 
-		$realOwner = Find-KindOwner $kind
-		if ($realOwner) {
+		$realOwners = if ($kind -in $script:defaultNestedKinds) { @() } else { @(Find-KindOwners $kind) }
+		if ($realOwners.Count -gt 0) {
 			# Владелец вида сам бывает видом: поле лежит в таблице, а таблица - во внешнем
 			# источнике данных. В сообщении называется корень цепочки, он же тип объекта.
-			$rootOwner = $realOwner
-			$guard = 0
-			while ((Find-KindOwner $rootOwner) -and $guard -lt 10) {
-				$rootOwner = Find-KindOwner $rootOwner
-				$guard++
+			$places = New-Object System.Collections.Generic.List[string]
+			foreach ($realOwner in $realOwners) {
+				$rootOwner = $realOwner
+				$guard = 0
+				while (@(Find-KindOwners $rootOwner).Count -gt 0 -and $guard -lt 10) {
+					$rootOwner = @(Find-KindOwners $rootOwner)[0]
+					$guard++
+				}
+				if ($rootOwner -ne $realOwner) { $places.Add("$rootOwner (внутри $realOwner)") } else { $places.Add($rootOwner) }
 			}
-			$chain = if ($rootOwner -ne $realOwner) { " (внутри $realOwner)" } else { "" }
-			Add-InputError "${ObjectName}: вид вложенности '$kind' бывает только у $rootOwner$chain, а здесь владелец '$owner'"
+			$placeArray = $places.ToArray()
+			[Array]::Sort($placeArray, [StringComparer]::Ordinal)
+			Add-InputError "${ObjectName}: вид вложенности '$kind' бывает только у $($placeArray -join ', '), а здесь владелец '$owner'"
 		} else {
 			Add-InputError "${ObjectName}: неизвестный вид вложенности '$kind' у '$owner'"
 		}
@@ -882,7 +939,8 @@ function Finish-Rights {
 function Filter-NestedDefaults($Objects, [bool]$SetForAttributesByDefault) {
 	# Убирает вложенные права, которые выгрузка платформы не содержит.
 	# Замер 8.3.27: право View или Edit реквизита, табличной части или стандартного
-	# реквизита остается, только если не совпадает с setForAttributesByDefault.
+	# реквизита, измерения и ресурса регистра остается, только если не совпадает с
+	# setForAttributesByDefault. Право стандартного реквизита с условием остается всегда.
 	# Пустой блок объекта не пишется.
 	# Вызов передает массив вторым уровнем (, $parsedObjects): один элемент-массив
 	# разворачивается, одиночный словарь остается одним объектом.
@@ -902,12 +960,10 @@ function Filter-NestedDefaults($Objects, [bool]$SetForAttributesByDefault) {
 			$result += ,$obj
 			continue
 		}
-		$parts = "$($obj.Name)".Split('.')
-		$kind = $parts[$parts.Count - 2]
 		$rights = @()
-		foreach ($right in @($obj.Rights)) {
+		foreach ($right in @(Close-NestedViewEdit -ObjectName "$($obj.Name)" -Rights @($obj.Rights) -SetForAttributesByDefault $SetForAttributesByDefault)) {
 			if ($null -eq $right -or $right -isnot [System.Collections.IDictionary]) { continue }
-			if (Test-NestedDefaultRightKept -Kind $kind -RightName "$($right.Name)" -Value "$($right.Value)" -SetForAttributesByDefault $SetForAttributesByDefault) {
+			if (Test-NestedDefaultRightKept -ObjectName "$($obj.Name)" -RightName "$($right.Name)" -Value "$($right.Value)" -SetForAttributesByDefault $SetForAttributesByDefault -Condition "$($right.Condition)") {
 				$rights += ,$right
 			}
 		}
@@ -1000,10 +1056,13 @@ function Parse-ObjectEntry {
 
 	# 3) Apply RLS conditions - после замыкания: право, добавленное замыканием, тоже получает условие
 	if ($entry.rls) {
+		$rlsKind = if (Is-NestedObject $objName) { $objName.Split('.')[-2] } else { $null }
 		foreach ($p in $entry.rls.PSObject.Properties) {
 			$rlsRight = Translate-RightName $p.Name
 			$target = @($rights | Where-Object { $_.Name -eq $rlsRight })
-			if ($target.Count -gt 0) {
+			if ($rlsKind -and $rlsKind -in $script:nestedConditionDroppedKinds) {
+				Write-Warning "${objName}: платформа не хранит условие ограничения доступа у вида '$rlsKind', условие на '$rlsRight' не записано"
+			} elseif ($target.Count -gt 0) {
 				$target[0].Condition = "$($p.Value)"
 			} else {
 				Write-Warning "${objName}: RLS for '$rlsRight' but this right is not in the rights list"
