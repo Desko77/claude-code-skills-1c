@@ -2,10 +2,13 @@
 // (режим -Catalog) подается хуку evidence-writer.mjs как ответ Bash с командой запуска
 // скрипта; событие applied закрывает проверку bsl_validate@configurator в прогоне
 // tools/evidence.py check --strict. Сквозная связка скрипт -> хук -> валидатор.
+// Запись модели о пропуске второй проверки прогон не закрывает: вердикт блокируется
+// заявкой на пропуск, а закрывает ее команда снятия из журнала сессии.
 
+import { dirname, join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
 import {
-  REPO_ROOT, git, makeTmpRepo, readEvents, runHook, runPythonSync, writeRepoFile,
+  REPO_ROOT, git, makeTmpRepo, readEvents, runHook, runPythonSync, writeJournal, writeRepoFile,
 } from './helpers.mjs';
 
 const SCRIPT_REL = 'skills/1c-bsl-validate/scripts/bsl-validate.py';
@@ -76,8 +79,36 @@ test('EVIDENCE реального запуска bsl-validate: applied у хук
         '--class', 'not_applicable', '--reason', 'тест покрывает только bsl_validate']);
     assertEq(skip.status, 0, `skipped syntaxcheck: ${skip.stderr}`);
 
-    const check = runPythonSync(
+    // Заявка на пропуск прогон не закрывает: вердикт blocked, проверка названа незакрытой,
+    // а рядом с заявкой идет готовая команда снятия для человека.
+    const blocked = runPythonSync(
       ['tools/evidence.py', 'check', '--strict', '--repo', ctx.top, '--session', 'bslval-1']);
+    assertEq(blocked.status, 3, `blocked (код 3): ${blocked.stdout}${blocked.stderr}`);
+    assert(blocked.stdout.includes('заявка на пропуск: syntaxcheck@configurator '
+      + '[not_applicable] тест покрывает только bsl_validate'), 'заявка в выводе check');
+    assert(blocked.stdout.includes('подтверждение человеком: /quality release check '
+      + 'syntaxcheck@configurator тест покрывает только bsl_validate'), 'команда снятия');
+    const blockedReasons = blocked.stdout.split(/\r?\n/).filter((l) => l.startsWith('блокирует:'));
+    assertEq(blockedReasons.length, 1, `блокирует только syntaxcheck: ${blockedReasons.join(', ')}`);
+    assert(blockedReasons[0].includes('syntaxcheck@configurator'),
+      'applied по bsl_validate проверку закрыл, блокирует только syntaxcheck');
+
+    // Снятие от человека: команда снятия в журнале сессии закрывает заявку, прогон
+    // становится вердиктом с пробелом по syntaxcheck.
+    const command = '/quality release check syntaxcheck@configurator '
+      + 'тест покрывает только bsl_validate';
+    const journal = await writeJournal(join(dirname(ctx.top), 'journal.jsonl'), [command]);
+    const release = runHook('release-writer.mjs', {
+      hook_event_name: 'UserPromptSubmit', prompt: command, cwd: ctx.top, session_id: 'bslval-1',
+    });
+    assertEq(release.status, 0, release.stderr);
+    const events = await readEvents(ctx.top, 'bslval-1');
+    assert(events.some((e) => e.type === 'release' && e.check === 'syntaxcheck@configurator'),
+      'событие release записано хуком');
+
+    const check = runPythonSync(
+      ['tools/evidence.py', 'check', '--strict', '--repo', ctx.top, '--session', 'bslval-1',
+        '--transcript', journal]);
     assertEq(check.status, 1, `with_gaps (код 1): ${check.stdout}${check.stderr}`);
     assert(check.stdout.includes('с пробелами'), `вердикт with_gaps: ${check.stdout}`);
     const blockers = check.stdout.split(/\r?\n/).filter((l) => l.startsWith('блокирует:'));

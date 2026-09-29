@@ -29,6 +29,10 @@ const VALIDATOR_TIMEOUT_MS = 120000;
 // их тысячи, и полный перечень съедает контекст модели (остальное - числом).
 const MAX_PATHS_IN_BLOCK = 20;
 
+// Заявок на пропуск в тексте блока и в сводке пользователю не больше этого числа: у каждой
+// заявки строка причины и готовая команда подтверждения.
+const MAX_REQUESTS_IN_BLOCK = 10;
+
 // Блоков подряд без новых событий следа: после этого числа гейт завершает ход выходом 0
 // с systemMessage. Новые события (прогон, пропуск, probe, снятие) сбрасывают серию.
 const MAX_CONSECUTIVE_BLOCKS = 2;
@@ -48,17 +52,56 @@ export function gateDisabled() {
   return value != null && value !== '';
 }
 
-// Причины блока: строки "блокирует: ..." вывода check без шапки и строк пробелов.
+// Причины блока: строки "блокирует: ..." вывода check без шапки, строк пробелов и строк
+// заявок на пропуск с их командами подтверждения (они идут отдельным разделом).
 function validatorReasons(validatorOut) {
   return String(validatorOut || '').split(/\r?\n/)
     .map((l) => l.replace(/^блокирует:[ \t]*/, '').trim())
     .filter((l) => l && !l.startsWith('вердикт:') && !l.startsWith('diffHash:')
-      && !l.startsWith('пробел:'));
+      && !l.startsWith('пробел:') && !l.startsWith('заявка на пропуск:')
+      && !l.startsWith('подтверждение человеком:'));
+}
+
+// Заявки на пропуск из вывода валидатора: строка "заявка на пропуск: <проверка|-> [вид]
+// причина" и следующая за ней строка готовой команды снятия. Проверка "-" - заявка без
+// проверки: снятием ее не подтвердить, команды у нее нет.
+export function validatorRequests(validatorOut) {
+  const lines = String(validatorOut || '').split(/\r?\n/);
+  const requests = [];
+  const head = 'заявка на пропуск:';
+  const commandHead = 'подтверждение человеком:';
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (!line.startsWith(head)) continue;
+    const body = line.slice(head.length).trim();
+    const parts = /^(\S+)\s+\[([^\]]+)\]\s*(.*)$/.exec(body);
+    const next = (lines[i + 1] || '').trim();
+    requests.push({
+      check: parts && parts[1] !== '-' ? parts[1] : '',
+      kind: parts ? parts[2] : '',
+      reason: parts ? parts[3] : body,
+      command: next.startsWith(commandHead) ? next.slice(commandHead.length).trim() : '',
+    });
+  }
+  return requests;
+}
+
+// Заявки на пропуск строкой для systemMessage: проверка, вид, причина и команда
+// подтверждения. Заявку закрывает только пользователь.
+export function requestsMessage(requests) {
+  const parts = requests.slice(0, MAX_REQUESTS_IN_BLOCK).map((r) => {
+    const command = r.command ? `, подтвердить: ${r.command}` : '';
+    return `${r.check || 'без проверки'} [${r.kind}] ${r.reason || '-'}${command}`;
+  });
+  if (requests.length > MAX_REQUESTS_IN_BLOCK) {
+    parts.push(`еще ${requests.length - MAX_REQUESTS_IN_BLOCK} заявок`);
+  }
+  return parts.join('; ');
 }
 
 // Текст блока: перечень правок (не больше MAX_PATHS_IN_BLOCK путей и общее число), причины
-// из вывода валидатора, прямой путь с абсолютными путями инструментов и полной базой
-// diffHash. tools = { changeProfilePy, evidencePy, base }.
+// из вывода валидатора, заявки на пропуск с готовыми командами, прямой путь с абсолютными
+// путями инструментов и полной базой diffHash. tools = { changeProfilePy, evidencePy, base }.
 export function buildBlock(edits, validatorOut, session, cwd, retry, required, tools) {
   const py = pythonBin();
   const base = tools && tools.base ? ` --base ${tools.base}` : '';
@@ -72,6 +115,17 @@ export function buildBlock(edits, validatorOut, session, cwd, retry, required, t
   lines.push('причины (tools/evidence.py check --strict):');
   const reasons = validatorReasons(validatorOut);
   lines.push(...(reasons.length ? reasons.map((r) => `  ${r}`) : ['  вердикт заблокирован']));
+  const requests = validatorRequests(validatorOut);
+  if (requests.length) {
+    lines.push('заявки на пропуск (проверку не закрывают; подтвердить может только пользователь):');
+    for (const request of requests.slice(0, MAX_REQUESTS_IN_BLOCK)) {
+      lines.push(`  ${request.check || '-'} [${request.kind}] ${request.reason || '-'}`);
+      if (request.command) lines.push(`  команда подтверждения: ${request.command}`);
+    }
+    if (requests.length > MAX_REQUESTS_IN_BLOCK) {
+      lines.push(`  ... еще ${requests.length - MAX_REQUESTS_IN_BLOCK} заявок не перечислены`);
+    }
+  }
   lines.push('прямой путь:');
   lines.push(`  1. ${py} -X utf8 "${tools.changeProfilePy}" ${common}`
     + ' - профиль правки и обязательный состав проверок');
@@ -87,6 +141,8 @@ export function buildBlock(edits, validatorOut, session, cwd, retry, required, t
   lines.push(`  5. доступность источника: ${py} -X utf8 "${tools.evidencePy}" add --type probe`
     + ` --source <${['ai-edt', 'naparnik', 'script'].join('|')}> --status ok|down${common}`);
   lines.push('  6. снятие человеком: /quality release gate <причина>');
+  lines.push('  7. заявку на пропуск закрывает только пользователь: запись модели о пропуске'
+    + ' проверку не закрывает, команду подтверждения из раздела заявок вводит человек');
   if (retry) {
     lines.push('повторная попытка завершения; блок снимает только прогон проверок или команда снятия');
   }
@@ -164,9 +220,14 @@ export async function processPayload(payload) {
   // База валидатора - HEAD отметки сессии, а не текущий HEAD: коммит по ходу сессии сдвигает
   // HEAD, и прогон, снятый до коммита, перестал бы совпадать по diffHash (а пустое множество
   // после коммита пропускало бы непроверенные правки).
+  // Журнал сессии уходит валидатору: снятие засчитывается только с командой снятия в
+  // сообщении пользователя, а не по одной записи release в каталоге следа
+  // (transcript_path приходит в данных хука Stop).
+  const transcript = typeof payload.transcript_path === 'string' && payload.transcript_path
+    ? ['--transcript', payload.transcript_path] : [];
   const run = spawnSync(pythonBin(),
     ['-X', 'utf8', evidencePy, 'check', '--strict', '--session', session, '--repo', cwd,
-      '--base', baseline.head],
+      '--base', baseline.head, ...transcript],
     { encoding: 'utf8', timeout: VALIDATOR_TIMEOUT_MS });
   if (run.error) {
     return { code: 0, stderr: `[quality-stop] валидатор следа не запущен (${run.error.message}), гейт пропущен`, stdout: '' };
@@ -186,9 +247,16 @@ export async function processPayload(payload) {
     const reasons = validatorReasons(run.stdout + run.stderr);
     if (prev && prev.lastEvent === lastEvent && prev.count >= MAX_CONSECUTIVE_BLOCKS) {
       const what = reasons.length ? reasons.slice(0, 3).join('; ') : 'вердикт заблокирован';
+      // Заявки на пропуск пользователю тоже: закрыть их может только он, а модель уже
+      // дважды не смогла завершить ход.
+      const requests = validatorRequests(run.stdout + run.stderr);
+      const tail = requests.length
+        ? ` Заявки на пропуск (проверку не закрывают, подтверждение вводит пользователь):`
+          + ` ${requestsMessage(requests)}.`
+        : '';
       const out = JSON.stringify({
-        systemMessage: `гейт не снят, проверки не выполнены: ${what}. Ход завершен после ${prev.count}`
-          + ' блоков подряд без событий прогона (hooks/quality-stop.mjs).',
+        systemMessage: `гейт не снят, проверки не выполнены: ${what}.${tail} Ход завершен после`
+          + ` ${prev.count} блоков подряд без событий прогона (hooks/quality-stop.mjs).`,
       });
       return { code: 0, stderr: '', stdout: out };
     }
