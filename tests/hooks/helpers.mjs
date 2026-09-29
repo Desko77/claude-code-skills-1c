@@ -115,6 +115,22 @@ export async function loadFixture(name, extra = {}) {
   return { ...raw, ...extra };
 }
 
+// Журнал сессии для подтверждения снятий: записи пользователя. Элемент - текст
+// сообщения, пара [текст, пометка служебного] либо готовая запись целиком.
+// Возвращает путь файла.
+export async function writeJournal(path, entries) {
+  const lines = entries.map((entry) => {
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) return JSON.stringify(entry);
+    const [text, meta] = Array.isArray(entry) ? entry : [entry, false];
+    return JSON.stringify({
+      type: 'user', isMeta: Boolean(meta),
+      message: { role: 'user', content: text },
+    });
+  });
+  await writeFile(path, `${lines.join('\n')}\n`, 'utf8');
+  return path;
+}
+
 export function runCli(cmd, args, opts = {}) {
   return spawnSync(cmd, args, { encoding: 'utf8', cwd: opts.cwd || REPO_ROOT });
 }

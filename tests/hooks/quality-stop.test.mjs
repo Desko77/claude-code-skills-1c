@@ -7,7 +7,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, assertEq, run, test } from './harness.mjs';
-import { git, HOOKS, makeTmpRepo, readEvents, runHook, runPythonSync, writeRepoFile } from './helpers.mjs';
+import { git, HOOKS, makeTmpRepo, readEvents, runHook, runPythonSync, writeJournal,
+  writeRepoFile } from './helpers.mjs';
 import { computeChangeset } from '../../hooks/_changeset.mjs';
 import { formatIso, nowIso, writeEvent } from '../../hooks/common/quality-events.mjs';
 import { is1cFile } from '../../hooks/common/quality-gate.mjs';
@@ -165,6 +166,14 @@ test('после 2 блоков подряд без новых событий - 
     await startSession(ctx.top, 'stop-session-1');
     await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
     await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
+    // Прогон и заявка на пропуск до первого блока: в сводке пользователю заявка идет
+    // с командой подтверждения (заявка вне прогона к обязательным проверкам не относится).
+    await writeRun(ctx.top, 'stop-session-1', { required: ['code_review@edt'] });
+    await writeEvent(ctx.top, 'stop-session-1', {
+      type: 'skipped', at: nowIso(), session: 'stop-session-1', producer: 'cli',
+      diffHash: await currentDiffHash(ctx.top), check: 'code_review@edt',
+      class: 'not_applicable', reason: 'правка только документации',
+    });
     assertEq(stop(ctx.top, 'stop-session-1').status, 2, 'первый блок');
     assertEq(stop(ctx.top, 'stop-session-1').status, 2, 'второй блок');
     const third = stop(ctx.top, 'stop-session-1');
@@ -172,6 +181,9 @@ test('после 2 блоков подряд без новых событий - 
     const message = JSON.parse(third.stdout.trim());
     assert(message.systemMessage && message.systemMessage.includes('гейт не снят, проверки не выполнены'),
       `systemMessage пользователю: ${third.stdout}`);
+    assert(message.systemMessage.includes('code_review@edt [not_applicable] '
+      + 'правка только документации, подтвердить: /quality release check code_review@edt '
+      + 'правка только документации'), `заявка с командой в сводке: ${third.stdout}`);
     // Новое событие следа сбрасывает серию: следующий ход снова блокируется.
     await writeEvent(ctx.top, 'stop-session-1', {
       type: 'probe', at: nowIso(), session: 'stop-session-1', producer: 'cli',
@@ -369,7 +381,7 @@ test('applied с critical без снятия: код 2, причина в те�
   }
 });
 
-test('действующее снятие gate: код 0', async () => {
+test('снятие gate с командой в журнале сессии: код 0', async () => {
   const ctx = await repoWithModule();
   try {
     await startSession(ctx.top, 'stop-session-1');
@@ -382,8 +394,71 @@ test('действующее снятие gate: код 0', async () => {
       scope: 'gate', reason: 'проверки прогонят после мержа', source: 'user_prompt',
       expiresAt: formatIso(new Date(Date.now() + 60 * 60 * 1000)),
     });
+    const journal = await writeJournal(join(ctx.top, '..', 'journal.jsonl'),
+      ['/quality release gate проверки прогонят после мержа']);
+    const r = stop(ctx.top, 'stop-session-1', { transcript_path: journal });
+    assertEq(r.status, 0, `подтвержденное снятие гейта снимает блок: ${r.stderr}`);
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('снятие gate без записи о нем в журнале сессии: код 2, причина в тексте блока', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
+    const diffHash = await currentDiffHash(ctx.top);
+    await writeRun(ctx.top, 'stop-session-1', { required: ['code_review@edt'] });
+    await writeEvent(ctx.top, 'stop-session-1', {
+      type: 'release', at: nowIso(), session: 'stop-session-1', producer: 'hook', diffHash,
+      scope: 'gate', reason: 'проверки прогонят после мержа', source: 'user_prompt',
+      expiresAt: formatIso(new Date(Date.now() + 60 * 60 * 1000)),
+    });
+    // Журнал есть, но команды снятия в нем нет: запись release без подтверждения не снятие.
+    const journal = await writeJournal(join(ctx.top, '..', 'journal.jsonl'),
+      ['прогони проверки еще раз']);
+    const r = stop(ctx.top, 'stop-session-1', { transcript_path: journal });
+    assertEq(r.status, 2, 'неподтвержденная запись release ход не завершает');
+    assert(r.stderr.includes('снятие gate: не найдено подтверждение пользователя'),
+      `причина в тексте блока: ${r.stderr}`);
+    // Журнал недоступен: подтверждения нет тоже.
+    const missing = stop(ctx.top, 'stop-session-1', {
+      transcript_path: join(ctx.top, '..', 'no-such-journal.jsonl'),
+    });
+    assertEq(missing.status, 2, 'недоступный журнал не дает подтверждения');
+    assert(missing.stderr.includes('не найдено подтверждение пользователя'),
+      `причина при недоступном журнале: ${missing.stderr}`);
+  } finally {
+    await ctx.cleanup();
+  }
+});
+
+test('заявка на пропуск: код 2, текст блока с командой подтверждения', async () => {
+  const ctx = await repoWithModule();
+  try {
+    await startSession(ctx.top, 'stop-session-1');
+    await writeRepoFile(ctx.top, 'proj/src/Module.bsl', MODULE + '\nПроцедура Новая()\nКонецПроцедуры\n');
+    await arm(ctx.top, 'stop-session-1', 'proj/src/Module.bsl');
+    const diffHash = await currentDiffHash(ctx.top);
+    await writeRun(ctx.top, 'stop-session-1', { required: ['code_review@edt'] });
+    await writeEvent(ctx.top, 'stop-session-1', {
+      type: 'skipped', at: nowIso(), session: 'stop-session-1', producer: 'cli', diffHash,
+      check: 'code_review@edt', class: 'not_applicable', reason: 'правка только документации',
+    });
     const r = stop(ctx.top, 'stop-session-1');
-    assertEq(r.status, 0, `снятие гейта снимает блок: ${r.stderr}`);
+    assertEq(r.status, 2, `пропуск от модели ход не завершает: ${r.stderr}`);
+    assert(r.stderr.includes('проверка не закрыта, есть только заявка на пропуск '
+      + '(not_applicable): code_review@edt'), 'причина называет заявку');
+    assert(r.stderr.includes('заявки на пропуск (проверку не закрывают; подтвердить может '
+      + 'только пользователь):'), 'раздел заявок в тексте блока');
+    assert(r.stderr.includes('  code_review@edt [not_applicable] правка только документации'),
+      'заявка с проверкой, видом и причиной');
+    assert(r.stderr.includes('  команда подтверждения: /quality release check code_review@edt '
+      + 'правка только документации'), 'готовая команда для человека');
+    assert(r.stderr.includes('заявку на пропуск закрывает только пользователь'),
+      'пояснение про роль человека в прямом пути');
   } finally {
     await ctx.cleanup();
   }
