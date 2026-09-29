@@ -359,7 +359,7 @@ BSL Language Server в Claude Code по протоколу LSP: диагност
 <tr><td><code>1c-template-add</code></td><td>Добавить макет к объекту</td></tr>
 <tr><td><code>1c-template-remove</code></td><td>Удалить макет</td></tr>
 <tr><th colspan="2" align="left">Роли (role-*)</th></tr>
-<tr><td><code>1c-role-compile</code></td><td>Создать роль из описания прав</td></tr>
+<tr><td><code>1c-role-compile</code></td><td>Создать роль из описания прав: права сверены с платформой 8.3.27, замыкание по зависимостям, флажки роли по стандарту #std532</td></tr>
 <tr><td><code>1c-role-edit</code></td><td>Точечная правка существующей роли: права, RLS, шаблоны, свойства</td></tr>
 <tr><td><code>1c-role-info</code></td><td>Анализ роли</td></tr>
 <tr><td><code>1c-role-validate</code></td><td>Валидация роли</td></tr>
@@ -370,7 +370,7 @@ BSL Language Server в Claude Code по протоколу LSP: диагност
 <tr><td><code>1c-skd-info</code></td><td>Анализ СКД</td></tr>
 <tr><td><code>1c-skd-validate</code></td><td>Валидация СКД</td></tr>
 <tr><th colspan="2" align="left">Базы данных (db-*)</th></tr>
-<tr><td><code>1c-db-list</code></td><td>Управление реестром баз</td></tr>
+<tr><td><code>1c-db-list</code></td><td>Управление реестром баз. База с <code>"role": "prod"</code> защищена: изменяющие скилы db-* и хранилища без ключа <code>-AllowProd</code> отказывают</td></tr>
 <tr><td><code>1c-db-create</code></td><td>Создать информационную базу</td></tr>
 <tr><td><code>1c-db-dump-cf</code></td><td>Выгрузить конфигурацию в CF</td></tr>
 <tr><td><code>1c-db-dump-dt</code></td><td>Выгрузить всю ИБ в DT (полный бэкап)</td></tr>
@@ -585,8 +585,8 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
 
 Прогон обращается к внешнему агенту и в CI не входит; формат кейса - `tools/README-evals.md`.
 
-Требуется Node.js 18+. Текущее состояние: **865 кейсов, 0 отказов**. На PowerShell проходит 788,
-77 пропущено по условиям среды; на python проходит 816, пропущено 49. Порядок работы с тестами -
+Требуется Node.js 18+. Текущее состояние: **1009 кейсов, 0 отказов**. На PowerShell проходит 932,
+77 пропущено по условиям среды; на python проходит 959, пропущено 50. Порядок работы с тестами -
 `tests/skills/README.md`.
 
 ## Хуки (экспериментально, по умолчанию выключены)
@@ -613,13 +613,15 @@ python tools/run_skill_evals.py --routing tests/routing/config-skills.json --run
   в контекст модели указание сменить подход или спросить пользователя. Не блокирует.
 - **quality-stop** - не дает завершить ход, пока правки сессии в файлах 1С не прошли обязательные
   проверки профиля: вердикт считает `tools/evidence.py check --strict`, в отказе названы
-  пробелы и прямой путь. Снимается прогоном проверок либо командой `/quality release`.
+  пробелы и прямой путь. Снимается прогоном проверок либо командой `/quality release`. Проверку,
+  которую модель не выполнила, закрывает только пользователь командой `/quality release check`;
+  запись модели о пропуске остается заявкой.
 - **edt-gate** - пока проект загружен в живой AI-EDT (`phase` `ready`, имя в `projects` ответа
   `/health`), отклоняет `Read`, `Grep`, `Glob`, `Bash` и `PowerShell` по исходникам этого проекта
   и запуск клиента `1cv8` / `1cv8c` / `1cv8s` / `start-1c.ps1`, и называет инструмент-замену.
   Окно на 15 минут открывается, если после отказа инструмента `/health` не в `phase` `ready`,
   а после отказа `launch_debugger`, `debug_launch` или `start_client` - всегда. Снятие -
-  `/quality release gate`. Переменная `AI_EDT_GATE` со значением кроме пустого и `on` отключает ворота.
+  `/quality release gate`, набранная пользователем. Переменная `AI_EDT_GATE` со значением кроме пустого и `on` отключает ворота.
 
 Формат следа - `skills/1c-code-review/references/evidence-format.md`, валидатор -
 `tools/evidence.py`. Требуется Node.js 18+. Автоматически не подключаются: порядок ручного
