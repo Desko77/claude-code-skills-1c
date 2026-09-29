@@ -244,6 +244,9 @@
 
 - `tools/convert_from_claude.py`: правило `v8unpack-source-structure` переносится в Cursor с `globs`
   `**/*.obj.bsl`, `**/*.mgr.bsl`, `**/*.elem.json` - по `paths` исходного правила.
+- `tools/convert_from_claude.py`: каталог `assets/` скила переносится в зеркало; гарды `check-hooks`,
+  `check-index-first`, `check-tools`, `check-catalog` и каталоги `tests/hooks`, `tests/tools` в зеркало
+  не переносятся.
 - Валидатор `tools/validate_ruleset.py` сверяет счетчики README с фактическим составом
   репозитория: заголовок "## Скилы (N)" и сумма колонки "Скилов" таблицы групп - с числом
   каталогов skills/, "**N правил**" - с числом файлов rules/*.md. Не найденное место

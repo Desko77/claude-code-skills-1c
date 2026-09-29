@@ -343,9 +343,11 @@ def convert_skill(source_dir: Path, target_dir: Path, dry_run: bool) -> str:
         (target_skill_dir / "SKILL.md").write_text(result, encoding="utf-8")
 
     # Каталоги навыка, которые переносятся целиком. data/ здесь потому, что у скила шагов
-    # Vanessa там лежит реестр, без которого его скрипты отказывают на первом же запуске.
+    # Vanessa там лежит реестр, без которого его скрипты отказывают на первом же запуске;
+    # assets/ - гейтовый конфиг bsl-language-server скила ревью, на него ссылается каталог.
     copied_dirs = []
-    for subdir_name in ("scripts", "references", "reference", "docs", "examples", "presets", "bin", "data"):
+    for subdir_name in ("scripts", "references", "reference", "docs", "examples", "presets", "bin", "data",
+                        "assets"):
         subdir = source_dir / subdir_name
         if subdir.is_dir():
             target_subdir = target_skill_dir / subdir_name
@@ -427,7 +429,11 @@ def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
     # check-eval-runner проверяет tools/run_skill_evals.py, а он в зеркало не идет:
     # каталоги evals/ там отсутствуют, прогонять нечего. Без исключения гард уезжает
     # в зеркало и падает там на отсутствующем файле, роняя весь check-all.
-    skip_names = {".last-report.json", "check-eval-runner.mjs"}
+    # Гарды хуков, агента 1c-explore, установщика и генерации секций правил проверяют
+    # hooks/, agents/, tests/tools/ и rules/*.md - в зеркало эти части не переносятся.
+    skip_names = {".last-report.json", "check-eval-runner.mjs", "check-hooks.mjs",
+                  "check-index-first.mjs", "check-tools.mjs", "check-catalog.mjs"}
+    skip_top = {"hooks", "tools"}
     # Поле source связывает файл корпуса с оригиналом в исходном наборе. В зеркале
     # оригиналов нет: правила лежат как .mdc, README свой, описание скила переписано
     # конвертером. Сверка копий там дала бы предупреждение на каждом прогоне, поэтому
@@ -442,7 +448,7 @@ def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
         if not item.is_file():
             continue
         rel = item.relative_to(source_dir)
-        if skip_parts & set(rel.parts) or rel.name in skip_names:
+        if skip_parts & set(rel.parts) or rel.name in skip_names or rel.parts[0] in skip_top:
             continue
         if not dry_run:
             (target_dir / rel).parent.mkdir(parents=True, exist_ok=True)
