@@ -91,7 +91,7 @@ RULES_CONFIG = {
     },
     "v8unpack-source-structure": {
         "description": "Структура исходников v8unpack",
-        "globs": [],
+        "globs": ["**/*.obj.bsl", "**/*.mgr.bsl", "**/*.elem.json"],
     },
     "model-selection": {
         "description": "Стратегия выбора моделей: Opus/Sonnet/Haiku по типу задачи",
