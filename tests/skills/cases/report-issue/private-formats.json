@@ -1,0 +1,22 @@
+{
+  "setup": "fixture:drafts",
+  "noSnapshot": "скрипт файлов не пишет, проверяется вывод",
+  "name": "Приватные данные: JSON-ключи, токены с дефисом, POSIX-пути, IPv6",
+  "params": {
+    "repo": "Desko77/claude-code-skills-1c",
+    "labels": "bug,from-agent",
+    "title": "Ошибка",
+    "bodyFile": "private-formats.md"
+  },
+  "expectError": "Находок: 6",
+  "expect": {
+    "stderrContains": [
+      "строка 1: секрет - \"password\":\"hunter2\"",
+      "строка 2: токен - sk-proj-AbCdEf0123456789xyz",
+      "строка 2: токен - bearer abcdefghijklmnop1234",
+      "строка 3: путь - /srv/customer/base",
+      "строка 3: путь - /mnt/c/Users/name/project",
+      "строка 4: IP-адрес - fd12:3456:789a:1::42"
+    ]
+  }
+}

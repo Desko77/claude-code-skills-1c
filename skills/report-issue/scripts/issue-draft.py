@@ -15,16 +15,19 @@ from urllib.parse import quote, urlsplit
 URL_LIMIT = 8000
 ALLOWED_HOSTS = ("github.com", "t.me", "its.1c.ru", "v8.1c.ru", "1c.ru", "docs.anthropic.com",
                  "cursor.com", "localhost", "127.0.0.1")
-ALLOWED_IPS = ("127.0.0.1", "0.0.0.0")
+ALLOWED_IPS = ("127.0.0.1", "0.0.0.0", "::", "::1")
 
 PATTERNS = [
     ("путь", re.compile(r"(?<![\w/])[A-Za-z]:[\\/][^\s\"'`|*?]*")),
     ("сетевой путь", re.compile(r"(?<![\w\\/])\\\\[\w.$-]+\\[^\s\"'`|]*")),
     ("домашний каталог", re.compile(r"(?<![\w.])/(?:home|Users)/[\w.-]+")),
+    ("путь", re.compile(r"(?<![\w.:/<-])/(?!(?:home|Users)/)(?:[\w.-]+/)+[\w.-]+")),
     ("IP-адрес", re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")),
+    ("IP-адрес", re.compile(r"(?<![\w:.])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}"
+                            r"|(?:[0-9A-Fa-f]{1,4}:)*[0-9A-Fa-f]{0,4}::(?:[0-9A-Fa-f]{1,4}:)*[0-9A-Fa-f]{0,4})(?![\w:])")),
     ("адрес почты", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
-    ("секрет", re.compile(r"(?i)\b(?:password|passwd|pwd|token|secret|api[_-]?key|пароль)\s*[:=]\s*\S+")),
-    ("токен", re.compile(r"\b(?:ghp_|github_pat_|sk-)[A-Za-z0-9_]{16,}|\bBearer\s+[A-Za-z0-9._-]{16,}")),
+    ("секрет", re.compile(r"(?i)[\"']?\b(?:password|passwd|pwd|token|secret|api[_-]?key|пароль)[\"']?\s*[:=]\s*\S+")),
+    ("токен", re.compile(r"\b(?:ghp_|github_pat_|sk-)[A-Za-z0-9_-]{16,}|(?i:\bbearer)\s+[A-Za-z0-9._-]{16,}")),
     ("строка соединения", re.compile(r"(?i)\b(?:Srvr|Ref|Usr|Pwd)\s*=\s*\"?[^;\"\s]+")),
     ("UUID", re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")),
     ("ссылка", re.compile(r"https?://[^\s)>\]\"'`]+")),

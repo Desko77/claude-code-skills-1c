@@ -1,0 +1,16 @@
+{
+  "setup": "fixture:drafts",
+  "noSnapshot": "скрипт файлов не пишет, проверяется вывод",
+  "name": "Без находок: время, команды, относительные пути, ::1, std::string",
+  "params": {
+    "repo": "Desko77/claude-code-skills-1c",
+    "labels": "bug,from-agent",
+    "title": "Проверка",
+    "bodyFile": "false-positives.md"
+  },
+  "expect": {
+    "stdoutContains": [
+      "Проверка на приватные данные: находок нет."
+    ]
+  }
+}

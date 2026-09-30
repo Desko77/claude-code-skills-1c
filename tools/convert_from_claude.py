@@ -404,10 +404,20 @@ def convert_docs(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str]
     # исключенные через .git/info/exclude) в зеркало не попадают.
     tracked = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=source_dir,
                              capture_output=True)
-    if tracked.returncode == 0:
-        items = [source_dir / name for name in tracked.stdout.decode("utf-8").split(chr(0)) if name]
-    else:
-        items = [item for item in source_dir.rglob("*") if item.is_file()]
+    if tracked.returncode != 0:
+        raise SystemExit(f"docs/: git ls-files не выполнился ({tracked.stderr.decode('utf-8', 'replace').strip()}) - "
+                         "без списка отслеживаемых файлов в зеркало ушли бы и локальные")
+    items = [source_dir / name for name in tracked.stdout.decode("utf-8").split(chr(0)) if name]
+    selected = {item.relative_to(source_dir).as_posix() for item in items}
+    # Файлы, которые прежние прогоны положили в зеркало, а в списке их нет, удаляются:
+    # иначе однажды скопированная локальная заметка оставалась бы в зеркале навсегда.
+    if target_dir.is_dir():
+        for stale in sorted(target_dir.rglob("*")):
+            rel = stale.relative_to(target_dir).as_posix()
+            if stale.is_file() and rel not in selected:
+                if not dry_run:
+                    stale.unlink()
+                results.append(f"  {'[DRY] ' if dry_run else ''}removed stale doc: {rel}")
     for item in sorted(items):
         if not item.is_file():
             continue

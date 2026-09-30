@@ -12,16 +12,18 @@ $ErrorActionPreference = "Stop"
 $script:urlLimit = 8000
 $script:allowedHosts = @("github.com", "t.me", "its.1c.ru", "v8.1c.ru", "1c.ru", "docs.anthropic.com",
 	"cursor.com", "localhost", "127.0.0.1")
-$script:allowedIps = @("127.0.0.1", "0.0.0.0")
+$script:allowedIps = @("127.0.0.1", "0.0.0.0", "::", "::1")
 
 $script:patterns = @(
 	@{ Kind = "путь"; Re = [regex]'(?<![\w/])[A-Za-z]:[\\/][^\s"''`|*?]*' },
 	@{ Kind = "сетевой путь"; Re = [regex]'(?<![\w\\/])\\\\[\w.$-]+\\[^\s"''`|]*' },
 	@{ Kind = "домашний каталог"; Re = [regex]'(?<![\w.])/(?:home|Users)/[\w.-]+' },
+	@{ Kind = "путь"; Re = [regex]'(?<![\w.:/<-])/(?!(?:home|Users)/)(?:[\w.-]+/)+[\w.-]+' },
 	@{ Kind = "IP-адрес"; Re = [regex]'(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])' },
+	@{ Kind = "IP-адрес"; Re = [regex]'(?<![\w:.])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:)*[0-9A-Fa-f]{0,4}::(?:[0-9A-Fa-f]{1,4}:)*[0-9A-Fa-f]{0,4})(?![\w:])' },
 	@{ Kind = "адрес почты"; Re = [regex]'[\w.+-]+@[\w-]+(?:\.[\w-]+)+' },
-	@{ Kind = "секрет"; Re = [regex]'(?i)\b(?:password|passwd|pwd|token|secret|api[_-]?key|пароль)\s*[:=]\s*\S+' },
-	@{ Kind = "токен"; Re = [regex]'\b(?:ghp_|github_pat_|sk-)[A-Za-z0-9_]{16,}|\bBearer\s+[A-Za-z0-9._-]{16,}' },
+	@{ Kind = "секрет"; Re = [regex]'(?i)["'']?\b(?:password|passwd|pwd|token|secret|api[_-]?key|пароль)["'']?\s*[:=]\s*\S+' },
+	@{ Kind = "токен"; Re = [regex]'\b(?:ghp_|github_pat_|sk-)[A-Za-z0-9_-]{16,}|(?i:\bbearer)\s+[A-Za-z0-9._-]{16,}' },
 	@{ Kind = "строка соединения"; Re = [regex]'(?i)\b(?:Srvr|Ref|Usr|Pwd)\s*=\s*"?[^;"\s]+' },
 	@{ Kind = "UUID"; Re = [regex]'\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b' },
 	@{ Kind = "ссылка"; Re = [regex]'https?://[^\s)>\]"''`]+' }
