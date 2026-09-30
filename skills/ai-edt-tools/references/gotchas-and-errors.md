@@ -17,19 +17,21 @@
 не занимает.
 
 `update_database` отказывает на файле `ConfigDumpInfo.xml` чужого формата и называет
-`sync_control syncOperation=rebuild_dump_info` - это и есть следующий шаг, а не `ignoreDumpInfoFormat`:
+`infobase_admin operation=sync_control syncOperation=rebuild_dump_info confirm=true` - это и есть следующий шаг, а не `ignoreDumpInfoFormat`:
 обход проверки ведет к полной загрузке.
 
 ## Реакция на сигналы в ответе
 
 | Сигнал в ответе | Что значит | Действие |
 |-----------------|-----------|----------|
-| `Pending` + `runKey` | долгая операция (find_references на крупном объекте, yaxunit, export_object) | повторить ТОТ ЖЕ вызов с тем же `runKey` и параметрами (фильтры не менять) - заберет финал |
-| `cancelled` в ответе | обход остановлен клиентом (`notifications/cancelled`) или кнопкой оператора: `find_dead_code`, `detect_query_anti_patterns`, `sensitive_data_scan`, `find_rls_violations`, `project_metrics`, `dependency_graph`, `semantic_metadata_search`, `find_references` останавливаются на границе и отдают найденное | не читать пустой список как «находок нет» - в ответе написано, что обход остановлен. У `project_metrics` рядом стоит `partial=true` и `unscannedModules`, числа являются нижней границей, а разделы `objects`, `errors`, `forms`, шаг которых не выполнялся, отсутствуют, а не равны нулю |
+| `Pending` + `runKey` | долгая операция (find_references на крупном объекте, yaxunit, export_object); операция фасада, ведущая к инструменту мягкого ожидания, и прямой вызов с теми же доводами дают один `runKey` (0.2.56) | повторить ТОТ ЖЕ вызов с тем же `runKey` и параметрами (фильтры не менять) - заберет финал |
+| `cancelled` в ответе | обход остановлен клиентом (`notifications/cancelled`) или кнопкой оператора: `find_dead_code`, `detect_query_anti_patterns`, `sensitive_data_scan`, `find_rls_violations`, `project_metrics`, `dependency_graph`, `semantic_metadata_search`, `find_references` останавливаются на границе и отдают найденное | не читать пустой список как "находок нет" - в ответе написано, что обход остановлен. У `project_metrics` рядом стоит `partial=true` и `unscannedModules`, числа являются нижней границей, а разделы `objects`, `errors`, `forms`, шаг которых не выполнялся, отсутствуют, а не равны нулю; повторный вызов той же работы, пока отмена завершается, отвечает `stillStopping: true` - второй прогон не запускается, а запущенный процесс Конфигуратора не прерывается, останавливается только ожидание |
 | timeout на большом конфиге | нет фильтра либо Xtext-индекс не успел | сузить `metadataType` / `fileMask`; для find_references - `skipBsl=true` либо `timeoutSeconds=60` + retry |
 | `BSL model is not available ... indexed` | семантическая модель НЕ построена ЛИБО неверный `modulePath`/FQN | сперва проверить путь: неверный дает ту же ошибку, а модель работает и на модулях 25k+ строк. Если правда не построена - `Read` (`src/.../ObjectModule.bsl`), `Grep` точечно |
 | `propertyMismatch` (+ `mismatches`) | объект уже есть, свойства не совпали | НЕ ретраить create/add; пройти `set_object_property` по каждому из `mismatches` |
 | `requiresCascadeForms` (+ `affectedForms`) | удаление поля затронет формы | посмотреть preview, подтвердить деструктив, повторить с `cascadeForms=true` |
+| `confirmationRequired` (+ `dataLossTables`) | `update_database` с `protectData=true` (по умолчанию): обновление удалило бы таблицу с данными, прогон не начат (`nothingStarted=true`) | показать пользователю `dataLossTables` и `dataLossCount`; `acceptDataLoss=true` передавать только с его явного согласия. Пока решение открыто, тот же ответ без запуска дает `inspect_database_sync` |
+| `supportLock` | запись в объект, закрытый записью реестра поддержки (`ChangesNotAllowed`), отвергается до транзакции у `edit_metadata`, form-операций и `write_module_source` | НЕ менять режим поддержки ради записи: отказ называет FQN, режим, `canEdit` и способ снять защиту - решение за пользователем. Чтение о поддержке не спрашивает |
 | `mxlApiNotFound` / `rightsApiNotFound` / `adoptServiceNotFound` / `exportApiNotFound` | несовместимый EDT runtime | НЕ циклить; сообщить пользователю, предложить GUI-fallback |
 | `dcsFactoryMethodNotFound` (+ `triedMethods`) | СКД-операция не нашла нужный EDT factory-метод | структурная диагностика, не ошибка реализации; сообщить, предложить GUI-fallback для настройки СКД |
 | `kindMismatch` (export_object) | outputPath не совпал с типом объекта | поправить `.epf` vs `.erf` по nature |
@@ -95,6 +97,12 @@
 - `operation=reseed_baseline` (`infobaseUuid` из status + `confirm=true`) - перештамповывает
   `configurationUUID` в baseline под UUID проекта, сохраняя подписи ресурсов.
 
+- `operation=retrieve_database_changes` (0.2.56) - подтягивает изменения базы в проект, направление,
+  обратное `update_database`: проект с собственными правками отказывается до `replaceLocal=true` (версия
+  базы этих объектов заменяет правки проекта - чье содержимое отбросить, решает пользователь), толстый
+  клиент, запущенный EDT, - отказ по имени запуска (`heldBy`). Медленное подтягивание - `Pending` с
+  `runKey`. Доводы и поля - в каталоге фасада ИБ (`references/facades.md`).
+
 **Железное правило: `mark_synchronized` и `reseed_baseline` - ТОЛЬКО по явной команде пользователя, НИКОГДА
 автономно.** Обе делают EDT уверенной, что ИБ равна проекту; если реальная дельта есть, EDT молча пропустит
 настоящие изменения. Только пользователь знает, что не менялось. `status` / `diagnose` / `suppress`
@@ -154,7 +162,7 @@
 
 ## Изоляция тяжелых выборок и баги плагина
 
-Оба сюжета описаны в `rules/mcp-tool-priority.md` (разделы "Экономия контекста" и "Баги плагина AI-EDT") -
+Оба сюжета описаны в `rules/mcp-tool-priority.md` (разделы "Экономия контекста" и "Троттлинг и ошибки") -
 здесь не дублируются. Коротко: тяжелые выборки уводить в субагента (модель для BSL-разведки - Sonnet или
-выше), а найденный дефект плагина заносить строкой в свой кросс-сессионный инбокс обратной связи
-(отдельный файл вне репозитория, чтобы находки не терялись между сессиями).
+выше), а подтвержденный дефект плагина или пожелание к нему - issue в `Desko77/ai-edt` через скил
+`report-issue`: обезличенный черновик, отправка только с согласия пользователя.
