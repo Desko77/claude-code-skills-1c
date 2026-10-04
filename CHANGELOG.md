@@ -1,5 +1,19 @@
 # История версий
 
+## Обновление плагина AI-EDT до 0.2.57 - 2026-10-04
+
+Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее.
+
+- `naparnik` принимает 1С:Напарник 1.0.8 наряду с 1.0.7 (`supportedVersion: "1.0.7, 1.0.8"`); ответы `ask` не изменились.
+- `write_module_source` в режимах append, insertBefore и insertAfter отделяет вставленный целый метод пустой строкой; `diff_module` показывает все строки между изменениями и сообщает изменения вне методов.
+- `extension_lifecycle` передает `objectFqn` и `events` на шаге generateHandler; adopt со `status=Pending` опрашивается по `runKey` (сбой ожидания - `pollError`); `list_interceptors` находит аннотации и ключевые слова в любом регистре, включая кириллицу.
+- `dcs_workshop`: `itemPath` принимает форму имени (`Filter[Сумма]`); отчет `REMOVAL_IMPACT` называет пользовательские поля, связи удаленных наборов и значения параметров со ссылкой на удаленное; русские синонимы видов сравнения понимаются как английские литералы.
+- `update_database` при сбое записи копии дамп-инфо отвечает `infobaseChangeRecord`: какая запись осталась на диске и что из нее следует следующему инкрементальному обновлению.
+- `launch_debugger`: `pause` с `threadId` решает по состоянию этого потока, чужой поток - отказ `threadOfAnotherSession`; `replaceModuleSet` - замещающий пакет точек (`moduleNotResolved`, `noBreakpointSet`); `launch` на модальном вопросе EDT - Pending с `blockedByDialog` и `runKey`.
+- Формы: `beforeName` без учета регистра, промах - `warning`; занятый UI-поток - `uiBusy`, прерванная начатая работа - `outcomeUnknown`; `get_form_structure` - `truncated` только при отброшенном узле, `dynamicListsUnread` с причиной.
+- `get_metadata_details` добавляет `Support Mode`; `edit_metadata` на отказе стража отдает `hint` и структурный тег.
+- `get_profiling_results` обрезает строки модуля по весу; `project_metrics` видит отказ сканирования маркера; `get_content_assist` читает символ в кодировке самого файла модуля.
+
 ## Обновление плагина AI-EDT до 0.2.56 - 2026-09-29
 
 Изменилась работа плагина, набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.
