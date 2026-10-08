@@ -137,7 +137,10 @@
 2. `validate_for_export` - обязательно, когда `updateBeforeLaunch` не выключен явно (по умолчанию `true`,
    см. пункт 8): тогда запуск тестов сам выполняет `update_database`, то есть пишет конфигурацию в ИБ. При
    явном `updateBeforeLaunch=false` записи нет и проверка не требуется
-3. `yaxunit_tests mode=run` с `applicationId` или `configName` - синхронный прогон с timeout polling
+3. `yaxunit_tests mode=run` с `applicationId` или `configName` - синхронный прогон с timeout polling.
+   Когда движок может отсутствовать - `installYaxunit=true`: он же снимает с подтверждением безопасный
+   режим и защиту от опасных действий движка перед прогоном; `yaxunitUnsafeMode=false` брать, только
+   когда флагами управляют вручную (0.2.58)
 4. При истечении timeout вернется JSON `Pending` + `runKey` - повторить вызов с **теми же** параметрами (НЕ менять filters/configName), забирается финальный отчет
 5. Filters: `tests=Тест_X,Тест_Y`, `suites=ТестыКадры`, `extensions=YAxUnit`, `modules=*Тесты*`, `tags=smoke,fast`, `contexts=Server,Client`
 6. При `0 tests run` - проверить активность YAxUnit-расширения в ИБ (Конфигурация → Расширения → Active = Yes), затем `help=setup`

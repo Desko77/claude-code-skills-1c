@@ -140,8 +140,11 @@ EDT. Ниже - по группам.
    операцию: сперва исправить, потом обновлять. Проверка ловит класс "валидно в EDT, падает в ИБ" -
    реальные check-id: `mdo-empty-datevalue-fillvalue`, `mdo-empty-numbervalue-fillvalue`,
    `mdo-duplicate-xmlns`, `form-handler-no-event`, `form-empty-action`, `form-command-handler-type`,
-   `mxlx-bare-fontstyle`, `dcs-abstract-setting-item` и другие. Проверки на пустой `stringQualifiers` в этом
-   инструменте НЕТ - не ссылаться на нее.
+   `mxlx-bare-fontstyle`, `mxlx-empty-picture-ref`, `dcs-abstract-setting-item` и другие. Проверки на пустой
+   `stringQualifiers` в этом инструменте НЕТ - не ссылаться на нее. Ветка `installYaxunit=true` у
+   `yaxunit_tests` меняет ИБ через дверь `install_extension` и снятие флагов безопасного режима
+   управляет доводом `yaxunitUnsafeMode` (по умолчанию `true` - оба флага снимаются с контрольным
+   чтением).
 7. **`update_database` с отказом `confirmationRequired`** (защита данных, `protectData=true` по умолчанию):
    показать человеку `dataLossTables` - таблицы, которые потеряют данные из-за удаленного объекта или его
    части. `acceptDataLoss=true` передавать только с его явного согласия; сам агент потерю не принимает.
@@ -155,10 +158,12 @@ ai-edt), а не по памяти и не по аналогии. Провере
 
 AI-EDT консолидирует инструменты в **фасады**; основные - `code_search`, `edit_metadata`, `diagnostics`,
 `launch_debugger`, `project_admin`, `infobase_admin`, `config_io`, `insights`, `security_audit`,
-`docs_lookup`, `workspace_marks`, `yaxunit_tests`, `extension_workshop`, `git` (репозиторий проекта внутри EDT:
+`docs_lookup`, `workspace_marks`, `tag_admin` (запись меток метаданных: создать, переименовать,
+перекрасить, удалить, назначить и снять; чтение остается в `workspace_marks`), `yaxunit_tests`, `extension_workshop`, `git` (репозиторий проекта внутри EDT:
 статус, ветки, история, коммит названных файлов, переход по веткам, изменения файла и его возврат из
-коммита, точка перед объединением с поставкой), а также мастерские `xdto_workshop`,
-`dcs_workshop`, `mxl_workshop`, `external_object_workshop` и `external_data_source_workshop`. Полный перечень
+коммита, точка перед объединением с поставкой и ее удаление `delete_merge_restore_point`), а также мастерские `xdto_workshop`,
+`dcs_workshop`, `mxl_workshop` (строки и столбцы макета: `insert_rows`, `delete_rows`, `copy_rows`,
+`insert_columns`, `delete_columns`, `copy_columns`), `external_object_workshop` и `external_data_source_workshop`. Полный перечень
 с составом операций - `skills/ai-edt-tools/references/facades.md`.
 
 **Синтаксис вызова.** Под пресетом Canonical в `tools/list` видны фасады, а поглощенные ими standalone-имена
