@@ -10,6 +10,7 @@
 | Задача | Инструмент | Где детали |
 |--------|-----------|------------|
 | BSL-код, метаданные, формы, запросы, ошибки проекта, отладка, обновление ИБ, юнит-тесты | **ai-edt** (AI-EDT) | скил `ai-edt-tools` + его `references/` |
+| Обычные формы EDT: раскладка, модуль, контейнер Form.oform | **ai-edt**: `ordinary_forms` | скил `ai-edt-tools`, `references/ordinary-forms.md` |
 | API платформы: существует ли метод, сигнатура, типы, конструкторы | **bsl-platform-help** (`search`, `info`, `get_member`, `get_members`, `get_constructors`, `get_platform_info`) | скил `1c-platform-docs` |
 | Стиль BSL и строгая типизация | **bsl-platform-help**: `get_coding_guideline` (без параметров), `get_strict_typing_info(topic)` - `topic="topics"` вернет список тем, `search_strict_typing(query)` | в скиле не описаны, параметры здесь |
 | Качество BSL, ревью стиля, стандарты ИТС, документация платформы и конфигураций | **1c-naparnik** (`ask_1c_ai`, `check_1c_code`, `review_1c_code`, `rewrite_1c_code`, `modify_1c_code`, `explain_1c_syntax`, `its_help`, `fetch_its`, `search_1c_documentation`, `onec_help`, `diff_1c_documentation_versions`, `config_help`) | скил `1c-naparnik` |
@@ -40,7 +41,7 @@
   `Grep` по `src/`.
 - **1С 7.7** - скил `1c77-dev`; если сервер `1c77-metadata` не поднят, его собственный fallback на
   CP1251-скрипты.
-- **Обычные (неуправляемые) формы и конфигурации без EDT-проекта** (формат Конфигуратора) - form-операции
+- **Формы конфигураций без EDT-проекта** (формат Конфигуратора) - form-операции
   `edit_metadata` к ним неприменимы; маршрут и fallback на `1c-forms-mcp` описаны в `forms_generation.md`.
 - **Инструменты недоступны** - см. раздел ниже, там разные случаи требуют разного.
 - **Операция недоступна на этой сборке или сломана** - точечный ручной обход по своду проектных грабель
@@ -133,7 +134,10 @@ EDT. Ниже - по группам.
    (прочитать результат). Один вызов вместо двух не заменяет другой: без перевалидации ошибки останутся от
    прошлого состояния. `check_1c_code` и `review_1c_code` (1c-naparnik) - не обязательны, а по
    необходимости: первый когда нужен разбор синтаксиса и логики фрагмента, второй когда нужно ревью стиля
-   против стандартов ИТС.
+   против стандартов ИТС. Для сравнения с сохраненным состоянием доступны `diagnostics operation=save_baseline`
+   перед правками, после `revalidate_objects` той же области, и `get_project_errors sinceBaseline=true`
+   после повторной перевалидации; `clear_baseline` удаляет
+   линию. Пустой список новых диагностик не означает, что в проекте нет прежних ошибок.
 6. **`validate_for_export` (ai-edt) перед записью конфигурации в ИБ и сборкой артефактов**:
    `update_database` (включая неявный - у `yaxunit_tests` при `updateBeforeLaunch`, который по умолчанию
    `true`), экспорт в XML через `config_io`, `export_object` / `export_extension`. Findings блокируют
@@ -158,7 +162,8 @@ ai-edt), а не по памяти и не по аналогии. Провере
 
 AI-EDT консолидирует инструменты в **фасады**; основные - `code_search`, `edit_metadata`, `diagnostics`,
 `launch_debugger`, `project_admin`, `infobase_admin`, `config_io`, `insights`, `security_audit`,
-`docs_lookup`, `workspace_marks`, `tag_admin` (запись меток метаданных: создать, переименовать,
+`docs_lookup`, `workspace_marks`, `cluster_admin` (иерархия кластеров навигатора и размещение
+объектов; пять изменяющих операций блокируются каждая отдельно), `tag_admin` (запись меток метаданных: создать, переименовать,
 перекрасить, удалить, назначить и снять; чтение остается в `workspace_marks`), `yaxunit_tests`, `extension_workshop`, `git` (репозиторий проекта внутри EDT:
 статус, ветки, история, коммит названных файлов, переход по веткам, изменения файла и его возврат из
 коммита, точка перед объединением с поставкой и ее удаление `delete_merge_restore_point`), а также мастерские `xdto_workshop`,
