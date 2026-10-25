@@ -41,6 +41,27 @@
 - `composing-1c-queries`: текст запроса оформляется многострочно, в том числе для `validate_query` и
   `execute_query`; условие на изменяемый во времени ресурс у `СрезПоследних` и `СрезПервых` ставится в
   `ГДЕ`, а не в параметры.
+- `1c-db-*`, `1c-epf-build`, `1c-epf-dump`, `1c-storage-ops`, `1c-db-cfe-admin`: ожидание выхода процесса
+  платформы, а не его потомков (`crashpad_handler` платформы 8.5); потоки платформы пишутся в файлы и
+  выводятся блоком "Вывод платформы"; в ps1 платформа получает только свои три дескриптора.
+- `1c-cfe-patch-method`: перехват методов модуля общей формы - `ModulePath CommonForm.Имя` и путь
+  `CommonForms/Имя/Ext/Form/Module.bsl`; предупреждение, если у формы в расширении нет `Ext/Form.xml`.
+- `1c-cfe-diff`: модуль общей формы `CommonForms/Имя/Ext/Form/Module.bsl` в обзоре расширения и в проверке
+  переноса `-Mode B`; перехваты событий и команд из `Ext/Form.xml` общей формы.
+- `1c-mxl-compile`: значения `parameter`, `detailParameter` ячейки и атрибут `faceName` шрифта пишутся с
+  экранированием XML; условие вида `Скидка <> 0` дает корректный макет.
+- `1c-skd-compile`: список значений параметра схемы пишется отдельным `<value>` на элемент, параметра
+  данных варианта - отдельным `<dcscor:value>` на элемент, в том числе в `dataParameters: "auto"`; краткая
+  запись принимает список через запятую, запятая внутри значения - в кавычках; `null` в списке дает
+  `xsi:nil`.
+- `1c-meta-compile`, `1c-meta-edit`, `1c-meta-validate`: `FillChecking` принимает `DontCheck` и
+  `ShowError`, `RegisterRecordsWritingOnPost` - `WriteModified` и `WriteSelected`;
+  `DependenceOnCalculationTypes` принимает `OnRegistrationPeriod`.
+- `1c-meta-compile`: `fillChecking` и `indexing` реквизита, `indexing` графы и реквизита адресации,
+  `parameterUseMode`, `representation`, `onMainServerUnavalableBehavior` команды, `taskNumberAutoPrefix`,
+  `httpMethod`, `direction` параметра операции и `use` состава общего реквизита проверяются по списку
+  допустимых значений; синоним и значение в другом регистре приводятся к каноническому, значение вне
+  списка дает ошибку.
 
 - `report-issue`, скрипт `issue-draft` (PowerShell и Python): находками считаются также секреты под ключом
   в кавычках (`"password":"..."`), токены с дефисами (`sk-proj-...`, `sk-ant-...`), `bearer` в любом
