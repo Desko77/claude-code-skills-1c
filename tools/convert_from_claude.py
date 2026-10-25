@@ -174,6 +174,42 @@ RULES_CONFIG = {
         "description": "Python-first подход к HTTP-интеграциям 1С (прототип Python, перенос на BSL)",
         "globs": [],
     },
+    "edt-known-errors": {
+        "description": "Известные ошибки EDT: запись метаданных, деплой, реструктуризация, хранилище",
+        "globs": ["**/*.mdo", "**/*.form", "**/*.dcs", "**/*.schedule", "**/DT-INF/**"],
+    },
+    "edt-thick-client-monopoly": {
+        "description": "Монопольная сессия EDT и пакетный Конфигуратор, сборка .cf/.cfe из ИБ",
+        "globs": ["**/*.mdo", "**/DT-INF/**", "**/*.cf", "**/*.cfe", "**/*.epf", "**/*.erf", "**/*.cmd", "**/*.bat", "**/*.ps1"],
+    },
+    "1c-skd-specifics": {
+        "description": "Особенности СКД: отборы во временных таблицах, схема .dcs, оформление, вывод",
+        "globs": ["**/*.dcs", "**/Reports/**/*.bsl", "**/ExternalReports/**"],
+    },
+    "1c-managed-forms-specifics": {
+        "description": "Особенности управляемых форм: доработка в расширении, динамический список, элементы",
+        "globs": ["**/*.form", "**/Forms/**"],
+    },
+    "1c-query-specifics": {
+        "description": "Особенности запросов: совместимость типов, соединения, регистр бухгалтерии",
+        "globs": ["**/*.bsl", "**/*.os", "**/*.dcs"],
+    },
+    "1c-extension-specifics": {
+        "description": "Особенности расширений: перехваты, заимствование, XML-выгрузка внешних обработок",
+        "globs": ["**/*.bsl", "**/*.mdo", "**/*.xml"],
+    },
+    "1c-bsl-runtime-specifics": {
+        "description": "Ошибки выполнения BSL, которые не видит статический анализ; ЗУП 3.x",
+        "globs": ["**/*.bsl", "**/*.os"],
+    },
+    "1c-exchange-specifics": {
+        "description": "Особенности обменов: EnterpriseData, НСИ по HTTP, CPMDataExchange",
+        "globs": ["**/XDTOPackages/**", "**/*.xdto", "**/ExchangePlans/**", "**/HTTPServices/**", "**/WebServices/**"],
+    },
+    "1c77-specifics": {
+        "description": "Особенности 1С 7.7: коллекции, правка модулей скриптом, обмен и миграция",
+        "globs": ["**/*.1s", "**/*.ert", "**/*.frm", "**/1Cv7.MD"],
+    },
     "1c-skd-two-pass-preprocessing": {
         "description": "Двухпроходный СКД: предобработка детальных записей до свертки",
         "globs": ["**/Reports/**/*.bsl", "**/*.dcs"],
