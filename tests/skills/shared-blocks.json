@@ -133,14 +133,24 @@
     "platform-output": {
       "описание": "Вывод платформы: чтение потоков по факту кодировки (866 или UTF-8) и показ пользователю",
       "ps1": {
-        "маркер": "# --- Вывод платформы (общий блок, версия 1) ---",
+        "маркер": "# --- Вывод платформы (общий блок, версия 2) ---",
         "конец": "# --- Конец общего блока вывода платформы ---",
         "вызов": "Show-PlatformOutput",
         "эталон": "1c-db-create",
         "потребители": [
           "1c-db-cfe-admin",
           "1c-db-create",
-          "1c-epf-build"
+          "1c-db-dump-cf",
+          "1c-db-dump-dt",
+          "1c-db-dump-xml",
+          "1c-db-load-cf",
+          "1c-db-load-dt",
+          "1c-db-load-git",
+          "1c-db-load-xml",
+          "1c-db-update",
+          "1c-epf-build",
+          "1c-epf-dump",
+          "1c-storage-ops"
         ]
       },
       "py": {
@@ -151,7 +161,59 @@
         "потребители": [
           "1c-db-cfe-admin",
           "1c-db-create",
-          "1c-epf-build"
+          "1c-db-dump-cf",
+          "1c-db-dump-dt",
+          "1c-db-dump-xml",
+          "1c-db-load-cf",
+          "1c-db-load-dt",
+          "1c-db-load-git",
+          "1c-db-load-xml",
+          "1c-db-update",
+          "1c-epf-build",
+          "1c-epf-dump"
+        ]
+      }
+    },
+    "platform-process": {
+      "описание": "Запуск платформы: ожидание выхода самого процесса, потоки в файлы, без наследования каналов скрипта",
+      "ps1": {
+        "маркер": "# --- Запуск платформы (общий блок, версия 1) ---",
+        "конец": "# --- Конец общего блока запуска платформы ---",
+        "вызов": "Invoke-PlatformProcess",
+        "эталон": "1c-db-update",
+        "потребители": [
+          "1c-db-cfe-admin",
+          "1c-db-create",
+          "1c-db-dump-cf",
+          "1c-db-dump-dt",
+          "1c-db-dump-xml",
+          "1c-db-load-cf",
+          "1c-db-load-dt",
+          "1c-db-load-git",
+          "1c-db-load-xml",
+          "1c-db-update",
+          "1c-epf-build",
+          "1c-epf-dump",
+          "1c-storage-ops"
+        ]
+      },
+      "py": {
+        "маркер": "# --- Запуск платформы (общий блок, версия 1) ---",
+        "конец": "# --- Конец общего блока запуска платформы ---",
+        "вызов": "run_platform_process",
+        "эталон": "1c-db-update",
+        "потребители": [
+          "1c-db-create",
+          "1c-db-dump-cf",
+          "1c-db-dump-dt",
+          "1c-db-dump-xml",
+          "1c-db-load-cf",
+          "1c-db-load-dt",
+          "1c-db-load-git",
+          "1c-db-load-xml",
+          "1c-db-update",
+          "1c-epf-build",
+          "1c-epf-dump"
         ]
       }
     },

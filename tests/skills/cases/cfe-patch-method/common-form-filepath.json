@@ -1,0 +1,96 @@
+{
+  "name": "ModulePath как путь к файлу модуля общей формы; форма с Form.xml в расширении - без предупреждения",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "CommonForm",
+        "name": "Подбор"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Подбор",
+        "elements": [
+          {
+            "check": "Режим",
+            "path": "Режим"
+          }
+        ],
+        "attributes": [
+          {
+            "name": "Режим",
+            "type": "boolean"
+          }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputPath": "{workDir}/CommonForms/Подбор/Ext/Form.xml"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "CommonForms/Подбор/Ext/Form/Module.bsl",
+        "content": "#Область ОбработчикиСобытийФормы\n\n&НаСервере\nПроцедура Заполнить()\n\tХ = 1;\nКонецПроцедуры\n\n#КонецОбласти\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Тест",
+        "-OutputDir": "{workDir}/cfe",
+        "-ConfigPath": "{workDir}"
+      }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/cfe",
+        "-ConfigPath": "{workDir}",
+        "-Object": "CommonForm.Подбор"
+      }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Подбор",
+        "elements": [
+          {
+            "check": "Режим",
+            "path": "Режим"
+          }
+        ],
+        "attributes": [
+          {
+            "name": "Режим",
+            "type": "boolean"
+          }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputPath": "{workDir}/cfe/CommonForms/Подбор/Ext/Form.xml"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "cfe",
+    "modulePath": "CommonForms/Подбор/Ext/Form/Module.bsl",
+    "methodName": "Заполнить",
+    "interceptorType": "Before"
+  },
+  "expect": {
+    "stdoutContains": "Контекст:   &НаСервере",
+    "stdoutNotContains": "[WARN]",
+    "fileContains": {
+      "file": "cfe/CommonForms/Подбор/Ext/Form/Module.bsl",
+      "text": "&Перед(\"Заполнить\")"
+    }
+  }
+}

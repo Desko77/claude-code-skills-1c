@@ -139,6 +139,217 @@ function Write-PlatformVerdict {
     return $finalCode
 }
 # --- Конец общего блока вердикта платформы ---
+# --- Вывод платформы (общий блок, версия 2) ---
+# Платформа пишет диагностику в кодировке консоли (866 на русской Windows), утилита
+# администрирования и часть сборок - в UTF-8. Байты читаются один раз и декодируются по
+# факту: перепутанная кодировка превращает сообщение об ошибке в нечитаемое.
+function Read-PlatformText {
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path $Path)) { return "" }
+    # Файл открывается с разделением записи: процесс, оставленный платформой, может держать
+    # его открытым на запись, и ReadAllBytes получил бы отказ в доступе.
+    try {
+        $fs = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete)
+        try {
+            $ms = New-Object System.IO.MemoryStream
+            $fs.CopyTo($ms)
+            $bytes = $ms.ToArray()
+        } finally {
+            $fs.Dispose()
+        }
+    } catch {
+        return ""
+    }
+    if ($bytes.Length -eq 0) { return "" }
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        return [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+    }
+    try {
+        # Строгий декодер бросает исключение на байтах, недопустимых в UTF-8, - это и есть
+        # признак однобайтовой кодировки. Нестрогий подставил бы символ замены молча.
+        $strict = New-Object System.Text.UTF8Encoding($false, $true)
+        return $strict.GetString($bytes)
+    } catch {
+        return [System.Text.Encoding]::GetEncoding(866).GetString($bytes)
+    }
+}
+
+# Вывод показывается и при успешном завершении: платформа сообщает предупреждения, не меняя
+# код возврата, и потерянное предупреждение обходится дороже лишних строк в протоколе.
+function Show-PlatformOutput {
+    param([string[]]$Path)
+    $chunks = @()
+    foreach ($p in $Path) {
+        $text = (Read-PlatformText $p).Trim()
+        if ($text) { $chunks += $text }
+    }
+    if ($chunks.Count -eq 0) { return }
+    Write-Host "--- Вывод платформы ---"
+    foreach ($chunk in $chunks) { Write-Host $chunk }
+}
+# --- Конец общего блока вывода платформы ---
+# --- Запуск платформы (общий блок, версия 1) ---
+# Платформа 8.5 оставляет после выхода процесс crashpad_handler, который наследует дескрипторы
+# запустившего. Start-Process -Wait ждет все дерево потомков, а унаследованный канал вывода
+# держит открытым канал вызывающей стороны: скрипт и тот, кто читает его вывод, ждут
+# завершения crashpad_handler. Здесь платформа получает ровно три дескриптора - NUL на входе
+# и два файла на выходе - и ожидание идет до выхода самого процесса платформы.
+
+# Запускает программу платформы и ждет выхода ее процесса, не потомков.
+# Не читает каналы: потоки вывода пишутся в файлы StdoutFile и StderrFile, показ вывода -
+# Show-PlatformOutput. ArgumentList склеивается через пробел, как у Start-Process:
+# кавычки внутри значений расставляет вызывающий.
+# Параметры:
+#   FilePath     - путь к 1cv8.exe, ibcmd.exe или иной программе
+#   ArgumentList - аргументы командной строки
+#   StdoutFile   - файл для стандартного вывода (перезаписывается)
+#   StderrFile   - файл для потока ошибок (перезаписывается)
+# Возвращает: код возврата процесса.
+function Invoke-PlatformProcess {
+    param(
+        [string]$FilePath,
+        [string[]]$ArgumentList,
+        [string]$StdoutFile,
+        [string]$StderrFile
+    )
+    $argLine = ($ArgumentList | Where-Object { $null -ne $_ -and $_ -ne "" }) -join ' '
+    $onWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+    if ($onWindows -and -not ('PlatformProcessV1' -as [type])) {
+        try {
+            Add-Type -ErrorAction Stop -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class PlatformProcessV1 {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct STARTUPINFO {
+        public int cb; public string lpReserved; public string lpDesktop; public string lpTitle;
+        public int dwX, dwY, dwXSize, dwYSize, dwXCountChars, dwYCountChars, dwFillAttribute, dwFlags;
+        public short wShowWindow, cbReserved2;
+        public IntPtr lpReserved2, hStdInput, hStdOutput, hStdError;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    struct STARTUPINFOEX { public STARTUPINFO StartupInfo; public IntPtr lpAttributeList; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct PROCESS_INFORMATION { public IntPtr hProcess, hThread; public int dwProcessId, dwThreadId; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct SECURITY_ATTRIBUTES { public int nLength; public IntPtr lpSecurityDescriptor; public bool bInheritHandle; }
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern IntPtr CreateFile(string name, uint access, uint share, ref SECURITY_ATTRIBUTES sa, uint disposition, uint flags, IntPtr template);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool InitializeProcThreadAttributeList(IntPtr list, int count, int flags, ref IntPtr size);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool UpdateProcThreadAttribute(IntPtr list, int flags, IntPtr attr, IntPtr value, IntPtr size, IntPtr prev, IntPtr retSize);
+    [DllImport("kernel32.dll")]
+    static extern void DeleteProcThreadAttributeList(IntPtr list);
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern bool CreateProcess(string app, StringBuilder cmd, IntPtr pa, IntPtr ta, bool inherit, int flags, IntPtr env, string cwd, ref STARTUPINFOEX si, out PROCESS_INFORMATION pi);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern int WaitForSingleObject(IntPtr h, int ms);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetExitCodeProcess(IntPtr h, out int code);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool CloseHandle(IntPtr h);
+
+    const uint GENERIC_READ = 0x80000000, GENERIC_WRITE = 0x40000000;
+    const uint FILE_SHARE_READ = 1, FILE_SHARE_WRITE = 2, FILE_SHARE_DELETE = 4;
+    const uint OPEN_EXISTING = 3, CREATE_ALWAYS = 2, FILE_ATTRIBUTE_NORMAL = 0x80;
+    const int STARTF_USESTDHANDLES = 0x100;
+    const int EXTENDED_STARTUPINFO_PRESENT = 0x80000;
+    const int CREATE_NO_WINDOW = 0x8000000;
+    static readonly IntPtr INVALID_HANDLE = new IntPtr(-1);
+    static readonly IntPtr PROC_THREAD_ATTRIBUTE_HANDLE_LIST = (IntPtr)0x20002;
+
+    static IntPtr Open(string path, bool write, ref SECURITY_ATTRIBUTES sa) {
+        var h = CreateFile(path, write ? GENERIC_WRITE : GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, ref sa,
+            write ? CREATE_ALWAYS : OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, IntPtr.Zero);
+        if (h == INVALID_HANDLE) {
+            var e = new Win32Exception();
+            throw new Win32Exception(e.NativeErrorCode, e.Message + ": " + path);
+        }
+        return h;
+    }
+
+    public static int Run(string exe, string arguments, string workDir, string stdoutPath, string stderrPath) {
+        var sa = new SECURITY_ATTRIBUTES();
+        sa.nLength = Marshal.SizeOf(sa);
+        sa.bInheritHandle = true;
+        IntPtr hIn = IntPtr.Zero, hOut = IntPtr.Zero, hErr = IntPtr.Zero;
+        IntPtr attrs = IntPtr.Zero, handles = IntPtr.Zero;
+        bool attrsReady = false;
+        var pi = new PROCESS_INFORMATION();
+        try {
+            hIn = Open("NUL", false, ref sa);
+            hOut = Open(stdoutPath, true, ref sa);
+            hErr = Open(stderrPath, true, ref sa);
+
+            var size = IntPtr.Zero;
+            InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref size);
+            attrs = Marshal.AllocHGlobal(size);
+            if (!InitializeProcThreadAttributeList(attrs, 1, 0, ref size)) throw new Win32Exception();
+            attrsReady = true;
+            handles = Marshal.AllocHGlobal(3 * IntPtr.Size);
+            Marshal.WriteIntPtr(handles, 0, hIn);
+            Marshal.WriteIntPtr(handles, IntPtr.Size, hOut);
+            Marshal.WriteIntPtr(handles, 2 * IntPtr.Size, hErr);
+            if (!UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, handles,
+                (IntPtr)(3 * IntPtr.Size), IntPtr.Zero, IntPtr.Zero)) throw new Win32Exception();
+
+            var si = new STARTUPINFOEX();
+            si.StartupInfo.cb = Marshal.SizeOf(si);
+            si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+            si.StartupInfo.hStdInput = hIn;
+            si.StartupInfo.hStdOutput = hOut;
+            si.StartupInfo.hStdError = hErr;
+            si.lpAttributeList = attrs;
+            var cmd = new StringBuilder("\"" + exe + "\"" + (string.IsNullOrEmpty(arguments) ? "" : " " + arguments));
+            if (!CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, true,
+                EXTENDED_STARTUPINFO_PRESENT | CREATE_NO_WINDOW, IntPtr.Zero, workDir, ref si, out pi)) {
+                var e = new Win32Exception();
+                throw new Win32Exception(e.NativeErrorCode, e.Message.Replace("%1", exe) + ": " + exe);
+            }
+        } finally {
+            foreach (var h in new[] { hIn, hOut, hErr }) if (h != IntPtr.Zero) CloseHandle(h);
+            if (attrsReady) DeleteProcThreadAttributeList(attrs);
+            if (attrs != IntPtr.Zero) Marshal.FreeHGlobal(attrs);
+            if (handles != IntPtr.Zero) Marshal.FreeHGlobal(handles);
+        }
+        CloseHandle(pi.hThread);
+        try {
+            WaitForSingleObject(pi.hProcess, -1);
+            int code;
+            if (!GetExitCodeProcess(pi.hProcess, out code)) throw new Win32Exception();
+            return code;
+        } finally {
+            CloseHandle(pi.hProcess);
+        }
+    }
+}
+'@
+        } catch { }
+    }
+    if ($onWindows -and ('PlatformProcessV1' -as [type])) {
+        # Рабочий каталог - текущее расположение PowerShell, как у Start-Process: оно может
+        # отличаться от каталога процесса после Set-Location.
+        $workDir = (Get-Location -PSProvider FileSystem).ProviderPath
+        return [PlatformProcessV1]::Run($FilePath, $argLine, $workDir, $StdoutFile, $StderrFile)
+    }
+    # Без компилятора C# и вне Windows: процесс получает все наследуемые дескрипторы, но
+    # ожидание идет до выхода самого процесса, а не всего дерева потомков.
+    $startArgs = @{ FilePath = $FilePath; NoNewWindow = $true; PassThru = $true
+        RedirectStandardOutput = $StdoutFile; RedirectStandardError = $StderrFile }
+    if ($argLine) { $startArgs.ArgumentList = $argLine }
+    $proc = Start-Process @startArgs
+    $null = $proc.Handle
+    $proc.WaitForExit()
+    return $proc.ExitCode
+}
+# --- Конец общего блока запуска платформы ---
 # --- 1. Scan XML files for reference types ---
 
 $typeMap = @{}  # MetadataType -> @(Name1, Name2, ...)
@@ -1385,10 +1596,12 @@ Write-Host "Creating infobase: $TempBasePath"
 $createLog = "$TempBasePath.create.log"
 $createResult = "$TempBasePath.create.result"
 $createArgs = "CREATEINFOBASE File=`"$TempBasePath`" /Out `"$createLog`" /DumpResult `"$createResult`" /DisableStartupDialogs$extraSuffix"
-$proc = Start-Process -FilePath $V8Path -ArgumentList $createArgs -NoNewWindow -Wait -PassThru
+$createExit = Invoke-PlatformProcess -FilePath $V8Path -ArgumentList $createArgs `
+	-StdoutFile "$TempBasePath.create.stdout" -StderrFile "$TempBasePath.create.stderr"
+Show-PlatformOutput @("$TempBasePath.create.stdout", "$TempBasePath.create.stderr")
 $createLogText = $null
 if (Test-Path $createLog) { $createLogText = Get-Content $createLog -Raw -ErrorAction SilentlyContinue }
-$createCode = Write-PlatformVerdict -ExitCode $proc.ExitCode -ResultFile $createResult -LogText $createLogText `
+$createCode = Write-PlatformVerdict -ExitCode $createExit -ResultFile $createResult -LogText $createLogText `
 	-ArtifactPath (Join-Path $TempBasePath "1Cv8.1CD") `
 	-SuccessMessage "Infobase created" `
 	-FailureMessage "Failed to create infobase"
@@ -1404,10 +1617,12 @@ if ($hasRefTypes) {
 	$loadLog = "$TempBasePath.load.log"
 	$loadResult = "$TempBasePath.load.result"
 	$loadArgs = "DESIGNER /F`"$TempBasePath`" /LoadConfigFromFiles `"$cfgDir`" /Out `"$loadLog`" /DumpResult `"$loadResult`" /DisableStartupDialogs$extraSuffix"
-	$proc = Start-Process -FilePath $V8Path -ArgumentList $loadArgs -NoNewWindow -Wait -PassThru
+	$loadExit = Invoke-PlatformProcess -FilePath $V8Path -ArgumentList $loadArgs `
+		-StdoutFile "$TempBasePath.load.stdout" -StderrFile "$TempBasePath.load.stderr"
+	Show-PlatformOutput @("$TempBasePath.load.stdout", "$TempBasePath.load.stderr")
 	$loadLogText = $null
 	if (Test-Path $loadLog) { $loadLogText = Get-Content $loadLog -Raw -ErrorAction SilentlyContinue }
-	$loadCode = Write-PlatformVerdict -ExitCode $proc.ExitCode -ResultFile $loadResult -LogText $loadLogText `
+	$loadCode = Write-PlatformVerdict -ExitCode $loadExit -ResultFile $loadResult -LogText $loadLogText `
 		-SuccessMessage "Configuration loaded" `
 		-FailureMessage "Failed to load config"
 	if ($loadCode -ne 0) {
@@ -1419,10 +1634,12 @@ if ($hasRefTypes) {
 	$updateLog = "$TempBasePath.update.log"
 	$updateResult = "$TempBasePath.update.result"
 	$updateArgs = "DESIGNER /F`"$TempBasePath`" /UpdateDBCfg /Out `"$updateLog`" /DumpResult `"$updateResult`" /DisableStartupDialogs$extraSuffix"
-	$proc = Start-Process -FilePath $V8Path -ArgumentList $updateArgs -NoNewWindow -Wait -PassThru
+	$updateExit = Invoke-PlatformProcess -FilePath $V8Path -ArgumentList $updateArgs `
+		-StdoutFile "$TempBasePath.update.stdout" -StderrFile "$TempBasePath.update.stderr"
+	Show-PlatformOutput @("$TempBasePath.update.stdout", "$TempBasePath.update.stderr")
 	$updateLogText = $null
 	if (Test-Path $updateLog) { $updateLogText = Get-Content $updateLog -Raw -ErrorAction SilentlyContinue }
-	$updateCode = Write-PlatformVerdict -ExitCode $proc.ExitCode -ResultFile $updateResult -LogText $updateLogText `
+	$updateCode = Write-PlatformVerdict -ExitCode $updateExit -ResultFile $updateResult -LogText $updateLogText `
 		-SuccessMessage "Database configuration updated" `
 		-FailureMessage "Failed to update DB config"
 	if ($updateCode -ne 0) {

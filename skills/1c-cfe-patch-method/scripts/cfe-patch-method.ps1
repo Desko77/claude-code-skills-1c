@@ -1,4 +1,4 @@
-﻿# cfe-patch-method v1.2 - Generate and resync method interceptors for 1C extension (CFE)
+﻿# cfe-patch-method v1.3 - Generate and resync method interceptors for 1C extension (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -45,6 +45,7 @@ $typeDirMap = @{
 	"BusinessProcess"="BusinessProcesses"; "Task"="Tasks"
 	"InformationRegister"="InformationRegisters"; "AccumulationRegister"="AccumulationRegisters"
 	"AccountingRegister"="AccountingRegisters"; "CalculationRegister"="CalculationRegisters"
+	"CommonForm"="CommonForms"; "CommonForms"="CommonForms"
 	"Catalogs"="Catalogs"; "Documents"="Documents"; "Enums"="Enums"
 	"CommonModules"="CommonModules"; "Reports"="Reports"; "DataProcessors"="DataProcessors"
 	"ExchangePlans"="ExchangePlans"; "ChartsOfAccounts"="ChartsOfAccounts"
@@ -64,6 +65,7 @@ $dirTypeMap = @{
 	"BusinessProcesses"="BusinessProcess"; "Tasks"="Task"
 	"InformationRegisters"="InformationRegister"; "AccumulationRegisters"="AccumulationRegister"
 	"AccountingRegisters"="AccountingRegister"; "CalculationRegisters"="CalculationRegister"
+	"CommonForms"="CommonForm"
 }
 
 $enc = New-Object System.Text.UTF8Encoding($true)
@@ -646,11 +648,11 @@ if ($ModulePath -match "[\\/]" -or $ModulePath -match "\.bsl$") {
 	}
 	$objType = $dirTypeMap[$segs[0]]
 	$objName = $segs[1]
-	$isFormModule = ($norm -match "/Forms/")
+	$isFormModule = ($norm -match "/Forms/") -or ($segs[0] -eq "CommonForms")
 } else {
 	$parts = $ModulePath.Split(".")
 	if ($parts.Count -lt 2) {
-		Write-Error "Invalid ModulePath format: $ModulePath. Expected: Type.Name.Module or CommonModule.Name"
+		Write-Error "Invalid ModulePath format: $ModulePath. Expected: Type.Name.Module, CommonModule.Name or CommonForm.Name"
 		exit 1
 	}
 	$objType = $parts[0]
@@ -663,6 +665,10 @@ if ($ModulePath -match "[\\/]" -or $ModulePath -match "\.bsl$") {
 
 	if ($objType -eq "CommonModule" -or $objType -eq "CommonModules") {
 		$relPath = "$dirName/$objName/Ext/Module.bsl"
+	} elseif ($dirName -eq "CommonForms") {
+		# Общая форма - сама форма: модуль лежит у нее, без Forms/<Имя>
+		$isFormModule = $true
+		$relPath = "$dirName/$objName/Ext/Form/Module.bsl"
 	} elseif ($parts.Count -ge 4 -and $parts[2] -eq "Form") {
 		$isFormModule = $true
 		$relPath = "$dirName/$objName/Forms/$($parts[3])/Ext/Form/Module.bsl"
@@ -676,7 +682,7 @@ if ($ModulePath -match "[\\/]" -or $ModulePath -match "\.bsl$") {
 		}
 		$relPath = "$dirName/$objName/Ext/$moduleFileName"
 	} else {
-		Write-Error "Invalid ModulePath format: $ModulePath. Expected: Type.Name.Module, Type.Name.Form.FormName, or CommonModule.Name"
+		Write-Error "Invalid ModulePath format: $ModulePath. Expected: Type.Name.Module, Type.Name.Form.FormName, CommonModule.Name or CommonForm.Name"
 		exit 1
 	}
 }
@@ -828,7 +834,17 @@ $regionName = if ($isFormModule) {
 }
 
 # --- Предупреждение о незаимствованной форме ---
-if ($isFormModule) {
+if ($isFormModule -and $objType -eq "CommonForm") {
+	$cfRoot = Join-Path $ExtensionPath "CommonForms"
+	$formMetaFile = Join-Path $cfRoot "${objName}.xml"
+	$formXmlFile = Join-Path (Join-Path $cfRoot $objName) "Ext/Form.xml"
+	if (-not (Test-Path $formMetaFile) -or -not (Test-Path $formXmlFile)) {
+		Write-Host "[WARN] Common form '$objName' metadata or Form.xml not found in extension."
+		Write-Host "       The interceptor binds only to a borrowed form with its content:"
+		Write-Host "       CommonForms/$objName.xml and CommonForms/$objName/Ext/Form.xml with <BaseForm>."
+		Write-Host ""
+	}
+} elseif ($isFormModule) {
 	$formSegs = @(($relPath -replace "\\", "/") -split "/")
 	$formIdx = [array]::IndexOf($formSegs, "Forms")
 	if ($formIdx -ge 0 -and $formSegs.Count -gt $formIdx + 1) {
