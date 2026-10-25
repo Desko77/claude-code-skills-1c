@@ -552,6 +552,49 @@ def parse_total_shorthand(s):
 
 # --- Parameter shorthand parser ---
 
+def split_value_list_csv(s):
+    """Список значений краткой записи: элементы через запятую верхнего уровня.
+
+    Делает: значение, открытое кавычкой (одинарной или двойной) в начале элемента, читается до
+    парной кавычки вместе с запятыми, кавычки снимаются; пустые элементы отбрасываются.
+    Не делает: двоеточие не разделитель - оно стоит внутри даты.
+
+    Параметры:
+        s - str|None - правая часть краткой записи.
+    Возвращает:
+        list[str] - элементы списка; один элемент означает одиночное значение.
+    """
+    result = []
+    if s is None:
+        return result
+    items = []
+    buf = []
+    in_quote = None
+    for ch in s:
+        if in_quote:
+            buf.append(ch)
+            if ch == in_quote:
+                in_quote = None
+        elif ch in ("'", '"') and ''.join(buf).strip() == '':
+            # Апостроф внутри слова (O'Brien) значение не открывает
+            in_quote = ch
+            buf.append(ch)
+        elif ch == ',':
+            items.append(''.join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    if buf:
+        items.append(''.join(buf))
+    for raw in items:
+        t = raw.strip()
+        if len(t) >= 2 and ((t[0] == "'" and t[-1] == "'") or (t[0] == '"' and t[-1] == '"')):
+            t = t[1:-1]
+        if t != '':
+            result.append(t)
+    return result
+
+
 def parse_param_shorthand(s):
     result = {'name': '', 'type': '', 'value': None, 'autoDates': False, 'title': None}
 
@@ -582,7 +625,17 @@ def parse_param_shorthand(s):
         result['name'] = m.group(1).strip()
         result['type'] = resolve_type_str(m.group(2).strip())
         if m.group(4):
-            result['value'] = m.group(4).strip()
+            rhs = m.group(4).strip()
+            # Стандартный период - одно значение-вариант, список к нему не применяется
+            items = split_value_list_csv(rhs) if result['type'] != 'StandardPeriod' else [rhs]
+            if len(items) >= 2:
+                # Несколько значений по умолчанию - список, он разрешает список значений
+                result['value'] = items
+                result['valueListAllowed'] = True
+            elif len(items) == 1:
+                result['value'] = items[0]
+            else:
+                result['value'] = rhs
     else:
         result['name'] = s.strip()
 
@@ -671,8 +724,15 @@ def parse_data_param_shorthand(s):
     if m:
         result['parameter'] = m.group(1).strip()
         val_str = m.group(2).strip()
+        # Список значений через запятую - как у параметра схемы
+        items = split_value_list_csv(val_str)
+        if len(items) == 1:
+            val_str = items[0]
 
-        if val_str in PERIOD_VARIANTS:
+        if len(items) >= 2:
+            # true/false в списке - булево, как одиночное значение
+            result['value'] = [(x.lower() == 'true') if x.lower() in ('true', 'false') else x for x in items]
+        elif val_str in PERIOD_VARIANTS:
             result['value'] = {'variant': val_str}
         elif re.match(r'^\d{4}-\d{2}-\d{2}T', val_str):
             result['value'] = val_str
@@ -1229,7 +1289,20 @@ def emit_single_param(lines, p, parsed):
         lines.append('\t\t</valueType>')
 
     # Value
-    if is_empty_param_value(parsed.get('value')):
+    p_value = parsed.get('value')
+    if isinstance(p_value, (list, tuple)) and len(p_value) > 0:
+        # Список значений по умолчанию - каждый элемент отдельным <value>
+        for v in p_value:
+            # Маркер пустоты (null, _) в списке - пустой элемент, как у одиночного значения
+            if is_empty_param_value(v):
+                lines.append('\t\t<value xsi:nil="true"/>')
+            else:
+                # xs:boolean принимает только true/false строчными
+                if isinstance(v, bool):
+                    v = 'true' if v else 'false'
+                emit_param_value(lines, parsed.get('type', ''), v, '\t\t',
+                                 bool(parsed.get('autoDates')))
+    elif is_empty_param_value(p_value) or isinstance(p_value, (list, tuple)):
         if not parsed.get('valueListAllowed'):
             emit_empty_param_value(lines, parsed.get('type', ''), '\t\t')
     else:
@@ -2077,19 +2150,12 @@ def emit_data_parameters(lines, items, indent):
                     lines.append(f'{indent}\t\t\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>')
                     lines.append(f'{indent}\t\t\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>')
                 lines.append(f'{indent}\t\t</dcscor:value>')
-            elif vtype == 'boolean' or isinstance(val, bool):
-                bv = str(val).lower()
-                lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:boolean">{esc_xml(bv)}</dcscor:value>')
-            elif re.match(r'^date', vtype) or re.match(r'^\d{4}-\d{2}-\d{2}T', str(val)):
-                lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:dateTime">{esc_xml(str(val))}</dcscor:value>')
-            elif re.match(r'^decimal', vtype):
-                lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:decimal">{esc_xml(str(val))}</dcscor:value>')
-            elif re.match(r'^string', vtype):
-                lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:string">{esc_xml(str(val))}</dcscor:value>')
-            elif re.match(r'^(\u041f\u043b\u0430\u043d\u0421\u0447\u0435\u0442\u043e\u0432|\u0421\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u0438\u043a|\u041f\u0435\u0440\u0435\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u0435|\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442|\u041f\u043b\u0430\u043d\u0412\u0438\u0434\u043e\u0432\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a|\u041f\u043b\u0430\u043d\u0412\u0438\u0434\u043e\u0432\u0420\u0430\u0441\u0447\u0435\u0442\u0430|\u0411\u0438\u0437\u043d\u0435\u0441\u041f\u0440\u043e\u0446\u0435\u0441\u0441|\u0417\u0430\u0434\u0430\u0447\u0430|\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0421\u0432\u0435\u0434\u0435\u043d\u0438\u0439|\u041f\u043b\u0430\u043d\u041e\u0431\u043c\u0435\u043d\u0430)\.', str(val)) or re.match(r'^(ChartOfAccounts|Catalog|Enum|Document|ChartOfCharacteristicTypes|ChartOfCalculationTypes|BusinessProcess|Task|InformationRegister|ExchangePlan)\.', str(val)):
-                lines.append(f'{indent}\t\t<dcscor:value xsi:type="dcscor:DesignTimeValue">{esc_xml(str(val))}</dcscor:value>')
             else:
-                lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:string">{esc_xml(str(val))}</dcscor:value>')
+                # Список значений - каждый элемент отдельным <dcscor:value>, как пишет платформа.
+                # Заданный примитивный тип главнее формы значения.
+                v_prim = bool(re.match(r'^(boolean|date|decimal|string)', vtype, re.I))
+                for dpv in (val if isinstance(val, (list, tuple)) else [val]):
+                    emit_data_param_value(lines, indent, vtype, v_prim, dpv)
 
         if dp.get('viewMode'):
             lines.append(f'{indent}\t\t<dcsset:viewMode>{esc_xml(str(dp["viewMode"]))}</dcsset:viewMode>')
@@ -2108,6 +2174,45 @@ def emit_data_parameters(lines, items, indent):
 
         lines.append(f'{indent}\t</dcscor:item>')
     lines.append(f'{indent}</dcsset:dataParameters>')
+
+
+def emit_data_param_value(lines, indent, vtype, v_prim, dpv):
+    """Один элемент <dcscor:value> параметра данных варианта.
+
+    Делает: выбирает xsi:type по заданному типу, а без него - по виду значения; null дает xsi:nil.
+    Не делает: стандартный период - его пишет вызывающий.
+
+    Параметры:
+        lines - list[str] - накопитель строк вывода.
+        indent - str - отступ элемента dcscor:item.
+        vtype - str - тип значения из valueType либо пустая строка.
+        v_prim - bool - vtype задает примитивный тип.
+        dpv - значение элемента.
+    """
+    if dpv is None:
+        lines.append(f'{indent}\t\t<dcscor:value xsi:nil="true"/>')
+    elif isinstance(dpv, dict) and dpv.get('variant'):
+        # Стандартный период элементом списка
+        lines.append(f'{indent}\t\t<dcscor:value xsi:type="v8:StandardPeriod">')
+        lines.append(f'{indent}\t\t\t<v8:variant xsi:type="v8:StandardPeriodVariant">{esc_xml(str(dpv["variant"]))}</v8:variant>')
+        lines.append(f'{indent}\t\t\t<v8:startDate>0001-01-01T00:00:00</v8:startDate>')
+        lines.append(f'{indent}\t\t\t<v8:endDate>0001-01-01T00:00:00</v8:endDate>')
+        lines.append(f'{indent}\t\t</dcscor:value>')
+    elif vtype.lower() == 'boolean' or (not v_prim and isinstance(dpv, bool)):
+        bv = str(dpv).lower()
+        lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:boolean">{esc_xml(bv)}</dcscor:value>')
+    elif re.match(r'^date', vtype, re.I) or (not v_prim and re.match(r'^\d{4}-\d{2}-\d{2}T', str(dpv))):
+        lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:dateTime">{esc_xml(str(dpv))}</dcscor:value>')
+    elif re.match(r'^decimal', vtype, re.I):
+        lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:decimal">{esc_xml(str(dpv))}</dcscor:value>')
+    elif re.match(r'^string', vtype, re.I):
+        # Булево у строкового параметра - текстом, строчными
+        sv = str(dpv).lower() if isinstance(dpv, bool) else str(dpv)
+        lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:string">{esc_xml(sv)}</dcscor:value>')
+    elif re.match(r'^(\u041f\u043b\u0430\u043d\u0421\u0447\u0435\u0442\u043e\u0432|\u0421\u043f\u0440\u0430\u0432\u043e\u0447\u043d\u0438\u043a|\u041f\u0435\u0440\u0435\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u0435|\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442|\u041f\u043b\u0430\u043d\u0412\u0438\u0434\u043e\u0432\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a|\u041f\u043b\u0430\u043d\u0412\u0438\u0434\u043e\u0432\u0420\u0430\u0441\u0447\u0435\u0442\u0430|\u0411\u0438\u0437\u043d\u0435\u0441\u041f\u0440\u043e\u0446\u0435\u0441\u0441|\u0417\u0430\u0434\u0430\u0447\u0430|\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0421\u0432\u0435\u0434\u0435\u043d\u0438\u0439|\u041f\u043b\u0430\u043d\u041e\u0431\u043c\u0435\u043d\u0430)\.', str(dpv)) or re.match(r'^(ChartOfAccounts|Catalog|Enum|Document|ChartOfCharacteristicTypes|ChartOfCalculationTypes|BusinessProcess|Task|InformationRegister|ExchangePlan)\.', str(dpv)):
+        lines.append(f'{indent}\t\t<dcscor:value xsi:type="dcscor:DesignTimeValue">{esc_xml(str(dpv))}</dcscor:value>')
+    else:
+        lines.append(f'{indent}\t\t<dcscor:value xsi:type="xs:string">{esc_xml(str(dpv))}</dcscor:value>')
 
 
 # === Structure items (recursive) ===
@@ -2371,8 +2476,14 @@ def emit_settings_variants(lines, defn):
                         item['autoDates'] = True
                     if variant != 'Custom':
                         has_meaningful_value = True
-                elif ap.get('value') is not None and str(ap.get('value')) != '':
-                    item['value'] = ap['value']
+                elif ap.get('value') is not None and (
+                        len(ap['value']) > 0 if isinstance(ap['value'], (list, tuple))
+                        else str(ap['value']) != ''):
+                    av = ap['value']
+                    if isinstance(av, (list, tuple)):
+                        # Маркер пустоты элементом списка - пустой элемент, как в схеме
+                        av = [None if is_empty_param_value(x) else x for x in av]
+                    item['value'] = av
                     item['valueType'] = ps_str(ap.get('type') or '')
                     has_meaningful_value = True
                 else:

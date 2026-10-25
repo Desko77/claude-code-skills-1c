@@ -506,6 +506,47 @@ function Parse-TotalShorthand {
 
 # --- 7. Parameter shorthand parser ---
 
+# Список значений краткой записи: элементы через запятую верхнего уровня.
+# Делает: значение, открытое кавычкой (одинарной или двойной) в начале элемента, читается до
+# парной кавычки вместе с запятыми, кавычки снимаются; пустые элементы отбрасываются.
+# Не делает: двоеточие не разделитель - оно стоит внутри даты.
+# Параметры:
+#   s - string - правая часть краткой записи.
+# Возвращает:
+#   string[] - элементы списка; один элемент означает одиночное значение.
+function Split-ValueListCsv {
+	param([string]$s)
+	$result = New-Object System.Collections.Generic.List[string]
+	if ($null -eq $s) { return ,$result.ToArray() }
+	$items = New-Object System.Collections.Generic.List[string]
+	$buf = New-Object System.Text.StringBuilder
+	$inQuote = $null
+	foreach ($ch in $s.ToCharArray()) {
+		if ($null -ne $inQuote) {
+			[void]$buf.Append($ch)
+			if ($ch -eq $inQuote) { $inQuote = $null }
+		} elseif (($ch -eq [char]"'" -or $ch -eq [char]'"') -and $buf.ToString().Trim() -eq '') {
+			# Апостроф внутри слова (O'Brien) значение не открывает
+			$inQuote = $ch
+			[void]$buf.Append($ch)
+		} elseif ($ch -eq [char]',') {
+			$items.Add($buf.ToString())
+			[void]$buf.Clear()
+		} else {
+			[void]$buf.Append($ch)
+		}
+	}
+	if ($buf.Length -gt 0) { $items.Add($buf.ToString()) }
+	foreach ($raw in $items) {
+		$t = $raw.Trim()
+		if ($t.Length -ge 2 -and (($t[0] -eq [char]"'" -and $t[$t.Length - 1] -eq [char]"'") -or ($t[0] -eq [char]'"' -and $t[$t.Length - 1] -eq [char]'"'))) {
+			$t = $t.Substring(1, $t.Length - 2)
+		}
+		if ($t -ne '') { $result.Add($t) }
+	}
+	return ,$result.ToArray()
+}
+
 function Parse-ParamShorthand {
 	param([string]$s)
 
@@ -540,7 +581,18 @@ function Parse-ParamShorthand {
 		$result.name = $Matches[1].Trim()
 		$result.type = Resolve-TypeStr ($Matches[2].Trim())
 		if ($Matches[4]) {
-			$result.value = $Matches[4].Trim()
+			$rhs = $Matches[4].Trim()
+			# Стандартный период - одно значение-вариант, список к нему не применяется
+			$listItems = if ($result.type -ne 'StandardPeriod') { Split-ValueListCsv $rhs } else { ,@($rhs) }
+			if ($listItems.Count -ge 2) {
+				# Несколько значений по умолчанию - список, он разрешает список значений
+				$result.value = $listItems
+				$result.valueListAllowed = $true
+			} elseif ($listItems.Count -eq 1) {
+				$result.value = $listItems[0]
+			} else {
+				$result.value = $rhs
+			}
 		}
 	} else {
 		$result.name = $s.Trim()
@@ -632,10 +684,16 @@ function Parse-DataParamShorthand {
 	if ($s -match '^([^=]+)=\s*(.+)$') {
 		$result.parameter = $Matches[1].Trim()
 		$valStr = $Matches[2].Trim()
+		# Список значений через запятую - как у параметра схемы
+		$listItems = Split-ValueListCsv $valStr
+		if ($listItems.Count -eq 1) { $valStr = $listItems[0] }
 
 		# Detect StandardPeriod variants
 		$periodVariants = @("Custom","Today","ThisWeek","ThisTenDays","ThisMonth","ThisQuarter","ThisHalfYear","ThisYear","FromBeginningOfThisWeek","FromBeginningOfThisTenDays","FromBeginningOfThisMonth","FromBeginningOfThisQuarter","FromBeginningOfThisHalfYear","FromBeginningOfThisYear","LastWeek","LastTenDays","LastMonth","LastQuarter","LastHalfYear","LastYear","NextDay","NextWeek","NextTenDays","NextMonth","NextQuarter","NextHalfYear","NextYear","TillEndOfThisWeek","TillEndOfThisTenDays","TillEndOfThisMonth","TillEndOfThisQuarter","TillEndOfThisHalfYear","TillEndOfThisYear")
-		if ($periodVariants -contains $valStr) {
+		if ($listItems.Count -ge 2) {
+			# true/false в списке - булево, как одиночное значение
+			$result.value = @($listItems | ForEach-Object { if ($_ -eq "true" -or $_ -eq "false") { [bool]($_ -eq "true") } else { $_ } })
+		} elseif ($periodVariants -contains $valStr) {
 			$result.value = @{ variant = $valStr }
 		} elseif ($valStr -match '^\d{4}-\d{2}-\d{2}T') {
 			$result.value = $valStr
@@ -1216,7 +1274,20 @@ function Emit-SingleParam {
 	}
 
 	# Value
-	if (Test-EmptyParamValue $parsed.value) {
+	$pValue = $parsed.value
+	if ($pValue -is [array] -and $pValue.Count -gt 0) {
+		# Список значений по умолчанию - каждый элемент отдельным <value>
+		foreach ($v in $pValue) {
+			# Маркер пустоты (null, _) в списке - пустой элемент, как у одиночного значения
+			if (Test-EmptyParamValue $v) {
+				X "`t`t<value xsi:nil=`"true`"/>"
+			} else {
+				# xs:boolean принимает только true/false строчными
+				if ($v -is [bool]) { $v = "$v".ToLower() }
+				Emit-ParamValue -type $parsed.type -val $v -indent "`t`t" -autoDates:([bool]$parsed.autoDates)
+			}
+		}
+	} elseif ((Test-EmptyParamValue $pValue) -or $pValue -is [array]) {
 		if (-not $parsed.valueListAllowed) {
 			Emit-EmptyParamValue -type $parsed.type -indent "`t`t"
 		}
@@ -2198,6 +2269,43 @@ function Emit-OutputParameters {
 	X "$indent</dcsset:outputParameters>"
 }
 
+# Один элемент <dcscor:value> параметра данных варианта.
+# Делает: выбирает xsi:type по заданному типу, а без него - по виду значения; null дает xsi:nil.
+# Не делает: стандартный период - его пишет вызывающий.
+# Параметры:
+#   indent - string - отступ элемента dcscor:item.
+#   vtype - string - тип значения из valueType либо пустая строка.
+#   vPrim - bool - vtype задает примитивный тип.
+#   dpv - значение элемента.
+function Emit-DataParamValue {
+	param([string]$indent, [string]$vtype, [bool]$vPrim, $dpv)
+	if ($null -eq $dpv) {
+		X "$indent`t`t<dcscor:value xsi:nil=`"true`"/>"
+	} elseif (($dpv -is [PSCustomObject] -or $dpv -is [hashtable]) -and $dpv.variant) {
+		# Стандартный период элементом списка
+		X "$indent`t`t<dcscor:value xsi:type=`"v8:StandardPeriod`">"
+		X "$indent`t`t`t<v8:variant xsi:type=`"v8:StandardPeriodVariant`">$(Esc-Xml "$($dpv.variant)")</v8:variant>"
+		X "$indent`t`t`t<v8:startDate>0001-01-01T00:00:00</v8:startDate>"
+		X "$indent`t`t`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
+		X "$indent`t`t</dcscor:value>"
+	} elseif ($vtype -eq 'boolean' -or (-not $vPrim -and $dpv -is [bool])) {
+		$bv = "$dpv".ToLower()
+		X "$indent`t`t<dcscor:value xsi:type=`"xs:boolean`">$(Esc-Xml $bv)</dcscor:value>"
+	} elseif ($vtype -match '^date' -or (-not $vPrim -and "$dpv" -match '^\d{4}-\d{2}-\d{2}T')) {
+		X "$indent`t`t<dcscor:value xsi:type=`"xs:dateTime`">$(Esc-Xml "$dpv")</dcscor:value>"
+	} elseif ($vtype -match '^decimal') {
+		X "$indent`t`t<dcscor:value xsi:type=`"xs:decimal`">$(Esc-Xml "$dpv")</dcscor:value>"
+	} elseif ($vtype -match '^string') {
+		# Булево у строкового параметра - текстом, строчными
+		$sv = if ($dpv -is [bool]) { "$dpv".ToLower() } else { "$dpv" }
+		X "$indent`t`t<dcscor:value xsi:type=`"xs:string`">$(Esc-Xml $sv)</dcscor:value>"
+	} elseif ("$dpv" -match '^(ПланСчетов|Справочник|Перечисление|Документ|ПланВидовХарактеристик|ПланВидовРасчета|БизнесПроцесс|Задача|РегистрСведений|ПланОбмена)\.' -or "$dpv" -match '^(ChartOfAccounts|Catalog|Enum|Document|ChartOfCharacteristicTypes|ChartOfCalculationTypes|BusinessProcess|Task|InformationRegister|ExchangePlan)\.') {
+		X "$indent`t`t<dcscor:value xsi:type=`"dcscor:DesignTimeValue`">$(Esc-Xml "$dpv")</dcscor:value>"
+	} else {
+		X "$indent`t`t<dcscor:value xsi:type=`"xs:string`">$(Esc-Xml "$dpv")</dcscor:value>"
+	}
+}
+
 function Emit-DataParameters {
 	param($items, [string]$indent)
 
@@ -2256,19 +2364,15 @@ function Emit-DataParameters {
 					X "$indent`t`t`t<v8:endDate>0001-01-01T00:00:00</v8:endDate>"
 				}
 				X "$indent`t`t</dcscor:value>"
-			} elseif ($vtype -eq 'boolean' -or $dp.value -is [bool]) {
-				$bv = "$($dp.value)".ToLower()
-				X "$indent`t`t<dcscor:value xsi:type=`"xs:boolean`">$(Esc-Xml $bv)</dcscor:value>"
-			} elseif ($vtype -match '^date' -or "$($dp.value)" -match '^\d{4}-\d{2}-\d{2}T') {
-				X "$indent`t`t<dcscor:value xsi:type=`"xs:dateTime`">$(Esc-Xml "$($dp.value)")</dcscor:value>"
-			} elseif ($vtype -match '^decimal') {
-				X "$indent`t`t<dcscor:value xsi:type=`"xs:decimal`">$(Esc-Xml "$($dp.value)")</dcscor:value>"
-			} elseif ($vtype -match '^string') {
-				X "$indent`t`t<dcscor:value xsi:type=`"xs:string`">$(Esc-Xml "$($dp.value)")</dcscor:value>"
-			} elseif ("$($dp.value)" -match '^(ПланСчетов|Справочник|Перечисление|Документ|ПланВидовХарактеристик|ПланВидовРасчета|БизнесПроцесс|Задача|РегистрСведений|ПланОбмена)\.' -or "$($dp.value)" -match '^(ChartOfAccounts|Catalog|Enum|Document|ChartOfCharacteristicTypes|ChartOfCalculationTypes|BusinessProcess|Task|InformationRegister|ExchangePlan)\.') {
-				X "$indent`t`t<dcscor:value xsi:type=`"dcscor:DesignTimeValue`">$(Esc-Xml "$($dp.value)")</dcscor:value>"
 			} else {
-				X "$indent`t`t<dcscor:value xsi:type=`"xs:string`">$(Esc-Xml "$($dp.value)")</dcscor:value>"
+				# Список значений - каждый элемент отдельным <dcscor:value>, как пишет платформа.
+				# Заданный примитивный тип главнее формы значения.
+				$vPrim = $vtype -match '^(boolean|date|decimal|string)'
+				# @() сохраняет и массив из одного null: присваивание из if развернуло бы его в $null
+				$dpValues = @($dp.value)
+				foreach ($dpv in $dpValues) {
+					Emit-DataParamValue -indent $indent -vtype $vtype -vPrim $vPrim -dpv $dpv
+				}
 			}
 		}
 
@@ -2612,8 +2716,13 @@ function Emit-SettingsVariants {
 					$dpItem | Add-Member -NotePropertyName "value" -NotePropertyValue @{ variant = $variant }
 					if ($ap.autoDates) { $dpItem | Add-Member -NotePropertyName "autoDates" -NotePropertyValue $true }
 					if ($variant -ne 'Custom') { $hasMeaningfulValue = $true }
-				} elseif ($null -ne $ap.value -and "$($ap.value)" -ne '') {
-					$dpItem | Add-Member -NotePropertyName "value" -NotePropertyValue $ap.value
+				} elseif ($null -ne $ap.value -and $(if ($ap.value -is [array]) { $ap.value.Count -gt 0 } else { "$($ap.value)" -ne '' })) {
+					$av = $ap.value
+					if ($av -is [array]) {
+						# Маркер пустоты элементом списка - пустой элемент, как в схеме
+						$av = @($av | ForEach-Object { if (Test-EmptyParamValue $_) { $null } else { $_ } })
+					}
+					$dpItem | Add-Member -NotePropertyName "value" -NotePropertyValue $av
 					$dpItem | Add-Member -NotePropertyName "valueType" -NotePropertyValue "$($ap.type)"
 					$hasMeaningfulValue = $true
 				} else {
