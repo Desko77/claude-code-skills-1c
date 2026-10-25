@@ -49,7 +49,7 @@ A query with a wrong object or field name will fail with a runtime error. Spendi
 - Для запросов СКД: `dcsMode=true`
 - Ловит ошибки имен таблиц, полей, типов до выполнения
 
-**Formatting:** Always write the entire query text in a **single line**. Do not use line breaks or multiline formatting.
+**Оформление:** текст запроса всегда многострочный - в исходниках, диагностических скриптах, примерах и ответах. Список полей, `ИЗ`, `ГДЕ`, соединения, группировка и сортировка - на отдельных строках; в BSL - многострочный строковый литерал со строками, начинающимися с `|`. Для передачи в `validate_query` или `execute_query` запрос в одну строку не сворачивать.
 
 ## Query Structure
 
