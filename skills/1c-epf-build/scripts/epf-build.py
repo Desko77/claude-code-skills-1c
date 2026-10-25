@@ -272,6 +272,30 @@ def show_platform_output(paths):
     for chunk in chunks:
         print(chunk)
 # --- Конец общего блока вывода платформы ---
+# --- Запуск платформы (общий блок, версия 1) ---
+# Платформа 8.5 оставляет после выхода процесс crashpad_handler, который наследует дескрипторы
+# запустившего. Чтение каналов до конца (capture_output) ждет его завершения. Здесь потоки
+# платформы пишутся в файлы, а ожидание идет до выхода самого процесса платформы.
+def run_platform_process(command, stdout_path, stderr_path):
+    """Запускает программу платформы и ждет выхода ее процесса, не потомков.
+
+    Не читает каналы: потоки вывода пишутся в файлы, показ вывода - show_platform_output.
+    На Windows subprocess передает процессу только три стандартных дескриптора
+    (close_fds по умолчанию), поэтому канал вывода скрипта потомку платформы не достается.
+
+    Параметры:
+        command - список аргументов или готовая командная строка Windows
+        stdout_path - файл для стандартного вывода (перезаписывается)
+        stderr_path - файл для потока ошибок (перезаписывается)
+
+    Возвращает: код возврата процесса.
+    """
+    with open(stdout_path, "wb") as so, open(stderr_path, "wb") as se:
+        proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=so, stderr=se)
+        return proc.wait()
+# --- Конец общего блока запуска платформы ---
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -365,9 +389,7 @@ def main():
         print(f"Running: 1cv8.exe {hide_platform_secret(' '.join(arguments))}")
         stdout_file = os.path.join(temp_dir, "platform_stdout.txt")
         stderr_file = os.path.join(temp_dir, "platform_stderr.txt")
-        with open(stdout_file, "wb") as so, open(stderr_file, "wb") as se:
-            result = subprocess.run([v8path] + arguments, stdout=so, stderr=se)
-        exit_code = result.returncode
+        exit_code = run_platform_process([v8path] + arguments, stdout_file, stderr_file)
         show_platform_output([stdout_file, stderr_file])
 
         # --- Result ---

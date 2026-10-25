@@ -476,13 +476,22 @@ function checkFileContains(workDir, spec, expectPresent) {
 // поэтому он ошибка, а не игнор.
 const KNOWN_EXPECT_KEYS = new Set([
   'files', 'filesAbsent', 'stdoutContains', 'stdoutNotContains', 'stderrContains', 'stderrNotContains',
-  'preserves', 'fileContains', 'fileNotContains', 'filesEqual',
+  'preserves', 'fileContains', 'fileNotContains', 'filesEqual', 'maxDurationMs',
 ]);
 
 function checkExpectKeys(caseData) {
   if (!caseData.expect) return [];
   const unknown = Object.keys(caseData.expect).filter(k => !KNOWN_EXPECT_KEYS.has(k));
   return unknown.map(k => `expect.${k}: раннер такого ключа не знает — кейс ничего не проверяет`);
+}
+
+// expect.maxDurationMs - потолок времени работы скрипта в миллисекундах. Нужен кейсам, где
+// платформа оставляет после себя живой процесс: без потолка зависший скрипт дожидается
+// завершения этого процесса, и кейс проходит.
+function checkMaxDuration(caseData, execMs) {
+  const max = caseData.expect?.maxDurationMs;
+  if (max === undefined || execMs <= max) return [];
+  return [`script ran ${Math.round(execMs)} ms, expected at most ${max} ms`];
 }
 
 // ─── Побайтовое равенство двух файлов ───────────────────────────────────────
@@ -876,6 +885,7 @@ async function runCaseAsync(testCase, opts) {
     // Execute
     const { scriptPath, args } = buildArgs(skillConfig, caseData, workDir, inputFile, opts.runtime);
     let stdout = '', stderr = '', exitCode = 0;
+    const execT0 = performance.now();
     try {
       const execCwd = resolveExecCwd(caseData.cwd || skillConfig.cwd, workDir);
       ({ stdout, stderr } = await execSkillAsync(opts.runtime, scriptPath, args, execCwd));
@@ -884,12 +894,14 @@ async function runCaseAsync(testCase, opts) {
       stdout = e.stdout || '';
       stderr = e.stderr || '';
     }
+    const execMs = performance.now() - execT0;
 
     if (inputFile && existsSync(inputFile)) removeTree(inputFile);
 
     // Assertions
     const errors = [];
     errors.push(...checkExpectKeys(caseData));
+    errors.push(...checkMaxDuration(caseData, execMs));
     if (caseData.expectError) {
       if (exitCode === 0) errors.push('Expected error (non-zero exit) but got exitCode=0');
       if (typeof caseData.expectError === 'string' && !stderr.includes(caseData.expectError)) {
@@ -1113,6 +1125,7 @@ function runCase(testCase, opts) {
     const { scriptPath, args } = buildArgs(skillConfig, caseData, workDir, inputFile, opts.runtime);
     let stdout = '', stderr = '', exitCode = 0;
 
+    const execT0 = performance.now();
     try {
       const execCwd = resolveExecCwd(caseData.cwd || skillConfig.cwd, workDir);
       stdout = execSkillRaw(opts.runtime, scriptPath, args, execCwd);
@@ -1121,6 +1134,7 @@ function runCase(testCase, opts) {
       stdout = e.stdout || '';
       stderr = e.stderr || '';
     }
+    const execMs = performance.now() - execT0;
 
     // Remove temp input file from workDir before snapshot comparison
     if (inputFile && existsSync(inputFile)) removeTree(inputFile);
@@ -1128,6 +1142,7 @@ function runCase(testCase, opts) {
     // 4. Assertions
     const errors = [];
     errors.push(...checkExpectKeys(caseData));
+    errors.push(...checkMaxDuration(caseData, execMs));
 
     if (caseData.expectError) {
       // Negative case — expect failure
