@@ -43,6 +43,7 @@ allowed-tools:
 | `Catalog.X.ManagerModule` | `Catalogs/X/Ext/ManagerModule.bsl` |
 | `Catalog.X.Form.Y` | `Catalogs/X/Forms/Y/Ext/Form/Module.bsl` |
 | `CommonModule.X` | `CommonModules/X/Ext/Module.bsl` |
+| `CommonForm.X` | `CommonForms/X/Ext/Form/Module.bsl` |
 | `Document.X.ObjectModule` | `Documents/X/Ext/ObjectModule.bsl` |
 | `Document.X.Form.Y` | `Documents/X/Forms/Y/Ext/Form/Module.bsl` |
 

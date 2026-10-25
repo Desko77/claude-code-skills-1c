@@ -1,0 +1,76 @@
+{
+  "name": "Перехватчик в модуле общей формы: ModulePath CommonForm.Имя -> CommonForms/Имя/Ext/Form/Module.bsl; без Form.xml в расширении - предупреждение",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "CommonForm",
+        "name": "Подбор"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-compile/scripts/form-compile",
+      "input": {
+        "title": "Подбор",
+        "elements": [
+          {
+            "check": "Режим",
+            "path": "Режим"
+          }
+        ],
+        "attributes": [
+          {
+            "name": "Режим",
+            "type": "boolean"
+          }
+        ]
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputPath": "{workDir}/CommonForms/Подбор/Ext/Form.xml"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "CommonForms/Подбор/Ext/Form/Module.bsl",
+        "content": "#Область ОбработчикиСобытийФормы\n\n&НаСервере\nПроцедура Заполнить()\n\tХ = 1;\nКонецПроцедуры\n\n#КонецОбласти\n"
+      }
+    },
+    {
+      "script": "cfe-init/scripts/cfe-init",
+      "args": {
+        "-Name": "Тест",
+        "-OutputDir": "{workDir}/cfe",
+        "-ConfigPath": "{workDir}"
+      }
+    },
+    {
+      "script": "cfe-borrow/scripts/cfe-borrow",
+      "args": {
+        "-ExtensionPath": "{workDir}/cfe",
+        "-ConfigPath": "{workDir}",
+        "-Object": "CommonForm.Подбор"
+      }
+    }
+  ],
+  "params": {
+    "extensionPath": "cfe",
+    "modulePath": "CommonForm.Подбор",
+    "methodName": "Заполнить",
+    "interceptorType": "After"
+  },
+  "expect": {
+    "stdoutContains": [
+      "Контекст:   &НаСервере",
+      "[WARN] Common form 'Подбор'"
+    ],
+    "fileContains": {
+      "file": "cfe/CommonForms/Подбор/Ext/Form/Module.bsl",
+      "text": "&После(\"Заполнить\")"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# cfe-patch-method v1.2 - Generate and resync method interceptors for 1C extension (CFE)
+# cfe-patch-method v1.3 - Generate and resync method interceptors for 1C extension (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 
 import argparse
@@ -74,6 +74,7 @@ TYPE_DIR_MAP = {
     "BusinessProcess": "BusinessProcesses", "Task": "Tasks",
     "InformationRegister": "InformationRegisters", "AccumulationRegister": "AccumulationRegisters",
     "AccountingRegister": "AccountingRegisters", "CalculationRegister": "CalculationRegisters",
+    "CommonForm": "CommonForms",
 }
 TYPE_DIR_MAP.update({v: v for v in list(TYPE_DIR_MAP.values())})
 DIR_TYPE_MAP = {
@@ -85,6 +86,7 @@ DIR_TYPE_MAP = {
     "BusinessProcesses": "BusinessProcess", "Tasks": "Task",
     "InformationRegisters": "InformationRegister", "AccumulationRegisters": "AccumulationRegister",
     "AccountingRegisters": "AccountingRegister", "CalculationRegisters": "CalculationRegister",
+    "CommonForms": "CommonForm",
 }
 
 MODULE_FILE_MAP = {
@@ -599,11 +601,11 @@ def main():
         obj_type = DIR_TYPE_MAP[segs[0]]
         obj_name = segs[1]
         rel_path = norm
-        is_form_module = "/Forms/" in norm
+        is_form_module = "/Forms/" in norm or segs[0] == "CommonForms"
     else:
         parts = module_path.split(".")
         if len(parts) < 2:
-            print(f"Invalid ModulePath format: {module_path}. Expected: Type.Name.Module or CommonModule.Name",
+            print(f"Invalid ModulePath format: {module_path}. Expected: Type.Name.Module, CommonModule.Name or CommonForm.Name",
                   file=sys.stderr)
             sys.exit(1)
         obj_type, obj_name = parts[0], parts[1]
@@ -613,6 +615,10 @@ def main():
         dir_name = TYPE_DIR_MAP[obj_type]
         if obj_type in ("CommonModule", "CommonModules"):
             rel_path = f"{dir_name}/{obj_name}/Ext/Module.bsl"
+        elif dir_name == "CommonForms":
+            # Общая форма - сама форма: модуль лежит у нее, без Forms/<Имя>
+            is_form_module = True
+            rel_path = f"{dir_name}/{obj_name}/Ext/Form/Module.bsl"
         elif len(parts) >= 4 and parts[2] == "Form":
             is_form_module = True
             rel_path = f"{dir_name}/{obj_name}/Forms/{parts[3]}/Ext/Form/Module.bsl"
@@ -620,7 +626,7 @@ def main():
             rel_path = f"{dir_name}/{obj_name}/Ext/" + MODULE_FILE_MAP.get(parts[2], parts[2] + ".bsl")
         else:
             print(f"Invalid ModulePath format: {module_path}. Expected: Type.Name.Module, "
-                  f"Type.Name.Form.FormName, or CommonModule.Name", file=sys.stderr)
+                  f"Type.Name.Form.FormName, CommonModule.Name or CommonForm.Name", file=sys.stderr)
             sys.exit(1)
 
     bsl_file = os.path.join(extension_path, *rel_path.split("/"))
@@ -751,7 +757,16 @@ def main():
         region_name = "ОбработчикиСобытий"
 
     # --- Предупреждение о незаимствованной форме ---
-    if is_form_module:
+    if is_form_module and obj_type == "CommonForm":
+        cf_root = os.path.join(extension_path, "CommonForms")
+        form_meta = os.path.join(cf_root, obj_name + ".xml")
+        form_xml = os.path.join(cf_root, obj_name, "Ext", "Form.xml")
+        if not os.path.isfile(form_meta) or not os.path.isfile(form_xml):
+            print(f"[WARN] Common form '{obj_name}' metadata or Form.xml not found in extension.")
+            print("       The interceptor binds only to a borrowed form with its content:")
+            print(f"       CommonForms/{obj_name}.xml and CommonForms/{obj_name}/Ext/Form.xml with <BaseForm>.")
+            print("")
+    elif is_form_module:
         segs = rel_path.replace("\\", "/").split("/")
         if "Forms" in segs:
             idx = segs.index("Forms")

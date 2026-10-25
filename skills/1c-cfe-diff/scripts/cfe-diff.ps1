@@ -1,4 +1,4 @@
-﻿# cfe-diff v1.0 - Analyze and compare 1C configuration extension (CFE)
+﻿# cfe-diff v1.1 - Analyze and compare 1C configuration extension (CFE)
 # Source: https://github.com/Desko77/claude-code-skills-1c
 param(
 	[Parameter(Mandatory)]
@@ -150,6 +150,10 @@ function Get-BslFiles {
 		$items = Get-ChildItem -Path $extDir -Filter "*.bsl" -ErrorAction SilentlyContinue
 		foreach ($item in $items) { $bslFiles += $item.FullName }
 	}
+
+	# Модуль общей формы лежит у нее самой: Ext/Form/Module.bsl
+	$ownFormModule = Join-Path (Join-Path $extDir "Form") "Module.bsl"
+	if (Test-Path $ownFormModule) { $bslFiles += (Get-Item $ownFormModule).FullName }
 
 	# Forms
 	$formsDir = Join-Path $objDir "Forms"
@@ -387,6 +391,16 @@ if ($Mode -eq "A") {
 							Write-Host "             Form.$fn ($formTag)"
 						}
 					}
+				}
+			}
+
+			# Общая форма - сама форма: перехваты событий и команд из ее Ext/Form.xml
+			if ($obj.Type -eq "CommonForm") {
+				$cfFormXml = Join-Path (Join-Path (Join-Path (Join-Path $ExtensionPath $info.DirName) $info.Name) "Ext") "Form.xml"
+				$cfi = Get-FormInterceptors $cfFormXml
+				if ($cfi -and $cfi.Interceptors.Count -gt 0) {
+					Write-Host "             Form:"
+					foreach ($ic in $cfi.Interceptors) { Write-Host "               $ic" }
 				}
 			}
 		} else {
