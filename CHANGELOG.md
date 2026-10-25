@@ -14,6 +14,50 @@
 - `tools/convert_from_claude.py`: без списка `git ls-files` для `docs/` конвертация отказывает; файлы
   `docs/` зеркала, которых нет в списке, удаляются.
 
+## Обновление плагина AI-EDT до 0.2.59 и 0.2.60 - 2026-10-25
+
+- `ordinary_forms`: 24 операции чтения, создания, импорта и изменения обычных форм в `Form.oform`;
+  `inspect_layout` с находками и покрытием, стандартные инструменты модуля, явный маршрут
+  `create_form formType=ORDINARY`, запрет изменяющих операций вместе с `dryRun` в пресетах
+  с запретом записи. Каталог аргументов - `skills/ai-edt-tools/references/ordinary-forms.md`.
+
+- `diagnostics`: `save_baseline`, `clear_baseline`, `get_project_errors sinceBaseline=true` и счетчик `resolvedSinceBaseline`; правило диагностики различает новые находки и полный список ошибок проекта.
+- `edit_metadata`: `listMode` для изменения состава типов, `group` команды объекта, XSD string по умолчанию у операций веб-сервиса, `inputByString` при создании справочника и документа; хранимый составной тип со строкой требует длину.
+- `set_object_property`: локализованные представления существующих объектов, списков и записей регистров, пояснения; строка в язык по умолчанию или JSON-карта языков, предпросмотр итоговой карты через `dryRun`.
+- `dependency_graph`: вызовы по строковому имени, `resolution`, `sites`, `count`, связи заданий и подписок с обработчиками, пустой `edgeKinds`. `find_dead_code` учитывает вызовы вне фильтра кандидатов и сообщает неполноту обхода.
+- `yaxunit_tests`: продолжение по тому же `runKey`, срок ответа, окна EDT, отчет текущего запуска и сверка имен из `modules` и `tests` с результатом.
+- `write_module_source`: проверка раскладки нового файлового модуля, `unchanged:true` для совпавшего содержимого синхронизированного файла. `validate_query` сводит диагностики расширения и основной конфигурации по позиции и области запроса.
+- `read_event_log excludeEvents`, предпросмотр всех операций `tag_admin`, чтение и справка конструкторов при блокировке записи, проверка активной синхронизации перед обновлением базы.
+- `export_object`: существующий каталог назначения, временный файл своего запуска, сохранение прежнего файла при ошибке сборки до финального размещения. MXL: объявленная высота и размер набора колонок соответствуют содержимому, `read_template` возвращает `rowCount`/`colCount`; операции строк возвращают `lastRow` и `appendRow`. Статусы заданий сохраняют последний шаг и результат-отказ.
+- Справка: `cluster_admin` для кластеров навигатора и размещения объектов, поля `/health`, измеренные размеры `ai_context` и `read_module_source`, подсказки при отсутствующем `featurePath` и недоступном XDTO API.
+
+## Обновление плагина AI-EDT до 0.2.58 - 2026-10-08
+
+Изменилась работа плагина, набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.
+
+- `tag_admin` - запись меток метаданных (`.settings/aiedt-markers.yaml`): `create_tag`, `update_tag` (переименование переносит назначения, ответ называет `movedAssignments`), `delete_tag` (`dryRun=true` отвечает число назначений без записи), `assign_tag` (вложенные адреса разбираются по парам вид-имя, список пишется одной записью), `unassign_tag`. Чтение меток остается в `workspace_marks`; нечитаемый файл у `get_tags` / `get_objects_by_tags` отвечает ошибкой, а не пустым списком, `get_bookmarks` - структурным отказом.
+- `mxl_workshop`: `insert_rows`, `delete_rows`, `copy_rows`, `insert_columns`, `delete_columns`, `copy_columns` - строки и столбцы целиком со сдвигом объединений, именованных областей, групп и рисунков, растягиванием тех, куда попала точка вставки, и `formatFrom` для формата новых строк и столбцов. Запись при неготовом проекте отказывает той же фразой готовности, расхождение модели и `Template.mxlx` - `templateModelFileMismatch`, неразрешающаяся ссылка картинки - отказ до записи (`unresolvedPictureRefs`); `create_template` создает общий макет с пустым `Template.mxlx`.
+- Формы: `set_excluded_commands` убирает стандартные команды из интерфейса команд объекта формы (`mode` replace / add / remove, имена сверяются с `getCommands()` объекта), `get_form_structure` отдает `excludedCommands`; `create_form` с `setAsDefault` у отчета и обработки пишет единый слот `defaultForm`, созданная командная панель отражается тегом `autoCommandBarAdded`; `create_object` с `objectType=CommonTemplate` ставит `SpreadsheetDocument` и создает пустой `Template.mxlx`.
+- Пресеты: пишущие операции `edit_metadata` / `edit_form` / `dcs_workshop` / `mxl_workshop` / `xdto_workshop` / `external_object_workshop` / `external_data_source_workshop` гасятся каждая своей дверью (`presetBlocked` у батча); `create_launch_config`, `branch_infobase`, `import_configuration_from_binary` и `create_project` выключены под Debug & Test; запуск с явным `updateBeforeLaunch=true` под пресетом без `update_database` отказывает до обновления и запуска, без довода - запуск без обновления с `databaseUpdate=SKIPPED_BY_PRESET`.
+- `git`: `delete_merge_restore_point` удаляет точку по обязательному `pointId`, не трогая файлы проекта; `restore_merge_point` называет `unchangedFiles`, а при остановке на середине - `unrestoredFiles`, `cleanupFailures` и `refreshFailure`; записи гасятся пресетами также под именами `git_create_merge_restore_point` и `git_delete_merge_restore_point`.
+- `dependency_graph`: корень обхода задают `scope` или селекторы `objectFqn` / `moduleFqn` / `subsystemName`, ничего - весь проект; несуществующий корень отвечает `rootNotFound`, модуль без модели назван в `modulesUnloaded`; на уровне `modules` входящее ребро - любой вызов из индекса ссылок, исходящее - вызов вида `ИмяОбщегоМодуля.Метод(...)`.
+- `yaxunit_tests`: `installYaxunit=true` устанавливает движок и на обоих путях снимает с контрольным чтением безопасный режим и защиту от опасных действий (`yaxunitUnsafeMode=false` оставляет флаги нетронутыми).
+- Прочее: `read_event_log` принимает в `severity` буквы `I` / `W` / `E` / `N` и полные имена; `validate_for_export` находит пустую ссылку картинки `ref="v8ui:/"` проверкой `mxlx-empty-picture-ref`; `support_registry status` отвечает `onSupport = true` только при непустом списке поставщиков; `list_interceptors` не считает закомментированную аннотацию; `get_metadata_objects` разрешает язык синонима по коду и экранирует ячейки Markdown; `get_command_interface` принимает вложенный адрес подсистемы в обеих формах.
+
+## Обновление плагина AI-EDT до 0.2.57 - 2026-10-04
+
+Изменилась работа плагина, набор `ai-edt-tools` обновлен под нее.
+
+- `naparnik` принимает 1С:Напарник 1.0.8 наряду с 1.0.7 (`supportedVersion: "1.0.7, 1.0.8"`); ответы `ask` не изменились.
+- `write_module_source` в режимах append, insertBefore и insertAfter отделяет вставленный целый метод пустой строкой; `diff_module` показывает все строки между изменениями и сообщает изменения вне методов.
+- `extension_lifecycle` передает `objectFqn` и `events` на шаге generateHandler; adopt со `status=Pending` опрашивается по `runKey` (сбой ожидания - `pollError`); `list_interceptors` находит аннотации и ключевые слова в любом регистре, включая кириллицу.
+- `dcs_workshop`: `itemPath` принимает форму имени (`Filter[Сумма]`); отчет `REMOVAL_IMPACT` называет пользовательские поля, связи удаленных наборов и значения параметров со ссылкой на удаленное; русские синонимы видов сравнения понимаются как английские литералы.
+- `update_database` при сбое записи копии дамп-инфо отвечает `infobaseChangeRecord`: какая запись осталась на диске и что из нее следует следующему инкрементальному обновлению.
+- `launch_debugger`: `pause` с `threadId` решает по состоянию этого потока, чужой поток - отказ `threadOfAnotherSession`; `replaceModuleSet` - замещающий пакет точек (`moduleNotResolved`, `noBreakpointSet`); `launch` на модальном вопросе EDT - Pending с `blockedByDialog` и `runKey`.
+- Формы: `beforeName` без учета регистра, промах - `warning`; занятый UI-поток - `uiBusy`, прерванная начатая работа - `outcomeUnknown`; `get_form_structure` - `truncated` только при отброшенном узле, `dynamicListsUnread` с причиной.
+- `get_metadata_details` добавляет `Support Mode`; `edit_metadata` на отказе стража отдает `hint` и структурный тег.
+- `get_profiling_results` обрезает строки модуля по весу; `project_metrics` видит отказ сканирования маркера; `get_content_assist` читает символ в кодировке самого файла модуля.
+
 ## Обновление плагина AI-EDT до 0.2.56 - 2026-09-29
 
 Изменилась работа плагина, набор `ai-edt-tools` и правило `mcp-tool-priority` обновлены под нее.

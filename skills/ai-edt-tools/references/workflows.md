@@ -33,6 +33,19 @@
 
 ## Typical Workflows
 
+### Обычная форма
+
+1. `ordinary_forms operation=audit`, затем `layout` по `formFqn` или `modulePath`.
+2. Для создания - `describe_owner` и `create_form`; для переноса из ИБ -
+   `import_from_infobase`. Сначала `dryRun=true` в разрешающем запись пресете.
+3. Применить адресованные изменения элементов, страниц, колонок, команд и свойств;
+   модуль изменить стандартным `write_module_source` по его адресу.
+4. Прочитать `inspect_layout`: `findings` вместе с `coverage`, затем повторно `layout`.
+5. `diagnostics operation=validate_for_export`, затем `infobase_admin operation=update_database`.
+   Запись и пометка владельца не заменяют обновление ИБ и проверку формы в обычном клиенте.
+Подробные аргументы и пресеты - `ordinary-forms.md`.
+
+
 ### Анализ незнакомого модуля
 1. `get_module_structure` - получить список методов
 2. `read_method_source` - прочитать нужные методы
@@ -49,9 +62,27 @@
 4. `ask_1c_ai` (1c-naparnik) - обязательная проверка качества после любого изменения BSL, включая код,
    записанный через `write_module_source`, и стабы, созданные операциями `edit_metadata`
 
+### Сравнение диагностик с базовой линией
+1. До правок вызвать `diagnostics operation=revalidate_objects` для выбранного проекта и объектов.
+2. Сохранить исходные находки: `diagnostics operation=save_baseline` с теми же `projectName` и `objects`.
+3. Внести изменения, затем повторить `revalidate_objects` для той же области.
+4. Вызвать `get_project_errors sinceBaseline=true` с `projectName` и отбором по объектам.
+   Пустой список новых находок не означает отсутствия прежних ошибок; `resolvedSinceBaseline`
+   сообщает число устраненных находок, когда чтение не достигло ограничения.
+
 ### Валидация запросов
 1. `validate_query` - проверить текст запроса на синтаксис и семантику
 2. `validate_query` с `dcsMode=true` - проверить запрос СКД
+
+В расширении `validate_query` проверяет запрос по двум моделям: расширения и основной
+конфигурации. Чистый ответ основной конфигурации разрешает запрос целиком (`resolvedInProject`).
+Если обе модели дают находки, результаты сводятся по месту: ошибка отсутствующего поля расширения
+снимается, только когда основная конфигурация не дает находки на той же позиции и таблица,
+обозначенная псевдонимом поля, разрешается в ее модели внутри запроса, объявившего псевдоним.
+Область псевдонима - один запрос пакета, одна часть объединения или один вложенный запрос.
+Предупреждения, несовпадения типов и синтаксические ошибки сохраняются; одноименный псевдоним
+другого запроса пакета их не разрешает. Ответ называет оба проекта в `resolvedInProjects`,
+одно место выводится один раз.
 
 ### Обновление и тестирование
 1. `get_applications` - получить ID приложения
@@ -137,9 +168,16 @@
 2. `validate_for_export` - обязательно, когда `updateBeforeLaunch` не выключен явно (по умолчанию `true`,
    см. пункт 8): тогда запуск тестов сам выполняет `update_database`, то есть пишет конфигурацию в ИБ. При
    явном `updateBeforeLaunch=false` записи нет и проверка не требуется
-3. `yaxunit_tests mode=run` с `applicationId` или `configName` - синхронный прогон с timeout polling
-4. При истечении timeout вернется JSON `Pending` + `runKey` - повторить вызов с **теми же** параметрами (НЕ менять filters/configName), забирается финальный отчет
-5. Filters: `tests=Тест_X,Тест_Y`, `suites=ТестыКадры`, `extensions=YAxUnit`, `modules=*Тесты*`, `tags=smoke,fast`, `contexts=Server,Client`
+3. `yaxunit_tests mode=run` с `applicationId` или `launchConfigurationName` - запуск с ограниченным ожиданием ответа.
+   Когда движок может отсутствовать - `installYaxunit=true`: он же снимает с подтверждением безопасный
+   режим и защиту от опасных действий движка перед прогоном; `yaxunitUnsafeMode=false` брать, только
+   когда флагами управляют вручную (0.2.58)
+4. `Pending` продолжать с выданным `runKey`; при `blockedByDialog` сначала прочитать `dialogs` и
+   ответить через `project_admin operation=answer_dialog`. Deadline до запуска дает ошибку с этапом,
+   а не `Pending`. Полные условия - `references/facades.md`, раздел `yaxunit_tests`.
+5. Фильтры: `tests=Модуль.Тест`, `extensions=YAxUnit`, `modules=Модуль`. `suites`, `tags`, `contexts`
+   отвергаются. Проверить `testsInReport`, `namedInCall`, `foundInReport`, `missingInReport`:
+   успешные найденные тесты не отменяют расхождения по отсутствующим именам.
 6. При `0 tests run` - проверить активность YAxUnit-расширения в ИБ (Конфигурация → Расширения → Active = Yes), затем `help=setup`
 7. Отладка теста: `set_breakpoint` → `yaxunit_tests mode=debug tests=Тест_X` → `wait_for_break` → `get_variables`/`step`
 8. `updateBeforeLaunch=true` (default) - автоматический `update_database` перед запуском, чтобы не висеть на модальном "Обновить?"

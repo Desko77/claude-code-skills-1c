@@ -10,6 +10,7 @@
 | Задача | Инструмент | Где детали |
 |--------|-----------|------------|
 | BSL-код, метаданные, формы, запросы, ошибки проекта, отладка, обновление ИБ, юнит-тесты | **ai-edt** (AI-EDT) | скил `ai-edt-tools` + его `references/` |
+| Обычные формы EDT (`Form.oform`) | **ai-edt**: `ordinary_forms` | `ai-edt-tools/references/ordinary-forms.md` |
 | API платформы: существует ли метод, сигнатура, типы, конструкторы | **bsl-platform-help** (`search`, `info`, `get_member`, `get_members`, `get_constructors`, `get_platform_info`) | скил `1c-platform-docs` |
 | Стиль BSL и строгая типизация | **bsl-platform-help**: `get_coding_guideline` (без параметров), `get_strict_typing_info(topic)` - `topic="topics"` вернет список тем, `search_strict_typing(query)` | в скиле не описаны, параметры здесь |
 | Качество BSL, ревью стиля, стандарты ИТС, документация платформы и конфигураций | **1c-naparnik** (`ask_1c_ai`, `check_1c_code`, `review_1c_code`, `rewrite_1c_code`, `modify_1c_code`, `explain_1c_syntax`, `its_help`, `fetch_its`, `search_1c_documentation`, `onec_help`, `diff_1c_documentation_versions`, `config_help`) | скил `1c-naparnik` |
@@ -54,7 +55,7 @@
   `Grep` по `src/`.
 - **1С 7.7** - скил `1c77-dev`; если сервер `1c77-metadata` не поднят, его собственный fallback на
   CP1251-скрипты.
-- **Обычные (неуправляемые) формы и конфигурации без EDT-проекта** (формат Конфигуратора) - form-операции
+- **Формы конфигураций без EDT-проекта** (формат Конфигуратора) - form-операции
   `edit_metadata` к ним неприменимы; маршрут и fallback на `1c-forms-mcp` описаны в `forms_generation.md`.
 - **Инструменты недоступны** - см. раздел ниже, там разные случаи требуют разного.
 - **Операция недоступна на этой сборке или сломана** - точечный ручной обход по своду проектных грабель
@@ -196,15 +197,17 @@ EDT. Ниже - по группам.
    (прочитать результат). Один вызов вместо двух не заменяет другой: без перевалидации ошибки останутся от
    прошлого состояния. `check_1c_code` и `review_1c_code` (1c-naparnik) - не обязательны, а по
    необходимости: первый когда нужен разбор синтаксиса и логики фрагмента, второй когда нужно ревью стиля
-   против стандартов ИТС.
+   против стандартов ИТС. Новые находки относительно `save_baseline` - `get_project_errors sinceBaseline=true`
+   (порядок - `references/workflows.md`); пустой список новых не означает, что в проекте нет прежних ошибок.
 6. **`validate_for_export` (ai-edt) перед записью конфигурации в ИБ и сборкой артефактов**:
    `update_database` (включая неявный - у `yaxunit_tests` при `updateBeforeLaunch`, который по умолчанию
    `true`), экспорт в XML через `config_io`, `export_object` / `export_extension`. Findings блокируют
    операцию: сперва исправить, потом обновлять. Проверка ловит класс "валидно в EDT, падает в ИБ" -
    реальные check-id: `mdo-empty-datevalue-fillvalue`, `mdo-empty-numbervalue-fillvalue`,
    `mdo-duplicate-xmlns`, `form-handler-no-event`, `form-empty-action`, `form-command-handler-type`,
-   `mxlx-bare-fontstyle`, `dcs-abstract-setting-item` и другие. Проверки на пустой `stringQualifiers` в этом
-   инструменте НЕТ - не ссылаться на нее.
+   `mxlx-bare-fontstyle`, `mxlx-empty-picture-ref`, `dcs-abstract-setting-item` и другие. Проверки на пустой
+   `stringQualifiers` в этом инструменте НЕТ - не ссылаться на нее. `yaxunit_tests installYaxunit=true`
+   тоже меняет ИБ (`references/facades.md`).
 7. **`update_database` с отказом `confirmationRequired`** (защита данных, `protectData=true` по умолчанию):
    показать человеку `dataLossTables` - таблицы, которые потеряют данные из-за удаленного объекта или его
    части. `acceptDataLoss=true` передавать только с его явного согласия; сам агент потерю не принимает.
@@ -218,10 +221,10 @@ ai-edt), а не по памяти и не по аналогии. Провере
 
 AI-EDT консолидирует инструменты в **фасады**; основные - `code_search`, `edit_metadata`, `diagnostics`,
 `launch_debugger`, `project_admin`, `infobase_admin`, `config_io`, `insights`, `security_audit`,
-`docs_lookup`, `workspace_marks`, `yaxunit_tests`, `extension_workshop`, `git` (репозиторий проекта внутри EDT:
-статус, ветки, история, коммит названных файлов, переход по веткам, изменения файла и его возврат из
-коммита, точка перед объединением с поставкой), а также мастерские `xdto_workshop`,
-`dcs_workshop`, `mxl_workshop`, `external_object_workshop` и `external_data_source_workshop`. Полный перечень
+`docs_lookup`, `workspace_marks`, `cluster_admin` (кластеры навигатора), `tag_admin` (запись меток;
+чтение - `workspace_marks`), `yaxunit_tests`, `extension_workshop`, `git` (репозиторий проекта внутри
+EDT), а также мастерские `xdto_workshop`, `dcs_workshop`, `mxl_workshop`,
+`external_object_workshop` и `external_data_source_workshop`. Полный перечень
 с составом операций - `skills/ai-edt-tools/references/facades.md`.
 
 **Синтаксис вызова.** Под пресетом Canonical в `tools/list` видны фасады, а поглощенные ими standalone-имена
@@ -245,11 +248,8 @@ AI-EDT консолидирует инструменты в **фасады**; о
 встречаются, но вызов вернет "unknown tool". Единственный маршрут к данным живой базы - скил
 `1c-mcp-toolkit` (обработка по HTTP). Приостановленная debug-сессия дает состояние исполнения текущего кадра
 (`get_variables`, `set_variable`, `evaluate_expression`), то есть переменные и выражения, а не таблицы базы -
-подменять этим запрос к данным нельзя.
-
-**Журнал регистрации файловой базы читается из плагина**: `infobase_admin operation=read_event_log`
-(с 0.2.27). Это не запрос к данным: журнал лежит файлами рядом с базой. Отборы, отказы и маскирование -
-`references/facades.md`.
+подменять этим запрос к данным нельзя. Журнал регистрации файловой базы - не данные: он читается
+`read_event_log` (строка маршрутизатора выше, отборы - `references/facades.md`).
 
 ## Перед ручным обходом - проверить, что фича уже есть
 
