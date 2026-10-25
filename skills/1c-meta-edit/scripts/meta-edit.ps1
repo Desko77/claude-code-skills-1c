@@ -194,6 +194,7 @@ $script:enumValueAliases = @{
 	"ПодчинениеРегистратору" = "RecorderSubordinate"; "Независимый" = "Independent"
 	"NotDependOnCalculationTypes" = "DontUse"; "NoDependence" = "DontUse"; "NotUsed" = "DontUse"
 	"Depend" = "OnActionPeriod"; "ПоПериодуДействия" = "OnActionPeriod"
+	"ПоПериодуРегистрации" = "OnRegistrationPeriod"
 	"None" = "Nonperiodical"; "Daily" = "Day"; "Monthly" = "Month"
 	"Quarterly" = "Quarter"; "Yearly" = "Year"
 	"Непериодический" = "Nonperiodical"; "Секунда" = "Second"; "День" = "Day"; "Месяц" = "Month"
@@ -204,7 +205,7 @@ $script:enumValueAliases = @{
 	"Разрешить" = "Allow"; "Запретить" = "Deny"
 	"ВДиалоге" = "InDialog"; "ВСписке" = "InList"; "ОбаСпособа" = "BothWays"
 	"ВВидеНаименования" = "AsDescription"; "ВВидеКода" = "AsCode"
-	"НеПроверять" = "DontCheck"; "Ошибка" = "ShowError"; "Предупреждение" = "ShowWarning"
+	"НеПроверять" = "DontCheck"; "Ошибка" = "ShowError"
 	"НеИндексировать" = "DontIndex"; "Индексировать" = "Index"
 	"ИндексироватьСДопУпорядочиванием" = "IndexWithAdditionalOrder"
 }
@@ -213,7 +214,7 @@ $script:validEnumValues = @{
 	"RegisterType"                   = @("Balance","Turnovers")
 	"WriteMode"                      = @("Independent","RecorderSubordinate")
 	"InformationRegisterPeriodicity" = @("Nonperiodical","Second","Day","Month","Quarter","Year","RecorderPosition")
-	"DependenceOnCalculationTypes"   = @("DontUse","OnActionPeriod")
+	"DependenceOnCalculationTypes"   = @("DontUse","OnActionPeriod","OnRegistrationPeriod")
 	"DataLockControlMode"            = @("Automatic","Managed")
 	"FullTextSearch"                 = @("Use","DontUse")
 	"DataHistory"                    = @("Use","DontUse")
@@ -227,10 +228,10 @@ $script:validEnumValues = @{
 	"NumberType"                     = @("String","Number")
 	"NumberAllowedLength"            = @("Variable","Fixed")
 	"RegisterRecordsDeletion"        = @("AutoDelete","AutoDeleteOnUnpost","AutoDeleteOff")
-	"RegisterRecordsWritingOnPost"   = @("WriteModified","WriteSelected","WriteAll")
+	"RegisterRecordsWritingOnPost"   = @("WriteModified","WriteSelected")
 	"ReturnValuesReuse"              = @("DontUse","DuringRequest","DuringSession")
 	"ReuseSessions"                  = @("DontUse","Use","AutoUse")
-	"FillChecking"                   = @("DontCheck","ShowError","ShowWarning")
+	"FillChecking"                   = @("DontCheck","ShowError")
 	"Indexing"                       = @("DontIndex","Index","IndexWithAdditionalOrder")
 }
 

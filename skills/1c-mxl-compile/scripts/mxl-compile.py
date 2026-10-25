@@ -1126,9 +1126,9 @@ def main():
                     lines.append(f'\t\t\t\t\t<f>{cell_info["FormatIdx"]}</f>')
 
                     if cell_info['Param']:
-                        lines.append(f'\t\t\t\t\t<parameter>{cell_info["Param"]}</parameter>')
+                        lines.append(f'\t\t\t\t\t<parameter>{esc_xml(str(cell_info["Param"]))}</parameter>')
                         if cell_info['Detail']:
-                            lines.append(f'\t\t\t\t\t<detailParameter>{cell_info["Detail"]}</detailParameter>')
+                            lines.append(f'\t\t\t\t\t<detailParameter>{esc_xml(str(cell_info["Detail"]))}</detailParameter>')
 
                     if cell_info['Text']:
                         lines.append('\t\t\t\t\t<tl>')
@@ -1245,7 +1245,7 @@ def main():
                 ns_attr += f' xmlns:{ns_prefix}="{esc_xml(str(ns_uri))}"'
             lines.append(f'\t<font{ns_attr} ref="{esc_xml(fe["Ref"])}" kind="{fe["Kind"]}"/>')
             continue
-        lines.append(f'\t<font faceName="{fe["Face"]}" height="{fe["Size"]}" bold="{fe["Bold"]}" italic="{fe["Italic"]}" underline="{fe["Underline"]}" strikeout="{fe["Strikeout"]}" kind="Absolute" scale="100"/>')
+        lines.append(f'\t<font faceName="{esc_xml(str(fe["Face"]))}" height="{fe["Size"]}" bold="{fe["Bold"]}" italic="{fe["Italic"]}" underline="{fe["Underline"]}" strikeout="{fe["Strikeout"]}" kind="Absolute" scale="100"/>')
 
     # 7j. Format palette
     for key in format_order:

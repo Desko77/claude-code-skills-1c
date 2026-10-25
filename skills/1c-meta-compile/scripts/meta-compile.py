@@ -435,6 +435,7 @@ enum_value_aliases = {
     # DependenceOnCalculationTypes (ChartOfCalculationTypes)
     'NotDependOnCalculationTypes': 'DontUse', 'NoDependence': 'DontUse', 'NotUsed': 'DontUse',
     'Depend': 'OnActionPeriod', 'ПоПериодуДействия': 'OnActionPeriod',
+    'ПоПериодуРегистрации': 'OnRegistrationPeriod',
     # InformationRegisterPeriodicity
     'None': 'Nonperiodical', 'Daily': 'Day', 'Monthly': 'Month',
     'Quarterly': 'Quarter', 'Yearly': 'Year',
@@ -452,7 +453,7 @@ enum_value_aliases = {
     # DefaultPresentation
     'ВВидеНаименования': 'AsDescription', 'ВВидеКода': 'AsCode',
     # FillChecking
-    'НеПроверять': 'DontCheck', 'Ошибка': 'ShowError', 'Предупреждение': 'ShowWarning',
+    'НеПроверять': 'DontCheck', 'Ошибка': 'ShowError',
     # Indexing
     'НеИндексировать': 'DontIndex', 'Индексировать': 'Index',
     'ИндексироватьСДопУпорядочиванием': 'IndexWithAdditionalOrder',
@@ -463,7 +464,7 @@ valid_enum_values = {
     'RegisterType': ['Balance', 'Turnovers'],
     'WriteMode': ['Independent', 'RecorderSubordinate'],
     'InformationRegisterPeriodicity': ['Nonperiodical', 'Second', 'Day', 'Month', 'Quarter', 'Year', 'RecorderPosition'],
-    'DependenceOnCalculationTypes': ['DontUse', 'OnActionPeriod'],
+    'DependenceOnCalculationTypes': ['DontUse', 'OnActionPeriod', 'OnRegistrationPeriod'],
     'DataLockControlMode': ['Automatic', 'Managed'],
     'FullTextSearch': ['Use', 'DontUse'],
     'DataHistory': ['Use', 'DontUse'],
@@ -477,14 +478,22 @@ valid_enum_values = {
     'NumberType': ['String', 'Number'],
     'NumberAllowedLength': ['Variable', 'Fixed'],
     'RegisterRecordsDeletion': ['AutoDelete', 'AutoDeleteOnUnpost', 'AutoDeleteOff'],
-    'RegisterRecordsWritingOnPost': ['WriteModified', 'WriteSelected', 'WriteAll'],
+    'RegisterRecordsWritingOnPost': ['WriteModified', 'WriteSelected'],
     'ReturnValuesReuse': ['DontUse', 'DuringRequest', 'DuringSession'],
     'ReuseSessions': ['DontUse', 'Use', 'AutoUse'],
-    'FillChecking': ['DontCheck', 'ShowError', 'ShowWarning'],
+    'FillChecking': ['DontCheck', 'ShowError'],
     'Indexing': ['DontIndex', 'Index', 'IndexWithAdditionalOrder'],
     'SubordinationUse': ['ToItems', 'ToFolders', 'ToFoldersAndItems'],
     'CodeSeries': ['WholeCatalog', 'WithinSubordination'],
     'ChoiceMode': ['BothWays', 'QuickChoice', 'FromForm'],
+    'ParameterUseMode': ['Single', 'Multiple'],
+    'Representation': ['Auto', 'Text', 'Picture', 'PictureAndText'],
+    'OnMainServerUnavalableBehavior': ['Auto', 'MakeDisable', 'DontChangeBehavior'],
+    'TaskNumberAutoPrefix': ['BusinessProcessNumber', 'DontUse'],
+    'HTTPMethod': ['GET', 'HEAD', 'PUT', 'POST', 'DELETE', 'PATCH', 'MERGE', 'OPTIONS', 'TRACE', 'CONNECT', 'PROPFIND', 'PROPPATCH', 'MOVE', 'COPY', 'LOCK', 'UNLOCK', 'MKCOL', 'Any'],
+    'TransferDirection': ['In', 'Out', 'InOut'],
+    # Use у состава общего реквизита; у реквизита и регламентного задания это другие свойства
+    'CommonAttributeContent.Use': ['Auto', 'Use', 'DontUse'],
 }
 
 def normalize_enum_value(prop_name, value):
@@ -908,8 +917,8 @@ def parse_attribute_shorthand(val):
         'synonym': val['synonym'] if val.get('synonym') else split_camel_case(name),
         'comment': str(val['comment']) if val.get('comment') else '',
         'flags': list(val.get('flags', [])),
-        'fillChecking': str(val['fillChecking']) if val.get('fillChecking') else '',
-        'indexing': str(val['indexing']) if val.get('indexing') else '',
+        'fillChecking': normalize_enum_value('FillChecking', str(val['fillChecking'])) if val.get('fillChecking') else '',
+        'indexing': normalize_enum_value('Indexing', str(val['indexing'])) if val.get('indexing') else '',
         'multiLine': True if val.get('multiLine') is True else False,
     }
 
@@ -1183,9 +1192,11 @@ def emit_object_command(indent, cmd_name, cmd_def):
         X(i + '</CommandParameterType>')
     else:
         X(i + '<CommandParameterType/>')
-    X(i + '<ParameterUseMode>' + str(cmd_def.get('parameterUseMode', 'Single')) + '</ParameterUseMode>')
+    use_mode = normalize_enum_value('ParameterUseMode', str(cmd_def['parameterUseMode'])) if cmd_def.get('parameterUseMode') else 'Single'
+    X(i + '<ParameterUseMode>' + use_mode + '</ParameterUseMode>')
     X(i + '<ModifiesData>' + ('true' if cmd_def.get('modifiesData') is True else 'false') + '</ModifiesData>')
-    X(i + '<Representation>' + str(cmd_def.get('representation', 'Auto')) + '</Representation>')
+    representation = normalize_enum_value('Representation', str(cmd_def['representation'])) if cmd_def.get('representation') else 'Auto'
+    X(i + '<Representation>' + representation + '</Representation>')
     if cmd_def.get('tooltip'):
         emit_mltext(i, 'ToolTip', cmd_def['tooltip'])
     else:
@@ -1209,7 +1220,8 @@ def emit_object_command(indent, cmd_name, cmd_def):
     shortcut = str(cmd_def.get('shortcut', ''))
     X(i + '<Shortcut>' + esc_xml(shortcut) + '</Shortcut>' if shortcut else i + '<Shortcut/>')
     X(i + '<OnMainServerUnavalableBehavior>'
-      + str(cmd_def.get('onMainServerUnavalableBehavior', 'Auto'))
+      + (normalize_enum_value('OnMainServerUnavalableBehavior', str(cmd_def['onMainServerUnavalableBehavior']))
+         if cmd_def.get('onMainServerUnavalableBehavior') else 'Auto')
       + '</OnMainServerUnavalableBehavior>')
     X(indent + '\t</Properties>')
     X(indent + '</Command>')
@@ -2083,7 +2095,7 @@ def emit_common_attribute_properties(indent):
         X(f'{i}<Content>')
         for c in content:
             md_ref = c if isinstance(c, str) else str(c.get('metadata', ''))
-            md_use = str(c['use']) if (not isinstance(c, str) and c.get('use')) else 'Use'
+            md_use = normalize_enum_value('CommonAttributeContent.Use', str(c['use'])) if (not isinstance(c, str) and c.get('use')) else 'Use'
             X(f'{i}\t<xr:Item>')
             X(f'{i}\t\t<xr:Metadata>{resolve_md_path(str(md_ref))}</xr:Metadata>')
             X(f'{i}\t\t<xr:Use>{md_use}</xr:Use>')
@@ -2114,7 +2126,7 @@ def emit_common_attribute_properties(indent):
 def emit_command_group_properties(indent):
     i = indent
     emit_common_head(i)
-    repr_ = str(defn['representation']) if defn.get('representation') else 'Auto'
+    repr_ = normalize_enum_value('Representation', str(defn['representation'])) if defn.get('representation') else 'Auto'
     X(f'{i}<Representation>{repr_}</Representation>')
     X(f'{i}<ToolTip/>')
     emit_picture_ref(i, defn.get('picture'))
@@ -2129,7 +2141,7 @@ def emit_common_command_properties(indent):
         X(f'{i}<Group>{defn["group"]}</Group>')
     else:
         X(f'{i}<Group/>')
-    repr_ = str(defn['representation']) if defn.get('representation') else 'Auto'
+    repr_ = normalize_enum_value('Representation', str(defn['representation'])) if defn.get('representation') else 'Auto'
     X(f'{i}<Representation>{repr_}</Representation>')
     X(f'{i}<ToolTip/>')
     emit_picture_ref(i, defn.get('picture'))
@@ -2141,7 +2153,7 @@ def emit_common_command_properties(indent):
         X(f'{i}</CommandParameterType>')
     else:
         X(f'{i}<CommandParameterType/>')
-    param_mode = str(defn['parameterUseMode']) if defn.get('parameterUseMode') else 'Single'
+    param_mode = normalize_enum_value('ParameterUseMode', str(defn['parameterUseMode'])) if defn.get('parameterUseMode') else 'Single'
     X(f'{i}<ParameterUseMode>{param_mode}</ParameterUseMode>')
     modifies = 'true' if defn.get('modifiesData') is True else 'false'
     X(f'{i}<ModifiesData>{modifies}</ModifiesData>')
@@ -2930,7 +2942,7 @@ def emit_task_properties(indent):
     number_allowed_length = get_enum_prop('NumberAllowedLength', 'numberAllowedLength', 'Variable')
     check_unique = 'false' if defn.get('checkUnique') is False else 'true'
     autonumbering = 'false' if defn.get('autonumbering') is False else 'true'
-    task_number_auto_prefix = str(defn['taskNumberAutoPrefix']) if defn.get('taskNumberAutoPrefix') else 'BusinessProcessNumber'
+    task_number_auto_prefix = normalize_enum_value('TaskNumberAutoPrefix', str(defn['taskNumberAutoPrefix'])) if defn.get('taskNumberAutoPrefix') else 'BusinessProcessNumber'
     description_length = str(defn['descriptionLength']) if defn.get('descriptionLength') is not None else '150'
     X(f'{i}<NumberType>{number_type}</NumberType>')
     X(f'{i}<NumberLength>{number_length}</NumberLength>')
@@ -3051,7 +3063,7 @@ def emit_column(indent, col_def):
         name = str(col_def.get('name', ''))
         col_synonym = col_def['synonym'] if col_def.get('synonym') else split_camel_case(name)
         if col_def.get('indexing'):
-            indexing = str(col_def['indexing'])
+            indexing = normalize_enum_value('Indexing', str(col_def['indexing']))
         if col_def.get('references'):
             references = list(col_def['references'])
     X(f'{indent}<Column uuid="{uid}">')
@@ -3160,10 +3172,10 @@ def emit_url_template(indent, tmpl_name, tmpl_def):
             method_synonym = split_camel_case(method_name)
             method_comment = ''
             if isinstance(method_def, str):
-                http_method = method_def
+                http_method = normalize_enum_value('HTTPMethod', str(method_def))
                 handler = f'{tmpl_name}{method_name}'
             else:
-                http_method = str(method_def.get('httpMethod', 'GET'))
+                http_method = normalize_enum_value('HTTPMethod', str(method_def['httpMethod'])) if method_def.get('httpMethod') else 'GET'
                 handler = str(method_def.get('handler') or f'{tmpl_name}{method_name}')
                 if method_def.get('synonym'):
                     method_synonym = method_def['synonym']
@@ -3236,7 +3248,7 @@ def emit_operation(indent, op_name, op_def):
                 if param_def.get('nillable') is False:
                     param_nillable = 'false'
                 if param_def.get('direction'):
-                    param_dir = str(param_def['direction'])
+                    param_dir = normalize_enum_value('TransferDirection', str(param_def['direction']))
             X(f'{indent}\t\t<Parameter uuid="{param_uuid}">')
             X(f'{indent}\t\t\t<Properties>')
             X(f'{indent}\t\t\t\t<Name>{esc_xml(param_name)}</Name>')
@@ -3266,7 +3278,7 @@ def emit_addressing_attribute(indent, addr_def):
         if addr_def.get('addressingDimension'):
             addressing_dimension = str(addr_def['addressingDimension'])
         if addr_def.get('indexing'):
-            indexing = str(addr_def['indexing'])
+            indexing = normalize_enum_value('Indexing', str(addr_def['indexing']))
     X(f'{indent}<AddressingAttribute uuid="{uid}">')
     X(f'{indent}\t<Properties>')
     X(f'{indent}\t\t<Name>{esc_xml(name)}</Name>')

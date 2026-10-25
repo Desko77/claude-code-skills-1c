@@ -1108,9 +1108,9 @@ foreach ($area in $sheetAreas) {
 				X "`t`t`t`t`t<f>$($cellInfo.FormatIdx)</f>"
 
 				if ($cellInfo.Param) {
-					X "`t`t`t`t`t<parameter>$($cellInfo.Param)</parameter>"
+					X "`t`t`t`t`t<parameter>$(Esc-Xml $cellInfo.Param)</parameter>"
 					if ($cellInfo.Detail) {
-						X "`t`t`t`t`t<detailParameter>$($cellInfo.Detail)</detailParameter>"
+						X "`t`t`t`t`t<detailParameter>$(Esc-Xml $cellInfo.Detail)</detailParameter>"
 					}
 				}
 
@@ -1243,7 +1243,7 @@ foreach ($fe in $fontEntries) {
 		X "`t<font$nsAttr ref=`"$(Esc-Xml $fe.Ref)`" kind=`"$($fe.Kind)`"/>"
 		continue
 	}
-	X "`t<font faceName=`"$($fe.Face)`" height=`"$($fe.Size)`" bold=`"$($fe.Bold)`" italic=`"$($fe.Italic)`" underline=`"$($fe.Underline)`" strikeout=`"$($fe.Strikeout)`" kind=`"Absolute`" scale=`"100`"/>"
+	X "`t<font faceName=`"$(Esc-Xml $fe.Face)`" height=`"$($fe.Size)`" bold=`"$($fe.Bold)`" italic=`"$($fe.Italic)`" underline=`"$($fe.Underline)`" strikeout=`"$($fe.Strikeout)`" kind=`"Absolute`" scale=`"100`"/>"
 }
 
 # 7j. Format palette

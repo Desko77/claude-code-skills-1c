@@ -166,7 +166,7 @@
 | `attributes` | `[]` | → Attribute |
 | `tabularSections` | `{}` | → TabularSection |
 
-`dependenceOnCalculationTypes`: `DontUse`, `OnActionPeriod`.
+`dependenceOnCalculationTypes`: `DontUse`, `OnActionPeriod`, `OnRegistrationPeriod`.
 
 ```json
 { "type": "ChartOfCalculationTypes", "name": "Начисления", "dependenceOnCalculationTypes": "OnActionPeriod" }

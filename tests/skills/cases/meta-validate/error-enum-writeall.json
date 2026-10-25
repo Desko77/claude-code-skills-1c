@@ -1,0 +1,21 @@
+{
+  "name": "RegisterRecordsWritingOnPost=WriteAll - ошибка: у платформы только WriteSelected и WriteModified",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Document", "name": "Заказ" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "editFile": "Documents/Заказ.xml",
+      "replace": "<RegisterRecordsWritingOnPost>WriteSelected</RegisterRecordsWritingOnPost>",
+      "with": "<RegisterRecordsWritingOnPost>WriteAll</RegisterRecordsWritingOnPost>"
+    }
+  ],
+  "params": { "objectPath": "Documents/Заказ.xml" },
+  "expectError": true,
+  "noSnapshot": "meta-validate только читает объект и печатает отчет; проверяется stdout",
+  "expect": {
+    "stdoutContains": "WriteAll"
+  }
+}

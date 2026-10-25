@@ -1,0 +1,9 @@
+{
+  "name": "Ошибка: registerRecordsWritingOnPost=WriteAll - у платформы только WriteSelected и WriteModified",
+  "input": {
+    "type": "Document",
+    "name": "Заказ",
+    "registerRecordsWritingOnPost": "WriteAll"
+  },
+  "expectError": "Invalid value 'WriteAll'"
+}

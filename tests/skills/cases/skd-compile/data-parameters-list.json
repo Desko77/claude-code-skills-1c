@@ -1,0 +1,49 @@
+{
+  "name": "Список значений параметра: по элементу на <value> в схеме и на <dcscor:value> в варианте; краткая запись через запятую, запятая внутри значения в кавычках; null в списке - xsi:nil; булево у строкового параметра - текстом; булевы элементы списка - true/false строчными, в краткой записи - xs:boolean; список из одного null - и в явном значении, и в auto (параметр остается включенным); маркер null элементом списка - xsi:nil; стандартный период элементом списка",
+  "params": { "outputPath": "Template.xml" },
+  "input": {
+    "dataSets": [{
+      "query": "ВЫБРАТЬ Т.Код КАК Код ИЗ (ВЫБРАТЬ \"A\" КАК Код) КАК Т ГДЕ Т.Код В (&Коды)",
+      "fields": ["Код: string(10)"]
+    }],
+    "parameters": [
+      "Коды: string(10) = A, B, C",
+      { "name": "Суммы", "type": "decimal(10,2)", "valueListAllowed": true, "value": [1, 2.5] },
+      "Метки: string(20) @valueList",
+      "Фамилии: string(20) @valueList",
+      "Режим: string(10)",
+      { "name": "Отметки", "type": "string(30)", "valueListAllowed": true, "value": [null, "a"] },
+      { "name": "Флаги", "type": "boolean", "valueListAllowed": true, "value": [true, false] },
+      { "name": "Пустые", "type": "string(10)", "valueListAllowed": true, "value": [null] },
+      "Даты: date = 2024-01-01T00:00:00, null",
+      "Периоды: StandardPeriod = LastMonth @valueList"
+    ],
+    "settingsVariants": [
+      {
+        "name": "Авто",
+        "settings": { "selection": ["Код"], "structure": "details", "dataParameters": "auto" }
+      },
+      {
+        "name": "Явный",
+        "settings": {
+          "selection": ["Код"],
+          "structure": "details",
+          "dataParameters": [
+            "Коды = X, 'Y, Z' @user",
+            { "parameter": "Суммы", "value": [3, 4.75], "valueType": "decimal(10,2)" },
+            { "parameter": "Метки", "value": ["одна, с запятой", null, "2024-01-01T00:00:00"] },
+            { "parameter": "Режим", "value": true, "valueType": "string(10)" },
+            "Фамилии = Иванов, O'Brien, Петров",
+            "Флаги = true, false",
+            { "parameter": "Отметки", "value": [null] },
+            { "parameter": "Периоды", "value": [{ "variant": "Today" }, { "variant": "LastMonth" }] }
+          ]
+        }
+      }
+    ]
+  },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"]
+  }
+}

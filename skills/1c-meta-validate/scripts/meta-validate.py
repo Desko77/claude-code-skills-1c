@@ -286,7 +286,7 @@ valid_property_values = {
     "Posting":                      ["Allow", "Deny"],
     "RealTimePosting":              ["Allow", "Deny"],
     "RegisterRecordsDeletion":      ["AutoDelete", "AutoDeleteOnUnpost", "AutoDeleteOff"],
-    "RegisterRecordsWritingOnPost": ["WriteModified", "WriteSelected", "WriteAll"],
+    "RegisterRecordsWritingOnPost": ["WriteModified", "WriteSelected"],
     "DataLockControlMode":          ["Automatic", "Managed"],
     "FullTextSearch":               ["Use", "DontUse"],
     "DefaultPresentation":          ["AsDescription", "AsCode"],
@@ -297,10 +297,10 @@ valid_property_values = {
     "RegisterType":                 ["Balance", "Turnovers"],
     "ReturnValuesReuse":            ["DontUse", "DuringRequest", "DuringSession"],
     "ReuseSessions":                ["DontUse", "AutoUse"],
-    "FillChecking":                 ["DontCheck", "ShowError", "ShowWarning"],
+    "FillChecking":                 ["DontCheck", "ShowError"],
     "Indexing":                     ["DontIndex", "Index", "IndexWithAdditionalOrder"],
     "DataHistory":                  ["Use", "DontUse"],
-    "DependenceOnCalculationTypes": ["DontUse", "OnActionPeriod"],
+    "DependenceOnCalculationTypes": ["DontUse", "OnActionPeriod", "OnRegistrationPeriod"],
 }
 
 # Properties forbidden per type (would cause LoadConfigFromFiles error)
