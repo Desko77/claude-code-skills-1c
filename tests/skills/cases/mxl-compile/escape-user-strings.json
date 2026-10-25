@@ -1,0 +1,28 @@
+{
+  "name": "Экранирование параметра, расшифровки и имени шрифта",
+  "input": {
+    "columns": 2,
+    "fonts": { "особый": { "face": "Font \"A&B\" <x>", "size": 10 } },
+    "styles": { "особый": { "font": "особый" } },
+    "areas": [
+      {
+        "name": "Строка<1>",
+        "rows": [
+          { "cells": [
+            { "col": 1, "style": "особый", "text": "Скидка" },
+            { "col": 2, "param": "Сумма<НДС>", "detail": "Скидка <> 0" }
+          ]},
+          { "cells": [
+            { "col": 1, "param": "Комментарий", "detail": "СтрНайти(Комментарий, \"&\") > 0" },
+            { "col": 2, "param": "Количество", "detail": "Сумма &lt; 0" }
+          ]}
+        ]
+      }
+    ]
+  },
+  "params": { "outputPath": "Template.xml" },
+  "validatePath": "Template.xml",
+  "expect": {
+    "files": ["Template.xml"]
+  }
+}
