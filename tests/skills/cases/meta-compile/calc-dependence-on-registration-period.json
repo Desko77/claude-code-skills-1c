@@ -1,0 +1,18 @@
+{
+  "name": "План видов расчета: зависимость по периоду регистрации",
+  "input": {
+    "type": "ChartOfCalculationTypes",
+    "name": "Начисления",
+    "dependenceOnCalculationTypes": "OnRegistrationPeriod",
+    "baseCalculationTypes": [
+      "ChartOfCalculationTypes.Начисления"
+    ]
+  },
+  "validatePath": "ChartsOfCalculationTypes/Начисления",
+  "expect": {
+    "fileContains": {
+      "file": "ChartsOfCalculationTypes/Начисления.xml",
+      "text": "<DependenceOnCalculationTypes>OnRegistrationPeriod</DependenceOnCalculationTypes>"
+    }
+  }
+}

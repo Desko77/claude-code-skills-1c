@@ -241,6 +241,7 @@ $script:enumValueAliases = @{
 	# DependenceOnCalculationTypes (ChartOfCalculationTypes)
 	"NotDependOnCalculationTypes" = "DontUse"; "NoDependence" = "DontUse"; "NotUsed" = "DontUse"
 	"Depend" = "OnActionPeriod"; "ПоПериодуДействия" = "OnActionPeriod"
+	"ПоПериодуРегистрации" = "OnRegistrationPeriod"
 	# InformationRegisterPeriodicity
 	"None" = "Nonperiodical"; "Daily" = "Day"; "Monthly" = "Month"
 	"Quarterly" = "Quarter"; "Yearly" = "Year"
@@ -258,7 +259,7 @@ $script:enumValueAliases = @{
 	# DefaultPresentation
 	"ВВидеНаименования" = "AsDescription"; "ВВидеКода" = "AsCode"
 	# FillChecking
-	"НеПроверять" = "DontCheck"; "Ошибка" = "ShowError"; "Предупреждение" = "ShowWarning"
+	"НеПроверять" = "DontCheck"; "Ошибка" = "ShowError"
 	# Indexing
 	"НеИндексировать" = "DontIndex"; "Индексировать" = "Index"
 	"ИндексироватьСДопУпорядочиванием" = "IndexWithAdditionalOrder"
@@ -269,7 +270,7 @@ $script:validEnumValues = @{
 	"RegisterType"                   = @("Balance","Turnovers")
 	"WriteMode"                      = @("Independent","RecorderSubordinate")
 	"InformationRegisterPeriodicity" = @("Nonperiodical","Second","Day","Month","Quarter","Year","RecorderPosition")
-	"DependenceOnCalculationTypes"   = @("DontUse","OnActionPeriod")
+	"DependenceOnCalculationTypes"   = @("DontUse","OnActionPeriod","OnRegistrationPeriod")
 	"DataLockControlMode"            = @("Automatic","Managed")
 	"FullTextSearch"                 = @("Use","DontUse")
 	"DataHistory"                    = @("Use","DontUse")
@@ -283,14 +284,22 @@ $script:validEnumValues = @{
 	"NumberType"                     = @("String","Number")
 	"NumberAllowedLength"            = @("Variable","Fixed")
 	"RegisterRecordsDeletion"        = @("AutoDelete","AutoDeleteOnUnpost","AutoDeleteOff")
-	"RegisterRecordsWritingOnPost"   = @("WriteModified","WriteSelected","WriteAll")
+	"RegisterRecordsWritingOnPost"   = @("WriteModified","WriteSelected")
 	"ReturnValuesReuse"              = @("DontUse","DuringRequest","DuringSession")
 	"ReuseSessions"                  = @("DontUse","Use","AutoUse")
-	"FillChecking"                   = @("DontCheck","ShowError","ShowWarning")
+	"FillChecking"                   = @("DontCheck","ShowError")
 	"Indexing"                       = @("DontIndex","Index","IndexWithAdditionalOrder")
 	"SubordinationUse"               = @("ToItems","ToFolders","ToFoldersAndItems")
 	"CodeSeries"                     = @("WholeCatalog","WithinSubordination")
 	"ChoiceMode"                     = @("BothWays","QuickChoice","FromForm")
+	"ParameterUseMode"               = @("Single","Multiple")
+	"Representation"                 = @("Auto","Text","Picture","PictureAndText")
+	"OnMainServerUnavalableBehavior" = @("Auto","MakeDisable","DontChangeBehavior")
+	"TaskNumberAutoPrefix"           = @("BusinessProcessNumber","DontUse")
+	"HTTPMethod"                     = @("GET","HEAD","PUT","POST","DELETE","PATCH","MERGE","OPTIONS","TRACE","CONNECT","PROPFIND","PROPPATCH","MOVE","COPY","LOCK","UNLOCK","MKCOL","Any")
+	"TransferDirection"              = @("In","Out","InOut")
+	# Use у состава общего реквизита; у реквизита и регламентного задания это другие свойства
+	"CommonAttributeContent.Use"     = @("Auto","Use","DontUse")
 }
 
 function Normalize-EnumValue {
@@ -770,8 +779,8 @@ function Parse-AttributeShorthand {
 		synonym = if ($val.synonym) { $val.synonym } else { Split-CamelCase $name }
 		comment = if ($val.comment) { "$($val.comment)" } else { "" }
 		flags   = @(if ($val.flags) { $val.flags } else { @() })
-		fillChecking = if ($val.fillChecking) { "$($val.fillChecking)" } else { "" }
-		indexing = if ($val.indexing) { "$($val.indexing)" } else { "" }
+		fillChecking = if ($val.fillChecking) { Normalize-EnumValue "FillChecking" "$($val.fillChecking)" } else { "" }
+		indexing = if ($val.indexing) { Normalize-EnumValue "Indexing" "$($val.indexing)" } else { "" }
 		multiLine = if ($val.multiLine -eq $true) { $true } else { $false }
 	}
 }
@@ -2700,7 +2709,7 @@ function Emit-TaskProperties {
 	$checkUnique = if ($def.checkUnique -eq $false) { "false" } else { "true" }
 	$autonumbering = if ($def.autonumbering -eq $false) { "false" } else { "true" }
 
-	$taskNumberAutoPrefix = if ($def.taskNumberAutoPrefix) { "$($def.taskNumberAutoPrefix)" } else { "BusinessProcessNumber" }
+	$taskNumberAutoPrefix = if ($def.taskNumberAutoPrefix) { Normalize-EnumValue "TaskNumberAutoPrefix" "$($def.taskNumberAutoPrefix)" } else { "BusinessProcessNumber" }
 	$descriptionLength = if ($null -ne $def.descriptionLength) { "$($def.descriptionLength)" } else { "150" }
 
 	X "$i<NumberType>$numberType</NumberType>"
@@ -2841,7 +2850,7 @@ function Emit-Column {
 	} else {
 		$name = "$($colDef.name)"
 		$synonym = if ($colDef.synonym) { $colDef.synonym } else { Split-CamelCase $name }
-		if ($colDef.indexing) { $indexing = "$($colDef.indexing)" }
+		if ($colDef.indexing) { $indexing = Normalize-EnumValue "Indexing" "$($colDef.indexing)" }
 		if ($colDef.references) { $references = @($colDef.references) }
 	}
 
@@ -2965,10 +2974,10 @@ function Emit-URLTemplate {
 			$methodSynonym = Split-CamelCase $methodName
 			$methodComment = ""
 			if ($methodDef -is [string]) {
-				$httpMethod = "$methodDef"
+				$httpMethod = Normalize-EnumValue "HTTPMethod" "$methodDef"
 				$handler = "${tmplName}${methodName}"
 			} else {
-				$httpMethod = if ($methodDef.httpMethod) { "$($methodDef.httpMethod)" } else { "GET" }
+				$httpMethod = if ($methodDef.httpMethod) { Normalize-EnumValue "HTTPMethod" "$($methodDef.httpMethod)" } else { "GET" }
 				$handler = if ($methodDef.handler) { "$($methodDef.handler)" } else { "${tmplName}${methodName}" }
 				if ($methodDef.synonym) { $methodSynonym = $methodDef.synonym }
 				if ($methodDef.comment) { $methodComment = "$($methodDef.comment)" }
@@ -3045,7 +3054,7 @@ function Emit-Operation {
 			} else {
 				if ($paramDef.type) { $paramType = "$($paramDef.type)" }
 				if ($paramDef.nillable -eq $false) { $paramNillable = "false" }
-				if ($paramDef.direction) { $paramDir = "$($paramDef.direction)" }
+				if ($paramDef.direction) { $paramDir = Normalize-EnumValue "TransferDirection" "$($paramDef.direction)" }
 			}
 
 			X "$indent`t`t<Parameter uuid=`"$paramUuid`">"
@@ -3082,7 +3091,7 @@ function Emit-AddressingAttribute {
 	$typeStr = $parsed.type
 	if ($addrDef -isnot [string]) {
 		if ($addrDef.addressingDimension) { $addressingDimension = "$($addrDef.addressingDimension)" }
-		if ($addrDef.indexing) { $indexing = "$($addrDef.indexing)" }
+		if ($addrDef.indexing) { $indexing = Normalize-EnumValue "Indexing" "$($addrDef.indexing)" }
 	}
 
 	X "$indent<AddressingAttribute uuid=`"$uuid`">"
@@ -3181,11 +3190,11 @@ function Emit-ObjectCommand {
 	} else {
 		X "$i<CommandParameterType/>"
 	}
-	$useMode = if ($cmdDef.parameterUseMode) { "$($cmdDef.parameterUseMode)" } else { "Single" }
+	$useMode = if ($cmdDef.parameterUseMode) { Normalize-EnumValue "ParameterUseMode" "$($cmdDef.parameterUseMode)" } else { "Single" }
 	X "$i<ParameterUseMode>$useMode</ParameterUseMode>"
 	$modifies = if ($cmdDef.modifiesData -eq $true) { "true" } else { "false" }
 	X "$i<ModifiesData>$modifies</ModifiesData>"
-	$representation = if ($cmdDef.representation) { "$($cmdDef.representation)" } else { "Auto" }
+	$representation = if ($cmdDef.representation) { Normalize-EnumValue "Representation" "$($cmdDef.representation)" } else { "Auto" }
 	X "$i<Representation>$representation</Representation>"
 	if ($cmdDef.tooltip) { Emit-MLText $i "ToolTip" $cmdDef.tooltip } else { X "$i<ToolTip/>" }
 
@@ -3206,7 +3215,7 @@ function Emit-ObjectCommand {
 	}
 	$shortcut = if ($cmdDef.shortcut) { "$($cmdDef.shortcut)" } else { "" }
 	if ($shortcut) { X "$i<Shortcut>$(Esc-Xml $shortcut)</Shortcut>" } else { X "$i<Shortcut/>" }
-	$unavailable = if ($cmdDef.onMainServerUnavalableBehavior) { "$($cmdDef.onMainServerUnavalableBehavior)" } else { "Auto" }
+	$unavailable = if ($cmdDef.onMainServerUnavalableBehavior) { Normalize-EnumValue "OnMainServerUnavalableBehavior" "$($cmdDef.onMainServerUnavalableBehavior)" } else { "Auto" }
 	X "$i<OnMainServerUnavalableBehavior>$unavailable</OnMainServerUnavalableBehavior>"
 	X "$indent`t</Properties>"
 	X "$indent</Command>"
@@ -3439,7 +3448,7 @@ function Emit-CommonAttributeProperties {
 		X "$i<Content>"
 		foreach ($c in $content) {
 			$mdRef = if ($c -is [string]) { "$c" } else { "$($c.metadata)" }
-			$mdUse = if ($c -isnot [string] -and $c.use) { "$($c.use)" } else { "Use" }
+			$mdUse = if ($c -isnot [string] -and $c.use) { Normalize-EnumValue "CommonAttributeContent.Use" "$($c.use)" } else { "Use" }
 			X "$i`t<xr:Item>"
 			X "$i`t`t<xr:Metadata>$(Resolve-MDPath $mdRef)</xr:Metadata>"
 			X "$i`t`t<xr:Use>$mdUse</xr:Use>"
@@ -3492,7 +3501,7 @@ function Emit-CommandGroupProperties {
 	param([string]$indent)
 	$i = $indent
 	Emit-CommonHead $i
-	$repr = if ($def.representation) { "$($def.representation)" } else { "Auto" }
+	$repr = if ($def.representation) { Normalize-EnumValue "Representation" "$($def.representation)" } else { "Auto" }
 	X "$i<Representation>$repr</Representation>"
 	X "$i<ToolTip/>"
 	Emit-PictureRef $i $def.picture
@@ -3505,7 +3514,7 @@ function Emit-CommonCommandProperties {
 	$i = $indent
 	Emit-CommonHead $i
 	if ($def.group) { X "$i<Group>$($def.group)</Group>" } else { X "$i<Group/>" }
-	$repr = if ($def.representation) { "$($def.representation)" } else { "Auto" }
+	$repr = if ($def.representation) { Normalize-EnumValue "Representation" "$($def.representation)" } else { "Auto" }
 	X "$i<Representation>$repr</Representation>"
 	X "$i<ToolTip/>"
 	Emit-PictureRef $i $def.picture
@@ -3518,7 +3527,7 @@ function Emit-CommonCommandProperties {
 	} else {
 		X "$i<CommandParameterType/>"
 	}
-	$paramMode = if ($def.parameterUseMode) { "$($def.parameterUseMode)" } else { "Single" }
+	$paramMode = if ($def.parameterUseMode) { Normalize-EnumValue "ParameterUseMode" "$($def.parameterUseMode)" } else { "Single" }
 	X "$i<ParameterUseMode>$paramMode</ParameterUseMode>"
 	$modifies = if ($def.modifiesData -eq $true) { "true" } else { "false" }
 	X "$i<ModifiesData>$modifies</ModifiesData>"

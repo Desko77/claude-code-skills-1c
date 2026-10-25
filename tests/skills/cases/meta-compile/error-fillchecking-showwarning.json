@@ -1,0 +1,15 @@
+{
+  "name": "Ошибка: fillChecking=ShowWarning у реквизита - у платформы только DontCheck и ShowError",
+  "input": {
+    "type": "Catalog",
+    "name": "Товары",
+    "attributes": [
+      {
+        "name": "Цена",
+        "type": "Number(15,2)",
+        "fillChecking": "ShowWarning"
+      }
+    ]
+  },
+  "expectError": "Invalid value 'ShowWarning'"
+}

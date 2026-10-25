@@ -1,0 +1,14 @@
+{
+  "name": "Ошибка: representation=Icon у команды объекта",
+  "input": {
+    "type": "Catalog",
+    "name": "Товары",
+    "commands": {
+      "Печать": {
+        "group": "FormCommandBarImportant",
+        "representation": "Icon"
+      }
+    }
+  },
+  "expectError": "Invalid value 'Icon'"
+}

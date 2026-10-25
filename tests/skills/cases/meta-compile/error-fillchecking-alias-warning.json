@@ -1,0 +1,15 @@
+{
+  "name": "Ошибка: fillChecking=Предупреждение у реквизита - такого значения у платформы нет",
+  "input": {
+    "type": "Catalog",
+    "name": "Товары",
+    "attributes": [
+      {
+        "name": "Цена",
+        "type": "Number(15,2)",
+        "fillChecking": "Предупреждение"
+      }
+    ]
+  },
+  "expectError": "Invalid value 'Предупреждение'"
+}

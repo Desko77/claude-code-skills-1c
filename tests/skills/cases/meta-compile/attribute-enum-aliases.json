@@ -1,0 +1,28 @@
+{
+  "name": "Реквизит: fillChecking и indexing из синонимов и в другом регистре - каноническими значениями",
+  "input": {
+    "type": "Catalog",
+    "name": "Товары",
+    "attributes": [
+      {
+        "name": "Артикул",
+        "type": "String(25)",
+        "fillChecking": "Ошибка",
+        "indexing": "индексировать"
+      },
+      {
+        "name": "Цена",
+        "type": "Number(15,2)",
+        "fillChecking": "showerror",
+        "indexing": "IndexWithAdditionalOrder"
+      }
+    ]
+  },
+  "validatePath": "Catalogs/Товары",
+  "expect": {
+    "fileNotContains": {
+      "file": "Catalogs/Товары.xml",
+      "text": "<FillChecking>Ошибка</FillChecking>"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Ошибка: indexing реквизита вне списка платформы",
+  "input": {
+    "type": "Catalog",
+    "name": "Товары",
+    "attributes": [
+      {
+        "name": "Артикул",
+        "type": "String(25)",
+        "indexing": "Always"
+      }
+    ]
+  },
+  "expectError": "Invalid value 'Always'"
+}

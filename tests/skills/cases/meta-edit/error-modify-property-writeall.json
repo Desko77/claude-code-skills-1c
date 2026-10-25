@@ -1,0 +1,27 @@
+{
+  "name": "Ошибка: RegisterRecordsWritingOnPost=WriteAll - у платформы только WriteSelected и WriteModified",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Document",
+        "name": "Заказ"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    }
+  ],
+  "params": {
+    "objectPath": "Documents/Заказ"
+  },
+  "input": {
+    "modify": {
+      "properties": {
+        "RegisterRecordsWritingOnPost": "WriteAll"
+      }
+    }
+  },
+  "expectError": "Invalid value"
+}
