@@ -1,0 +1,31 @@
+{
+  "name": "Многоязычное свойство: недопустимая структура mixed-tail",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "editFile": "Catalogs/Товары.xml",
+      "replace": "</v8:item>\r\n\t\t\t</Synonym>",
+      "with": "</v8:item>лишний текст\r\n\t\t\t</Synonym>"
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Товары.xml"
+  },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "4a.",
+      "Synonym"
+    ]
+  }
+}

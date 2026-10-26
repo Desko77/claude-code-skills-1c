@@ -1,0 +1,49 @@
+{
+  "name": "Правка английского текста сохраняет пустой язык каноническим тегом",
+  "noSnapshot": "Структура языков и пустой тег проверяются явно по содержимому XML.",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "editFile": "Catalogs/Товары.xml",
+      "replace": "<v8:lang>ru</v8:lang>",
+      "with": "<v8:lang/>"
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Товары"
+  },
+  "input": {
+    "modify": {
+      "properties": {
+        "Synonym": {
+          "en": "Products"
+        }
+      }
+    }
+  },
+  "expect": {
+    "fileContains": {
+      "file": "Catalogs/Товары.xml",
+      "text": [
+        "<v8:lang/>",
+        "<v8:content>Товары</v8:content>",
+        "<v8:lang>en</v8:lang>",
+        "<v8:content>Products</v8:content>"
+      ]
+    },
+    "fileNotContains": {
+      "file": "Catalogs/Товары.xml",
+      "text": "<v8:lang></v8:lang>"
+    }
+  }
+}

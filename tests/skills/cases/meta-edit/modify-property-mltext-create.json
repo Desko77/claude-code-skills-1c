@@ -1,0 +1,27 @@
+{
+  "name": "modify-properties: создание отсутствующего многоязычного свойства",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Склады" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "editFile": "Catalogs/Склады.xml",
+      "replace": "\t\t\t<ListPresentation/>\r\n",
+      "with": ""
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Склады" },
+  "input": {
+    "modify": { "properties": { "ListPresentation": "Список складов" } }
+  },
+  "expect": {
+    "fileContains": [
+      { "file": "Catalogs/Склады.xml", "text": "<ListPresentation>\r\n\t\t\t\t<v8:item>\r\n\t\t\t\t\t<v8:lang>ru</v8:lang>\r\n\t\t\t\t\t<v8:content>Список складов</v8:content>\r\n\t\t\t\t</v8:item>\r\n\t\t\t</ListPresentation>" }
+    ],
+    "fileNotContains": [
+      { "file": "Catalogs/Склады.xml", "text": "<ListPresentation>Список" }
+    ]
+  }
+}

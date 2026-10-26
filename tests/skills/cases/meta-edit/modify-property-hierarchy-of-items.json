@@ -1,0 +1,22 @@
+{
+  "name": "modify-properties: HierarchyType=HierarchyOfItems принимается",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Подразделения", "hierarchical": true },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Подразделения" },
+  "input": {
+    "modify": { "properties": { "HierarchyType": "HierarchyOfItems" } }
+  },
+  "expect": {
+    "fileContains": [
+      { "file": "Catalogs/Подразделения.xml", "text": "<HierarchyType>HierarchyOfItems</HierarchyType>" }
+    ],
+    "fileNotContains": [
+      { "file": "Catalogs/Подразделения.xml", "text": "HierarchyItemsOnly" }
+    ]
+  }
+}

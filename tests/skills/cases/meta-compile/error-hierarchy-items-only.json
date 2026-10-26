@@ -1,0 +1,5 @@
+{
+  "name": "Ошибка: hierarchyType=HierarchyItemsOnly отвергается",
+  "input": { "type": "Catalog", "name": "Подразделения", "hierarchical": true, "hierarchyType": "HierarchyItemsOnly" },
+  "expectError": "Invalid value"
+}

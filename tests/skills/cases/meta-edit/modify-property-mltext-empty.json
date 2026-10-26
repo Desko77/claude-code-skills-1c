@@ -1,0 +1,26 @@
+{
+  "name": "modify-properties: пустое значение многоязычного свойства",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Валюты",
+        "synonym": { "ru": "Валюты", "en": "Currencies" }
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Валюты" },
+  "input": {
+    "modify": { "properties": { "Synonym": "" } }
+  },
+  "expect": {
+    "fileContains": [
+      { "file": "Catalogs/Валюты.xml", "text": "<Synonym/>" }
+    ],
+    "fileNotContains": [
+      { "file": "Catalogs/Валюты.xml", "text": "<v8:item>" }
+    ]
+  }
+}

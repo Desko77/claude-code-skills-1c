@@ -1,0 +1,107 @@
+{
+  "name": "Пустой Module.bsl (BOM и пробелы): заготовки по полному реестру событий формы",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "РеестрСобытий"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/DataProcessors/РеестрСобытий.xml",
+        "-FormName": "Форма"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "DataProcessors/РеестрСобытий/Forms/Форма/Ext/Form/Module.bsl",
+        "content": "﻿ \r\n"
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "DataProcessors/РеестрСобытий/Forms/Форма/Ext/Form.xml"
+  },
+  "validatePath": "DataProcessors/РеестрСобытий/Forms/Форма/Ext/Form.xml",
+  "input": {
+    "title": "Реестр событий",
+    "events": {
+      "OnCreateAtServer": "ПриСозданииНаСервере",
+      "OnOpen": "ПриОткрытии",
+      "BeforeClose": "ПередЗакрытием",
+      "OnClose": "ПриЗакрытии",
+      "NotificationProcessing": "ОбработкаОповещения",
+      "ChoiceProcessing": "ОбработкаВыбора",
+      "OnReadAtServer": "ПрочитатьДанныеОбъекта",
+      "BeforeWriteAtServer": "ПередЗаписьюОбъекта",
+      "OnWriteAtServer": "ЗаписатьОбъект",
+      "AfterWriteAtServer": "ПослеЗаписиОбъекта",
+      "BeforeWrite": "ПередЗаписью",
+      "AfterWrite": "ПослеЗаписи",
+      "FillCheckProcessingAtServer": "ПроверитьЗаполнениеНаСервере",
+      "BeforeLoadDataFromSettingsAtServer": "ПередЗагрузкойНастроек",
+      "OnLoadDataFromSettingsAtServer": "ПриЗагрузкеНастроек",
+      "OnSaveDataInSettingsAtServer": "ПриСохраненииНастроек",
+      "ExternalEvent": "ВнешнееСобытие",
+      "OnReopen": "ПриПовторномОткрытии"
+    },
+    "attributes": [
+      {
+        "name": "Объект",
+        "type": "DataProcessorObject.РеестрСобытий",
+        "main": true
+      }
+    ]
+  },
+  "expect": {
+    "files": [
+      "DataProcessors/РеестрСобытий/Forms/Форма/Ext/Form/Module.bsl"
+    ],
+    "preserves": {
+      "file": "DataProcessors/РеестрСобытий/Forms/Форма/Ext/Form/Module.bsl",
+      "bom": true,
+      "eol": "crlf",
+      "finalNewline": false
+    },
+    "fileContains": {
+      "file": "DataProcessors/РеестрСобытий/Forms/Форма/Ext/Form/Module.bsl",
+      "text": [
+        "&НаСервере\r\nПроцедура ПриСозданииНаСервере(Отказ, СтандартнаяОбработка)",
+        "&НаКлиенте\r\nПроцедура ПриОткрытии(Отказ)",
+        "&НаКлиенте\r\nПроцедура ПередЗакрытием(Отказ, ЗавершениеРаботы, ТекстПредупреждения, СтандартнаяОбработка)",
+        "&НаКлиенте\r\nПроцедура ПриЗакрытии(ЗавершениеРаботы)",
+        "&НаКлиенте\r\nПроцедура ОбработкаОповещения(ИмяСобытия, Параметр, Источник)",
+        "&НаКлиенте\r\nПроцедура ОбработкаВыбора(ВыбранноеЗначение, ИсточникВыбора)",
+        "&НаСервере\r\nПроцедура ПрочитатьДанныеОбъекта(ТекущийОбъект)",
+        "&НаСервере\r\nПроцедура ПередЗаписьюОбъекта(Отказ, ТекущийОбъект, ПараметрыЗаписи)",
+        "&НаСервере\r\nПроцедура ЗаписатьОбъект(Отказ, ТекущийОбъект, ПараметрыЗаписи)",
+        "&НаСервере\r\nПроцедура ПослеЗаписиОбъекта(ТекущийОбъект, ПараметрыЗаписи)",
+        "&НаКлиенте\r\nПроцедура ПередЗаписью(Отказ, ПараметрыЗаписи)",
+        "&НаКлиенте\r\nПроцедура ПослеЗаписи(ПараметрыЗаписи)",
+        "&НаСервере\r\nПроцедура ПроверитьЗаполнениеНаСервере(Отказ, ПроверяемыеРеквизиты)",
+        "&НаСервере\r\nПроцедура ПередЗагрузкойНастроек(Настройки)",
+        "&НаСервере\r\nПроцедура ПриЗагрузкеНастроек(Настройки)",
+        "&НаСервере\r\nПроцедура ПриСохраненииНастроек(Настройки)",
+        "&НаКлиенте\r\nПроцедура ВнешнееСобытие(Источник, Событие, Данные)",
+        "&НаКлиенте\r\nПроцедура ПриПовторномОткрытии()"
+      ]
+    },
+    "fileNotContains": {
+      "file": "DataProcessors/РеестрСобытий/Forms/Форма/Ext/Form/Module.bsl",
+      "text": [
+        "Процедура ПрочитатьДанныеОбъекта()",
+        "Процедура ЗаписатьОбъект()"
+      ]
+    },
+    "stdoutNotContains": [
+      "[WARN]"
+    ]
+  }
+}

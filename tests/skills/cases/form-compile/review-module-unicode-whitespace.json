@@ -1,0 +1,78 @@
+{
+  "name": "Module.bsl из неразрывных пробелов сохраняется побайтово в обоих портах",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "СохранениеМодуля"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": {
+        "-ObjectPath": "{workDir}/DataProcessors/СохранениеМодуля.xml",
+        "-FormName": "Форма"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+        "content": "﻿ "
+      }
+    },
+    {
+      "writeFile": {
+        "path": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl.reference",
+        "content": "﻿ "
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form.xml"
+  },
+  "validatePath": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form.xml",
+  "input": {
+    "title": "Сохранение модуля",
+    "events": {
+      "OnReadAtServer": "ЗагрузитьДанныеОбъекта",
+      "OnOpen": "ПриОткрытии"
+    },
+    "attributes": [
+      {
+        "name": "Объект",
+        "type": "DataProcessorObject.СохранениеМодуля",
+        "main": true
+      }
+    ]
+  },
+  "expect": {
+    "files": [
+      "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl"
+    ],
+    "filesEqual": {
+      "actual": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+      "expected": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl.reference"
+    },
+    "fileNotContains": {
+      "file": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+      "text": [
+        "Процедура ЗагрузитьДанныеОбъекта",
+        "Процедура ПриОткрытии"
+      ]
+    },
+    "stdoutContains": [
+      "[SKIP] Module.bsl",
+      "preserved byte-for-byte",
+      "[INFO] Event handlers"
+    ],
+    "stdoutNotContains": [
+      "Module.bsl already exists"
+    ]
+  },
+  "noSnapshot": "Сравнение Module.bsl с исходными байтами выполняется через filesEqual."
+}

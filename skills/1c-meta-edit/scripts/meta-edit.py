@@ -338,7 +338,7 @@ valid_enum_values = {
     'Posting': ['Allow', 'Deny'],
     'RealTimePosting': ['Allow', 'Deny'],
     'EditType': ['InDialog', 'InList', 'BothWays'],
-    'HierarchyType': ['HierarchyFoldersAndItems', 'HierarchyItemsOnly'],
+    'HierarchyType': ['HierarchyFoldersAndItems', 'HierarchyOfItems'],
     'CodeType': ['String', 'Number'],
     'CodeAllowedLength': ['Variable', 'Fixed'],
     'NumberType': ['String', 'Number'],
@@ -703,6 +703,20 @@ STRUCTURAL_TYPED = ("MinValue", "MaxValue", "FillValue")
 STRUCTURAL_PROPS = STRUCTURAL_MLTEXT + STRUCTURAL_TYPED + (
     "LinkByType", "ChoiceParameters", "ChoiceParameterLinks")
 
+# Реестр многоязычных свойств формата выгрузки: значение собирается из элементов
+# v8:item/v8:lang/v8:content, непустой текст прямо в элементе платформа отвергает
+# при загрузке. Источник - все элементы схемы http://v8.1c.ru/8.3/MDClasses.xsd
+# с моделью содержания v8:item. Структурность сама по себе не делает свойство
+# многоязычным: MinValue, MaxValue, FillValue, LinkByType, ChoiceParameters и
+# ChoiceParameterLinks языков не имеют.
+ML_TEXT_PROPERTIES = frozenset((
+    "BriefInformation", "ConfigurationInformationAddress", "Copyright",
+    "DetailedInformation", "EditFormat", "Explanation", "ExtendedListPresentation",
+    "ExtendedObjectPresentation", "ExtendedPresentation", "ExtendedRecordPresentation",
+    "Format", "ListPresentation", "ObjectPresentation", "RecordPresentation",
+    "Synonym", "ToolTip", "VendorInformationAddress",
+))
+
 
 def attribute_type_string(props_el):
     """Тип реквизита строкой (CatalogRef.Спр и подобное) - нужен, чтобы развернуть EmptyRef."""
@@ -867,17 +881,136 @@ def build_choice_parameters_xml(indent, value):
 
 
 def build_mltext_xml(indent, tag, text):
-    if not text:
+    """Разметка многоязычного свойства из одного текста.
+
+    Параметры:
+        indent - отступ открывающего тега.
+        tag - имя свойства.
+        text - текст русского варианта; пустой текст дает пустой тег.
+
+    Результат:
+        Строка XML свойства.
+    """
+    return build_mltext_items_xml(indent, tag, [("ru", text)] if text else [])
+
+
+def build_mltext_items_xml(indent, tag, items):
+    """Разметка многоязычного свойства из пар (язык, содержание).
+
+    Параметры:
+        indent - отступ открывающего тега.
+        tag - имя свойства.
+        items - список кортежей (язык, содержание).
+
+    Результат:
+        Строка XML: пустой список дает самозакрывающийся тег (так пустое свойство
+        пишет платформа), иначе по элементу v8:item на язык.
+    """
+    if not items:
         return f"{indent}<{tag}/>"
-    lines = [
-        f"{indent}<{tag}>",
-        f"{indent}\t<v8:item>",
-        f"{indent}\t\t<v8:lang>ru</v8:lang>",
-        f"{indent}\t\t<v8:content>{esc_xml(text)}</v8:content>",
-        f"{indent}\t</v8:item>",
-        f"{indent}</{tag}>",
-    ]
+    lines = [f"{indent}<{tag}>"]
+    for lang, content in items:
+        lines.append(f"{indent}\t<v8:item>")
+        lines.append(f"{indent}\t\t<v8:lang>{esc_xml(lang)}</v8:lang>")
+        lines.append(f"{indent}\t\t<v8:content>{esc_xml(content)}</v8:content>")
+        lines.append(f"{indent}\t</v8:item>")
+    lines.append(f"{indent}</{tag}>")
     return "\r\n".join(lines)
+
+
+def mltext_value_items(value):
+    """Пары (язык, содержание) из значения DSL.
+
+    Контракт генератора: строка - русский вариант, словарь - значения по языкам,
+    пустое значение - очистка свойства целиком. Пустое содержание языка в словаре
+    удаляет элемент этого языка при слиянии.
+
+    Параметры:
+        value - значение свойства из DSL (строка, словарь или null).
+
+    Результат:
+        Список кортежей (язык, содержание); пустой список означает пустое свойство.
+    """
+    if isinstance(value, dict):
+        return [(str(lang), ps_str(content)) for lang, content in value.items()]
+    text = ps_str(value) if value is not None else ""
+    return [("ru", text)] if text else []
+
+
+def parse_mltext_items(el):
+    """Пары (язык, содержание) из существующего элемента многоязычного свойства.
+
+    Параметры:
+        el - элемент свойства из ML_TEXT_PROPERTIES.
+
+    Результат:
+        Список кортежей (язык, содержание) в порядке следования элементов v8:item;
+        элемент без пары lang/content пропускается.
+    """
+    items = []
+    for item_el in el:
+        if localname(item_el) != "item":
+            continue
+        lang = ""
+        content = ""
+        for gc in item_el:
+            ln = localname(gc)
+            if ln == "lang":
+                lang = (gc.text or "").strip()
+            elif ln == "content":
+                content = gc.text or ""
+        if lang or content:
+            items.append((lang, content))
+    return items
+
+
+def merge_mltext_items(existing_items, new_items):
+    """Слияние языков существующего свойства с правкой.
+
+    Правка затрагивает только заданные языки, остальные сохраняются: правка
+    русского значения не трогает английский. Язык с пустым содержанием удаляет
+    свой элемент.
+
+    Параметры:
+        existing_items - список пар (язык, содержание) из файла.
+        new_items - список пар (язык, содержание) из DSL.
+
+    Результат:
+        Итоговый список пар (язык, содержание); пустой список означает пустое свойство.
+    """
+    if not new_items:
+        return []
+    merged = list(existing_items)
+    for lang, content in new_items:
+        replaced = False
+        for idx, (ex_lang, _) in enumerate(merged):
+            if ex_lang.lower() == lang.lower():
+                merged[idx] = (ex_lang, content)
+                replaced = True
+                break
+        if not replaced:
+            merged.append((lang, content))
+    return [(lang, content) for lang, content in merged if content]
+
+
+def replace_property_element(parent, old_el, new_xml):
+    """Замена элемента свойства собранной разметкой на его месте.
+
+    Параметры:
+        parent - родительский элемент Properties.
+        old_el - заменяемый элемент свойства.
+        new_xml - строка XML нового элемента.
+
+    Результат:
+        True, если замена выполнена; False, если фрагмент не разобрался.
+    """
+    new_nodes = import_fragment(new_xml)
+    if not new_nodes:
+        return False
+    new_nodes[0].tail = old_el.tail
+    parent.insert(list(parent).index(old_el) + 1, new_nodes[0])
+    remove_node_with_whitespace(old_el)
+    return True
 
 
 # ============================================================
@@ -2191,7 +2324,10 @@ def modify_properties(props_def):
                 warn(f"Property '{prop_name}' not found in Properties")
                 continue
             new_indent = get_child_indent(properties_el)
-            if prop_name in STRUCTURAL_PROPS:
+            if prop_name in ML_TEXT_PROPERTIES:
+                new_xml = build_mltext_items_xml(
+                    new_indent, prop_name, mltext_value_items(prop_value))
+            elif prop_name in STRUCTURAL_PROPS:
                 new_xml = build_structural_xml(new_indent, prop_name, prop_value)
             else:
                 new_text = "true" if prop_value is True else (
@@ -2221,6 +2357,21 @@ def modify_properties(props_def):
             else:
                 values_list = [v.strip() for v in ps_str(prop_value).split(";;") if v.strip()]
             set_complex_property(prop_name, values_list)
+            continue
+
+        # Многоязычное свойство: значение собирается из v8:item/v8:lang/v8:content,
+        # непустой текст прямо в элементе платформа отвергает. Правка заменяет только
+        # заданные языки, остальные сохраняются.
+        if prop_name in ML_TEXT_PROPERTIES:
+            merged_items = merge_mltext_items(
+                parse_mltext_items(prop_el), mltext_value_items(prop_value))
+            new_xml = build_mltext_items_xml(
+                get_child_indent(properties_el), prop_name, merged_items)
+            if replace_property_element(properties_el, prop_el, new_xml):
+                info(f"Modified property: {prop_name} (mltext, {len(merged_items)} item(s))")
+                modify_count += 1
+            else:
+                warn(f"Property '{prop_name}' could not be rebuilt")
             continue
 
         # Handle boolean values
@@ -2422,15 +2573,34 @@ def modify_child_elements(modify_def, child_type):
                     if localname(gc) == "Synonym":
                         syn_el = gc
                         break
-                syn_indent = get_child_indent(props_el)
-                new_syn_xml = build_mltext_xml(syn_indent, "Synonym", ps_str(change_value))
-                new_syn_nodes = import_fragment(new_syn_xml)
-                if syn_el is not None and new_syn_nodes:
-                    syn_idx = list(props_el).index(syn_el)
-                    new_syn_nodes[0].tail = syn_el.tail
-                    props_el.insert(syn_idx + 1, new_syn_nodes[0])
-                    remove_node_with_whitespace(syn_el)
+                # Синоним многоязычен: правка заменяет только заданные языки,
+                # остальные сохраняются.
+                existing_items = parse_mltext_items(syn_el) if syn_el is not None else []
+                merged_items = merge_mltext_items(existing_items, mltext_value_items(change_value))
+                new_syn_xml = build_mltext_items_xml(
+                    get_child_indent(props_el), "Synonym", merged_items)
+                if syn_el is not None:
+                    replace_property_element(props_el, syn_el, new_syn_xml)
                 info(f"Changed synonym of {xml_tag} '{elem_name}': {change_value}")
+                modify_count += 1
+
+            elif change_prop in ML_TEXT_PROPERTIES:
+                ml_el = None
+                for gc in props_el:
+                    if localname(gc) == change_prop:
+                        ml_el = gc
+                        break
+                if ml_el is None:
+                    print(f"{xml_tag} '{elem_name}': свойство '{change_prop}' не найдено",
+                          file=sys.stderr)
+                    sys.exit(1)
+                merged_items = merge_mltext_items(
+                    parse_mltext_items(ml_el), mltext_value_items(change_value))
+                new_ml_xml = build_mltext_items_xml(
+                    get_child_indent(props_el), change_prop, merged_items)
+                replace_property_element(props_el, ml_el, new_ml_xml)
+                info(f"Modified {xml_tag} '{elem_name}'.{change_prop} "
+                     f"(mltext, {len(merged_items)} item(s))")
                 modify_count += 1
 
             elif change_prop in STRUCTURAL_PROPS:

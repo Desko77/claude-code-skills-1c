@@ -1991,7 +1991,32 @@ $script:knownEvents = @{
 	"popup"     = @()
 	"group"     = @()
 }
-$script:knownFormEvents = @("OnCreateAtServer","OnOpen","BeforeClose","OnClose","NotificationProcessing","ChoiceProcessing","OnReadAtServer","AfterWriteAtServer","BeforeWriteAtServer","AfterWrite","BeforeWrite","OnWriteAtServer","FillCheckProcessingAtServer","OnLoadDataFromSettingsAtServer","BeforeLoadDataFromSettingsAtServer","OnSaveDataInSettingsAtServer","ExternalEvent","OnReopen","Opening")
+# Сигнатуры обработчиков событий формы по справке платформы (ФормаКлиентскогоПриложения
+# и расширения формы для прикладного объекта): событие -> @(параметры, директива компиляции).
+# Директива берется из контекста события, а не из имени обработчика: имя без суффикса
+# НаСервере не делает серверное событие клиентским и наоборот. Opening сюда не входит:
+# по справке это событие расширения поля ввода, а не формы.
+$script:formEventSignatures = [ordered]@{
+	"OnCreateAtServer"                    = @("Отказ, СтандартнаяОбработка", "&НаСервере")
+	"OnOpen"                              = @("Отказ", "&НаКлиенте")
+	"BeforeClose"                         = @("Отказ, ЗавершениеРаботы, ТекстПредупреждения, СтандартнаяОбработка", "&НаКлиенте")
+	"OnClose"                             = @("ЗавершениеРаботы", "&НаКлиенте")
+	"NotificationProcessing"              = @("ИмяСобытия, Параметр, Источник", "&НаКлиенте")
+	"ChoiceProcessing"                    = @("ВыбранноеЗначение, ИсточникВыбора", "&НаКлиенте")
+	"OnReadAtServer"                      = @("ТекущийОбъект", "&НаСервере")
+	"BeforeWriteAtServer"                 = @("Отказ, ТекущийОбъект, ПараметрыЗаписи", "&НаСервере")
+	"OnWriteAtServer"                     = @("Отказ, ТекущийОбъект, ПараметрыЗаписи", "&НаСервере")
+	"AfterWriteAtServer"                  = @("ТекущийОбъект, ПараметрыЗаписи", "&НаСервере")
+	"BeforeWrite"                         = @("Отказ, ПараметрыЗаписи", "&НаКлиенте")
+	"AfterWrite"                          = @("ПараметрыЗаписи", "&НаКлиенте")
+	"FillCheckProcessingAtServer"         = @("Отказ, ПроверяемыеРеквизиты", "&НаСервере")
+	"BeforeLoadDataFromSettingsAtServer"  = @("Настройки", "&НаСервере")
+	"OnLoadDataFromSettingsAtServer"      = @("Настройки", "&НаСервере")
+	"OnSaveDataInSettingsAtServer"        = @("Настройки", "&НаСервере")
+	"ExternalEvent"                       = @("Источник, Событие, Данные", "&НаКлиенте")
+	"OnReopen"                            = @("", "&НаКлиенте")
+}
+$script:knownFormEvents = @($script:formEventSignatures.Keys)
 
 function Emit-Events {
 	param($el, [string]$elementName, [string]$indent, [string]$typeKey)
@@ -3220,55 +3245,78 @@ $enc = New-Object System.Text.UTF8Encoding($true)
 [System.IO.File]::WriteAllText($outPath, $xml.ToString().TrimEnd("`r", "`n"), $enc)
 
 # --- Модуль формы ---
-# Заготовки процедур ставятся ровно под события из описания: лишний обработчик в модуле
-# платформа не свяжет с формой, а недостающий оборвет открытие формы.
+# Существующий непустой Module.bsl не перезаписывается: модуль - рабочий код, и повторная
+# компиляция формы не должна его терять. Заготовки обработчиков создаются только для
+# отсутствующего или пустого файла (BOM и пробелы считаются пустотой); в существующий
+# непустой модуль обработчики не дописываются.
 $moduleDir = Join-Path (Split-Path $outPath -Parent) "Form"
 $modulePath = Join-Path $moduleDir "Module.bsl"
 if (Test-Path $moduleDir) {
-	$handlerLines = @()
-	if ($def.events) {
-		foreach ($p in $def.events.PSObject.Properties) {
-			$procName = "$($p.Value)"
-			if (-not $procName) { continue }
-			$directive = if ($procName -match "НаСервере$") { "&НаСервере" } else { "&НаКлиенте" }
-			$params = switch ($p.Name) {
-				"OnCreateAtServer" { "(Отказ, СтандартнаяОбработка)" }
-				"OnOpen" { "(Отказ)" }
-				"BeforeClose" { "(Отказ, ЗавершениеРаботы, ТекстПредупреждения, СтандартнаяОбработка)" }
-				"NotificationProcessing" { "(ИмяСобытия, Параметр, Источник)" }
-				default { "()" }
+	$moduleExists = Test-Path $modulePath
+	$moduleEmpty = $false
+	if ($moduleExists) {
+		$moduleBytes = [System.IO.File]::ReadAllBytes($modulePath)
+		$start = 0
+		if ($moduleBytes.Length -ge 3 -and $moduleBytes[0] -eq 0xEF -and
+			$moduleBytes[1] -eq 0xBB -and $moduleBytes[2] -eq 0xBF) { $start = 3 }
+		$moduleEmpty = $true
+		for ($i = $start; $i -lt $moduleBytes.Length; $i++) {
+			if ($moduleBytes[$i] -notin @(9, 10, 11, 12, 13, 32)) {
+				$moduleEmpty = $false
+				break
 			}
-			$handlerLines += ""
-			$handlerLines += $directive
-			$handlerLines += "Процедура $procName$params"
-			$handlerLines += ""
-			$handlerLines += "КонецПроцедуры"
 		}
 	}
 
-	$moduleLines = @("#Область ОбработчикиСобытийФормы")
-	$moduleLines += $handlerLines
-	$moduleLines += @(
-		"",
-		"#КонецОбласти",
-		"",
-		"#Область ОбработчикиСобытийЭлементовФормы",
-		"",
-		"#КонецОбласти",
-		"",
-		"#Область ОбработчикиКомандФормы",
-		"",
-		"#КонецОбласти",
-		"",
-		"#Область ОбработчикиОповещений",
-		"",
-		"#КонецОбласти",
-		"",
-		"#Область СлужебныеПроцедурыИФункции",
-		"",
-		"#КонецОбласти"
-	)
-	[System.IO.File]::WriteAllText($modulePath, ($moduleLines -join "`r`n"), $enc)
+	if ($moduleExists -and -not $moduleEmpty) {
+		Write-Host "[SKIP] Module.bsl exists and is not empty: $modulePath - preserved byte-for-byte"
+		if ($def.events) {
+			Write-Host "[INFO] Event handlers are not written into an existing module - add them separately"
+		}
+	} else {
+		$handlerLines = @()
+		if ($def.events) {
+			foreach ($p in $def.events.PSObject.Properties) {
+				$procName = "$($p.Value)"
+				if (-not $procName) { continue }
+				$sig = $script:formEventSignatures[$p.Name]
+				if ($null -eq $sig) {
+					# Событие вне реестра: сигнатуру выдумывать нельзя, заготовка не пишется.
+					Write-Host "[WARN] No confirmed handler signature for form event '$($p.Name)' - stub skipped"
+					continue
+				}
+				$handlerLines += ""
+				$handlerLines += $sig[1]
+				$handlerLines += "Процедура $($procName)($($sig[0]))"
+				$handlerLines += ""
+				$handlerLines += "КонецПроцедуры"
+			}
+		}
+
+		$moduleLines = @("#Область ОбработчикиСобытийФормы")
+		$moduleLines += $handlerLines
+		$moduleLines += @(
+			"",
+			"#КонецОбласти",
+			"",
+			"#Область ОбработчикиСобытийЭлементовФормы",
+			"",
+			"#КонецОбласти",
+			"",
+			"#Область ОбработчикиКомандФормы",
+			"",
+			"#КонецОбласти",
+			"",
+			"#Область ОбработчикиОповещений",
+			"",
+			"#КонецОбласти",
+			"",
+			"#Область СлужебныеПроцедурыИФункции",
+			"",
+			"#КонецОбласти"
+		)
+		[System.IO.File]::WriteAllText($modulePath, ($moduleLines -join "`r`n"), $enc)
+	}
 }
 
 # --- 13b. Auto-register form in parent object XML ---

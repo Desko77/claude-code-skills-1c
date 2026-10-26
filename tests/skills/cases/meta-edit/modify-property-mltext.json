@@ -1,0 +1,39 @@
+{
+  "name": "modify-properties: многоязычные свойства пишутся через v8:item",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Номенклатура",
+        "synonym": { "ru": "Номенклатура", "en": "Products" }
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Номенклатура" },
+  "input": {
+    "modify": {
+      "properties": {
+        "Synonym": "Товары & <услуги>",
+        "ListPresentation": "Список номенклатуры",
+        "ObjectPresentation": { "ru": "Элемент номенклатуры", "en": "Product item" }
+      }
+    }
+  },
+  "expect": {
+    "fileContains": [
+      { "file": "Catalogs/Номенклатура.xml", "text": "<v8:content>Товары &amp; &lt;услуги&gt;</v8:content>" },
+      { "file": "Catalogs/Номенклатура.xml", "text": "<v8:lang>en</v8:lang>" },
+      { "file": "Catalogs/Номенклатура.xml", "text": "<v8:content>Products</v8:content>" },
+      { "file": "Catalogs/Номенклатура.xml", "text": "<ListPresentation>\r\n\t\t\t\t<v8:item>\r\n\t\t\t\t\t<v8:lang>ru</v8:lang>\r\n\t\t\t\t\t<v8:content>Список номенклатуры</v8:content>" },
+      { "file": "Catalogs/Номенклатура.xml", "text": "<v8:content>Элемент номенклатуры</v8:content>" },
+      { "file": "Catalogs/Номенклатура.xml", "text": "<v8:content>Product item</v8:content>" }
+    ],
+    "fileNotContains": [
+      { "file": "Catalogs/Номенклатура.xml", "text": "<Synonym>Товары" },
+      { "file": "Catalogs/Номенклатура.xml", "text": "<ListPresentation>Список" },
+      { "file": "Catalogs/Номенклатура.xml", "text": "<ObjectPresentation>Элемент" }
+    ]
+  }
+}

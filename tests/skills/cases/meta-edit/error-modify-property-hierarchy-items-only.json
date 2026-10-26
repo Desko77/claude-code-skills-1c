@@ -1,0 +1,15 @@
+{
+  "name": "Ошибка: HierarchyType=HierarchyItemsOnly отвергается",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Подразделения", "hierarchical": true },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Подразделения" },
+  "input": {
+    "modify": { "properties": { "HierarchyType": "HierarchyItemsOnly" } }
+  },
+  "expectError": "Invalid value"
+}

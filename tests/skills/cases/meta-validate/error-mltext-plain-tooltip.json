@@ -1,0 +1,24 @@
+{
+  "name": "ToolTip реквизита записан непустым текстом без v8:item - ошибка",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары",
+        "attributes": [ "Артикул: String(25)" ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "editFile": "Catalogs/Товары.xml",
+      "replace": "<ToolTip/>",
+      "with": "<ToolTip>Подсказка текстом</ToolTip>"
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": ["ToolTip", "plain"]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "Многоязычное свойство: недопустимая структура wrong-item-namespace",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "editFile": "Catalogs/Товары.xml",
+      "replace": "<v8:item>",
+      "with": "<item>"
+    },
+    {
+      "editFile": "Catalogs/Товары.xml",
+      "replace": "</v8:item>",
+      "with": "</item>"
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Товары.xml"
+  },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "4a.",
+      "Synonym"
+    ]
+  }
+}

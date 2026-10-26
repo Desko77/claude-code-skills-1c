@@ -1,0 +1,31 @@
+{
+  "name": "Многоязычное свойство: недопустимая структура cdata",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "editFile": "Catalogs/Товары.xml",
+      "replace": "<v8:item>",
+      "with": "<![CDATA[лишний текст]]><v8:item>"
+    }
+  ],
+  "params": {
+    "objectPath": "Catalogs/Товары.xml"
+  },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": [
+      "4a.",
+      "Synonym"
+    ]
+  }
+}

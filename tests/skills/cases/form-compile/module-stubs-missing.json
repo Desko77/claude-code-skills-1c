@@ -1,0 +1,81 @@
+{
+  "name": "Отсутствующий Module.bsl: заготовки создаются, неизвестное событие без выдуманной сигнатуры",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "DataProcessor",
+        "name": "НовыйМодуль"
+      },
+      "args": {
+        "-JsonPath": "{inputFile}",
+        "-OutputDir": "{workDir}"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form/.keep",
+        "content": ""
+      }
+    }
+  ],
+  "params": {
+    "outputPath": "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form.xml"
+  },
+  "validatePath": "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form.xml",
+  "input": {
+    "title": "Новый модуль",
+    "events": {
+      "OnCreateAtServer": "ПриСозданииНаСервере",
+      "OnWriteAtServer": "СохранитьОбъект",
+      "OnSomethingCustom": "ПроизвольныйОбработчик",
+      "Opening": "НеСобытиеФормы"
+    },
+    "attributes": [
+      {
+        "name": "Объект",
+        "type": "DataProcessorObject.НовыйМодуль",
+        "main": true
+      }
+    ]
+  },
+  "expect": {
+    "files": [
+      "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form/Module.bsl"
+    ],
+    "preserves": {
+      "file": "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form/Module.bsl",
+      "bom": true,
+      "eol": "crlf"
+    },
+    "fileContains": [
+      {
+        "file": "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form/Module.bsl",
+        "text": [
+          "Процедура ПриСозданииНаСервере(Отказ, СтандартнаяОбработка)",
+          "Процедура СохранитьОбъект(Отказ, ТекущийОбъект, ПараметрыЗаписи)"
+        ]
+      },
+      {
+        "file": "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form.xml",
+        "text": [
+          "<Event name=\"OnSomethingCustom\">ПроизвольныйОбработчик</Event>",
+          "<Event name=\"Opening\">НеСобытиеФормы</Event>"
+        ]
+      }
+    ],
+    "fileNotContains": {
+      "file": "DataProcessors/НовыйМодуль/Forms/Форма/Ext/Form/Module.bsl",
+      "text": [
+        "ПроизвольныйОбработчик",
+        "НеСобытиеФормы"
+      ]
+    },
+    "stdoutContains": [
+      "[WARN] Unknown form event 'OnSomethingCustom'",
+      "[WARN] No confirmed handler signature for form event 'OnSomethingCustom' - stub skipped",
+      "[WARN] Unknown form event 'Opening'",
+      "[WARN] No confirmed handler signature for form event 'Opening' - stub skipped"
+    ]
+  }
+}

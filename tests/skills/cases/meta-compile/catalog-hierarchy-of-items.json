@@ -1,0 +1,4 @@
+{
+  "name": "Справочник: hierarchyType=HierarchyOfItems",
+  "input": { "type": "Catalog", "name": "Подразделения", "hierarchical": true, "hierarchyType": "HierarchyOfItems" }
+}

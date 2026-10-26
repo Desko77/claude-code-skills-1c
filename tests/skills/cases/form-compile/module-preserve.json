@@ -1,0 +1,62 @@
+{
+  "name": "Повторная компиляция сохраняет непустой Module.bsl побайтово",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "DataProcessor", "name": "СохранениеМодуля" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "script": "form-add/scripts/form-add",
+      "args": { "-ObjectPath": "{workDir}/DataProcessors/СохранениеМодуля.xml", "-FormName": "Форма" }
+    },
+    {
+      "writeFile": {
+        "path": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+        "content": "﻿// Пользовательский код - выживет при повторной компиляции\r\nПроцедура МойКодНаСохранение()\r\n\r\nКонецПроцедуры\r\n"
+      }
+    },
+    {
+      "writeFile": {
+        "path": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl.reference",
+        "content": "﻿// Пользовательский код - выживет при повторной компиляции\r\nПроцедура МойКодНаСохранение()\r\n\r\nКонецПроцедуры\r\n"
+      }
+    }
+  ],
+  "params": { "outputPath": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form.xml" },
+  "validatePath": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form.xml",
+  "input": {
+    "title": "Сохранение модуля",
+    "events": { "OnReadAtServer": "ЗагрузитьДанныеОбъекта", "OnOpen": "ПриОткрытии" },
+    "attributes": [
+      { "name": "Объект", "type": "DataProcessorObject.СохранениеМодуля", "main": true }
+    ]
+  },
+  "expect": {
+    "files": ["DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl"],
+    "filesEqual": {
+      "actual": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+      "expected": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl.reference"
+    },
+    "preserves": {
+      "file": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+      "bom": true,
+      "eol": "crlf",
+      "finalNewline": true
+    },
+    "fileContains": {
+      "file": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+      "text": ["МойКодНаСохранение", "КонецПроцедуры"]
+    },
+    "fileNotContains": {
+      "file": "DataProcessors/СохранениеМодуля/Forms/Форма/Ext/Form/Module.bsl",
+      "text": ["Процедура ЗагрузитьДанныеОбъекта", "Процедура ПриОткрытии"]
+    },
+    "stdoutContains": [
+      "[SKIP] Module.bsl",
+      "preserved byte-for-byte",
+      "[INFO] Event handlers"
+    ],
+    "stdoutNotContains": ["Module.bsl already exists"]
+  }
+}

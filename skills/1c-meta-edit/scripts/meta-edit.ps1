@@ -222,7 +222,7 @@ $script:validEnumValues = @{
 	"Posting"                        = @("Allow","Deny")
 	"RealTimePosting"                = @("Allow","Deny")
 	"EditType"                       = @("InDialog","InList","BothWays")
-	"HierarchyType"                  = @("HierarchyFoldersAndItems","HierarchyItemsOnly")
+	"HierarchyType"                  = @("HierarchyFoldersAndItems","HierarchyOfItems")
 	"CodeType"                       = @("String","Number")
 	"CodeAllowedLength"              = @("Variable","Fixed")
 	"NumberType"                     = @("String","Number")
@@ -711,6 +711,20 @@ $script:structuralMLText = @("Format", "EditFormat", "ToolTip")
 $script:structuralTyped  = @("MinValue", "MaxValue", "FillValue")
 $script:structuralProps  = $script:structuralMLText + $script:structuralTyped + @("LinkByType", "ChoiceParameters", "ChoiceParameterLinks")
 
+# Реестр многоязычных свойств формата выгрузки: значение собирается из элементов
+# v8:item/v8:lang/v8:content, непустой текст прямо в элементе платформа отвергает
+# при загрузке. Источник - все элементы схемы http://v8.1c.ru/8.3/MDClasses.xsd
+# с моделью содержания v8:item. Структурность сама по себе не делает свойство
+# многоязычным: MinValue, MaxValue, FillValue, LinkByType, ChoiceParameters и
+# ChoiceParameterLinks языков не имеют.
+$script:mlTextProperties = @(
+	"BriefInformation", "ConfigurationInformationAddress", "Copyright",
+	"DetailedInformation", "EditFormat", "Explanation", "ExtendedListPresentation",
+	"ExtendedObjectPresentation", "ExtendedPresentation", "ExtendedRecordPresentation",
+	"Format", "ListPresentation", "ObjectPresentation", "RecordPresentation",
+	"Synonym", "ToolTip", "VendorInformationAddress"
+)
+
 function Get-AttributeTypeString($propsEl) {
 	# Тип реквизита строкой (CatalogRef.Спр и подобное) - нужен, чтобы развернуть EmptyRef.
 	foreach ($child in $propsEl.ChildNodes) {
@@ -890,20 +904,167 @@ function Build-ChoiceParametersXml {
 	return ($lines -join "`r`n")
 }
 
+<#
+.SYNOPSIS
+Создает XML русского значения многоязычного свойства, не изменяя файл.
+.PARAMETER indent
+Отступ открывающего тега.
+.PARAMETER tag
+Имя свойства.
+.PARAMETER text
+Русский текст; пустая строка очищает свойство.
+.OUTPUTS
+Строка XML свойства.
+#>
 function Build-MLTextXml {
 	param([string]$indent, [string]$tag, [string]$text)
-	if (-not $text) {
-		return "$indent<$tag/>"
+	# Непустая строка - русский вариант (контракт генератора), пустая - пустой тег.
+	$items = @()
+	if ($text) { $items = @(@{ lang = "ru"; content = $text }) }
+	return Build-MLTextItemsXml $indent $tag $items
+}
+
+<#
+.SYNOPSIS
+Создает XML многоязычного свойства без изменения DOM.
+.PARAMETER indent
+Отступ открывающего тега.
+.PARAMETER tag
+Имя свойства.
+.PARAMETER items
+Пары lang/content; пустой список дает пустой тег.
+.OUTPUTS
+Строка XML свойства.
+#>
+function Build-MLTextItemsXml {
+	param([string]$indent, [string]$tag, $items)
+	# Многоязычный текст из пар (lang, content): пустой список дает самозакрывающийся
+	# тег (так пустое свойство пишет платформа), иначе по элементу v8:item на язык.
+	if (-not $items -or $items.Count -eq 0) { return "$indent<$tag/>" }
+	$lines = @("$indent<$tag>")
+	foreach ($mlItem in @($items)) {
+		$lines += "$indent`t<v8:item>"
+		$lines += "$indent`t`t<v8:lang>$(Esc-Xml $mlItem.lang)</v8:lang>"
+		$lines += "$indent`t`t<v8:content>$(Esc-Xml $mlItem.content)</v8:content>"
+		$lines += "$indent`t</v8:item>"
 	}
-	$lines = @(
-		"$indent<$tag>"
-		"$indent`t<v8:item>"
-		"$indent`t`t<v8:lang>ru</v8:lang>"
-		"$indent`t`t<v8:content>$(Esc-Xml $text)</v8:content>"
-		"$indent`t</v8:item>"
-		"$indent</$tag>"
-	)
-	return $lines -join "`r`n"
+	$lines += "$indent</$tag>"
+	return ($lines -join "`r`n")
+}
+
+<#
+.SYNOPSIS
+Преобразует значение DSL в пары языков и содержания; слияние не выполняет.
+.PARAMETER value
+Строка ru, объект языков или пустое значение.
+.OUTPUTS
+Массив пар lang/content.
+#>
+function Get-MLTextValueItems {
+	param($value)
+	# Контракт генератора: строка - русский вариант, объект - значения по языкам,
+	# пустое значение - очистка свойства целиком. Пустое содержание языка в объекте
+	# удаляет элемент этого языка при слиянии.
+	if ($null -eq $value) { return @() }
+	if ($value -isnot [string]) {
+		$items = @()
+		foreach ($mlProp in $value.PSObject.Properties) {
+			$items += @{ lang = $mlProp.Name; content = "$($mlProp.Value)" }
+		}
+		return ,$items
+	}
+	if ($value) { return ,@(@{ lang = "ru"; content = $value }) }
+	return @()
+}
+
+<#
+.SYNOPSIS
+Читает существующие языковые значения без изменения узла.
+.PARAMETER el
+Элемент многоязычного свойства.
+.OUTPUTS
+Массив пар lang/content в исходном порядке.
+#>
+function Get-MLTextItems {
+	param($el)
+	# Пары (lang, content) из существующего элемента многоязычного свойства;
+	# элемент без пары lang/content пропускается.
+	if (-not $el) { return @() }
+	$items = @()
+	foreach ($itemEl in $el.ChildNodes) {
+		if ($itemEl.NodeType -ne 'Element' -or $itemEl.LocalName -ne "item") { continue }
+		$lang = ""
+		$content = ""
+		foreach ($gc in $itemEl.ChildNodes) {
+			if ($gc.NodeType -ne 'Element') { continue }
+			if ($gc.LocalName -eq "lang") { $lang = $gc.InnerText.Trim() }
+			elseif ($gc.LocalName -eq "content") { $content = $gc.InnerText }
+		}
+		if ($lang -or $content) { $items += @{ lang = $lang; content = $content } }
+	}
+	return ,$items
+}
+
+<#
+.SYNOPSIS
+Объединяет языки; пустое содержание удаляет язык, пустая правка очищает свойство.
+.PARAMETER existingItems
+Исходные пары lang/content.
+.PARAMETER newItems
+Заданные языки и новые значения.
+.OUTPUTS
+Итоговый массив пар lang/content.
+#>
+function Merge-MLTextItems {
+	param($existingItems, $newItems)
+	# Правка затрагивает только заданные языки, остальные сохраняются: правка
+	# русского значения не трогает английский. Язык с пустым содержанием удаляет
+	# свой элемент. Пустой итог означает пустое свойство.
+	if (-not $newItems -or $newItems.Count -eq 0) { return @() }
+	$merged = @()
+	if ($existingItems) { $merged += @($existingItems) }
+	foreach ($newItem in @($newItems)) {
+		$replaced = $false
+		for ($i = 0; $i -lt $merged.Count; $i++) {
+			if ($merged[$i].lang.ToLower() -eq $newItem.lang.ToLower()) {
+				$merged[$i] = @{ lang = $merged[$i].lang; content = $newItem.content }
+				$replaced = $true
+				break
+			}
+		}
+		if (-not $replaced) { $merged += @{ lang = $newItem.lang; content = $newItem.content } }
+	}
+	$result = @()
+	foreach ($m in @($merged)) { if ($m.content) { $result += $m } }
+	return ,$result
+}
+
+<#
+.SYNOPSIS
+Заменяет элемент свойства разобранным XML, сохраняя его положение и отступ.
+.PARAMETER parent
+Родительский элемент Properties.
+.PARAMETER oldEl
+Заменяемый элемент.
+.PARAMETER newXml
+XML нового элемента.
+.OUTPUTS
+Булево: выполнена ли замена.
+#>
+function Replace-PropertyElement {
+	param($parent, $oldEl, [string]$newXml)
+	# Замена элемента свойства собранной разметкой на его месте.
+	$newNodes = Import-Fragment $newXml
+	if ($newNodes.Count -eq 0) { return $false }
+	# Отступ перед узлом надо сохранить: удаление старого уносит с собой предшествующий
+	# пробельный узел, и новый прилипал к соседу.
+	$ws = $oldEl.PreviousSibling
+	$parent.InsertAfter($newNodes[0], $oldEl) | Out-Null
+	if ($ws -and ($ws.NodeType -eq 'Whitespace' -or $ws.NodeType -eq 'SignificantWhitespace')) {
+		$parent.InsertBefore($ws.CloneNode($true), $newNodes[0]) | Out-Null
+	}
+	Remove-NodeWithWhitespace $oldEl
+	return $true
 }
 
 # ============================================================
@@ -2293,7 +2454,9 @@ function Modify-Properties($propsDef) {
 				return
 			}
 			$newIndent = Get-ChildIndent $propertiesEl
-			if ($script:structuralProps -contains $propName) {
+			if ($script:mlTextProperties -contains $propName) {
+				$newXml = Build-MLTextItemsXml $newIndent $propName (Get-MLTextValueItems $propValue)
+			} elseif ($script:structuralProps -contains $propName) {
 				$newXml = Build-StructuralXml $newIndent $propName $propValue ""
 			} else {
 				$newText = if ($propValue -is [bool]) { if ($propValue) { "true" } else { "false" } } else { "$propValue" }
@@ -2327,6 +2490,18 @@ function Modify-Properties($propsDef) {
 				$valuesList = @("$propValue" -split ';;' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 			}
 			Set-ComplexProperty $propName $valuesList
+			return
+		}
+
+		# Многоязычное свойство: значение собирается из v8:item/v8:lang/v8:content,
+		# непустой текст прямо в элементе платформа отвергает. Правка заменяет только
+		# заданные языки, остальные сохраняются.
+		if ($script:mlTextProperties -contains $propName) {
+			$mergedItems = Merge-MLTextItems (Get-MLTextItems $propEl) (Get-MLTextValueItems $propValue)
+			$newXml = Build-MLTextItemsXml (Get-ChildIndent $propertiesEl) $propName $mergedItems
+			[void](Replace-PropertyElement $propertiesEl $propEl $newXml)
+			Info "Modified property: $propName (mltext, $(@($mergedItems).Count) item(s))"
+			$script:modifyCount++
 			return
 		}
 
@@ -2560,15 +2735,35 @@ function Modify-ChildElements($modifyDef, [string]$childType) {
 							$synEl = $gc; break
 						}
 					}
-					$synIndent = Get-ChildIndent $propsEl
-					$newSynXml = Build-MLTextXml $synIndent "Synonym" "$changeValue"
-					$newSynNodes = Import-Fragment $newSynXml
-					if ($synEl -and $newSynNodes.Count -gt 0) {
-						$propsEl.InsertAfter($newSynNodes[0], $synEl) | Out-Null
-						Remove-NodeWithWhitespace $synEl
+					# Синоним многоязычен: правка заменяет только заданные языки,
+					# остальные сохраняются.
+					$mergedItems = Merge-MLTextItems (Get-MLTextItems $synEl) (Get-MLTextValueItems $changeValue)
+					$newSynXml = Build-MLTextItemsXml (Get-ChildIndent $propsEl) "Synonym" $mergedItems
+					if ($synEl) {
+						[void](Replace-PropertyElement $propsEl $synEl $newSynXml)
 					}
 					Info "Changed synonym of $xmlTag '$elemName': $changeValue"
 					$script:modifyCount++
+				}
+				{ $script:mlTextProperties -contains $_ -and $_ -ne "synonym" } {
+					$mlEl = $null
+					foreach ($gc in $propsEl.ChildNodes) {
+						if ($gc.NodeType -eq 'Element' -and $gc.LocalName -eq $changeProp) {
+							$mlEl = $gc; break
+						}
+					}
+					if (-not $mlEl) {
+						Write-Error "$xmlTag '$elemName': свойство '$changeProp' не найдено"
+						exit 1
+					}
+					$mergedItems = Merge-MLTextItems (Get-MLTextItems $mlEl) (Get-MLTextValueItems $changeValue)
+					$newXml = Build-MLTextItemsXml (Get-ChildIndent $propsEl) $changeProp $mergedItems
+					[void](Replace-PropertyElement $propsEl $mlEl $newXml)
+					Info "Modified $xmlTag '$elemName'.$changeProp (mltext, $(@($mergedItems).Count) item(s))"
+					$script:modifyCount++
+					# switch без break проваливается дальше: structuralProps пересекается с
+					# реестром многоязычных свойств по Format/EditFormat/ToolTip.
+					break
 				}
 				{ $script:structuralProps -contains $_ } {
 					$structEl = $null

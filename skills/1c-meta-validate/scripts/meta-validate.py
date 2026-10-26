@@ -277,6 +277,18 @@ child_object_rules = {
     "EventSubscription":          [],
 }
 
+# Реестр многоязычных свойств: значение собирается из элементов v8:item/v8:lang/
+# v8:content. Источник - все элементы схемы http://v8.1c.ru/8.3/MDClasses.xsd с
+# моделью содержания v8:item. Непустой текст прямо в элементе платформа отвергает
+# при загрузке (ошибка XDTO), пустой элемент допустим.
+ml_text_properties = (
+    "BriefInformation", "ConfigurationInformationAddress", "Copyright",
+    "DetailedInformation", "EditFormat", "Explanation", "ExtendedListPresentation",
+    "ExtendedObjectPresentation", "ExtendedPresentation", "ExtendedRecordPresentation",
+    "Format", "ListPresentation", "ObjectPresentation", "RecordPresentation",
+    "Synonym", "ToolTip", "VendorInformationAddress",
+)
+
 # Valid enum property values
 valid_property_values = {
     "CodeType":                     ["String", "Number"],
@@ -290,7 +302,7 @@ valid_property_values = {
     "DataLockControlMode":          ["Automatic", "Managed"],
     "FullTextSearch":               ["Use", "DontUse"],
     "DefaultPresentation":          ["AsDescription", "AsCode"],
-    "HierarchyType":                ["HierarchyFoldersAndItems", "HierarchyItemsOnly"],
+    "HierarchyType":                ["HierarchyFoldersAndItems", "HierarchyOfItems"],
     "EditType":                     ["InDialog", "InList", "BothWays"],
     "WriteMode":                    ["Independent", "RecorderSubordinate"],
     "InformationRegisterPeriodicity": ["Nonperiodical", "Second", "Day", "Month", "Quarter", "Year", "RecorderPosition"],
@@ -573,6 +585,83 @@ if props_node is not None:
         report_ok(f"4. Property values: {enum_checked} enum properties checked")
 else:
     report_warn("4. No Properties block to check")
+
+if stopped:
+    finalize()
+    sys.exit(1)
+
+# ── Check 4a: многоязычные свойства - структура v8:item ──────
+
+
+def check_mltext_node(prop_node, where):
+    """Проверка многоязычного свойства на структуру v8:item.
+
+    Параметры:
+        prop_node - элемент свойства из ml_text_properties.
+        where - адрес блока Properties для сообщения (например, "Attribute 'Артикул'").
+
+    Результат:
+        True, если нарушений нет; False, если найдено хотя бы одно.
+    """
+    ok = True
+    name = local_name(prop_node)
+    own_text = (prop_node.text or "") + "".join(child.tail or "" for child in prop_node)
+    if own_text.strip():
+        report_error(f"4a. {where}: {name} is non-empty plain text without v8:item - "
+                     f"platform rejects such value")
+        ok = False
+    for child in prop_node:
+        if not isinstance(child.tag, str):
+            continue
+        if child.tag != "{" + NS["v8"] + "}item":
+            report_error(f"4a. {where}: {name} contains element {local_name(child)} "
+                         f"instead of v8:item")
+            ok = False
+            continue
+        # Пара обязана присутствовать целиком; текст языка платформа пишет и пустым.
+        if find(child, "v8:lang") is None or find(child, "v8:content") is None:
+            report_error(f"4a. {where}: {name}/v8:item missing v8:lang/v8:content pair")
+            ok = False
+    return ok
+
+
+def mltext_where(block):
+    """Адрес блока Properties для сообщения проверки: владелец блока и его имя.
+
+    Параметры:
+        block - элемент Properties.
+
+    Результат:
+        Строка вида "Attribute 'Артикул'" для дочернего элемента, "Properties" для
+        корневого блока.
+    """
+    owner = block.getparent()
+    if owner is None or owner is type_node:
+        return "Properties"
+    tag = local_name(owner)
+    name = inner_text(find(owner, "md:Properties/md:Name")).strip()
+    return f"{tag} '{name}'" if name else tag
+
+
+ml_blocks = []
+if props_node is not None:
+    ml_blocks.append(props_node)
+ml_blocks.extend(find_all(type_node, "md:ChildObjects//md:Properties"))
+
+ml_checked = 0
+check4a_ok = True
+for block in ml_blocks:
+    where = mltext_where(block)
+    for prop_node in block:
+        if not isinstance(prop_node.tag, str):
+            continue
+        if local_name(prop_node) in ml_text_properties:
+            ml_checked += 1
+            if not check_mltext_node(prop_node, where):
+                check4a_ok = False
+
+if check4a_ok:
+    report_ok(f"4a. Multilingual properties: {ml_checked} checked, v8:item structure valid")
 
 if stopped:
     finalize()

@@ -1,0 +1,20 @@
+{
+  "name": "Synonym с v8:item без пары lang-content - ошибка",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Товары" },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "editFile": "Catalogs/Товары.xml",
+      "replace": "\t\t\t\t\t<v8:lang>ru</v8:lang>\r\n\t\t\t\t\t<v8:content>Товары</v8:content>",
+      "with": "\t\t\t\t\t<v8:lang>ru</v8:lang>"
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Товары.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": ["Synonym", "v8:item"]
+  }
+}

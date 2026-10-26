@@ -92,7 +92,7 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 
 Компилятор предупреждает о неизвестных событиях. Имена регистрозависимы - используйте точно как указано.
 
-**Форма** (`events`): `OnCreateAtServer`, `OnOpen`, `BeforeClose`, `OnClose`, `NotificationProcessing`, `ChoiceProcessing`, `OnReadAtServer`, `BeforeWriteAtServer`, `OnWriteAtServer`, `AfterWriteAtServer`, `BeforeWrite`, `AfterWrite`, `FillCheckProcessingAtServer`, `BeforeLoadDataFromSettingsAtServer`, `OnLoadDataFromSettingsAtServer`, `ExternalEvent`, `Opening`
+**Форма** (`events`): `OnCreateAtServer`, `OnOpen`, `BeforeClose`, `OnClose`, `NotificationProcessing`, `ChoiceProcessing`, `OnReadAtServer`, `BeforeWriteAtServer`, `OnWriteAtServer`, `AfterWriteAtServer`, `BeforeWrite`, `AfterWrite`, `FillCheckProcessingAtServer`, `BeforeLoadDataFromSettingsAtServer`, `OnLoadDataFromSettingsAtServer`, `OnSaveDataInSettingsAtServer`, `ExternalEvent`, `OnReopen`
 
 **input**: `OnChange`, `StartChoice`, `ChoiceProcessing`, `AutoComplete`, `TextEditEnd`, `Clearing`, `Creating`, `EditTextChange`, `Opening`
 
@@ -448,7 +448,8 @@ powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 
 
 1. **Компиляция**: `/form-compile` генерирует `Form.xml` и автоматически регистрирует `<Form>` в `ChildObjects` родительского объекта (если OutputPath следует конвенции `.../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml`).
 2. **Метаданные формы** (`ФормаСписка.xml`) и `Module.bsl` создает `/form-add`. Если `/form-add` еще не вызывался - вызови после `/form-compile`. Он не перезаписывает существующий Form.xml.
-3. **Проверка**: `/form-validate`, `/form-info`.
+3. **Существующий Module.bsl сохраняется**: при повторной компиляции непустой модуль не перезаписывается и не дополняется обработчиками (выводится `[SKIP] Module.bsl`). Заготовки обработчиков пишутся только в отсутствующий или пустой файл (BOM и пробелы считаются пустотой). Параметры и директива заготовки (`&НаСервере` / `&НаКлиенте`) фиксированы по справке платформы для каждого события реестра и от имени обработчика не зависят; событие вне реестра заготовку не получает - только предупреждение, XML при этом пишется как задано.
+4. **Проверка**: `/form-validate`, `/form-info`.
 
 ## Верификация
 

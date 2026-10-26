@@ -1,0 +1,31 @@
+{
+  "name": "modify-attribute: синоним реквизита сохраняет другие языки",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": {
+        "type": "Catalog",
+        "name": "Товары",
+        "attributes": [
+          { "name": "Вес", "type": "Number(10,3)", "synonym": { "ru": "Вес", "en": "Weight" } }
+        ]
+      },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Товары" },
+  "input": {
+    "modify": {
+      "attributes": { "Вес": { "synonym": "Масса нетто" } }
+    }
+  },
+  "expect": {
+    "fileContains": [
+      { "file": "Catalogs/Товары.xml", "text": "<v8:content>Масса нетто</v8:content>" },
+      { "file": "Catalogs/Товары.xml", "text": "<v8:content>Weight</v8:content>" }
+    ],
+    "fileNotContains": [
+      { "file": "Catalogs/Товары.xml", "text": "<Synonym>Масса" }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "HierarchyType=HierarchyItemsOnly - ошибка: у платформы HierarchyOfItems",
+  "preRun": [
+    {
+      "script": "meta-compile/scripts/meta-compile",
+      "input": { "type": "Catalog", "name": "Подразделения", "hierarchical": true },
+      "args": { "-JsonPath": "{inputFile}", "-OutputDir": "{workDir}" }
+    },
+    {
+      "editFile": "Catalogs/Подразделения.xml",
+      "replace": "<HierarchyType>HierarchyFoldersAndItems</HierarchyType>",
+      "with": "<HierarchyType>HierarchyItemsOnly</HierarchyType>"
+    }
+  ],
+  "params": { "objectPath": "Catalogs/Подразделения.xml" },
+  "expectError": true,
+  "expect": {
+    "stdoutContains": "HierarchyItemsOnly"
+  }
+}

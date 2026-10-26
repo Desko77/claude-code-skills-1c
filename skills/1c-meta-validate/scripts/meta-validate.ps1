@@ -277,6 +277,18 @@ $childObjectRules = @{
 }
 
 # Valid enum property values
+# Реестр многоязычных свойств: значение собирается из элементов v8:item/v8:lang/
+# v8:content. Источник - все элементы схемы http://v8.1c.ru/8.3/MDClasses.xsd с
+# моделью содержания v8:item. Непустой текст прямо в элементе платформа отвергает
+# при загрузке (ошибка XDTO), пустой элемент допустим.
+$mlTextProperties = @(
+	"BriefInformation", "ConfigurationInformationAddress", "Copyright",
+	"DetailedInformation", "EditFormat", "Explanation", "ExtendedListPresentation",
+	"ExtendedObjectPresentation", "ExtendedPresentation", "ExtendedRecordPresentation",
+	"Format", "ListPresentation", "ObjectPresentation", "RecordPresentation",
+	"Synonym", "ToolTip", "VendorInformationAddress"
+)
+
 $validPropertyValues = @{
 	"CodeType"                       = @("String","Number")
 	"CodeAllowedLength"              = @("Variable","Fixed")
@@ -289,7 +301,7 @@ $validPropertyValues = @{
 	"DataLockControlMode"            = @("Automatic","Managed")
 	"FullTextSearch"                 = @("Use","DontUse")
 	"DefaultPresentation"            = @("AsDescription","AsCode")
-	"HierarchyType"                  = @("HierarchyFoldersAndItems","HierarchyItemsOnly")
+	"HierarchyType"                  = @("HierarchyFoldersAndItems","HierarchyOfItems")
 	"EditType"                       = @("InDialog","InList","BothWays")
 	"WriteMode"                      = @("Independent","RecorderSubordinate")
 	"InformationRegisterPeriodicity" = @("Nonperiodical","Second","Day","Month","Quarter","Year","RecorderPosition")
@@ -576,6 +588,73 @@ if ($propsNode) {
 	}
 } else {
 	Report-Warn "4. No Properties block to check"
+}
+
+if ($script:stopped) { & $finalize; exit 1 }
+
+# --- Check 4a: multilingual properties - v8:item structure ---
+
+<#
+.SYNOPSIS
+Формирует адрес блока Properties для сообщения; документ не изменяет.
+.PARAMETER block
+Проверяемый блок Properties.
+.OUTPUTS
+Строка: вид и имя владельца либо Properties.
+#>
+function Get-MLTextWhere($block) {
+	# Адрес блока Properties для сообщения: владелец блока и его имя.
+	$owner = $block.ParentNode
+	if (-not $owner -or $owner -eq $typeNode) { return "Properties" }
+	$tag = $owner.LocalName
+	$nameNode = $owner.SelectSingleNode("md:Properties/md:Name", $ns)
+	$name = if ($nameNode) { $nameNode.InnerText.Trim() } else { "" }
+	if ($name) { return "$tag '$name'" }
+	return $tag
+}
+
+$mlBlocks = @()
+if ($propsNode) { $mlBlocks += $propsNode }
+$mlBlocks += @($typeNode.SelectNodes("md:ChildObjects//md:Properties", $ns))
+
+$mlChecked = 0
+$check4aOk = $true
+foreach ($block in @($mlBlocks)) {
+	$where = Get-MLTextWhere $block
+	foreach ($propNode in @($block.ChildNodes)) {
+		if ($propNode.NodeType -ne 'Element') { continue }
+		if ($mlTextProperties -notcontains $propNode.LocalName) { continue }
+		$mlChecked++
+		$name = $propNode.LocalName
+		# Собственный текст узла, без текста дочерних элементов.
+		$ownText = ""
+		foreach ($tn in $propNode.ChildNodes) {
+			if ($tn.NodeType -in @('Text', 'CDATA')) { $ownText += $tn.Value }
+		}
+		if ($ownText.Trim()) {
+			Report-Error "4a. ${where}: $name is non-empty plain text without v8:item - platform rejects such value"
+			$check4aOk = $false
+		}
+		foreach ($child in @($propNode.ChildNodes)) {
+			if ($child.NodeType -ne 'Element') { continue }
+			if ($child.LocalName -ne "item" -or $child.NamespaceURI -ne $ns.LookupNamespace('v8')) {
+				Report-Error "4a. ${where}: $name contains element $($child.LocalName) instead of v8:item"
+				$check4aOk = $false
+				continue
+			}
+			# Пара обязана присутствовать целиком; текст языка платформа пишет и пустым.
+			$langNode = $child.SelectSingleNode("v8:lang", $ns)
+			$contentNode = $child.SelectSingleNode("v8:content", $ns)
+			if (-not $langNode -or -not $contentNode) {
+				Report-Error "4a. ${where}: $name/v8:item missing v8:lang/v8:content pair"
+				$check4aOk = $false
+			}
+		}
+	}
+}
+
+if ($check4aOk) {
+	Report-OK "4a. Multilingual properties: $mlChecked checked, v8:item structure valid"
 }
 
 if ($script:stopped) { & $finalize; exit 1 }

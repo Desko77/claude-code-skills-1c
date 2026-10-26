@@ -1539,6 +1539,22 @@ def write_utf8_bom(path, content, eol='\r\n'):
         f.write(content)
 
 
+def form_module_is_empty(raw):
+    """Пуст ли модуль формы: кроме BOM и пробельных символов содержимого нет.
+
+    Параметры:
+        raw - байты файла Module.bsl.
+
+    Результат: True, если файл состоит только из UTF-8 BOM и/или пробельных
+    символов (пробел, табуляция, переводы строк). Такой модуль равноценен
+    отсутствующему и заменяется заготовкой; любое иное содержимое, включая
+    синтаксически неверное, относится к рабочему коду и сохраняется.
+    Проверка идет по байтам, поэтому файл в любой кодировке читается без отказа.
+    """
+    body = raw[3:] if raw.startswith(b'\xef\xbb\xbf') else raw
+    return body.strip(b' \t\r\n\x0b\x0c') == b''
+
+
 # --- ID allocator ---
 _next_id = 0
 
@@ -1602,13 +1618,33 @@ KNOWN_EVENTS = {
     "group": [],
 }
 
-KNOWN_FORM_EVENTS = [
-    "OnCreateAtServer", "OnOpen", "BeforeClose", "OnClose", "NotificationProcessing",
-    "ChoiceProcessing", "OnReadAtServer", "AfterWriteAtServer", "BeforeWriteAtServer",
-    "AfterWrite", "BeforeWrite", "OnWriteAtServer", "FillCheckProcessingAtServer",
-    "OnLoadDataFromSettingsAtServer", "BeforeLoadDataFromSettingsAtServer",
-    "OnSaveDataInSettingsAtServer", "ExternalEvent", "OnReopen", "Opening",
-]
+# Сигнатуры обработчиков событий формы по справке платформы (ФормаКлиентскогоПриложения
+# и расширения формы для прикладного объекта): событие -> (параметры, директива компиляции).
+# Директива берется из контекста события, а не из имени обработчика: имя без суффикса
+# НаСервере не делает серверное событие клиентским и наоборот. Opening сюда не входит:
+# по справке это событие расширения поля ввода, а не формы.
+FORM_EVENT_SIGNATURES = {
+    "OnCreateAtServer": ("Отказ, СтандартнаяОбработка", "&НаСервере"),
+    "OnOpen": ("Отказ", "&НаКлиенте"),
+    "BeforeClose": ("Отказ, ЗавершениеРаботы, ТекстПредупреждения, СтандартнаяОбработка", "&НаКлиенте"),
+    "OnClose": ("ЗавершениеРаботы", "&НаКлиенте"),
+    "NotificationProcessing": ("ИмяСобытия, Параметр, Источник", "&НаКлиенте"),
+    "ChoiceProcessing": ("ВыбранноеЗначение, ИсточникВыбора", "&НаКлиенте"),
+    "OnReadAtServer": ("ТекущийОбъект", "&НаСервере"),
+    "BeforeWriteAtServer": ("Отказ, ТекущийОбъект, ПараметрыЗаписи", "&НаСервере"),
+    "OnWriteAtServer": ("Отказ, ТекущийОбъект, ПараметрыЗаписи", "&НаСервере"),
+    "AfterWriteAtServer": ("ТекущийОбъект, ПараметрыЗаписи", "&НаСервере"),
+    "BeforeWrite": ("Отказ, ПараметрыЗаписи", "&НаКлиенте"),
+    "AfterWrite": ("ПараметрыЗаписи", "&НаКлиенте"),
+    "FillCheckProcessingAtServer": ("Отказ, ПроверяемыеРеквизиты", "&НаСервере"),
+    "BeforeLoadDataFromSettingsAtServer": ("Настройки", "&НаСервере"),
+    "OnLoadDataFromSettingsAtServer": ("Настройки", "&НаСервере"),
+    "OnSaveDataInSettingsAtServer": ("Настройки", "&НаСервере"),
+    "ExternalEvent": ("Источник, Событие, Данные", "&НаКлиенте"),
+    "OnReopen": ("", "&НаКлиенте"),
+}
+
+KNOWN_FORM_EVENTS = list(FORM_EVENT_SIGNATURES)
 
 KNOWN_KEYS = {
     "group", "input", "check", "label", "labelField", "table", "pages", "page",
@@ -3214,38 +3250,48 @@ def main():
     write_utf8_bom(out_path, content)
 
     # --- Модуль формы ---
-    # Заготовки процедур ставятся ровно под события из описания: лишний обработчик в модуле
-    # платформа не свяжет с формой, а недостающий оборвет открытие формы.
+    # Существующий непустой Module.bsl не перезаписывается: модуль - рабочий код, и повторная
+    # компиляция формы не должна его терять. Заготовки обработчиков создаются только для
+    # отсутствующего или пустого файла (BOM и пробелы считаются пустотой); в существующий
+    # непустой модуль обработчики не дописываются.
     module_dir = os.path.join(os.path.dirname(out_path), 'Form')
+    module_path = os.path.join(module_dir, 'Module.bsl')
     if os.path.isdir(module_dir):
-        handler_lines = []
-        for event_name, proc_name in (defn.get('events') or {}).items():
-            proc_name = str(proc_name)
-            if not proc_name:
-                continue
-            directive = '&\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435' \
-                if proc_name.endswith('\u041d\u0430\u0421\u0435\u0440\u0432\u0435\u0440\u0435') \
-                else '&\u041d\u0430\u041a\u043b\u0438\u0435\u043d\u0442\u0435'
-            params = {
-                'OnCreateAtServer': '(\u041e\u0442\u043a\u0430\u0437, \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442\u043d\u0430\u044f\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430)',
-                'OnOpen': '(\u041e\u0442\u043a\u0430\u0437)',
-                'BeforeClose': '(\u041e\u0442\u043a\u0430\u0437, \u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435\u0420\u0430\u0431\u043e\u0442\u044b, \u0422\u0435\u043a\u0441\u0442\u041f\u0440\u0435\u0434\u0443\u043f\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u044f, \u0421\u0442\u0430\u043d\u0434\u0430\u0440\u0442\u043d\u0430\u044f\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430)',
-                'NotificationProcessing': '(\u0418\u043c\u044f\u0421\u043e\u0431\u044b\u0442\u0438\u044f, \u041f\u0430\u0440\u0430\u043c\u0435\u0442\u0440, \u0418\u0441\u0442\u043e\u0447\u043d\u0438\u043a)',
-            }.get(event_name, '()')
-            handler_lines += ['', directive,
-                              '\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u0430 ' + proc_name + params,
-                              '',
-                              '\u041a\u043e\u043d\u0435\u0446\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u044b']
+        raw_module = None
+        if os.path.isfile(module_path):
+            with open(module_path, 'rb') as f:
+                raw_module = f.read()
 
-        module_lines = ['#\u041e\u0431\u043b\u0430\u0441\u0442\u044c \u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u0421\u043e\u0431\u044b\u0442\u0438\u0439\u0424\u043e\u0440\u043c\u044b']
-        module_lines += handler_lines
-        for region in ('\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u0421\u043e\u0431\u044b\u0442\u0438\u0439\u042d\u043b\u0435\u043c\u0435\u043d\u0442\u043e\u0432\u0424\u043e\u0440\u043c\u044b',
-                       '\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u041a\u043e\u043c\u0430\u043d\u0434\u0424\u043e\u0440\u043c\u044b',
-                       '\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u041e\u043f\u043e\u0432\u0435\u0449\u0435\u043d\u0438\u0439',
-                       '\u0421\u043b\u0443\u0436\u0435\u0431\u043d\u044b\u0435\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u044b\u0418\u0424\u0443\u043d\u043a\u0446\u0438\u0438'):
-            module_lines += ['', '#\u041a\u043e\u043d\u0435\u0446\u041e\u0431\u043b\u0430\u0441\u0442\u0438', '', '#\u041e\u0431\u043b\u0430\u0441\u0442\u044c ' + region]
-        module_lines += ['', '#\u041a\u043e\u043d\u0435\u0446\u041e\u0431\u043b\u0430\u0441\u0442\u0438']
-        write_utf8_bom(os.path.join(module_dir, 'Module.bsl'), '\r\n'.join(module_lines))
+        if raw_module is not None and not form_module_is_empty(raw_module):
+            print(f"[SKIP] Module.bsl exists and is not empty: {module_path} - preserved byte-for-byte")
+            if defn.get('events'):
+                print("[INFO] Event handlers are not written into an existing module - add them separately")
+        else:
+            handler_lines = []
+            for event_name, proc_name in (defn.get('events') or {}).items():
+                proc_name = str(proc_name)
+                if not proc_name:
+                    continue
+                signature = FORM_EVENT_SIGNATURES.get(event_name)
+                if signature is None:
+                    # Событие вне реестра: сигнатуру выдумывать нельзя, заготовка не пишется.
+                    print(f"[WARN] No confirmed handler signature for form event '{event_name}' - stub skipped")
+                    continue
+                params, directive = signature
+                handler_lines += ['', directive,
+                                  f'Процедура {proc_name}({params})',
+                                  '',
+                                  'КонецПроцедуры']
+
+            module_lines = ['#\u041e\u0431\u043b\u0430\u0441\u0442\u044c \u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u0421\u043e\u0431\u044b\u0442\u0438\u0439\u0424\u043e\u0440\u043c\u044b']
+            module_lines += handler_lines
+            for region in ('\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u0421\u043e\u0431\u044b\u0442\u0438\u0439\u042d\u043b\u0435\u043c\u0435\u043d\u0442\u043e\u0432\u0424\u043e\u0440\u043c\u044b',
+                           '\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u041a\u043e\u043c\u0430\u043d\u0434\u0424\u043e\u0440\u043c\u044b',
+                           '\u041e\u0431\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0438\u041e\u043f\u043e\u0432\u0435\u0449\u0435\u043d\u0438\u0439',
+                           '\u0421\u043b\u0443\u0436\u0435\u0431\u043d\u044b\u0435\u041f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u044b\u0418\u0424\u0443\u043d\u043a\u0446\u0438\u0438'):
+                module_lines += ['', '#\u041a\u043e\u043d\u0435\u0446\u041e\u0431\u043b\u0430\u0441\u0442\u0438', '', '#\u041e\u0431\u043b\u0430\u0441\u0442\u044c ' + region]
+            module_lines += ['', '#\u041a\u043e\u043d\u0435\u0446\u041e\u0431\u043b\u0430\u0441\u0442\u0438']
+            write_utf8_bom(os.path.join(module_dir, 'Module.bsl'), '\r\n'.join(module_lines))
 
     # --- 4. Auto-register form in parent object XML ---
     # Infer parent from OutputPath: .../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml
