@@ -28,6 +28,8 @@ $extCfg = Join-Path $ExtensionPath "Configuration.xml"
 $srcCfg = Join-Path $ConfigPath "Configuration.xml"
 if (-not (Test-Path $extCfg)) { Write-Error "Extension Configuration.xml not found: $extCfg"; exit 1 }
 if (-not (Test-Path $srcCfg)) { Write-Error "Config Configuration.xml not found: $srcCfg"; exit 1 }
+$ExtensionPath = (Get-Item -LiteralPath $ExtensionPath).FullName
+$ConfigPath = (Get-Item -LiteralPath $ConfigPath).FullName
 
 # --- Type -> directory mapping ---
 $childTypeDirMap = @{
