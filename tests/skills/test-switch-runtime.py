@@ -1,5 +1,6 @@
 """Both runtime switchers must recognize current and legacy PowerShell commands."""
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -23,8 +24,23 @@ with tempfile.TemporaryDirectory(prefix='switch-runtime-') as temporary:
     (root / 'scripts').mkdir()
     skill = root / '.claude/skills/demo'
     skill.mkdir(parents=True)
+    (skill / 'run.ps1').write_text('', encoding='utf-8')
     (skill / 'SKILL.md').write_text('pwsh -NoProfile -File .claude/skills/demo/run.ps1\n', encoding='utf-8')
     shutil.copy2(ROOT / 'scripts/switch-to-python.py', root / 'scripts')
-    subprocess.run([sys.executable, str(root / 'scripts/switch-to-python.py')], check=True, capture_output=True)
+    result = subprocess.run(
+        [sys.executable, str(root / 'scripts/switch-to-python.py')],
+        capture_output=True, env={**os.environ, 'PYTHONIOENCODING': 'cp1252'})
+    assert result.returncode == 0, result.stderr.decode('utf-8', errors='replace')
     assert (skill / 'SKILL.md').read_text(encoding='utf-8') == 'python .claude/skills/demo/run.py\n'
+    shutil.copy2(ROOT / 'scripts/switch-to-powershell.py', root / 'scripts')
+    result = subprocess.run(
+        [sys.executable, str(root / 'scripts/switch-to-powershell.py')],
+        capture_output=True, env={**os.environ, 'PYTHONIOENCODING': 'cp1252'})
+    assert result.returncode == 0, result.stderr.decode('utf-8', errors='replace')
+    actual = (skill / 'SKILL.md').read_text(encoding='utf-8')
+    assert actual == 'pwsh -NoProfile -File .claude/skills/demo/run.ps1\n', repr(actual)
+    result = subprocess.run(
+        [sys.executable, str(ROOT / 'scripts/switch.py'), '--help'],
+        capture_output=True, env={**os.environ, 'PYTHONIOENCODING': 'cp1252'})
+    assert result.returncode == 0, result.stderr.decode('utf-8', errors='replace')
 print('Runtime switchers support pwsh and legacy PowerShell.')
