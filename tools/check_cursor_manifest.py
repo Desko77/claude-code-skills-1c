@@ -15,6 +15,8 @@ MANIFEST = ROOT / 'tools/cursor-manifest.json'
 
 def generated_manifest():
     groups = defaultdict(list)
+    tracked = subprocess.check_output(['git', 'ls-files', '-z'], cwd=ROOT).decode('utf-8')
+    source_names = {name.casefold(): name for name in tracked.split(chr(0)) if name}
     with tempfile.TemporaryDirectory(prefix='cursor-manifest-') as tmp:
         target = Path(tmp)
         subprocess.run([sys.executable, str(ROOT / 'tools/convert_from_claude.py'),
@@ -23,6 +25,13 @@ def generated_manifest():
         for path in target.rglob('*'):
             if path.is_file():
                 rel = path.relative_to(target).as_posix()
+                source_rel = rel[:-1] if rel.startswith('rules/') and rel.endswith('.mdc') else rel
+                canonical = source_names.get(source_rel.casefold())
+                if canonical is None:
+                    if (ROOT / source_rel).exists():
+                        continue  # Local artifacts are outside the tracked source manifest.
+                    canonical = source_rel
+                rel = canonical + 'c' if rel.startswith('rules/') and rel.endswith('.mdc') else canonical
                 groups[rel.split('/')[0]].append(rel)
     return {group: {'count': len(names), 'sha256': hashlib.sha256(
         ('\n'.join(sorted(names)) + '\n').encode('utf-8')).hexdigest()}
@@ -50,4 +59,6 @@ def main():
 
 
 if __name__ == '__main__':
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
     raise SystemExit(main())

@@ -30,6 +30,15 @@ jobs:
       - name: Зависимости python-портов
         run: python -m pip install --quiet lxml
 
+      - name: Состав файлов зеркала Cursor
+        if: ${{ hashFiles('tools/check_cursor_manifest.py') != '' }}
+        run: |
+          python tests/skills/test-cursor-manifest.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/skills/test-switch-runtime.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/check_cursor_manifest.py
+
       # Фильтра больше нет: интеграционные прогоны, которым нужна установленная платформа
       # 1С, раннер пропускает сам, а остальные (сборка расширения, обработки, конфигурации)
       # идут наравне с кейсами. Реестр known-gaps.json покрывает и те, и другие: падение
@@ -105,14 +114,6 @@ jobs:
       - name: Линтер набора
         run: python tools/validate_ruleset.py
 
-      - name: Состав файлов зеркала Cursor
-        if: ${{ hashFiles('tools/check_cursor_manifest.py') != '' }}
-        run: |
-          python tests/skills/test-cursor-manifest.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tests/skills/test-switch-runtime.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/check_cursor_manifest.py
 
   mirrors:
     name: Python-зеркала компилируются
