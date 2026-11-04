@@ -38,7 +38,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -105,11 +105,11 @@ powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 <па�
 
 ```powershell
 # Обычное обновление (файловая база)
-powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
+pwsh -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
 
 # Динамическое обновление (серверная база)
-powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -Dynamic "+"
+pwsh -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -Dynamic "+"
 
 # Обновление расширения
-powershell.exe -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -Extension "МоеРасширение"
+pwsh -NoProfile -File skills/1c-db-update/scripts/db-update.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -Extension "МоеРасширение"
 ```

@@ -175,7 +175,11 @@ $root = $xmlDoc.DocumentElement
 
 # === 2. Load JSON ===
 
-$def = Get-Content -Raw -Encoding UTF8 $JsonPath | ConvertFrom-Json
+$jsonOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+	$jsonOptions.DateKind = 'String'
+}
+$def = Get-Content -Raw -Encoding UTF8 $JsonPath | ConvertFrom-Json @jsonOptions
 
 # === 3. Form name + header ===
 

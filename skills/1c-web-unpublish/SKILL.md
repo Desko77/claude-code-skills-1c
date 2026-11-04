@@ -35,7 +35,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -52,11 +52,11 @@ powershell.exe -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps
 
 ```powershell
 # Удалить одну публикацию
-powershell.exe -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 -AppName "bpdemo"
+pwsh -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 -AppName "bpdemo"
 
 # Удалить все публикации
-powershell.exe -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 -All
+pwsh -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 -All
 
 # С указанием пути
-powershell.exe -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 -AppName "mydb" -ApachePath "C:\tools\apache24"
+pwsh -NoProfile -File skills/1c-web-unpublish/scripts/web-unpublish.ps1 -AppName "mydb" -ApachePath "C:\tools\apache24"
 ```

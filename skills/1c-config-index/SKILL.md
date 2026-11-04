@@ -31,7 +31,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File "skills/1c-config-index/scripts/config-index.ps1" -ConfigPath "src" -OutFile "index.json"
+pwsh -NoProfile -File "skills/1c-config-index/scripts/config-index.ps1" -ConfigPath "src" -OutFile "index.json"
 ```
 
 ```bash
@@ -44,7 +44,7 @@ python skills/1c-config-index/scripts/config-index.py -ConfigPath src -OutFile i
 такое имя. Отвечает без обхода выгрузки - читает только файл индекса.
 
 ```powershell
-powershell.exe -NoProfile -File "skills/1c-config-index/scripts/config-index.ps1" -IndexPath "index.json" -Object "Catalog.Контрагенты"
+pwsh -NoProfile -File "skills/1c-config-index/scripts/config-index.ps1" -IndexPath "index.json" -Object "Catalog.Контрагенты"
 ```
 
 ```bash

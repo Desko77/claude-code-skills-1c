@@ -37,7 +37,7 @@ python skills/1c-bsl-validate/scripts/bsl-validate.py -ModulePath src -IndexPath
 ```
 
 ```powershell
-powershell.exe -NoProfile -File "skills/1c-bsl-validate/scripts/bsl-validate.ps1" -ModulePath "src" -IndexPath ".cache/index.json"
+pwsh -NoProfile -File "skills/1c-bsl-validate/scripts/bsl-validate.ps1" -ModulePath "src" -IndexPath ".cache/index.json"
 ```
 
 ## Основная проверка: метод общего модуля

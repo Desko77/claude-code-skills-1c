@@ -156,7 +156,7 @@ function execSkill(runtime, scriptRelPath, args, timeout = 60_000, cwd = REPO_RO
       encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'], cwd,
     });
   }
-  return execFileSync('powershell.exe', [
+  return execFileSync('pwsh', [
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
     '-File', scriptPath, ...args
   ], { encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'], cwd });

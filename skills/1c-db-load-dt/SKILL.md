@@ -42,7 +42,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -83,8 +83,8 @@ powershell.exe -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 <п�
 
 ```powershell
 # Восстановление файловой базы
-powershell.exe -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -InputFile "C:\backup\MyDB.dt"
+pwsh -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -InputFile "C:\backup\MyDB.dt"
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Test" -UserName "Admin" -Password "secret" -InputFile "MyApp_Dev.dt"
+pwsh -NoProfile -File skills/1c-db-load-dt/scripts/db-load-dt.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Test" -UserName "Admin" -Password "secret" -InputFile "MyApp_Dev.dt"
 ```

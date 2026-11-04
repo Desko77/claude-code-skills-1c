@@ -13,6 +13,8 @@ allowed-tools:
 
 Принимает JSON-определение объекта метаданных → генерирует XML + модули в структуре выгрузки конфигурации + регистрирует в Configuration.xml.
 
+Для константы пустые модули менеджера не создаются.
+
 ## Порядок работы
 
 1. Составь JSON по синтаксису и примерам ниже → запиши во временный файл
@@ -23,7 +25,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
+pwsh -NoProfile -File skills/1c-meta-compile/scripts/meta-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
 ```
 
 | Параметр | Описание |

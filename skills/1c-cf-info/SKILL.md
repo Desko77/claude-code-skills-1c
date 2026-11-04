@@ -22,7 +22,7 @@ allowed-tools:
 | `OutFile` | Записать результат в файл (UTF-8 BOM) |
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-cf-info/scripts/cf-info.ps1 -ConfigPath "<путь>"
+pwsh -NoProfile -File skills/1c-cf-info/scripts/cf-info.ps1 -ConfigPath "<путь>"
 ```
 
 ## Три режима

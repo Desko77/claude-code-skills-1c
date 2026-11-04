@@ -1093,7 +1093,11 @@ function Get-OpProperty($Op) {
 function ConvertTo-RoleOperations([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) { Stop-RoleEdit "файл описания не найден: $Path" }
     $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
-    $data = $raw | ConvertFrom-Json
+    $jsonOptions = @{}
+    if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+        $jsonOptions.DateKind = 'String'
+    }
+    $data = $raw | ConvertFrom-Json @jsonOptions
     $items = $null
     if ($data -is [System.Array]) {
         $items = $data
@@ -1695,7 +1699,9 @@ if (-not $NoValidate) {
     $validateScript = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) '1c-role-validate\scripts\role-validate.ps1'
     if (Test-Path -LiteralPath $validateScript) {
         [Console]::Out.WriteLine('--- role-validate ---')
-        & powershell.exe -NoProfile -File $validateScript -RightsPath $paths.Rights
+        $hostExe = (Get-Process -Id $PID).Path
+        if (-not $hostExe) { $hostExe = 'pwsh' }
+        & $hostExe -NoProfile -File $validateScript -RightsPath $paths.Rights
     }
 }
 

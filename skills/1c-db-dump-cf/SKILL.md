@@ -35,7 +35,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -70,11 +70,11 @@ powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 <п�
 
 ```powershell
 # Выгрузка конфигурации (файловая база)
-powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "C:\backup\config.cf"
+pwsh -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "C:\backup\config.cf"
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -OutputFile "config.cf"
+pwsh -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -OutputFile "config.cf"
 
 # Выгрузка расширения
-powershell.exe -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "ext.cfe" -Extension "МоеРасширение"
+pwsh -NoProfile -File skills/1c-db-dump-cf/scripts/db-dump-cf.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "ext.cfe" -Extension "МоеРасширение"
 ```

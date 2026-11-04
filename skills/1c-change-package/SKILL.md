@@ -58,7 +58,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File "skills/1c-change-package/scripts/change-package.ps1" -Before "src-old" -After "src-new" -OutFile "package.md"
+pwsh -NoProfile -File "skills/1c-change-package/scripts/change-package.ps1" -Before "src-old" -After "src-new" -OutFile "package.md"
 ```
 
 ```bash

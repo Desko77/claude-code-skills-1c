@@ -205,7 +205,7 @@ function Get-TypeShorthand {
 					if ($dq) { $dn = $dq.SelectSingleNode('v8:DateFractions', $nsm); if ($dn) { $fr = $dn.InnerText } }
 					$parts += $fr; break   # Date | DateTime
 				}
-				'(^|:)base64Binary$' { $parts += 'ValueStorage'; break }
+				'(^|:)base64Binary$' { $parts += 'xs:base64Binary'; break }
 				default            { $parts += (Strip-NsPrefix $raw) }   # cfg:CatalogRef.X → CatalogRef.X
 			}
 		} elseif ($ln -eq 'TypeSet') {

@@ -285,6 +285,23 @@ if ($acb) {
 
 # --- Check 3: Unique element IDs ---
 
+$additionSources = @($root.SelectNodes('.//f:AdditionSource', $nsMgr))
+if ($additionSources.Count -gt 0 -and $hasBaseForm) {
+	Report-Warn 'AdditionSource: BaseForm may provide inherited elements; source check skipped'
+} elseif ($additionSources.Count -gt 0) {
+	$localNames = @{}
+	foreach ($node in $root.SelectNodes('.//*[@name and @id][not(ancestor::f:Attributes) and not(ancestor::f:Commands)]', $nsMgr)) { $localNames[$node.GetAttribute('name')] = $true }
+	foreach ($source in $additionSources) {
+		$item = $source.SelectSingleNode('f:Item', $nsMgr)
+		$name = if ($item) { $item.InnerText.Trim() } else { '' }
+		if (-not $name) {
+			Report-Warn 'AdditionSource item is empty'
+		} elseif (-not $localNames.ContainsKey($name)) {
+			Report-Warn "AdditionSource item '$name' not found among local form elements"
+		}
+	}
+}
+
 if (-not $stopped) {
 	$dupCount = ($allElements | Group-Object { $_.Id } | Where-Object { $_.Count -gt 1 -and $_.Name -ne "-1" }).Count
 	if ($dupCount -eq 0) {
@@ -608,6 +625,30 @@ if (-not $stopped) {
 	} elseif ($eventChecked -eq 0) {
 		Report-OK "Event handlers: none"
 	}
+
+	$handlers = @($root.SelectNodes('.//f:Events/f:Event', $nsMgr) |
+		ForEach-Object { $_.InnerText.Trim() } | Where-Object { $_ } | Sort-Object -Unique)
+	if ($handlers.Count -gt 0 -and -not $stopped) {
+		$modulePath = Join-Path (Join-Path (Split-Path $FormPath -Parent) 'Form') 'Module.bsl'
+		if ($hasBaseForm) {
+			Report-Warn 'Event handlers: BaseForm may provide inherited handlers; Module.bsl check skipped'
+		} elseif ([IO.Path]::GetFileName($FormPath) -ine 'Form.xml' -or -not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+			Report-Warn 'Event handlers: local Form/Module.bsl not found; declaration check skipped'
+		} else {
+			try {
+				$moduleText = [IO.File]::ReadAllText($modulePath, [Text.UTF8Encoding]::new($false, $true))
+				$declared = @{}
+				$pattern = '(?im)^\s*(?:Процедура|Функция|Procedure|Function)\s+([^\W\d]\w*)\s*\('
+				foreach ($match in [regex]::Matches($moduleText, $pattern)) { $declared[$match.Groups[1].Value] = $true }
+				foreach ($handler in $handlers) {
+					if ($stopped) { break }
+					if (-not $declared.ContainsKey($handler)) { Report-Warn "Event handler '$handler' not declared in local Module.bsl; check inherited form" }
+				}
+			} catch {
+				Report-Warn 'Event handlers: Module.bsl cannot be read as UTF-8; declaration check skipped'
+			}
+		}
+	}
 }
 
 # --- Check 8: Command actions ---
@@ -884,6 +925,10 @@ if (-not $stopped) {
 					# ExternalDataProcessorObject/ExternalReportObject valid only for EPF/ERF, not config
 					if ($script:isConfigContext -and ($pfx -eq "ExternalDataProcessorObject" -or $pfx -eq "ExternalReportObject")) {
 						Report-Error "12. Type '$tv': External* type in configuration context (use DataProcessorObject/ReportObject instead)"
+						$typeOk = $false; $typeInvalid++
+					}
+					elseif ($script:descriptorPath -and -not $script:isConfigContext -and $pfx -in @('DataProcessorObject', 'ReportObject') -and $tn.SelectSingleNode('ancestor::*[local-name()="Attribute"][*[local-name()="MainAttribute" and text()="true"]]')) {
+						Report-Error "12. Type '$tv': external form main attribute requires External*Object"
 						$typeOk = $false; $typeInvalid++
 					}
 					continue

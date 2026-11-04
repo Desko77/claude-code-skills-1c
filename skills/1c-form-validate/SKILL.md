@@ -12,6 +12,12 @@ allowed-tools:
 
 Проверяет Form.xml на структурные ошибки: уникальность ID, наличие companion-элементов, корректность ссылок DataPath и команд. `version` в Form.xml и в BaseForm сверяется с дескриптором: Configuration.xml конфигурации или расширения, либо корневой XML внешней обработки.
 
+Для внешней обработки или отчета главный реквизит с типом `DataProcessorObject` или `ReportObject` считается ошибкой: используйте соответственно `ExternalDataProcessorObject` или `ExternalReportObject`.
+
+Привязки событий сверяются с объявлениями процедур и функций в `Ext/Form/Module.bsl`. Отсутствующее локальное объявление дает предупреждение: обработчик может быть унаследован. Для формы с `BaseForm`, отсутствующего или нечитаемого локального модуля сверка пропускается с предупреждением.
+
+Явные ссылки `AdditionSource/Item` сверяются с именами элементов формы; неразрешенная ссылка дает предупреждение. Для `BaseForm` проверка пропускается, поскольку источник может находиться в базовой форме.
+
 ## Параметры
 
 | Параметр  | Обяз. | Умолч. | Описание                                |
@@ -24,8 +30,8 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "Catalogs/Номенклатура/Forms/ФормаЭлемента"
-powershell.exe -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "src/МояОбработка/Forms/Форма/Ext/Form.xml"
+pwsh -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "Catalogs/Номенклатура/Forms/ФормаЭлемента"
+pwsh -NoProfile -File skills/1c-form-validate/scripts/form-validate.ps1 -FormPath "src/МояОбработка/Forms/Форма/Ext/Form.xml"
 ```
 
 ## Сверка путей данных с объектом-владельцем (проверка 13)

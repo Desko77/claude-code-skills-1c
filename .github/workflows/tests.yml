@@ -48,11 +48,71 @@ jobs:
       - name: Гарды инвариантов
         run: node tests/skills/check-all.mjs
 
+      - name: Определение версии короткой конфигурации
+        run: pwsh -NoProfile -File tests/skills/test-short-format-version.ps1
+
+      - name: Тип главного реквизита внешней формы
+        run: python tests/skills/test_external_form_context.py
+
+      - name: Строки дат параметров СКД на PowerShell 7
+        run: pwsh -NoProfile -File tests/skills/test-skd-json-dates.ps1
+
+      - name: Строки в пользовательских стилях СКД
+        run: python tests/skills/test-skd-style-json-dates.py
+
+      - name: Строки дат при изменении формы
+        run: python tests/skills/test-form-edit-json-dates.py
+
+      - name: Смешанные переводы строк в тексте формы
+        run: python tests/skills/test-form-edit-mixed-eol.py
+
+      - name: Строки дат в синонимах метаданных
+        run: python tests/skills/test-metadata-json-dates.py
+
+      - name: Строки дат при изменении метаданных
+        run: python tests/skills/test-meta-edit-json-dates.py
+
+      - name: Строки дат при изменении подсистем
+        run: python tests/skills/test-subsystem-edit-json-dates.py
+
+      - name: Строки дат при изменении ролей
+        run: python tests/skills/test-role-edit-json-dates.py
+
+      - name: Строки дат в ячейках табличного документа
+        run: python tests/skills/test-mxl-json-dates.py
+
+      - name: Строки дат при чтении индекса конфигурации
+        run: python tests/skills/test-index-json-dates.py
+
+      - name: Строки дат в настройках проекта и проверке роли базы
+        run: pwsh -NoProfile -File tests/skills/test-project-json-dates.ps1
+
+      - name: Привязки обработчиков событий формы
+        run: python tests/skills/test-form-event-handlers.py
+
+      - name: Источники дополнений формы
+        run: python tests/skills/test-form-addition-source.py
+
+      - name: Хранилище значений и двоичные данные
+        run: python tests/skills/test-meta-storage.py
+
+      - name: Длина типов метаданных в PowerShell и Python
+        run: python tests/skills/test-meta-length.py
+
       # Линтер набора: frontmatter скилов и правил, разрешение перекрестных ссылок и
       # бюджет постоянно загружаемого контекста. Битая ссылка и разросшееся правило
       # тестами не ловятся вообще - они ничего не роняют, просто перестают работать.
       - name: Линтер набора
         run: python tools/validate_ruleset.py
+
+      - name: Состав файлов зеркала Cursor
+        if: ${{ hashFiles('tools/check_cursor_manifest.py') != '' }}
+        run: |
+          python tests/skills/test-cursor-manifest.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tests/skills/test-switch-runtime.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/check_cursor_manifest.py
 
   mirrors:
     name: Python-зеркала компилируются

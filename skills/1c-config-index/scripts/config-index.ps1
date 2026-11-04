@@ -449,7 +449,11 @@ function Read-IdxJson([string]$path) {
 		return $null
 	}
 	try {
-		return ($text | ConvertFrom-Json)
+		$jsonOptions = @{}
+		if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+			$jsonOptions.DateKind = 'String'
+		}
+		return ($text | ConvertFrom-Json @jsonOptions)
 	} catch {
 		Write-IdxError ("Index file could not be read: " + $path)
 		$script:idxReadFailed = $true

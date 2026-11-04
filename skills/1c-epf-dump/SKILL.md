@@ -39,7 +39,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -63,8 +63,8 @@ powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 <пар�
 
 ```powershell
 # Разборка обработки (файловая база)
-powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "build/МояОбработка.epf" -OutputDir "src"
+pwsh -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBasePath "C:\Bases\MyDB" -InputFile "build/МояОбработка.epf" -OutputDir "src"
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -InputFile "build/МояОбработка.epf" -OutputDir "src"
+pwsh -NoProfile -File skills/1c-epf-dump/scripts/epf-dump.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -InputFile "build/МояОбработка.epf" -OutputDir "src"
 ```

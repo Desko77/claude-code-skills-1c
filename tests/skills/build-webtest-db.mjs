@@ -61,7 +61,7 @@ export function execSkill(scriptPath, args, runtime = 'powershell') {
   return new Promise((res, rej) => {
     const cmd = runtime === 'python'
       ? [process.env.PYTHON || 'python', [scriptPath, ...args]]
-      : ['powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]];
+      : ['pwsh', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]];
     execFile(cmd[0], cmd[1], { encoding: 'utf8', timeout: 120_000, cwd: REPO_ROOT }, (err, stdout, stderr) => {
       if (err) {
         rej(new Error(stderr?.trim() || stdout?.trim() || err.message));

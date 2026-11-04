@@ -151,7 +151,11 @@ if (-not (Test-Path $JsonPath)) {
 }
 
 $json = Get-Content -Raw -Encoding UTF8 $JsonPath
-$def = $json | ConvertFrom-Json
+$jsonOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+	$jsonOptions.DateKind = 'String'
+}
+$def = $json | ConvertFrom-Json @jsonOptions
 
 if (-not $def.name) {
 	Write-Error "JSON must have 'name' field (role programmatic name)"
@@ -1113,7 +1117,7 @@ function Detect-FormatVersion([string]$dir) {
 	while ($d) {
 		$cfgPath = Join-Path $d "Configuration.xml"
 		if (Test-Path $cfgPath) {
-			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8); $head = $head.Substring(0, [Math]::Min(2000, $head.Length))
 			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
 		}
 		$parent = Split-Path $d -Parent

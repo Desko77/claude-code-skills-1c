@@ -436,7 +436,9 @@ function Get-InfoBaseRole {
     if (-not $configPath) { return $state }
     $state.ConfigPath = $configPath
     try {
-        $project = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $jsonOptions = @{}
+        if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) { $jsonOptions.DateKind = 'String' }
+        $project = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json @jsonOptions
     } catch {
         # Файл есть, но не разбирается: роль неизвестна. Молчать нельзя - иначе защита не
         # работает, а причина не видна.

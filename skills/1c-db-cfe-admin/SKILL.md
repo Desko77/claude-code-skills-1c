@@ -54,7 +54,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 <операция> <параметры>
+pwsh -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 <операция> <параметры>
 ```
 
 Порт Python: `skills/1c-db-cfe-admin/scripts/db-cfe-admin.py`. Имена параметров те же.
@@ -130,17 +130,17 @@ powershell.exe -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 
 
 ```powershell
 # Список расширений файловой базы
-powershell.exe -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 list -InfoBasePath "C:\Bases\MyDB"
+pwsh -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 list -InfoBasePath "C:\Bases\MyDB"
 
 # Проверка применимости расширения
-powershell.exe -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 check -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение"
+pwsh -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 check -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение"
 
 # Снять безопасный режим и оставить расширение активным
-powershell.exe -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 set-properties -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение" -SafeMode no -Active yes
+pwsh -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 set-properties -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение" -SafeMode no -Active yes
 
 # Удаление
-powershell.exe -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 delete -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение"
+pwsh -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 delete -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение"
 
 # Команда без запуска
-powershell.exe -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 delete -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение" -WhatIf
+pwsh -NoProfile -File skills/1c-db-cfe-admin/scripts/db-cfe-admin.ps1 delete -InfoBasePath "C:\Bases\MyDB" -Name "МоеРасширение" -WhatIf
 ```

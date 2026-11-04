@@ -243,7 +243,7 @@ function execSkillRaw(runtime, scriptPath, args, cwd) {
     });
   }
   // PowerShell
-  return execFileSync('powershell.exe', [
+  return execFileSync('pwsh', [
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
     '-File', scriptPath, ...args
   ], {
@@ -259,7 +259,7 @@ function execSkillAsync(runtime, scriptPath, args, cwd) {
     const execCwd = cwd || REPO_ROOT;
     const cmd = runtime === 'python'
       ? [process.env.PYTHON || 'python', [scriptPath, ...args]]
-      : ['powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]];
+      : ['pwsh', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args]];
 
     const child = execFile(cmd[0], cmd[1], {
       encoding: 'utf8',

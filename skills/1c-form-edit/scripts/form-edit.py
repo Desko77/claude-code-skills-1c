@@ -1587,6 +1587,80 @@ if elem_events_list:
 
 # ── 13. Save ────────────────────────────────────────────────
 
+def restore_unchanged_text_eol(original, serialized):
+    """Restore unchanged text by XML position and decoded value, not by value alone."""
+    import html
+
+    # DTD entities require a full parser and are not handled by the lexical pass.
+    if b'<!DOCTYPE' in original.upper():
+        return serialized
+    token_re = re.compile(rb'''(?s)<!--.*?-->|<!\[CDATA\[.*?\]\]>|<(?:(?:"[^"]*")|(?:'[^']*')|[^'">])*>|[^<]+''')
+    tag_re = re.compile(rb'^<\s*([^\s/>]+)')
+    attr_re = re.compile(rb'''\s(name|id)\s*=\s*(["'])(.*?)\2''', re.DOTALL)
+
+    def collect(data):
+        root = {'parent': None, 'children': [], 'texts': []}
+        stack = [root]
+        for match in token_re.finditer(data):
+            token = match.group()
+            if token.startswith((b'<!--', b'<![CDATA[', b'<?', b'<!')):
+                continue
+            if token.startswith(b'</'):
+                if len(stack) > 1:
+                    stack.pop()
+            elif token.startswith(b'<'):
+                tag = tag_re.match(token)
+                if not tag:
+                    continue
+                parent = stack[-1]
+                attributes = tuple(sorted((m.group(1), m.group(3)) for m in attr_re.finditer(token)))
+                node = {'parent': parent, 'children': [], 'texts': [],
+                        'key': (tag.group(1), attributes)}
+                parent['children'].append(node)
+                if not token.rstrip().endswith(b'/>'):
+                    stack.append(node)
+            else:
+                stack[-1]['texts'].append((match.start(), match.end(), token))
+
+        records = {}
+        def walk(node, path):
+            counts = {}
+            for child in node['children']:
+                counts[child['key']] = counts.get(child['key'], 0) + 1
+            seen = {}
+            for child in node['children']:
+                key = child['key']
+                seen[key] = seen.get(key, 0) + 1
+                # Counts avoid treating a shifted sibling as the same element.
+                child_path = path + ((key, seen[key], counts[key]),)
+                walk(child, child_path)
+            for index, (start, end, text) in enumerate(node['texts']):
+                if node['children'] and not text.strip():
+                    continue
+                records[(path, index, len(node['texts']))] = (start, end, text)
+        walk(root, ())
+        return records
+
+    def semantic(text):
+        try:
+            normalized = text.replace(b'\r\n', b'\n').replace(b'\r', b'\n')
+            return html.unescape(normalized.decode('utf-8'))
+        except UnicodeDecodeError:
+            return None
+
+    before = collect(original)
+    after = collect(serialized)
+    replacements = []
+    for key, (_, _, old) in before.items():
+        if b'\n' not in old and b'\r' not in old:
+            continue
+        current = after.get(key)
+        if current and semantic(old) is not None and semantic(old) == semantic(current[2]):
+            replacements.append((current[0], current[1], old))
+    for start, end, old in sorted(replacements, reverse=True):
+        serialized = serialized[:start] + old + serialized[end:]
+    return serialized
+
 xml_bytes = etree.tostring(tree, xml_declaration=True, encoding="UTF-8")
 # Пустой элемент: ElementTree отдает `<a />`, Конфигуратор пишет `<a/>`. Внутри
 # CDATA/комментария или значения атрибута ` />` может быть содержимым, поэтому ветками
@@ -1604,6 +1678,7 @@ xml_bytes = xml_bytes.replace(b"<?xml version='1.0' encoding='UTF-8'?>", b'<?xml
 _orig = open(resolved_form_path, 'rb').read() if os.path.exists(resolved_form_path) else b''
 if b'\r\n' in _orig:
     xml_bytes = xml_bytes.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+xml_bytes = restore_unchanged_text_eol(_orig, xml_bytes)
 # Хвостовой перевод исходного файла тоже сохраняется: универсального правила нет,
 # часть навыков его пишет, часть нет - правка не должна это менять.
 if _orig.endswith(b'\n') and not xml_bytes.endswith(b'\n'):

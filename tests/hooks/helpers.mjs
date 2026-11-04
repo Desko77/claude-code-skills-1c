@@ -5,7 +5,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile, utimes } from 'node:fs/promises';
 import { mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, devNull } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { eventsDir, sessionDir } from '../../hooks/common/quality-events.mjs';
@@ -35,6 +35,9 @@ export async function makeTmpRepo() {
   await git(top, 'config', 'user.name', 'Test');
   await git(top, 'config', 'core.autocrlf', 'false');
   await git(top, 'config', 'core.quotepath', 'false');
+  // Git иначе берет глобальный ignore из HOME; тесты с подменой HOME получают
+  // другое множество файлов и разные diffHash в двух дочерних процессах.
+  await git(top, 'config', 'core.excludesFile', devNull);
   await writeFile(join(top, 'README.md'), 'base\n', 'utf8');
   // Базовый коммит: без него HEAD не разрешается и diffHash не вычисляется.
   await git(top, 'add', '-A');

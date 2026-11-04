@@ -913,7 +913,9 @@ if (-not $NoValidate) {
 	if ($validateScript) {
 		Write-Host ""
 		Write-Host "--- Running cf-validate ---"
-		& powershell.exe -NoProfile -File $validateScript -ConfigPath $resolvedPath
+		$hostExe = (Get-Process -Id $PID).Path
+		if (-not $hostExe) { $hostExe = 'pwsh' }
+		& $hostExe -NoProfile -File $validateScript -ConfigPath $resolvedPath
 	}
 }
 

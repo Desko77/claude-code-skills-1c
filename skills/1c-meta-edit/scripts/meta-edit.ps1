@@ -343,7 +343,11 @@ if ($DefinitionFile) {
 		exit 1
 	}
 	$jsonText = Get-Content -Raw -Encoding UTF8 $DefinitionFile
-	$def = $jsonText | ConvertFrom-Json
+	$jsonOptions = @{}
+	if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+		$jsonOptions.DateKind = 'String'
+	}
+	$def = $jsonText | ConvertFrom-Json @jsonOptions
 }
 
 # --- Resolve object path ---
@@ -598,7 +602,7 @@ function Build-TypeContentXml {
 
 	# ValueStorage
 	if ($typeStr -eq "ValueStorage") {
-		$sb.AppendLine("$indent<v8:Type>xs:base64Binary</v8:Type>") | Out-Null
+		$sb.AppendLine("$indent<v8:Type>v8:ValueStorage</v8:Type>") | Out-Null
 		return $sb.ToString().TrimEnd("`r","`n")
 	}
 
@@ -3139,7 +3143,9 @@ if (-not $NoValidate) {
 	if ($validateScript) {
 		Write-Host ""
 		Write-Host "--- Running meta-validate ---" -ForegroundColor DarkGray
-		& powershell.exe -NoProfile -File $validateScript -ObjectPath $resolvedPath
+		$hostExe = (Get-Process -Id $PID).Path
+		if (-not $hostExe) { $hostExe = 'pwsh' }
+		& $hostExe -NoProfile -File $validateScript -ObjectPath $resolvedPath
 	} else {
 		Write-Host ""
 		Write-Host "[SKIP] meta-validate not found at: $validateScript" -ForegroundColor DarkGray

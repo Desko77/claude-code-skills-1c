@@ -391,7 +391,8 @@ def convert_skill(source_dir: Path, target_dir: Path, dry_run: bool) -> str:
             if not dry_run:
                 if target_subdir.exists():
                     shutil.rmtree(target_subdir)
-                shutil.copytree(subdir, target_subdir)
+                shutil.copytree(subdir, target_subdir,
+                                ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.pyo'))
             copied_dirs.append(subdir_name)
 
     # Copy extra .md files at skill root (not SKILL.md)
@@ -487,7 +488,8 @@ def convert_tests(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
     # Гарды хуков, агента 1c-explore, установщика и генерации секций правил проверяют
     # hooks/, agents/, tests/tools/ и rules/*.md - в зеркало эти части не переносятся.
     skip_names = {".last-report.json", "check-eval-runner.mjs", "check-hooks.mjs",
-                  "check-index-first.mjs", "check-tools.mjs", "check-catalog.mjs"}
+                  "check-index-first.mjs", "check-tools.mjs", "check-catalog.mjs",
+                  "test-cursor-manifest.py", "test-switch-runtime.py"}
     skip_top = {"hooks", "tools"}
     # Поле source связывает файл корпуса с оригиналом в исходном наборе. В зеркале
     # оригиналов нет: правила лежат как .mdc, README свой, описание скила переписано
@@ -533,6 +535,7 @@ def convert_tools(source_dir: Path, target_dir: Path, dry_run: bool) -> list[str
 
     skip = {
         "convert_from_claude.py": "собирает зеркало",
+        "check_cursor_manifest.py": "проверяет состав создаваемого зеркала",
         # Каталоги evals/ в зеркало не переносятся (см. список подкаталогов в
         # convert_skill), поэтому раннеру там нечего прогонять.
         "run_skill_evals.py": "прогоняет кейсы, которых в зеркале нет",

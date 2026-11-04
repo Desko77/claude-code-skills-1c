@@ -21,7 +21,7 @@ allowed-tools:
 | `OutputDir` | Корень выгрузки конфигурации (где `Configuration.xml`, `Roles/` и т.д.) |
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
+pwsh -NoProfile -File skills/1c-role-compile/scripts/role-compile.ps1 -JsonPath "<json>" -OutputDir "<ConfigDir>"
 ```
 
 Создает `{OutputDir}/Roles/Имя.xml` и `{OutputDir}/Roles/Имя/Ext/Rights.xml`. Регистрирует `<Role>` в `Configuration.xml`.

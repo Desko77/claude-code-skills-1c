@@ -55,7 +55,7 @@ GITIGNORE_RECOMMENDATIONS = [
 # ---------------------------------------------------------------------------
 # Runtime regex patterns (from switch-to-python.py / switch-to-powershell.py)
 # ---------------------------------------------------------------------------
-RX_PS = re.compile(r'powershell\.exe\s+(?:-NoProfile\s+)?-File\s+(.+?)\.ps1')
+RX_PS = re.compile(r'(?:powershell\.exe|pwsh(?:\.exe)?)\s+(?:-NoProfile\s+)?-File\s+(.+?)\.ps1', re.IGNORECASE)
 RX_PY = re.compile(r"python\s+('?[\w./_-]+?)\.py")
 
 
@@ -142,7 +142,7 @@ def switch_runtime_content(content, target_runtime):
     if target_runtime == 'python':
         new = RX_PS.sub(r'python \1.py', content)
     elif target_runtime == 'powershell':
-        new = RX_PY.sub(r'powershell.exe -NoProfile -File \1.ps1', content)
+        new = RX_PY.sub(r'pwsh -NoProfile -File \1.ps1', content)
     else:
         return content, False
     return new, new != content

@@ -28,7 +28,7 @@ export const steps = [
     input: {
       title: 'Тестовая обработка',
       attributes: [
-        { name: 'Объект', type: 'DataProcessorObject.ТестоваяОбработка', main: true },
+        { name: 'Объект', type: 'ExternalDataProcessorObject.ТестоваяОбработка', main: true },
         { name: 'Наименование', type: 'String' },
         { name: 'Количество', type: 'Number' },
       ],

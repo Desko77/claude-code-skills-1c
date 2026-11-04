@@ -12,7 +12,7 @@ description: "Хранилище конфигурации 1С через пак�
 ## Usage
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 -Operation <операция> [параметры]
+pwsh -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 -Operation <операция> [параметры]
 ```
 
 ## Операции
@@ -118,26 +118,26 @@ powershell.exe -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 -O
 
 ```powershell
 # Проверить связку и получить отчет по версиям
-powershell.exe -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
+pwsh -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
   -Operation status -InfoBasePath "C:\Bases\MyDB" `
   -RepositoryPath "C:\Repo" -RepositoryUser "Администратор" -OutputFile "report.mxl"
 
 # Захватить объекты
-powershell.exe -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
+pwsh -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
   -Operation lock -InfoBasePath "C:\Bases\MyDB" -RepositoryPath "C:\Repo" `
   -Objects "Справочник.Валюты,Справочник.Склады"
 
 # Поместить с комментарием и оставить захват
-powershell.exe -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
+pwsh -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
   -Operation commit -InfoBasePath "C:\Bases\MyDB" -RepositoryPath "C:\Repo" `
   -Objects "Справочник.Валюты" -Comment "ЗАДАЧА-123: добавлен реквизит" -KeepLocked
 
 # Отключить базу от хранилища
-powershell.exe -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
+pwsh -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
   -Operation unbind -InfoBasePath "C:\Bases\MyDB" -RepositoryPath "C:\Repo" -ConfirmUnbind
 
 # Подключить обратно, заменив локальную конфигурацию конфигурацией из хранилища
-powershell.exe -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
+pwsh -NoProfile -File skills/1c-storage-ops/scripts/storage-ops.ps1 `
   -Operation bind -InfoBasePath "C:\Bases\MyDB" -RepositoryPath "C:\Repo" `
   -ReplaceLocalConfiguration -ConfirmReplaceLocalConfiguration
 ```

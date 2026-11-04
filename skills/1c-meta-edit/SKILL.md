@@ -18,13 +18,13 @@ allowed-tools:
 ### Inline mode (простые операции)
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -ObjectPath "<path>" -Operation <op> -Value "<val>"
+pwsh -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -ObjectPath "<path>" -Operation <op> -Value "<val>"
 ```
 
 ### JSON mode (сложные/комбинированные)
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -DefinitionFile "<json>" -ObjectPath "<path>"
+pwsh -NoProfile -File skills/1c-meta-edit/scripts/meta-edit.ps1 -DefinitionFile "<json>" -ObjectPath "<path>"
 ```
 
 | Параметр | Описание |

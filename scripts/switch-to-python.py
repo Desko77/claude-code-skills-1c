@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # switch-to-python v1.1 — Switch skill .md files to use Python scripts
 # Source: https://github.com/Desko77/claude-code-skills-1c
-"""Replaces powershell.exe invocations with python in all .md files under .claude/skills/."""
+"""Replaces PowerShell invocations with python in .claude/skills/ Markdown files."""
 import os, re, glob, sys
 
 def main():
@@ -15,7 +15,7 @@ def main():
         print(f"Error: no .md files found in {skills_dir}", file=sys.stderr)
         sys.exit(1)
 
-    rx = re.compile(r'powershell\.exe\s+(?:-NoProfile\s+)?-File\s+(.+?)\.ps1')
+    rx = re.compile(r'(?:powershell\.exe|pwsh(?:\.exe)?)\s+(?:-NoProfile\s+)?-File\s+(.+?)\.ps1', re.IGNORECASE)
     switched = 0
     warnings = []
 

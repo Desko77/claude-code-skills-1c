@@ -25,8 +25,8 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps1 -ObjectPath "Catalogs/Номенклатура/Номенклатура.xml"
-powershell.exe -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps1 -ObjectPath "Catalogs/Банки|Documents/Заказ"
+pwsh -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps1 -ObjectPath "Catalogs/Номенклатура/Номенклатура.xml"
+pwsh -NoProfile -File skills/1c-meta-validate/scripts/meta-validate.ps1 -ObjectPath "Catalogs/Банки|Documents/Заказ"
 ```
 
 ## Сверка ссылочных типов (проверка 16)

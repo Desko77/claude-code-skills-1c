@@ -13,6 +13,8 @@ allowed-tools:
 
 Добавляет элементы, реквизиты и/или команды в существующий Form.xml. Автоматически выделяет ID из правильного пула, генерирует companion-элементы (ContextMenu, ExtendedTooltip, и др.) и обработчики событий.
 
+Python-реализация сохраняет исходные переводы строк в неизмененных текстовых значениях, когда соответствие однозначно. При неоднозначном соответствии, в документах с DTD, комментариях и CDATA побайтовая сохранность не гарантируется.
+
 ## Использование
 
 ```
@@ -29,7 +31,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-form-edit/scripts/form-edit.ps1 -FormPath "<путь>" -JsonPath "<путь>"
+pwsh -NoProfile -File skills/1c-form-edit/scripts/form-edit.ps1 -FormPath "<путь>" -JsonPath "<путь>"
 ```
 
 ## JSON формат

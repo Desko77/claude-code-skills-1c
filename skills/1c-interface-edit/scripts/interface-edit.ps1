@@ -177,7 +177,7 @@ function Detect-FormatVersion([string]$dir) {
 	while ($d) {
 		$cfgPath = Join-Path $d "Configuration.xml"
 		if (Test-Path $cfgPath) {
-			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8); $head = $head.Substring(0, [Math]::Min(2000, $head.Length))
 			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
 		}
 		$parent = Split-Path $d -Parent
@@ -699,7 +699,9 @@ if (-not $NoValidate) {
 	if ($validateScript) {
 		Write-Host ""
 		Write-Host "--- Running interface-validate ---"
-		& powershell.exe -NoProfile -File $validateScript -CIPath $resolvedPath
+		$hostExe = (Get-Process -Id $PID).Path
+		if (-not $hostExe) { $hostExe = 'pwsh' }
+		& $hostExe -NoProfile -File $validateScript -CIPath $resolvedPath
 	}
 }
 

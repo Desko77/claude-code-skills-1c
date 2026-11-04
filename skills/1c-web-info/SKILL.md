@@ -26,7 +26,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-web-info/scripts/web-info.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-web-info/scripts/web-info.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -55,8 +55,8 @@ Module: C:/Program Files/1cv8/8.3.24.1691/bin/wsap24.dll
 
 ```powershell
 # Статус по умолчанию
-powershell.exe -NoProfile -File skills/1c-web-info/scripts/web-info.ps1
+pwsh -NoProfile -File skills/1c-web-info/scripts/web-info.ps1
 
 # Указать путь к Apache
-powershell.exe -NoProfile -File skills/1c-web-info/scripts/web-info.ps1 -ApachePath "C:\tools\apache24"
+pwsh -NoProfile -File skills/1c-web-info/scripts/web-info.ps1 -ApachePath "C:\tools\apache24"
 ```

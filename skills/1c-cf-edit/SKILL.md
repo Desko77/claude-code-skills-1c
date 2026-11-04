@@ -24,7 +24,7 @@ allowed-tools:
 | `NoValidate` | Пропустить авто-валидацию |
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-cf-edit/scripts/cf-edit.ps1 -ConfigPath '<path>' -Operation modify-property -Value 'Version=1.0.0.1'
+pwsh -NoProfile -File skills/1c-cf-edit/scripts/cf-edit.ps1 -ConfigPath '<path>' -Operation modify-property -Value 'Version=1.0.0.1'
 ```
 
 ## Операции

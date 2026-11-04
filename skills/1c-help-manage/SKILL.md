@@ -30,7 +30,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-help-manage/scripts/add-help.ps1 -ObjectName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"]
+pwsh -NoProfile -File skills/1c-help-manage/scripts/add-help.ps1 -ObjectName "<ObjectName>" [-Lang "<Lang>"] [-SrcDir "<SrcDir>"]
 ```
 
 ## Что делает скрипт

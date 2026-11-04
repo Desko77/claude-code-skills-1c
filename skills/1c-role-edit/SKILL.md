@@ -42,7 +42,7 @@ allowed-tools:
 | `NoValidate` | Не вызывать `1c-role-validate` после записи |
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-role-edit/scripts/role-edit.ps1 -RolePath "Roles/Кладовщик.xml" -DefinitionFile "edit.json"
+pwsh -NoProfile -File skills/1c-role-edit/scripts/role-edit.ps1 -RolePath "Roles/Кладовщик.xml" -DefinitionFile "edit.json"
 ```
 
 ```powershell

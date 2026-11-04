@@ -35,7 +35,7 @@ python skills/1c-query-validate/scripts/query-validate.py -QueryPath запро�
 ```
 
 ```powershell
-powershell.exe -NoProfile -File "skills/1c-query-validate/scripts/query-validate.ps1" -QueryPath "запрос.txt" -IndexPath ".cache/index.json"
+pwsh -NoProfile -File "skills/1c-query-validate/scripts/query-validate.ps1" -QueryPath "запрос.txt" -IndexPath ".cache/index.json"
 ```
 
 ## Что проверяется

@@ -16,7 +16,7 @@
 //      идет по тексту литерала целиком.
 //
 // Правило без пары фикстур, расхождение строк, лишние находки или расхождение портов -
-// гард красный. PowerShell-канал пропускается с сообщением там, где powershell.exe
+// гард красный. PowerShell-канал пропускается с сообщением там, где pwsh
 // недоступен (не-Windows), - паритет в этих средах держат кейсы раннера.
 //
 // Запуск:  node tests/skills/check-lint-catalog.mjs
@@ -45,7 +45,7 @@ function runPort(kind, modulePath, ruleId) {
   const res = kind === 'py'
     ? spawnSync(process.env.PYTHON || 'python', ['-X', 'utf8', PY_SCRIPT, ...args],
         { encoding: 'utf8' })
-    : spawnSync('powershell.exe',
+    : spawnSync('pwsh',
         ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS_SCRIPT, ...args],
         { encoding: 'utf8' });
   runs++;
@@ -160,7 +160,7 @@ for (const rule of registry) {
       `правило ${rid}: clean.bsl (python) дал находки: ${findingsOf(cleanPyParsed.payload).join(', ')}`);
   }
   if (!psAvailable) {
-    console.log(`  правило ${rid}: powershell.exe недоступен, проверен только python-порт`);
+    console.log(`  правило ${rid}: pwsh недоступен, проверен только python-порт`);
   } else {
     const defectPsParsed = defectPs ? parsePayload(defectPs, `правило ${rid}: defect.bsl (powershell)`) : null;
     if (defectPsParsed && defectPsParsed.payload) {
@@ -224,7 +224,7 @@ for (const rule of registry) {
     if (pyRun && psRun && !pyRun.skipped && !psRun.skipped) {
       assertRawParity(pyRun, psRun, 'нижний регистр');
     } else {
-      console.log('  нижний регистр: powershell.exe недоступен, проверен только python-порт');
+      console.log('  нижний регистр: pwsh недоступен, проверен только python-порт');
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 const GUARDS = [
+  ['check-pwsh-runtime.mjs', 'единый интерпретатор PowerShell для навыков и тестов'],
   ['check-enum-drift.mjs', 'allowlist-и перечислений: meta-compile ↔ meta-validate ↔ meta-edit'],
   ['check-uuid-invariant.mjs', 'сохранение uuid объекта и сущностей при правке'],
   ['check-inline-drift.mjs', 'общие inline-реализации: копии совпадают с эталонами'],

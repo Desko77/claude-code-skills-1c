@@ -30,7 +30,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path <путь> [режим]
+pwsh -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path <путь> [режим]
 ```
 
 ### Параметры скрипта
@@ -77,11 +77,11 @@ powershell.exe -NoProfile -File skills/1c-support-state/scripts/support-state.ps
 
 ```powershell
 # Показать состояние поддержки выгрузки и правило конкретного объекта
-powershell.exe -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path "C:\Dump\MyConfig\Documents\МойДокумент.xml"
+pwsh -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path "C:\Dump\MyConfig\Documents\МойДокумент.xml"
 
 # Разрешить правку объекта с сохранением поддержки
-powershell.exe -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path "C:\Dump\MyConfig\Documents\МойДокумент.xml" -Set editable
+pwsh -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path "C:\Dump\MyConfig\Documents\МойДокумент.xml" -Set editable
 
 # Включить возможность изменения всей конфигурации
-powershell.exe -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path "C:\Dump\MyConfig" -Capability on
+pwsh -NoProfile -File skills/1c-support-state/scripts/support-state.ps1 -Path "C:\Dump\MyConfig" -Capability on
 ```

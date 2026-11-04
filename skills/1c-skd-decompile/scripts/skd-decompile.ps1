@@ -1602,7 +1602,9 @@ function Import-UserStylePresets($baseDir) {
 	foreach ($candidate in $candidates) {
 		if (-not (Test-Path $candidate)) { continue }
 		try {
-			$data = Get-Content -Raw -Encoding UTF8 $candidate | ConvertFrom-Json
+			$jsonOptions = @{}
+			if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) { $jsonOptions.DateKind = 'String' }
+			$data = Get-Content -Raw -Encoding UTF8 $candidate | ConvertFrom-Json @jsonOptions
 		} catch {
 			return
 		}

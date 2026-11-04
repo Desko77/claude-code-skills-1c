@@ -11,6 +11,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$jsonOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+	$jsonOptions.DateKind = 'String'
+}
 
 # --- Support guard (Ext/ParentConfigurations.bin) ---
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
@@ -562,7 +566,7 @@ function Do-RemoveChild([string]$childName) {
 }
 
 function Do-SetProperty([string]$jsonVal) {
-	$propDef = $jsonVal | ConvertFrom-Json
+	$propDef = $jsonVal | ConvertFrom-Json @jsonOptions
 	$propName = "$($propDef.name)"
 	$propValue = "$($propDef.value)"
 
@@ -636,7 +640,7 @@ if ($DefinitionFile) {
 		$DefinitionFile = Join-Path (Get-Location).Path $DefinitionFile
 	}
 	$jsonText = Get-Content -Raw -Encoding UTF8 $DefinitionFile
-	$ops = $jsonText | ConvertFrom-Json
+	$ops = $jsonText | ConvertFrom-Json @jsonOptions
 	if ($ops -is [System.Array]) {
 		foreach ($op in $ops) { $operations += $op }
 	} else {
@@ -703,7 +707,9 @@ if (-not $NoValidate) {
 	if ($validateScript) {
 		Write-Host ""
 		Write-Host "--- Running subsystem-validate ---"
-		& powershell.exe -NoProfile -File $validateScript -SubsystemPath $resolvedPath
+		$hostExe = (Get-Process -Id $PID).Path
+		if (-not $hostExe) { $hostExe = 'pwsh' }
+		& $hostExe -NoProfile -File $validateScript -SubsystemPath $resolvedPath
 	}
 }
 

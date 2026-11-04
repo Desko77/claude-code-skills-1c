@@ -21,7 +21,7 @@ allowed-tools:
 | `OutFile` | нет | Записать схему в файл (UTF-8 с BOM). Без него - вывод в stdout |
 
 ```powershell
-powershell.exe -NoProfile -File "${CLAUDE_SKILL_DIR}/scripts/xdto-decompile.ps1" -PackagePath "<путь>"
+pwsh -NoProfile -File "${CLAUDE_SKILL_DIR}/scripts/xdto-decompile.ps1" -PackagePath "<путь>"
 ```
 
 Примеры:

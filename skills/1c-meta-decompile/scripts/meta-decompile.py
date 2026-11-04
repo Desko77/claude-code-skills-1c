@@ -311,7 +311,7 @@ def get_type_shorthand(type_node):
                         fr = _text(dn)
                 parts.append(fr)   # Date | DateTime
             elif re.search(r'(^|:)base64Binary$', raw, re.I):
-                parts.append('ValueStorage')
+                parts.append('xs:base64Binary')
             else:
                 parts.append(strip_ns_prefix(raw))   # cfg:CatalogRef.X → CatalogRef.X
         elif ln == 'TypeSet':

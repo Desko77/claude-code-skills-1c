@@ -39,7 +39,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -74,8 +74,8 @@ powershell.exe -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 <�
 
 ```powershell
 # Все незафиксированные изменения
-powershell.exe -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 -V8Path "C:\Program Files\1cv8\8.3.25.1257\bin" -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\WS\cfsrc" -Source All -UpdateDB
+pwsh -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 -V8Path "C:\Program Files\1cv8\8.3.25.1257\bin" -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\WS\cfsrc" -Source All -UpdateDB
 
 # Из диапазона коммитов
-powershell.exe -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\WS\cfsrc" -Source Commit -CommitRange "HEAD~3..HEAD"
+pwsh -NoProfile -File skills/1c-db-load-git/scripts/db-load-git.ps1 -InfoBasePath "C:\Bases\MyDB" -ConfigDir "C:\WS\cfsrc" -Source Commit -CommitRange "HEAD~3..HEAD"
 ```

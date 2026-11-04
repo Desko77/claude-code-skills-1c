@@ -25,7 +25,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-skd-decompile/scripts/skd-decompile.ps1 -InputFile "<путь>/Template.xml" [-OutputFile "<путь>.skd.json"]
+pwsh -NoProfile -File skills/1c-skd-decompile/scripts/skd-decompile.ps1 -InputFile "<путь>/Template.xml" [-OutputFile "<путь>.skd.json"]
 ```
 
 ## Параметры
@@ -67,10 +67,10 @@ powershell.exe -NoProfile -File skills/1c-skd-decompile/scripts/skd-decompile.ps
 
 ```powershell
 # Декомпиляция макета отчета, JSON рядом (Template.skd.json)
-powershell.exe -NoProfile -File skills/1c-skd-decompile/scripts/skd-decompile.ps1 -InputFile "src/Reports/Продажи/Templates/ОсновнаяСхемаКомпоновкиДанных/Ext/Template.xml"
+pwsh -NoProfile -File skills/1c-skd-decompile/scripts/skd-decompile.ps1 -InputFile "src/Reports/Продажи/Templates/ОсновнаяСхемаКомпоновкиДанных/Ext/Template.xml"
 
 # Явный путь вывода
-powershell.exe -NoProfile -File skills/1c-skd-decompile/scripts/skd-decompile.ps1 -InputFile "C:/tmp/Schema.xml" -OutputFile "C:/tmp/schema-draft.json"
+pwsh -NoProfile -File skills/1c-skd-decompile/scripts/skd-decompile.ps1 -InputFile "C:/tmp/Schema.xml" -OutputFile "C:/tmp/schema-draft.json"
 ```
 
 Альтернатива (Python, тот же алгоритм):

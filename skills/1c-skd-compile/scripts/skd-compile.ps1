@@ -166,7 +166,13 @@ if ($DefinitionFile) {
 	$json = $Value
 }
 
-$def = $json | ConvertFrom-Json
+# PowerShell 7.5+ parses ISO strings as DateTime unless DateKind is String.
+# Earlier PowerShell releases keep them as strings and do not have this parameter.
+$jsonOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+	$jsonOptions.DateKind = 'String'
+}
+$def = $json | ConvertFrom-Json @jsonOptions
 
 if (-not $def.dataSets -or $def.dataSets.Count -eq 0) {
 	Write-Error "JSON must have at least one entry in 'dataSets'"
@@ -1539,7 +1545,7 @@ while ($scanDir) {
 }
 foreach ($stylesFile in $searchPaths) {
 	if (Test-Path $stylesFile) {
-		$userStyles = Get-Content -Raw -Encoding UTF8 $stylesFile | ConvertFrom-Json
+		$userStyles = Get-Content -Raw -Encoding UTF8 $stylesFile | ConvertFrom-Json @jsonOptions
 		foreach ($prop in $userStyles.PSObject.Properties) {
 			$preset = @{}
 			# Start from 'data' defaults

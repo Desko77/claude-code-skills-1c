@@ -317,6 +317,23 @@ def main():
     if all(len(v) == 1 for v in name_counts.values()):
         report_ok(f"Unique element names: {len(all_elements)} elements")
 
+    # Explicit AdditionSource may reference an inherited element or a container
+    # other than Table. Missing local names are warnings, never blocking errors.
+    sources = root.xpath('.//f:AdditionSource', namespaces={'f': F_NS})
+    if sources and has_base_form:
+        report_warn('AdditionSource: BaseForm may provide inherited elements; source check skipped')
+    elif sources:
+        local_names = {node.get('name', '').casefold() for node in root.xpath(
+            './/*[@name and @id][not(ancestor::f:Attributes) and not(ancestor::f:Commands)]',
+            namespaces={'f': F_NS})}
+        for source in sources:
+            item = source.find(f'{{{F_NS}}}Item')
+            name = ((item.text or '') if item is not None else '').strip()
+            if not name:
+                report_warn('AdditionSource item is empty')
+            elif name.casefold() not in local_names:
+                report_warn(f"AdditionSource item '{name}' not found among local form elements")
+
     # --- Check 3: Unique element IDs ---
     if not stopped:
         # Duplicates already reported during collection
@@ -596,6 +613,30 @@ def main():
         if event_errors == 0 and event_checked > 0:
             report_ok(f"Event handlers: {event_checked} events checked")
 
+        handlers = {((evt.text or '').strip()) for evt in root.xpath('.//f:Events/f:Event', namespaces={'f': F_NS})}
+        handlers.discard('')
+        if handlers and not stopped:
+            module_path = os.path.join(os.path.dirname(form_path), 'Form', 'Module.bsl')
+            if has_base_form:
+                report_warn('Event handlers: BaseForm may provide inherited handlers; Module.bsl check skipped')
+            elif os.path.basename(form_path).lower() != 'form.xml' or not os.path.isfile(module_path):
+                report_warn('Event handlers: local Form/Module.bsl not found; declaration check skipped')
+            else:
+                try:
+                    with open(module_path, encoding='utf-8-sig') as module:
+                        text = module.read()
+                except (OSError, UnicodeError):
+                    report_warn('Event handlers: Module.bsl cannot be read as UTF-8; declaration check skipped')
+                else:
+                    declarations = {m.group(1).casefold() for m in re.finditer(
+                        r'^\s*(?:Процедура|Функция|Procedure|Function)\s+([^\W\d]\w*)\s*\(',
+                        text, re.IGNORECASE | re.MULTILINE)}
+                    for handler in sorted(handlers, key=str.casefold):
+                        if stopped:
+                            break
+                        if handler.casefold() not in declarations:
+                            report_warn(f"Event handler '{handler}' not declared in local Module.bsl; check inherited form")
+
     # --- Check 8: Command actions ---
     if not stopped:
         action_errors = 0
@@ -800,7 +841,12 @@ def main():
                     # ExternalDataProcessorObject/ExternalReportObject valid only in EPF/ERF context
                     if is_config_context and prefix in ('ExternalDataProcessorObject', 'ExternalReportObject'):
                         report_error(f'12. Type "{tv}": External* type in configuration context (use DataProcessorObject/ReportObject instead)')
-                        type_invalid += 1
+                        type_error_count += 1
+                    elif (descriptor_path and not is_config_context
+                          and prefix in ('DataProcessorObject', 'ReportObject')
+                          and tn.xpath('ancestor::*[local-name()="Attribute"][*[local-name()="MainAttribute" and text()="true"]]')):
+                        report_error(f'12. Type "{tv}": external form main attribute requires External*Object')
+                        type_error_count += 1
                 else:
                     report_warn(f'12. Type "{tv}": unrecognized cfg prefix')
                     type_warn_count += 1

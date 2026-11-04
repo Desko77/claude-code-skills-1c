@@ -19,7 +19,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const IS_WIN = process.platform === 'win32';
 // PowerShell вне Windows не исполняется — это природа платформы, а не пробел в покрытии
 // (см. debug/macmini-testing.md). Отсеиваем порт по ОС, иначе гард падал бы на маке с
-// «spawnSync powershell.exe ENOENT» и красил весь check-all.
+// «spawnSync pwsh ENOENT» и красил весь check-all.
 const requested = process.argv.includes('--runtime')
   ? [process.argv[process.argv.indexOf('--runtime') + 1] === 'python' ? 'python' : 'powershell']
   : ['powershell', 'python'];
@@ -41,7 +41,7 @@ function skill(runtime, name, args, cwd) {
   if (runtime === 'python') {
     execFileSync(PY, [p, ...args], { cwd, stdio: 'pipe' });
   } else {
-    execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', p, ...args], { cwd, stdio: 'pipe' });
+    execFileSync('pwsh', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', p, ...args], { cwd, stdio: 'pipe' });
   }
 }
 

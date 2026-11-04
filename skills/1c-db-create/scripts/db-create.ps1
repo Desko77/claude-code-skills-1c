@@ -231,7 +231,9 @@ function Get-ProjectPlatformArguments {
     try {
         $pj = Find-V8ProjectFile $StartDir
         if (-not $pj) { return @() }
-        $settings = Get-Content $pj -Raw -Encoding UTF8 | ConvertFrom-Json
+        $jsonOptions = @{}
+        if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) { $jsonOptions.DateKind = 'String' }
+        $settings = Get-Content $pj -Raw -Encoding UTF8 | ConvertFrom-Json @jsonOptions
         $value = $settings.$Key
         if ($null -eq $value) { return @() }
         if ($value -is [string]) { return Split-PlatformArguments $value }

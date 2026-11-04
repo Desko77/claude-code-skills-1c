@@ -593,7 +593,7 @@ def build_type_content_xml(indent, type_str):
 
     # ValueStorage
     if type_str == "ValueStorage":
-        lines.append(f"{indent}<v8:Type>xs:base64Binary</v8:Type>")
+        lines.append(f"{indent}<v8:Type>v8:ValueStorage</v8:Type>")
         return "\r\n".join(lines)
 
     # String or String(N)

@@ -23,7 +23,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-cfe-diff/scripts/cfe-diff.ps1 -ExtensionPath src -ConfigPath C:\cfsrc\erp -Mode A
+pwsh -NoProfile -File skills/1c-cfe-diff/scripts/cfe-diff.ps1 -ExtensionPath src -ConfigPath C:\cfsrc\erp -Mode A
 ```
 
 ## Mode A - обзор расширения

@@ -24,7 +24,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-role-validate/scripts/role-validate.ps1 -RightsPath "Roles/МояРоль"
+pwsh -NoProfile -File skills/1c-role-validate/scripts/role-validate.ps1 -RightsPath "Roles/МояРоль"
 ```
 
 ## Дополнительно - проверка прав на перечисления

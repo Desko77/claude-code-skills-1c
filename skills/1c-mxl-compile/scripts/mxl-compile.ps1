@@ -170,7 +170,11 @@ if (-not (Test-Path $JsonPath)) {
 }
 
 $json = Get-Content -Raw -Encoding UTF8 $JsonPath
-$def = $json | ConvertFrom-Json
+$jsonOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+	$jsonOptions.DateKind = 'String'
+}
+$def = $json | ConvertFrom-Json @jsonOptions
 
 if (-not $def.columns) {
 	[Console]::Error.WriteLine("Required field 'columns' is missing")

@@ -151,7 +151,11 @@ if (-not (Test-Path $JsonPath)) {
 }
 
 $json = Get-Content -Raw -Encoding UTF8 $JsonPath
-$def = $json | ConvertFrom-Json
+$jsonOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+	$jsonOptions.DateKind = 'String'
+}
+$def = $json | ConvertFrom-Json @jsonOptions
 
 # --- Batch mode: JSON array of objects ---
 if ($def -is [array] -or ($null -ne $def -and $def.GetType().BaseType.Name -eq 'Array')) {
@@ -452,6 +456,8 @@ $script:typeSynonyms["boolean"]  = "Boolean"
 $script:typeSynonyms["date"]     = "Date"
 $script:typeSynonyms["datetime"] = "DateTime"
 $script:typeSynonyms["bool"]     = "Boolean"
+$script:typeSynonyms["valuestorage"] = "ValueStorage"
+$script:typeSynonyms["хранилищезначения"] = "ValueStorage"
 # Reference synonyms (Russian, lowercase)
 $script:typeSynonyms["справочникссылка"]             = "CatalogRef"
 $script:typeSynonyms["документссылка"]               = "DocumentRef"
@@ -659,7 +665,7 @@ function Emit-TypeContent {
 
 	# ValueStorage
 	if ($typeStr -eq "ValueStorage") {
-		X "$indent<v8:Type>xs:base64Binary</v8:Type>"
+		X "$indent<v8:Type>v8:ValueStorage</v8:Type>"
 		return
 	}
 
@@ -727,13 +733,21 @@ function Emit-FillValue {
 function Build-TypeStr {
 	param($obj)
 	$t = if ($obj.valueType) { "$($obj.valueType)" } elseif ($obj.type) { "$($obj.type)" } else { "" }
+	# PSCustomObject в PowerShell 7 возвращает 1 для отсутствующего .Length.
+	# Учитываем длину только если она явно присутствует в JSON или словаре.
+	$length = if ($obj -is [System.Collections.IDictionary]) {
+		$obj['length']
+	} else {
+		$lengthProperty = $obj.PSObject.Properties['length']
+		if ($null -ne $lengthProperty) { $lengthProperty.Value } else { $null }
+	}
 	if ($t -and -not $t.Contains('(')) {
-		if ($t -eq "String" -and $obj.length) {
-			$t = "String($($obj.length))"
-		} elseif ($t -eq "Number" -and $obj.length) {
+		if ($t -eq "String" -and $length) {
+			$t = "String($length)"
+		} elseif ($t -eq "Number" -and $length) {
 			$p = if ($obj.precision) { $obj.precision } else { 0 }
 			$nn = if ($obj.nonneg -or $obj.nonnegative) { ",nonneg" } else { "" }
-			$t = "Number($($obj.length),$p$nn)"
+			$t = "Number($length,$p$nn)"
 		}
 	}
 	return $t
@@ -3573,7 +3587,7 @@ function Detect-FormatVersion([string]$dir) {
 	while ($d) {
 		$cfgPath = Join-Path $d "Configuration.xml"
 		if (Test-Path $cfgPath) {
-			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8); $head = $head.Substring(0, [Math]::Min(2000, $head.Length))
 			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
 		}
 		$parent = Split-Path $d -Parent
@@ -4163,9 +4177,7 @@ $typesWithObjectModule = @("Catalog","Document","Report","DataProcessor","Exchan
 # Types with RecordSetModule.bsl
 $typesWithRecordSetModule = @("InformationRegister","AccumulationRegister","AccountingRegister","CalculationRegister")
 # Types with ManagerModule.bsl
-$typesWithManagerModule = @("Report","DataProcessor","Constant","Enum")
-# Types with ValueManagerModule.bsl
-$typesWithValueManagerModule = @("Constant")
+$typesWithManagerModule = @("Report","DataProcessor","Enum")
 # Types with Module.bsl (general)
 $typesWithModule = @("CommonModule","HTTPService","WebService")
 
@@ -4227,14 +4239,6 @@ if ($objType -in $typesWithObjectModule) {
 }
 if ($objType -in $typesWithManagerModule) {
 	$modulePath = Join-Path $extDir "ManagerModule.bsl"
-	if (-not (Test-Path $modulePath)) {
-		Ensure-ExtDir
-		[System.IO.File]::WriteAllText($modulePath, "", $enc)
-		$modulesCreated += $modulePath
-	}
-}
-if ($objType -in $typesWithValueManagerModule) {
-	$modulePath = Join-Path $extDir "ValueManagerModule.bsl"
 	if (-not (Test-Path $modulePath)) {
 		Ensure-ExtDir
 		[System.IO.File]::WriteAllText($modulePath, "", $enc)

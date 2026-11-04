@@ -42,7 +42,7 @@ allowed-tools:
 Используй общий скрипт из epf-build:
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-epf-build/scripts/epf-build.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-epf-build/scripts/epf-build.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -64,8 +64,8 @@ powershell.exe -NoProfile -File skills/1c-epf-build/scripts/epf-build.ps1 <па�
 
 ```powershell
 # Сборка отчета (файловая база)
-powershell.exe -NoProfile -File skills/1c-epf-build/scripts/epf-build.ps1 -InfoBasePath "C:\Bases\MyDB" -SourceFile "src/МойОтчет.xml" -OutputFile "build/МойОтчет.erf"
+pwsh -NoProfile -File skills/1c-epf-build/scripts/epf-build.ps1 -InfoBasePath "C:\Bases\MyDB" -SourceFile "src/МойОтчет.xml" -OutputFile "build/МойОтчет.erf"
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-epf-build/scripts/epf-build.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -SourceFile "src/МойОтчет.xml" -OutputFile "build/МойОтчет.erf"
+pwsh -NoProfile -File skills/1c-epf-build/scripts/epf-build.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -SourceFile "src/МойОтчет.xml" -OutputFile "build/МойОтчет.erf"
 ```

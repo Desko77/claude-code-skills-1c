@@ -39,7 +39,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -75,8 +75,8 @@ powershell.exe -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 <п�
 
 ```powershell
 # Полный бэкап файловой базы
-powershell.exe -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "C:\backup\MyDB.dt"
+pwsh -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -OutputFile "C:\backup\MyDB.dt"
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -OutputFile "MyApp_Dev.dt"
+pwsh -NoProfile -File skills/1c-db-dump-dt/scripts/db-dump-dt.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -OutputFile "MyApp_Dev.dt"
 ```

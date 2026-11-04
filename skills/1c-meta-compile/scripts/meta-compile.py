@@ -677,6 +677,8 @@ type_synonyms = {
     'date': 'Date',
     'datetime': 'DateTime',
     'bool': 'Boolean',
+    'valuestorage': 'ValueStorage',
+    'хранилищезначения': 'ValueStorage',
     # Reference synonyms (Russian, lowercase)
     'справочникссылка': 'CatalogRef',
     'документссылка': 'DocumentRef',
@@ -827,7 +829,7 @@ def emit_type_content(indent, type_str, cfg_prefix=False):
         return
     # ValueStorage
     if type_str == 'ValueStorage':
-        X(f'{indent}<v8:Type>xs:base64Binary</v8:Type>')
+        X(f'{indent}<v8:Type>v8:ValueStorage</v8:Type>')
         return
 
     # Reference types - use local xmlns declaration for 1C compatibility
@@ -879,9 +881,9 @@ def emit_fill_value(indent, type_str):
 def build_type_str(obj):
     t = str(obj.get('valueType') or obj.get('type') or '')
     if t and '(' not in t:
-        if t == 'String' and obj.get('length'):
+        if t.lower() == 'string' and obj.get('length'):
             t = f"String({obj['length']})"
-        elif t == 'Number' and obj.get('length'):
+        elif t.lower() == 'number' and obj.get('length'):
             prec = obj.get('precision', 0)
             nn = ',nonneg' if obj.get('nonneg') or obj.get('nonnegative') else ''
             t = f"Number({obj['length']},{prec}{nn})"
@@ -3718,8 +3720,7 @@ types_with_object_module = [
 types_with_record_set_module = [
     'InformationRegister', 'AccumulationRegister', 'AccountingRegister', 'CalculationRegister',
 ]
-types_with_manager_module = ['Report', 'DataProcessor', 'Constant', 'Enum']
-types_with_value_manager_module = ['Constant']
+types_with_manager_module = ['Report', 'DataProcessor', 'Enum']
 types_with_module = ['CommonModule', 'HTTPService', 'WebService']
 
 # --- Предопределенные элементы ---
@@ -3898,13 +3899,6 @@ if obj_type in types_with_object_module:
 
 if obj_type in types_with_manager_module:
     module_path = os.path.join(ext_dir, 'ManagerModule.bsl')
-    if not os.path.isfile(module_path):
-        ensure_ext_dir()
-        write_utf8_bom(module_path, '')
-        modules_created.append(module_path)
-
-if obj_type in types_with_value_manager_module:
-    module_path = os.path.join(ext_dir, 'ValueManagerModule.bsl')
     if not os.path.isfile(module_path):
         ensure_ext_dir()
         write_utf8_bom(module_path, '')

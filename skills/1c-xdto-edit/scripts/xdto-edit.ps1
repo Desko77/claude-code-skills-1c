@@ -228,7 +228,9 @@ function Assert-SiblingsPresent([string]$operation) {
 
 function Invoke-Sibling([string]$script, [string[]]$argList, [string]$what) {
 	if (-not (Test-Path $script)) { throw "Не найден навык $what по пути: $script" }
-	$out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script @argList 2>&1
+	$hostExe = (Get-Process -Id $PID).Path
+	if (-not $hostExe) { $hostExe = 'pwsh' }
+	$out = & $hostExe -NoProfile -ExecutionPolicy Bypass -File $script @argList 2>&1
 	if ($LASTEXITCODE -ne 0) { throw "$what завершился с ошибкой:`n$($out -join "`n")" }
 	return $out
 }
@@ -651,7 +653,9 @@ if (-not $NoValidate) {
 	if (Test-Path $validateScript) {
 		Write-Host ""
 		Write-Host "--- xdto-validate ---"
-		& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $validateScript -PackagePath (Join-Path $xdtoRoot $pkgName)
+		$hostExe = (Get-Process -Id $PID).Path
+		if (-not $hostExe) { $hostExe = 'pwsh' }
+		& $hostExe -NoProfile -ExecutionPolicy Bypass -File $validateScript -PackagePath (Join-Path $xdtoRoot $pkgName)
 	} else {
 		Write-Host "[SKIP] xdto-validate не найден: $validateScript"
 	}

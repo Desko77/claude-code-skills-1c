@@ -3137,6 +3137,23 @@ def main():
         with open(json_path, 'r', encoding='utf-8-sig') as f:
             defn = lenient(json.load(f))
 
+    # Тип главного реквизита внешнего объекта определяется его дескриптором.
+    owner_dir = os.path.dirname(os.path.abspath(args.OutputPath))
+    for _ in range(15):
+        owner_xml = owner_dir + '.xml'
+        if _sg_is_external_root(owner_xml):
+            for attr in defn.get('attributes') or []:
+                if attr.get('main') and re.match(r'^(?:cfg:)?(?:DataProcessorObject|ReportObject)\.', str(attr.get('type', ''))):
+                    print('External form main attribute requires ExternalDataProcessorObject or ExternalReportObject', file=sys.stderr)
+                    sys.exit(1)
+            break
+        if os.path.isfile(os.path.join(owner_dir, 'Configuration.xml')):
+            break
+        parent = os.path.dirname(owner_dir)
+        if parent == owner_dir:
+            break
+        owner_dir = parent
+
     # --- 1a. Проверка описания формы ---
     # Ошибки ниже платформа обнаружит только при открытии формы, а часть - молча проглотит:
     # два элемента с одним именем дают форму, где второй недоступен из кода.

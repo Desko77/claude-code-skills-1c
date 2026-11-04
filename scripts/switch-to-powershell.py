@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # switch-to-powershell v1.1 — Switch skill .md files back to PowerShell scripts
 # Source: https://github.com/Desko77/claude-code-skills-1c
-"""Replaces python invocations with powershell.exe in all .md files under .claude/skills/."""
+"""Replaces python invocations with pwsh in all .md files under .claude/skills/."""
 import os, re, glob, sys
 
 def main():
@@ -41,7 +41,7 @@ def main():
         if not all_exist:
             continue
 
-        new_content = rx.sub(r'powershell.exe -NoProfile -File \1.ps1', content)
+        new_content = rx.sub(r'pwsh -NoProfile -File \1.ps1', content)
         if new_content != content:
             with open(md_path, 'w', encoding='utf-8') as f:
                 f.write(new_content)

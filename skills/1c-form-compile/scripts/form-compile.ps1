@@ -16,6 +16,12 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# PowerShell 7.5+ otherwise converts ISO date strings while reading JSON.
+$jsonOptions = @{}
+if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+	$jsonOptions.DateKind = 'String'
+}
+
 # --- Support guard (Ext/ParentConfigurations.bin) ---
 # See docs/1c-support-state-spec.md. Blocks edits of vendor objects "на замке" /
 # read-only configs unless allowed. Trigger = bin present; reaction from
@@ -432,7 +438,7 @@ function Load-Preset([string]$PresetName, [string]$ScriptDir) {
 	$presetDir = Join-Path (Split-Path $ScriptDir -Parent) "presets"
 	$builtInPath = Join-Path $presetDir "$PresetName.json"
 	if (Test-Path $builtInPath) {
-		$presetJson = Get-Content -Raw -Encoding UTF8 $builtInPath | ConvertFrom-Json
+		$presetJson = Get-Content -Raw -Encoding UTF8 $builtInPath | ConvertFrom-Json @jsonOptions
 		# Convert PSCustomObject to hashtable recursively
 		$toHash = {
 			param($obj)
@@ -459,7 +465,7 @@ function Load-Preset([string]$PresetName, [string]$ScriptDir) {
 	while ($scanDir) {
 		$projPreset = Join-Path (Join-Path (Join-Path (Join-Path $scanDir "presets") "skills") "form") "$PresetName.json"
 		if (Test-Path $projPreset) {
-			$projJson = Get-Content -Raw -Encoding UTF8 $projPreset | ConvertFrom-Json
+			$projJson = Get-Content -Raw -Encoding UTF8 $projPreset | ConvertFrom-Json @jsonOptions
 			$projHash = & $toHash $projJson
 			foreach ($k in @($projHash.Keys)) {
 				$defaults[$k] = & $deepMerge $defaults[$k] $projHash[$k]
@@ -1464,7 +1470,7 @@ function Detect-FormatVersion([string]$dir) {
 	while ($d) {
 		$cfgPath = Join-Path $d "Configuration.xml"
 		if (Test-Path $cfgPath) {
-			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8).Substring(0, [Math]::Min(2000, (Get-Item $cfgPath).Length))
+			$head = [System.IO.File]::ReadAllText($cfgPath, [System.Text.Encoding]::UTF8); $head = $head.Substring(0, [Math]::Min(2000, $head.Length))
 			if ($head -match '<MetaDataObject[^>]+version="(\d+\.\d+)"') { return $Matches[1] }
 		}
 		$parent = Split-Path $d -Parent
@@ -1613,7 +1619,7 @@ if ($FromObject) {
 
 	# Feed DSL into existing compiler
 	$dslJson = $dsl | ConvertTo-Json -Depth 20
-	$def = $dslJson | ConvertFrom-Json
+	$def = $dslJson | ConvertFrom-Json @jsonOptions
 } else {
 	# --- 1. Load and validate JSON (original mode) ---
 
@@ -1623,7 +1629,7 @@ if ($FromObject) {
 	}
 
 	$json = Get-Content -Raw -Encoding UTF8 $JsonPath
-	$def = $json | ConvertFrom-Json
+	$def = $json | ConvertFrom-Json @jsonOptions
 }
 
 # --- 2. ID allocator ---
@@ -3067,6 +3073,23 @@ function Emit-Properties {
 		}
 		X "$indent<$xmlName>$val</$xmlName>"
 	}
+}
+
+# Тип главного реквизита внешнего объекта определяется его дескриптором.
+$ownerDir = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($OutputPath))
+for ($i = 0; $i -lt 15 -and $ownerDir; $i++) {
+	if (Test-ExternalObjectRoot "$ownerDir.xml") {
+		foreach ($attr in @($def.attributes)) {
+			if ($attr.main -and "$($attr.type)" -match '^(?:cfg:)?(?:DataProcessorObject|ReportObject)\.') {
+				Write-Error 'External form main attribute requires ExternalDataProcessorObject or ExternalReportObject'
+			}
+		}
+		break
+	}
+	if (Test-Path (Join-Path $ownerDir 'Configuration.xml')) { break }
+	$parent = [IO.Path]::GetDirectoryName($ownerDir)
+	if ($parent -eq $ownerDir) { break }
+	$ownerDir = $parent
 }
 
 # --- 11a. Проверка описания формы ---

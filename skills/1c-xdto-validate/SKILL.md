@@ -24,7 +24,7 @@ allowed-tools:
 | `OutFile` | нет | Записать отчет в файл |
 
 ```powershell
-powershell.exe -NoProfile -File "${CLAUDE_SKILL_DIR}/scripts/xdto-validate.ps1" -PackagePath "<путь>"
+pwsh -NoProfile -File "${CLAUDE_SKILL_DIR}/scripts/xdto-validate.ps1" -PackagePath "<путь>"
 ```
 
 `[ERROR]` - платформа такой пакет не примет либо примет неправильно.

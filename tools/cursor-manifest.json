@@ -1,0 +1,38 @@
+{
+  ".gitattributes": {
+    "count": 1,
+    "sha256": "c897936f5ea7ea10d8ff410df59d263e98b67d3c2ac3b7a78f0ebdfa16e7abc3"
+  },
+  ".github": {
+    "count": 4,
+    "sha256": "7ec9dfe8e237bc6c73c0bc775b2399e8c7f71b2815fd4d70139856feaeee0851"
+  },
+  "LICENSE.md": {
+    "count": 1,
+    "sha256": "81ba6280416252441b527e475dd506318f5aa40805a8da7d3fb58e31031761cc"
+  },
+  "commands": {
+    "count": 6,
+    "sha256": "4757a1b7f402ed780c65c061a99c8466bac7a4fab91b1256dca69514bc06f174"
+  },
+  "docs": {
+    "count": 39,
+    "sha256": "9e1fc88e471bba5e50ab7ba9418ee138e4f39be0e8e73b02a31b58838bc23f46"
+  },
+  "rules": {
+    "count": 49,
+    "sha256": "8910201e0f5faab40995a8266592cb140c5a2be87a927ce8c7873bfbe2c8faff"
+  },
+  "skills": {
+    "count": 536,
+    "sha256": "2c33cddfa7421b78c364d0d45cf94473f95fa5c2e2a59d3e4c0cb4bf14276823"
+  },
+  "tests": {
+    "count": 4977,
+    "sha256": "d643a24dc102f4dd19bc732f408491b1c294451bbff9d7362138059fa8c4d2d0"
+  },
+  "tools": {
+    "count": 12,
+    "sha256": "684e3079f5aee6a0cef3bc3538edd1f84859c702084d1d11564278d2c0ab670f"
+  }
+}

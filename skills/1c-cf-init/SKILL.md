@@ -46,7 +46,7 @@ allowed-tools:
 вовсе. Обратное тоже верно - платформа 8.3.24 не примет выгрузку 2.21.
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-cf-init/scripts/cf-init.ps1 -Name "МояКонфигурация"
+pwsh -NoProfile -File skills/1c-cf-init/scripts/cf-init.ps1 -Name "МояКонфигурация"
 ```
 
 ## Примеры

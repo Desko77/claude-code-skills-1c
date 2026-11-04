@@ -49,7 +49,7 @@ EDT-проект, загруженный в живой AI-EDT, запускае�
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -78,16 +78,16 @@ powershell.exe -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 <парам�
 
 ```powershell
 # Простой запуск
-powershell.exe -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
+pwsh -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
 
 # Запуск с обработкой
-powershell.exe -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -Execute "C:\epf\МояОбработка.epf"
+pwsh -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -Execute "C:\epf\МояОбработка.epf"
 
 # Открыть по навигационной ссылке
-powershell.exe -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -URL "e1cib/data/Справочник.Номенклатура"
+pwsh -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -URL "e1cib/data/Справочник.Номенклатура"
 
 # Серверная база с параметром запуска
-powershell.exe -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -CParam "ЗапуститьОбновление"
+pwsh -NoProfile -File skills/1c-db-run/scripts/db-run.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret" -CParam "ЗапуститьОбновление"
 ```
 
 ## Дополнительные аргументы платформы

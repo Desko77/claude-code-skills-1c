@@ -15,6 +15,8 @@ allowed-tools:
 1. **JSON DSL** - из JSON-определения формы
 2. **From object** (`-FromObject`) - автоматически из метаданных объекта 1С по пресету ERP
 
+Для формы внешней обработки или отчета указывайте для главного реквизита тип `ExternalDataProcessorObject.Имя` или `ExternalReportObject.Имя`. При обнаружении дескриптора внешнего объекта тип `DataProcessorObject` или `ReportObject` главного реквизита отклоняется до записи формы.
+
 > **При проектировании формы с нуля (5+ элементов или нечеткие требования)** - вызовите `/form-patterns` для загрузки справочника. Для простых форм (1-3 поля) - не нужно.
 
 ## Параметры
@@ -29,10 +31,10 @@ allowed-tools:
 
 ```powershell
 # Режим JSON DSL
-powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -JsonPath "<json>" -OutputPath "<Form.xml>"
+pwsh -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -JsonPath "<json>" -OutputPath "<Form.xml>"
 
 # Режим from-object (объект и purpose выводятся из OutputPath; Document и Catalog)
-powershell.exe -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -FromObject -OutputPath "<.../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml>"
+pwsh -NoProfile -File skills/1c-form-compile/scripts/form-compile.ps1 -FromObject -OutputPath "<.../TypePlural/ObjectName/Forms/FormName/Ext/Form.xml>"
 ```
 
 ## JSON DSL - справка

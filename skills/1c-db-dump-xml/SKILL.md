@@ -39,7 +39,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -88,17 +88,17 @@ powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 <�
 
 ```powershell
 # Полная выгрузка (файловая база)
-powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -V8Path "C:\Program Files\1cv8\8.3.25.1257\bin" -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\cfsrc" -Mode Full
+pwsh -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -V8Path "C:\Program Files\1cv8\8.3.25.1257\bin" -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\cfsrc" -Mode Full
 
 # Инкрементальная выгрузка
-powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\cfsrc" -Mode Changes
+pwsh -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\cfsrc" -Mode Changes
 
 # Частичная выгрузка
-powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\cfsrc" -Mode Partial -Objects "Справочник.Номенклатура,Документ.Заказ"
+pwsh -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\cfsrc" -Mode Partial -Objects "Справочник.Номенклатура,Документ.Заказ"
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -ConfigDir "C:\WS\cfsrc" -Mode Full
+pwsh -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyApp_Dev" -UserName "Admin" -Password "secret" -ConfigDir "C:\WS\cfsrc" -Mode Full
 
 # Выгрузка расширения
-powershell.exe -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\ext_src" -Mode Full -Extension "МоеРасширение"
+pwsh -NoProfile -File skills/1c-db-dump-xml/scripts/db-dump-xml.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin" -ConfigDir "C:\WS\ext_src" -Mode Full -Extension "МоеРасширение"
 ```

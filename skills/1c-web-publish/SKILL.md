@@ -41,7 +41,7 @@ allowed-tools:
 ## Команда
 
 ```powershell
-powershell.exe -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 <параметры>
+pwsh -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 <параметры>
 ```
 
 ### Параметры скрипта
@@ -88,14 +88,14 @@ powershell.exe -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 <�
 
 ```powershell
 # Файловая база
-powershell.exe -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
+pwsh -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBasePath "C:\Bases\MyDB" -UserName "Admin"
 
 # С явным именем публикации и портом
-powershell.exe -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBasePath "C:\Bases\MyDB" -AppName "mydb" -Port 9090
+pwsh -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBasePath "C:\Bases\MyDB" -AppName "mydb" -Port 9090
 
 # Серверная база
-powershell.exe -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret"
+pwsh -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBaseServer "srv01" -InfoBaseRef "MyDB" -UserName "Admin" -Password "secret"
 
 # Ручной режим (только инструкция)
-powershell.exe -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBasePath "C:\Bases\MyDB" -Manual
+pwsh -NoProfile -File skills/1c-web-publish/scripts/web-publish.ps1 -InfoBasePath "C:\Bases\MyDB" -Manual
 ```
