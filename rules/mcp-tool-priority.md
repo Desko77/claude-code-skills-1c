@@ -5,12 +5,17 @@
 расходились. У маленьких серверов набор инструментов помещается в одну строку таблицы и приведен целиком -
 отдельного каталога у них нет.
 
+Перед выбором маршрута AI-EDT для запуска, импорта, экспорта или обычной формы прочитайте
+MCP-ресурс `aiedt://guidance` (`resources/read`). Полный контракт выбранной операции - в справке
+фасада; краткий `tools/list` его не заменяет. Скрытый вызываемый alias не равен выключенному
+инструменту: отказ пресета не обходить. `startupOption` - только строка `/C`, не цель `/Execute`.
+
 ## Выбор сервера
 
 | Задача | Инструмент | Где детали |
 |--------|-----------|------------|
 | BSL-код, метаданные, формы, запросы, ошибки проекта, отладка, обновление ИБ, юнит-тесты | **ai-edt** (AI-EDT) | скил `ai-edt-tools` + его `references/` |
-| Обычные формы EDT (`Form.oform`) | **ai-edt**: `ordinary_forms` | `ai-edt-tools/references/ordinary-forms.md` |
+| Обычные формы EDT (`Form.oform`) | **ai-edt**: `ordinary_forms` (`operation=help topic=<операция>` - справка без проекта) | `ai-edt-tools/references/ordinary-forms.md` |
 | API платформы: существует ли метод, сигнатура, типы, конструкторы | **bsl-platform-help** (`search`, `info`, `get_member`, `get_members`, `get_constructors`, `get_platform_info`) | скил `1c-platform-docs` |
 | Стиль BSL и строгая типизация | **bsl-platform-help**: `get_coding_guideline` (без параметров), `get_strict_typing_info(topic)` - `topic="topics"` вернет список тем, `search_strict_typing(query)` | в скиле не описаны, параметры здесь |
 | Качество BSL, ревью стиля, стандарты ИТС, документация платформы и конфигураций | **1c-naparnik** (`ask_1c_ai`, `check_1c_code`, `review_1c_code`, `rewrite_1c_code`, `modify_1c_code`, `explain_1c_syntax`, `its_help`, `fetch_its`, `search_1c_documentation`, `onec_help`, `diff_1c_documentation_versions`, `config_help`) | скил `1c-naparnik` |
