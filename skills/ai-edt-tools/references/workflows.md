@@ -31,6 +31,14 @@
 > Инструменты без фасада (`write_module_source`, `validate_query`, `read_method_source`,
 > `get_module_structure`, `ai_context` и другие) вызываются по имени.
 
+### Параметр запуска клиента
+
+`startupOption` передает только строку `/C` в рабочую копию конфигурации запуска, не в сохраненную.
+Он не выбирает цель `/Execute` и не задает адрес отладчика. Внешний объект выбирается через
+`externalObjectName` и `externalObjectProject`; готовый бинарник сначала импортируется через
+`external_object_workshop operation=import_external_object`. Attach и уже работающий клиент,
+который запущен без этих аргументов, отклоняют `startupOption`.
+
 ## Typical Workflows
 
 ### Обычная форма
