@@ -85,7 +85,7 @@ EDT. Ниже - по группам.
 | Внешние обработки и отчеты | `external_object_workshop`; файл пришел со стороны и проекта под него нет - `unpack_external_binary` | `1c-epf-build`, `1c-epf-dump`, `1c-erf-*` |
 | Информационные базы | `infobase_admin` - база, привязанная к проекту | `1c-db-create`, `1c-db-load-cf`, `1c-db-dump-xml` (нужна установленная платформа) |
 | Журнал регистрации | файловая база - `infobase_admin operation=read_event_log` | серверная база и `1Cv8.lgd` - `1c-mcp-toolkit` |
-| XDTO и макеты | `xdto_workshop`, `mxl_workshop` | `1c-xdto-*`, `1c-mxl-*` |
+| XDTO и макеты | `xdto_workshop`, `mxl_workshop`; несколько правок одного MXL - `apply_changes`, если операция доступна | `1c-xdto-*`, `1c-mxl-*` |
 
 Признак, который перевешивает остальные: **нужен ли на выходе EDT-проект**. Нужен - маршрут через
 плагин, даже если скил формально делает то же. Нужны просто файлы исходников или бинарник - скил

@@ -1,5 +1,9 @@
 # История версий
 
+## Не выпущено
+
+- `ai-edt-tools`: добавлена инструкция для пакетной правки одного макета MXL через `mxl_workshop operation=apply_changes` в AI-EDT 1.2.0.
+
 ## 1.14.0 - 2026-11-04
 
 [Релиз v1.14.0](https://github.com/Desko77/claude-code-skills-1c/releases/tag/v1.14.0)
